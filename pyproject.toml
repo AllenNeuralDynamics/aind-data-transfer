@@ -3,8 +3,8 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hello_world"
-description = "Prints messages to stdout. Simple boilerplate for libraries."
+name = "nd-data-transfer"
+description = "Services for compression and transfer of nd-data to the cloud"
 license = {text = "MIT"}
 requires-python = ">=3.7"
 classifiers = [
@@ -13,7 +13,8 @@ classifiers = [
 dynamic = ["version", "readme"]
 
 dependencies = [
-    'pandas'
+    'pandas',
+    's3transfer[crt]'
 ]
 
 [project.optional-dependencies]
@@ -30,7 +31,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.dynamic]
-version = {attr = "hello_world.__version__"}
+version = {attr = "transfer.__version__"}
 readme = {file = ["README.md"]}
 
 [tool.black]
