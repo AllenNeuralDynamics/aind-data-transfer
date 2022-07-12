@@ -71,7 +71,7 @@ class S3Uploader:
 
     def upload_files(
         self,
-        filepaths: Any[str],
+        filepaths: List[str],
         s3_bucket: str,
         s3_folder: str,
         root: str = None,
@@ -125,7 +125,7 @@ class S3Uploader:
 
 
 def _make_s3_paths(
-    filepaths: Any[str], s3_folder: str, root: str = None
+    filepaths: List[str], s3_folder: str, root: str = None
 ) -> List[str]:
     s3_paths = []
     for fpath in filepaths:
@@ -139,7 +139,7 @@ def _make_s3_paths(
 
 
 def _await_file_upload_futures(
-    futures: Any[CRTTransferFuture], filepaths: Any[str], timeout: float
+    futures: List[CRTTransferFuture], filepaths: List[str], timeout: float
 ) -> None:
     n_files = len(filepaths)
     bytes_uploaded = 0
