@@ -14,7 +14,10 @@ dynamic = ["version", "readme"]
 
 dependencies = [
     'pandas',
-    's3transfer[crt]'
+    's3transfer[crt]',
+    'numpy',
+    'dask-jobqueue',
+    'bokeh>=2.1.1'
 ]
 
 [project.optional-dependencies]
