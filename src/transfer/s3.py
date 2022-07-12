@@ -4,23 +4,15 @@
 import logging
 import os
 from pathlib import PurePath
-from typing import Any, List
+from typing import List
 
 from awscrt.s3 import S3Client
 from botocore.credentials import create_credential_resolver
 from botocore.session import get_session
-from s3transfer.constants import MB, GB
-from s3transfer.crt import (
-    BotocoreCRTRequestSerializer,
-    CRTTransferManager,
-    create_s3_crt_client,
-    CRTTransferFuture,
-)
+from s3transfer.constants import GB, MB
+from s3transfer.crt import (BotocoreCRTRequestSerializer, CRTTransferFuture,
+                            CRTTransferManager, create_s3_crt_client)
 
-LOG_FMT = "%(asctime)s %(message)s"
-LOG_DATE_FMT = "%Y-%m-%d %H:%M"
-
-logging.basicConfig(format=LOG_FMT, datefmt=LOG_DATE_FMT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 

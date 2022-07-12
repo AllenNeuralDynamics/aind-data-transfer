@@ -17,7 +17,8 @@ dependencies = [
     's3transfer[crt]',
     'numpy',
     'dask-jobqueue',
-    'bokeh>=2.1.1'
+    'bokeh>=2.1.1',
+    'pyyaml'
 ]
 
 [project.optional-dependencies]

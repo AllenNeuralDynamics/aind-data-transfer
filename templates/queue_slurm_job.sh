@@ -4,6 +4,7 @@
 # This script submits a job to the SLURM cluster scheduler.
 #
 # The template populated parameters are:
+#   conda_activate        @{conda_activate}
 #   conda_env             @{conda_env}
 #   job_cmd:              @{job_cmd}
 #   job_log_dir:          @{job_log_dir}
@@ -32,24 +33,11 @@ set -e
 
 pwd; hostname; date
 
-# FIXME
-ANACONDA=/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3
-CONDA_ENV=@{conda_env}
-
-source "${ANACONDA}/bin/activate" $CONDA_ENV
+[[ -f "@{conda_activate}" ]] && source "@{conda_activate}" @{conda_env}
 
 echo "Running \"@{job_cmd}\""
 
-# FIXME The SBATCH parameters need to also be passed to the Dask SLURMCluster instance
-@{job_cmd} \
---partition=@{partition} \
---nodes=@{nodes} \
---ntasks_per_node=@{ntasks_per_node} \
---cpus_per_task=@{cpus_per_task} \
---mem_per_cpu=@{mem_per_cpu} \
---walltime=@{walltime} \
---local_dir=/scratch/fast/$SLURM_JOB_ID \
---log_dir=@{job_log_dir}
+@{job_cmd}
 
 echo "Done"
 

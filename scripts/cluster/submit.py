@@ -2,11 +2,16 @@
 
 import argparse
 import collections
+import datetime
 import os
 import string
 import time
-import datetime
 from pathlib import Path
+
+import yaml
+from yaml import Loader
+
+from cluster.clusters import DASK_CONF_FILE
 
 
 class SlurmTemplate(string.Template):
@@ -35,6 +40,7 @@ def write_slurm_scripts(args, run_info):
     script_path = render_template(
         template_path,
         run_info.launch_script,
+        conda_activate=args.conda_activate,
         conda_env=args.conda_env,
         job_cmd=args.job_cmd,
         mail_user=args.mail_user,
@@ -50,13 +56,42 @@ def write_slurm_scripts(args, run_info):
     os.chmod(script_path, 0o755)
 
 
+def write_dask_config(args, run_info, deployment="slurm"):
+    default_config_path = os.path.join(
+        Path(os.path.dirname(__file__)).parent.parent.absolute(),
+        "templates/jobqueue.yaml",
+    )
+    with open(default_config_path, "r") as f:
+        config = yaml.load(f, Loader)
+    if deployment == "slurm":
+        slurm_config = config["jobqueue"]["slurm"]
+        slurm_config["queue"] = args.queue
+        slurm_config["cores"] = args.cpus_per_task
+        slurm_config["memory"] = f"{args.mem_per_cpu * args.cpus_per_task}MB"
+        slurm_config["walltime"] = args.walltime
+        slurm_config["n-workers"] = args.ntasks_per_node * args.nodes
+        slurm_config["job-extra"] = []
+        slurm_config["job-extra"].append(f"--tmp {args.tmp_space}")
+        slurm_config["log-directory"] = os.path.join(
+            run_info.logs_dir, "dask-worker-logs"
+        )
+    else:
+        raise ValueError("Only Slurm is currently supported")
+    # Save a carbon copy to the run directory
+    with open(run_info.dask_conf_file, "w") as f:
+        yaml.dump(config, f, default_flow_style=None)
+    # Now save the file actually used by Dask
+    with open(DASK_CONF_FILE, "w") as f:
+        yaml.dump(config, f, default_flow_style=None)
+
+
 RunInfo = collections.namedtuple(
-    "RunInfo", "dir, logs_dir, scripts_dir, launch_script, job_name_prefix"
+    "RunInfo",
+    "dir, logs_dir, scripts_dir, launch_script, job_name_prefix, dask_conf_file",
 )
 
 
 def create_run(args):
-
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = f"{args.run_parent_dir}/{timestamp}"
 
@@ -70,43 +105,61 @@ def create_run(args):
 
     run_logs_dir = f"{run_dir}/logs"
     run_scripts_dir = f"{run_dir}/scripts"
+    run_conf_dir = f"{run_dir}/conf"
     launch_script = f"{run_scripts_dir}/queue-slurm-jobs.sh"
+
+    dask_conf_file = f"{run_conf_dir}/jobqueue.yaml"
 
     user_name = os.getenv("USER")
     job_name_prefix = f"slurm_{user_name}_{timestamp}"
 
     os.makedirs(run_logs_dir)
     os.makedirs(run_scripts_dir)
+    os.makedirs(run_conf_dir)
 
     print(f"\nCreated:\n {run_logs_dir}\n  {run_scripts_dir}\n")
 
     return RunInfo(
-        run_dir, run_logs_dir, run_scripts_dir, launch_script, job_name_prefix
+        run_dir,
+        run_logs_dir,
+        run_scripts_dir,
+        launch_script,
+        job_name_prefix,
+        dask_conf_file,
     )
 
 
-def main():
+def parse_args():
     home_dir = os.getenv("HOME")
 
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
-        "--task",
+        "task",
         choices=["generate-run", "generate-and-launch-run"],
         help="use generate-run if you want to review scripts before launching",
     )
     parser.add_argument(
-        "--run_parent_dir", type=str, default=f"{home_dir}/.slurm"
-    )
-    parser.add_argument(
-        "--conda_env", type=str, help="path to conda environment"
-    )
-    parser.add_argument(
+        "-j",
         "--job_cmd",
         type=str,
         required=True,
         help="the job command to submit to the scheduler",
     )
-    parser.add_argument("--queue", type=str, default="aind")
+    parser.add_argument(
+        "--run_parent_dir",
+        type=str,
+        default=f"{home_dir}/.slurm",
+        help="directory to store all logs, scripts, and config files for a run",
+    )
+    parser.add_argument(
+        "--conda_activate",
+        type=str,
+        help="path to conda env activation script",
+    )
+    parser.add_argument(
+        "--conda_env", type=str, help="name of conda environment to activate"
+    )
     parser.add_argument(
         "--ntasks_per_node",
         type=int,
@@ -120,28 +173,54 @@ def main():
         "--cpus_per_task",
         type=int,
         default=1,
-        help="num threads to use for upload",
+        help="number of cpus per job",
     )
     parser.add_argument(
-        "--mem_per_cpu", type=int, default=4000, help="memory per job in MB"
+        "--mem_per_cpu", type=int, default=500, help="memory per cpu in MB"
     )
     parser.add_argument(
         "--tmp_space",
         type=str,
-        default="500MB",
-        help="amount of space on node-local storage for Dask worker spilling",
+        default="512MB",
+        help="amount of space on node-local storage for Dask worker spilling, e.g., 4GB",
     )
     parser.add_argument(
-        "--walltime", type=str, default="01:00:00", help="SLURM job walltime"
+        "--walltime", type=str, default="00:10:00", help="job walltime"
     )
     parser.add_argument(
-        "--mail_user", type=str, help="notify user of job status"
+        "--queue", type=str, default="aind", help="queue for scheduler"
+    )
+    parser.add_argument(
+        "-m",
+        "--mail_user",
+        type=str,
+        required=True,
+        help="notify user of job status",
+    )
+    parser.add_argument(
+        "--deployment",
+        type=str,
+        choices=["slurm"],
+        default="slurm",
+        help="which cluster manager to use",
     )
 
     args = parser.parse_args()
 
+    return args
+
+
+def main():
+    args = parse_args()
+
     run_info = create_run(args)
-    write_slurm_scripts(args, run_info)
+
+    if args.deployment == "slurm":
+        write_slurm_scripts(args, run_info)
+    else:
+        raise ValueError("Only Slurm is currently supported")
+
+    write_dask_config(args, run_info, args.deployment)
 
     if args.task == "generate-and-launch-run":
         print(f"Running:\n  {run_info.launch_script}\n")

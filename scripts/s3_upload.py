@@ -5,11 +5,12 @@ import time
 from pathlib import PurePath
 
 import numpy as np
+from dask_jobqueue import SLURMCluster
 from distributed import Client
-from s3transfer.constants import MB, GB
-from transfer.s3 import S3Uploader
+from s3transfer.constants import GB, MB
 
-from cluster.clusters import get_slurm_cluster
+from cluster.clusters import load_jobqueue_config
+from transfer.s3 import S3Uploader
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"
@@ -40,45 +41,47 @@ def upload_files_job(
     uploader.upload_files(files, bucket, s3_path)
 
 
+def get_client():
+    config = load_jobqueue_config()
+    slurm_config = config["jobqueue"]["slurm"]
+    # cluster config is automatically populated from ~/.config/dask/jobqueue.yaml
+    cluster = SLURMCluster()
+    cluster.scale(slurm_config["n-workers"])
+    logger.info(cluster.job_script())
+    client = Client(cluster)
+    return client, slurm_config
+
+
 def run_cluster_job(
     input_dir,
     bucket,
     s3_path,
-    ntasks,
-    cpus_per_task,
-    mem_per_task,
-    queue,
-    walltime,
     target_throughput,
     part_size,
     timeout,
-    **kwargs,
+    parallelism,
 ):
-    chunked_files = chunk_files(input_dir, ntasks * 3)
-    logger.info(f"Split files into {len(chunked_files)} chunks")
-    cluster = get_slurm_cluster(
-        n_workers=ntasks,
-        cores=cpus_per_task,
-        processes=1,
-        memory=mem_per_task,
-        queue=queue,
-        walltime=walltime,
-        **kwargs,
+    client, config = get_client()
+    ntasks = config["n-workers"]
+    cores = config["cores"]
+
+    chunked_files = chunk_files(input_dir, ntasks * parallelism)
+    logger.info(
+        f"Split files into {len(chunked_files)} chunks with {len(chunked_files[0])} files each"
     )
-    logger.info(cluster.job_script())
-    client = Client(cluster)
+
     futures = []
     for chunk in chunked_files:
         futures.append(
             client.submit(
                 upload_files_job,
-                chunk,
-                bucket,
-                s3_path,
-                cpus_per_task,
-                target_throughput,
-                part_size,
-                timeout,
+                files=chunk,
+                bucket=bucket,
+                s3_path=s3_path,
+                n_threads=cores,
+                target_throughput=target_throughput,
+                part_size=part_size,
+                timeout=timeout,
             )
         )
     client.gather(futures)
@@ -105,19 +108,16 @@ def run_local_job(
 
 
 def main():
-    home_dir = os.getenv("HOME")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-i",
         "--input",
-        default=r"/allen/scratch/aindtemp/cameron.arshadi/test-file-res0-12stack.zarr",
         type=str,
-        help="folder to upload",
+        help="folder or file to upload",
     )
     parser.add_argument(
         "-b",
         "--bucket",
-        default="aind-transfer-test",
         type=str,
         help="s3 bucket",
     )
@@ -145,49 +145,21 @@ def main():
         default=None,
         help="per-file upload timeout (s). Default is None.",
     )
-
     parser.add_argument(
-        "--slurm",
+        "--dask",
         default=False,
         action="store_true",
-        help="run on SLURM cluster",
-    )
-
-    parser.add_argument(
-        "--local_dir",
-        type=str,
-        default=f"{home_dir}/.dask_worker",
-        help="fast storage for Dask worker file spilling",
+        help="run on a Dask cluster",
     )
     parser.add_argument(
-        "--log_dir",
-        type=str,
-        default=f"{home_dir}/.dask_distributed-test",
-        help="log directory for dask workers",
+        "--batch_num", type=int, default=3,
+        help="number of tasks per job. Increase this if you run into worker memory issues"
     )
-
-    # Slurm parameters are populated automatically with the job template
-    parser.add_argument("--partition", type=str, default="aind")
     parser.add_argument(
-        "--ntasks_per_node",
+        "--nthreads",
         type=int,
         default=1,
-        help="number of tasks to split the work",
-    )
-    parser.add_argument(
-        "--nodes", type=int, default=1, help="number of HPC nodes"
-    )
-    parser.add_argument(
-        "--cpus_per_task",
-        type=int,
-        default=1,
-        help="num threads to use for upload",
-    )
-    parser.add_argument(
-        "--mem_per_cpu", type=int, default=4000, help="memory per job in MB"
-    )
-    parser.add_argument(
-        "--walltime", type=str, default="01:00:00", help="SLURM job walltime"
+        help="num threads to use if running locally",
     )
 
     args = parser.parse_args()
@@ -203,38 +175,22 @@ def main():
     logger.info(f"Will upload to {args.bucket}/{s3_path}")
 
     t0 = time.time()
-    if args.slurm:
-        my_slurm_kwargs = {}
-
-        os.makedirs(args.local_dir, exist_ok=True)
-        my_slurm_kwargs["local_directory"] = args.local_dir
-
-        log_dir = os.path.join(args.log_dir, "dask-worker-logs")
-        os.makedirs(log_dir, exist_ok=True)
-        my_slurm_kwargs["log_directory"] = log_dir
-
-        logger.info(my_slurm_kwargs)
-
+    if args.dask:
         run_cluster_job(
             input_dir=input_path,
             bucket=bucket,
             s3_path=s3_path,
-            ntasks=args.ntasks_per_node * args.nodes,
-            cpus_per_task=args.cpus_per_task,
-            mem_per_task=f"{args.mem_per_cpu * args.cpus_per_task}MB",
-            queue=args.partition,
-            walltime=args.walltime,
             target_throughput=args.target_throughput,
             part_size=args.part_size,
             timeout=args.timeout,
-            **my_slurm_kwargs,
+            parallelism=args.batch_num,
         )
     else:
         run_local_job(
             input_dir=input_path,
             bucket=bucket,
             s3_path=s3_path,
-            nthreads=args.cpus_per_task,
+            nthreads=args.nthreads,
             target_throughput=args.target_throughput,
             part_size=args.part_size,
             timeout=args.timeout,
