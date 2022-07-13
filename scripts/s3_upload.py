@@ -10,6 +10,7 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client
 from s3transfer.constants import GB, MB
 
+from util.fileutils import collect_filepaths
 from transfer.s3 import S3Uploader
 
 LOG_FMT = "%(asctime)s %(message)s"
@@ -20,12 +21,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def chunk_files(input_dir, ntasks):
-    filepaths = [
-        os.path.join(input_dir, f)
-        for f in os.listdir(input_dir)
-        if os.path.isfile(os.path.join(input_dir, f))
-    ]
+def chunk_files(input_dir, ntasks, recursive=True):
+    filepaths = collect_filepaths(input_dir, recursive)
     return np.array_split(filepaths, ntasks)
 
 
@@ -60,12 +57,13 @@ def run_cluster_job(
     part_size,
     timeout,
     parallelism,
+    recursive,
 ):
     client, config = get_client()
     ntasks = config["n_workers"]
     cores = config["cores"]
 
-    chunked_files = chunk_files(input_dir, ntasks * parallelism)
+    chunked_files = chunk_files(input_dir, ntasks * parallelism, recursive)
     logger.info(
         f"Split files into {len(chunked_files)} chunks with {len(chunked_files[0])} files each"
     )
@@ -89,7 +87,7 @@ def run_cluster_job(
 
 
 def run_local_job(
-    input_dir, bucket, s3_path, nthreads, target_throughput, part_size, timeout
+    input_dir, bucket, s3_path, nthreads, target_throughput, part_size, timeout, recursive,
 ):
     uploader = S3Uploader(
         num_threads=nthreads,
@@ -98,7 +96,7 @@ def run_local_job(
         upload_timeout=timeout,
     )
     if os.path.isdir(input_dir):
-        uploader.upload_folder(input_dir, bucket, s3_path)
+        uploader.upload_folder(input_dir, bucket, s3_path, recursive)
     elif os.path.isfile(input_dir):
         uploader.upload_file(input_dir, bucket, s3_path)
     else:
@@ -163,6 +161,12 @@ def main():
         default=1,
         help="num threads to use if running locally",
     )
+    parser.add_argument(
+        "--recursive",
+        default=False,
+        action="store_true",
+        help="upload a directory recursively"
+    )
 
     args = parser.parse_args()
 
@@ -186,6 +190,7 @@ def main():
             part_size=args.part_size,
             timeout=args.timeout,
             parallelism=args.batch_num,
+            recursive=args.recursive,
         )
     else:
         run_local_job(
@@ -196,6 +201,7 @@ def main():
             target_throughput=args.target_throughput,
             part_size=args.part_size,
             timeout=args.timeout,
+            recursive=args.recursive,
         )
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")

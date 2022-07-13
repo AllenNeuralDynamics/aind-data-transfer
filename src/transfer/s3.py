@@ -6,6 +6,8 @@ import os
 from pathlib import PurePath
 from typing import List
 
+from util.fileutils import collect_filepaths
+
 from awscrt.s3 import S3Client
 from botocore.credentials import create_credential_resolver
 from botocore.session import get_session
@@ -100,7 +102,7 @@ class S3Uploader:
             s3_folder (str): location relative to bucket to store objects
             recursive (boolean): upload all sub-directories
         """
-        filepaths = _collect_filepaths(folder, recursive)
+        filepaths = collect_filepaths(folder, recursive)
         self.upload_files(filepaths, s3_bucket, s3_folder, root=folder)
 
     def get_client(self) -> S3Client:
@@ -143,13 +145,3 @@ def _await_file_upload_futures(
         except Exception as e:
             logger.error(f"Upload failed for {fpath} \n{e}")
     logger.info(f"{bytes_uploaded / (1024 ** 2)} MiB uploaded")
-
-
-def _collect_filepaths(folder: str, recursive: bool = True) -> List[str]:
-    filepaths = []
-    for root, _, files in os.walk(folder):
-        for f in files:
-            filepaths.append(os.path.join(root, f))
-        if not recursive:
-            break
-    return filepaths

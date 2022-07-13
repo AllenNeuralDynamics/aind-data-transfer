@@ -3,7 +3,7 @@ To submit a job to a cluster, call `python cluster/submit.py generate-and-launch
 Example submission:
 ```shell
 python cluster/submit.py generate-and-launch-run \
---job_cmd="python s3_upload.py --input=my-data.zarr --bucket=my-bucket --s3_path=data_folder/my-data.zarr --cluster" \
+--job_cmd="python s3_upload.py --input=my-data/ --bucket=my-bucket --s3_path=data_folder/my-data --recursive --cluster" \
 --run_parent_dir="/home/user/.slurm"
 --conda_activate="/path/to/conda/bin/activate" \
 --conda_env="nd-data-transfer" \
