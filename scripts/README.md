@@ -1,7 +1,7 @@
 To submit a job to a cluster, call `python cluster/submit.py generate-and-launch-run ...` from your login node.
 
 Example submission:
-```shell
+```bash
 python cluster/submit.py generate-and-launch-run \
 --job_cmd="python s3_upload.py --input=my-data/ --bucket=my-bucket --s3_path=data_folder/my-data --recursive --cluster" \
 --run_parent_dir="/home/user/.slurm"
@@ -34,3 +34,13 @@ which is the file read by Dask.
 `queue-slurm-job.sh` is the template-generated script which is submitted to the cluster manager.
 
 To generate a run without launching it, use `python cluster/submit.py generate-run ...`
+
+After launching a run, you can access the Dask dashboard as follows:
+
+
+```bash
+ssh -L 8787:<hpc-node>:8787 user.name@hpc-login
+```
+where `<hpc-node>` is the node the dask scheduler is running, e.g., `n253`. This node can be found in the `output.log`
+
+Then, open a browser and navigate to `localhost:8787`

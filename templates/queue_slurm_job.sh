@@ -31,7 +31,10 @@
 
 set -e
 
-pwd; hostname; date
+pwd; date
+
+echo "Starting the dask scheduler on node ${HOSTNAME}"
+echo "Access the dashboard with \"ssh -L 8787:${HOSTNAME}:8787 ${USER}@@hpc-login\""
 
 [[ -f "@{conda_activate}" ]] && source "@{conda_activate}" @{conda_env}
 
