@@ -1,9 +1,9 @@
-# library-repo-template
+# nd-data-transfer
 
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 ![Code Style](https://img.shields.io/badge/code%20style-black-black)
 
-Template for a minimal, basic repository for an AIND library.
+Tools for transferring large data to and between cloud storage providers.
 
 ## Installation
 To use the software, in the root directory, run
