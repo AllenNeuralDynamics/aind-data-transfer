@@ -46,7 +46,7 @@ def get_client():
     slurm_config = config["jobqueue"]["slurm"]
     # cluster config is automatically populated from ~/.config/dask/jobqueue.yaml
     cluster = SLURMCluster()
-    cluster.scale(slurm_config["n-workers"])
+    cluster.scale(slurm_config["n_workers"])
     logger.info(cluster.job_script())
     client = Client(cluster)
     return client, slurm_config
@@ -62,7 +62,7 @@ def run_cluster_job(
     parallelism,
 ):
     client, config = get_client()
-    ntasks = config["n-workers"]
+    ntasks = config["n_workers"]
     cores = config["cores"]
 
     chunked_files = chunk_files(input_dir, ntasks * parallelism)
