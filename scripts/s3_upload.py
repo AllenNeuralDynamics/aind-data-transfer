@@ -5,11 +5,11 @@ import time
 from pathlib import PurePath
 
 import numpy as np
+from cluster.config import load_jobqueue_config
 from dask_jobqueue import SLURMCluster
 from distributed import Client
 from s3transfer.constants import GB, MB
 
-from cluster.clusters import load_jobqueue_config
 from transfer.s3 import S3Uploader
 
 LOG_FMT = "%(asctime)s %(message)s"
@@ -152,8 +152,10 @@ def main():
         help="run on a Dask cluster",
     )
     parser.add_argument(
-        "--batch_num", type=int, default=3,
-        help="number of tasks per job. Increase this if you run into worker memory issues"
+        "--batch_num",
+        type=int,
+        default=3,
+        help="number of tasks per job. Increase this if you run into worker memory issues",
     )
     parser.add_argument(
         "--nthreads",

@@ -9,9 +9,7 @@ import time
 from pathlib import Path
 
 import yaml
-from yaml import Loader
-
-from cluster.clusters import DASK_CONF_FILE
+from config import DASK_CONF_FILE
 
 
 class SlurmTemplate(string.Template):
@@ -57,19 +55,21 @@ def write_slurm_scripts(args, run_info):
 
 
 def write_dask_config(args, run_info, deployment="slurm"):
-    config = {'jobqueue': {}}
+    config = {"jobqueue": {}}
     if deployment == "slurm":
-        config["jobqueue"]['slurm'] = {
-            'queue': args.queue,
-            'cores': args.cpus_per_task,
-            'processes': args.processes,
-            'memory': f"{args.mem_per_cpu * args.cpus_per_task}MB",
-            'walltime': args.walltime,
-            'n_workers': args.ntasks_per_node * args.nodes,
-            'death_timeout': 600,
-            'job_extra': [f"--tmp {args.tmp_space}"],
-            'local_directory': args.local_dir,
-            'log_directory': os.path.join(run_info.logs_dir, "dask-worker-logs"),
+        config["jobqueue"]["slurm"] = {
+            "queue": args.queue,
+            "cores": args.cpus_per_task,
+            "processes": args.processes,
+            "memory": f"{args.mem_per_cpu * args.cpus_per_task}MB",
+            "walltime": args.walltime,
+            "n_workers": args.ntasks_per_node * args.nodes,
+            "death_timeout": 600,
+            "job_extra": [f"--tmp {args.tmp_space}"],
+            "local_directory": args.local_dir,
+            "log_directory": os.path.join(
+                run_info.logs_dir, "dask-worker-logs"
+            ),
         }
     else:
         raise ValueError("Only Slurm is currently supported")
@@ -172,10 +172,10 @@ def parse_args():
         help="number of cpus per job",
     )
     parser.add_argument(
-        '--processes',
+        "--processes",
         type=int,
         default=None,
-        help="cut the job into this many processes. defaults to ~= sqrt(cpus_per_task)"
+        help="cut the job into this many processes. defaults to ~= sqrt(cpus_per_task)",
     )
     parser.add_argument(
         "--mem_per_cpu", type=int, default=500, help="memory per cpu in MB"
@@ -209,8 +209,8 @@ def parse_args():
     parser.add_argument(
         "--local_dir",
         type=str,
-        default='/scratch/fast/$SLURM_JOB_ID',
-        help='local directory for dask worker file spilling. This should be fast, node-local storage.'
+        default="/scratch/fast/$SLURM_JOB_ID",
+        help="local directory for dask worker file spilling. This should be fast, node-local storage.",
     )
 
     args = parser.parse_args()

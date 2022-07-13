@@ -1,11 +1,7 @@
-import logging
 import os
 
 import yaml
 from yaml import Loader
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 _HOME = os.getenv("HOME")
 # This is where dask-jobqueue looks for the cluster configuration
