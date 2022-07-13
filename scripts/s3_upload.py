@@ -146,10 +146,10 @@ def main():
         help="per-file upload timeout (s). Default is None.",
     )
     parser.add_argument(
-        "--dask",
+        "--cluster",
         default=False,
         action="store_true",
-        help="run on a Dask cluster",
+        help="run in cluster mode",
     )
     parser.add_argument(
         "--batch_num",
@@ -177,7 +177,7 @@ def main():
     logger.info(f"Will upload to {args.bucket}/{s3_path}")
 
     t0 = time.time()
-    if args.dask:
+    if args.cluster:
         run_cluster_job(
             input_dir=input_path,
             bucket=bucket,
