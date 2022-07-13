@@ -146,15 +146,10 @@ def _await_file_upload_futures(
 
 
 def _collect_filepaths(folder: str, recursive: bool = True) -> List[str]:
-    if not recursive:
-        return [
-            os.path.join(folder, f)
-            for f in os.listdir(folder)
-            if os.path.isfile(os.path.join(folder, f))
-        ]
-
     filepaths = []
     for root, _, files in os.walk(folder):
         for f in files:
             filepaths.append(os.path.join(root, f))
+        if not recursive:
+            break
     return filepaths
