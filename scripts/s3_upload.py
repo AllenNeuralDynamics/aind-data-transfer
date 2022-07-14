@@ -1,8 +1,8 @@
 import argparse
+import itertools
 import logging
 import os
 import time
-import itertools
 from pathlib import PurePath
 
 import numpy as np
@@ -11,8 +11,8 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client
 from s3transfer.constants import GB, MB
 
-from util.fileutils import collect_filepaths
 from transfer.s3 import S3Uploader
+from util.fileutils import collect_filepaths
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"
@@ -42,7 +42,8 @@ def upload_files_job(
 def get_client():
     config = load_jobqueue_config()
     slurm_config = config["jobqueue"]["slurm"]
-    # cluster config is automatically populated from ~/.config/dask/jobqueue.yaml
+    # cluster config is automatically populated from
+    # ~/.config/dask/jobqueue.yaml
     cluster = SLURMCluster()
     cluster.scale(slurm_config["n_workers"])
     logger.info(cluster.job_script())
@@ -66,7 +67,8 @@ def run_cluster_job(
 
     chunked_files = chunk_files(input_dir, ntasks * parallelism, recursive)
     logger.info(
-        f"Split files into {len(chunked_files)} chunks with {len(chunked_files[0])} files each"
+        f"Split files into {len(chunked_files)} chunks with "
+        f"{len(chunked_files[0])} files each"
     )
 
     futures = []
@@ -89,7 +91,14 @@ def run_cluster_job(
 
 
 def run_local_job(
-    input_dir, bucket, s3_path, nthreads, target_throughput, part_size, timeout, recursive,
+    input_dir,
+    bucket,
+    s3_path,
+    nthreads,
+    target_throughput,
+    part_size,
+    timeout,
+    recursive,
 ):
     uploader = S3Uploader(
         num_threads=nthreads,
@@ -98,7 +107,9 @@ def run_local_job(
         upload_timeout=timeout,
     )
     if os.path.isdir(input_dir):
-        failed_uploads = uploader.upload_folder(input_dir, bucket, s3_path, recursive)
+        failed_uploads = uploader.upload_folder(
+            input_dir, bucket, s3_path, recursive
+        )
     elif os.path.isfile(input_dir):
         failed_uploads = uploader.upload_file(input_dir, bucket, s3_path)
     else:
@@ -156,7 +167,8 @@ def main():
         "--batch_num",
         type=int,
         default=3,
-        help="number of tasks per job. Increase this if you run into worker memory issues",
+        help="number of tasks per job. "
+        "Increase this if you run into worker memory issues",
     )
     parser.add_argument(
         "--nthreads",
@@ -168,7 +180,7 @@ def main():
         "--recursive",
         default=False,
         action="store_true",
-        help="upload a directory recursively"
+        help="upload a directory recursively",
     )
 
     args = parser.parse_args()
@@ -179,7 +191,8 @@ def main():
     s3_path = args.s3_path
     if s3_path is None:
         s3_path = PurePath(args.input).name
-    # remove leading slash since it will result in the structure "bucket/'/'/s3_path" instead of "bucket/s3_path"
+    # remove leading slash since it will result in the structure
+    # "bucket/'/'/s3_path" instead of "bucket/s3_path"
     s3_path = s3_path.strip("/")
     logger.info(f"Will upload to {args.bucket}/{s3_path}")
 

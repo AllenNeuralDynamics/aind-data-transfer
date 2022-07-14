@@ -1,4 +1,7 @@
-"""Submit jobs to a cluster. Adapted from from https://github.com/JaneliaSciComp/spark-janelia"""
+"""
+Submit jobs to a cluster.
+Adapted from from https://github.com/JaneliaSciComp/spark-janelia
+"""
 
 import argparse
 import collections
@@ -83,7 +86,8 @@ def write_dask_config(args, run_info, deployment="slurm"):
 
 RunInfo = collections.namedtuple(
     "RunInfo",
-    "dir, logs_dir, scripts_dir, launch_script, job_name_prefix, dask_conf_file",
+    "dir, logs_dir, scripts_dir, launch_script, "
+    "job_name_prefix, dask_conf_file",
 )
 
 
@@ -146,7 +150,8 @@ def parse_args():
         "--run_parent_dir",
         type=str,
         default=f"{home_dir}/.slurm",
-        help="directory to store all logs, scripts, and config files for a run",
+        help="directory to store all logs, scripts, "
+        "and config files for a run",
     )
     parser.add_argument(
         "--conda_activate",
@@ -175,7 +180,8 @@ def parse_args():
         "--processes",
         type=int,
         default=None,
-        help="cut the job into this many processes. defaults to ~= sqrt(cpus_per_task)",
+        help="cut the job into this many processes. "
+        "defaults to ~= sqrt(cpus_per_task)",
     )
     parser.add_argument(
         "--mem_per_cpu", type=int, default=500, help="memory per cpu in MB"
@@ -184,7 +190,8 @@ def parse_args():
         "--tmp_space",
         type=str,
         default="512MB",
-        help="amount of space on node-local storage for Dask worker spilling, e.g., 4GB",
+        help="amount of space on node-local storage for "
+        "Dask worker spilling, e.g., 4GB",
     )
     parser.add_argument(
         "--walltime", type=str, default="00:10:00", help="job walltime"
@@ -210,7 +217,8 @@ def parse_args():
         "--local_dir",
         type=str,
         default="/scratch/fast/$SLURM_JOB_ID",
-        help="local directory for dask worker file spilling. This should be fast, node-local storage.",
+        help="local directory for dask worker file spilling. "
+        "This should be fast, node-local storage.",
     )
 
     args = parser.parse_args()
