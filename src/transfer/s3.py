@@ -48,18 +48,20 @@ class S3Uploader:
         self.request_serializer = BotocoreCRTRequestSerializer(session)
         self.upload_timeout = upload_timeout
 
-    def upload_file(self, filepath: str, s3_bucket: str, s3_key: str) -> None:
+    def upload_file(self, filepath: str, s3_bucket: str, s3_key: str) -> List[str]:
         """Upload a single file to s3.
         Args:
             filepath (str): absolute path to file to upload.
             s3_bucket (str): name of s3 bucket
             s3_key (str): location relative to bucket to store blob
+        Returns:
+            A list of filepaths for failed uploads
         """
         with CRTTransferManager(
             self.s3_crt_client, self.request_serializer
         ) as manager:
             future = manager.upload(filepath, s3_bucket, s3_key)
-            _await_file_upload_futures(
+            return _await_file_upload_futures(
                 [future], [filepath], self.upload_timeout
             )
 
@@ -69,7 +71,7 @@ class S3Uploader:
         s3_bucket: str,
         s3_folder: str,
         root: str = None,
-    ) -> None:
+    ) -> List[str]:
         """Upload a list of files to s3.
         Args:
             filepaths (list): absolute paths of files to upload.
@@ -78,6 +80,8 @@ class S3Uploader:
             root (str): root directory shared by all files in filepaths. If None,
                         all files will be stored as a flat list under s3_folder.
                         Default is None.
+        Returns:
+            A list of filepaths for failed uploads
         """
         s3_paths = _make_s3_paths(filepaths, s3_folder, root=root)
         with CRTTransferManager(
@@ -86,7 +90,7 @@ class S3Uploader:
             futures = []
             for fpath, s3_path in zip(filepaths, s3_paths):
                 futures.append(manager.upload(fpath, s3_bucket, s3_path))
-            _await_file_upload_futures(futures, filepaths, self.upload_timeout)
+            return _await_file_upload_futures(futures, filepaths, self.upload_timeout)
 
     def upload_folder(
         self,
@@ -94,16 +98,17 @@ class S3Uploader:
         s3_bucket: str,
         s3_folder: str,
         recursive: bool = True,
-    ) -> None:
+    ) -> List[str]:
         """Upload a directory to s3.
         Args:
             folder (str): absolute path of the folder to upload.
             s3_bucket (str): name of s3 bucket
             s3_folder (str): location relative to bucket to store objects
             recursive (boolean): upload all sub-directories
+        Returns:
+            A list of filepaths for failed uploads
         """
-        filepaths = collect_filepaths(folder, recursive)
-        self.upload_files(filepaths, s3_bucket, s3_folder, root=folder)
+        return self.upload_files(collect_filepaths(folder, recursive), s3_bucket, s3_folder, root=folder)
 
     def get_client(self) -> S3Client:
         return self.s3_crt_client
@@ -134,8 +139,9 @@ def _make_s3_paths(
 
 def _await_file_upload_futures(
     futures: List[CRTTransferFuture], filepaths: List[str], timeout: float
-) -> None:
+) -> List[str]:
     n_files = len(filepaths)
+    failed_uploads = []
     bytes_uploaded = 0
     for i, (fpath, fut) in enumerate(zip(filepaths, futures)):
         try:
@@ -144,4 +150,6 @@ def _await_file_upload_futures(
             bytes_uploaded += os.stat(fpath).st_size
         except Exception as e:
             logger.error(f"Upload failed for {fpath} \n{e}")
+            failed_uploads.append(fpath)
     logger.info(f"{bytes_uploaded / (1024 ** 2)} MiB uploaded")
+    return failed_uploads

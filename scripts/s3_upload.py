@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import time
+import itertools
 from pathlib import PurePath
 
 import numpy as np
@@ -35,7 +36,7 @@ def upload_files_job(
         part_size=part_size,
         upload_timeout=timeout,
     )
-    uploader.upload_files(files, bucket, s3_path)
+    return uploader.upload_files(files, bucket, s3_path)
 
 
 def get_client():
@@ -82,7 +83,8 @@ def run_cluster_job(
                 timeout=timeout,
             )
         )
-    client.gather(futures)
+    failed_uploads = list(itertools.chain(*client.gather(futures)))
+    logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
     client.close()
 
 
@@ -96,13 +98,14 @@ def run_local_job(
         upload_timeout=timeout,
     )
     if os.path.isdir(input_dir):
-        uploader.upload_folder(input_dir, bucket, s3_path, recursive)
+        failed_uploads = uploader.upload_folder(input_dir, bucket, s3_path, recursive)
     elif os.path.isfile(input_dir):
-        uploader.upload_file(input_dir, bucket, s3_path)
+        failed_uploads = uploader.upload_file(input_dir, bucket, s3_path)
     else:
         raise ValueError(
             f"Invalid value for --input: {input_dir} does not exist"
         )
+    logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
 
 
 def main():
