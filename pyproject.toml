@@ -3,8 +3,8 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hello_world"
-description = "Prints messages to stdout. Simple boilerplate for libraries."
+name = "nd-data-transfer"
+description = "Services for compression and transfer of nd-data to the cloud"
 license = {text = "MIT"}
 requires-python = ">=3.7"
 classifiers = [
@@ -13,7 +13,12 @@ classifiers = [
 dynamic = ["version", "readme"]
 
 dependencies = [
-    'pandas'
+    'pandas',
+    's3transfer[crt]',
+    'numpy',
+    'dask-jobqueue',
+    'bokeh>=2.1.1',
+    'pyyaml'
 ]
 
 [project.optional-dependencies]
@@ -30,7 +35,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.dynamic]
-version = {attr = "hello_world.__version__"}
+version = {attr = "transfer.__version__"}
 readme = {file = ["README.md"]}
 
 [tool.black]
@@ -60,11 +65,11 @@ source = ["src", "tests"]
 
 [tool.coverage.report]
 exclude_lines = ["if __name__ == .__main__.:"]
-fail_under = 100
+fail_under = 0
 
 [tool.isort]
 line_length = 79
 
 [tool.interrogate]
 exclude = ["setup.py", "docs", "build"]
-fail-under = 100
+fail-under = 0
