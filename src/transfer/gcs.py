@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Union
 
 import google.auth
 import google.auth.exceptions
@@ -38,7 +38,11 @@ class GCSUploader:
             raise
 
     def upload_file(
-        self, filepath: str, gcs_key: str, timeout: float = None
+        self,
+        filepath: str,
+        gcs_key: str,
+        timeout: float = None,
+        chunk_size: int = 64 * 1024 * 1024,
     ) -> bool:
         """Upload a single file to gcs.
         Args:
@@ -50,6 +54,7 @@ class GCSUploader:
             A list of filepaths for failed uploads
         """
         blob = self.bucket.blob(gcs_key)
+        blob.chunk_size = chunk_size
         try:
             blob.upload_from_filename(filepath, timeout=timeout)
             return True
@@ -60,21 +65,25 @@ class GCSUploader:
     def upload_files(
         self,
         filepaths: List[str],
-        gcs_folder: str,
+        gcs_path: Union[str, List[str]],
         root: str = None,
     ) -> List[str]:
         """Upload a list of files to gcs.
         Args:
             filepaths (list): absolute paths of files to upload.
             gcs_bucket (str): name of gcs bucket
-            gcs_folder (str): location relative to bucket to store objects
+            gcs_path (str or list): if a string, location relative to bucket to store objects.
+                                    If a list, the cloud path for each file in filepaths.
             root (str): root directory shared by all files in filepaths.
                         If None, all files will be stored as a flat list
                         under gcs_folder. Default is None.
         Returns:
             A list of filepaths for failed uploads
         """
-        gcs_paths = make_cloud_paths(filepaths, gcs_folder, root=root)
+        if isinstance(gcs_path, str):
+            gcs_paths = make_cloud_paths(filepaths, gcs_path, root=root)
+        else:
+            gcs_paths = gcs_path
         failed_uploads = []
         for fpath, gcs_path in zip(filepaths, gcs_paths):
             if not self.upload_file(fpath, gcs_path):
