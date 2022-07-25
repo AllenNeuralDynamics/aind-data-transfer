@@ -41,26 +41,10 @@ def main():
     data = data[np.newaxis, np.newaxis, ...]
     print(data)
 
-    plane_size = data.shape[3] * data.shape[4] * data.itemsize
-    # chunk size before compression
-    # ~60MB after ~4.3X compression
-    target_chunk_size = 256 * (1024 * 1024)  # 256 MB
-    nplanes_per_chunk = int(math.ceil(target_chunk_size / plane_size))
-    nplanes_per_chunk = min(nplanes_per_chunk, data.shape[2])
-    chunks = (
-        1,
-        1,
-        nplanes_per_chunk,
-        data.shape[3],
-        data.shape[4]
-    )
-    print(chunks)
-
     compressor = blosc.Blosc(cname="zstd", clevel=1, shuffle=blosc.SHUFFLE)
 
     opts = {
         "compressor": compressor,
-        "chunks": chunks
     }
 
     mypath = "/allen/programs/aind/workgroups/msma/cameron.arshadi/ome-zarr-test/ome-zarr-tile-test.zarr"
@@ -77,6 +61,7 @@ def main():
         channel_colors=None,
         scale_num_levels=1,  # : int = 1,
         scale_factor=2.0,  # : float = 2.0,
+        target_chunk_size=256,  # MB
         storage_options=opts
     )
     write_time = time.time() - t0
