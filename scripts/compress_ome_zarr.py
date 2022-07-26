@@ -68,13 +68,8 @@ def parse_bids_dir(indir):
     print(all_files)
 
 
-def get_codec(codec, clevel):
-    if codec == "zstd":
-        return blosc.Blosc(cname="zstd", clevel=clevel, shuffle=blosc.SHUFFLE)
-    elif codec == "lz4":
-        return blosc.Blosc(cname="lz4", clevel=clevel, shuffle=blosc.SHUFFLE)
-    else:
-        raise NotImplementedError(f"Codec {codec} is not currently supported")
+def get_blosc_codec(codec, clevel):
+    return blosc.Blosc(cname=codec, clevel=clevel, shuffle=blosc.SHUFFLE)
 
 
 def get_images(input_dir):
@@ -174,7 +169,7 @@ def main():
 
     client, _ = get_client(args.deployment)
 
-    compressor = get_codec(args.codec, args.clevel)
+    compressor = get_blosc_codec(args.codec, args.clevel)
     opts = {
         "compressor": compressor,
     }
