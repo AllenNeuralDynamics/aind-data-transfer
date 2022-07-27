@@ -152,7 +152,7 @@ def parse_args():
     parser.add_argument(
         "--tasks_per_worker",
         type=int,
-        default=1,
+        default=3,
         help="Split the work so that each worker has this many jobs. "
         "Increasing this can help with worker/task imbalance.",
     )
