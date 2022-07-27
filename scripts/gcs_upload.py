@@ -80,13 +80,17 @@ def run_cluster_job(
     input_dir,
     bucket,
     gcs_path,
-    parallelism,
+    tasks_per_worker,
     recursive,
 ):
     client, config = get_client()
     ntasks = config["n_workers"]
     filepaths = collect_filepaths(input_dir, recursive)
-    n = min(ntasks * parallelism, len(filepaths))
+    # Our target is ~tasks_per_worker chunks of files for each dask worker to upload.
+    # The way each job (upload of a single chunk) is actually distributed is up to the scheduler.
+    # Some workers may get many jobs while others get few.
+    # Increasing tasks_per_worker can help the scheduler balance jobs among workers.
+    n = min(ntasks * tasks_per_worker, len(filepaths))
     chunked_files = np.array_split(filepaths, n)
     logger.info(
         f"Split files into {len(chunked_files)} chunks with "
@@ -189,7 +193,7 @@ def main():
             input_dir=args.input,
             bucket=args.bucket,
             gcs_path=gcs_path,
-            parallelism=args.tasks_per_worker,
+            tasks_per_worker=args.tasks_per_worker,
             recursive=args.recursive,
         )
     else:
