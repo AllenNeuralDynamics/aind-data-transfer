@@ -1,12 +1,10 @@
 import argparse
 import itertools
 import logging
-import multiprocessing
 import os
-import random
-import string
 import subprocess
 import time
+import tempfile
 from pathlib import PurePath
 
 import numpy as np
@@ -14,50 +12,31 @@ from cluster.config import load_jobqueue_config
 from dask_jobqueue import SLURMCluster
 from distributed import Client
 
-from transfer.gcs import GCSUploader
-from util.fileutils import collect_filepaths, make_cloud_paths
+from util.fileutils import collect_filepaths
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def _file_upload_worker(bucket_name, filename, gcs_path):
-    uploader = GCSUploader(bucket_name)
-    uploader.upload_file(filename, gcs_path)
-    print(f"uploaded {filename}")
-    return os.stat(filename).st_size
-
-
-def _files_upload_worker(bucket_name, files, gcs_path):
-    gcs_paths = make_cloud_paths(files, gcs_path)
-    # HACK: add random string as prefix to distribute connections across shards.
-    # This doesn't seem to help much.
-    # see https://cloud.google.com/blog/products/gcp/optimizing-your-cloud-storage-performance-google-cloud-performance-atlas
-    prefix = id_generator()
-    prefixed_gcs_paths = [prefix + "-" + path for path in gcs_paths]
-    uploader = GCSUploader(bucket_name)
-    return uploader.upload_files(files, prefixed_gcs_paths)
-
-
-def _make_boto_options(cluster_config):
+def _make_boto_options(n_threads):
     options = []
     # Use the same process / thread ratio as the ~/.boto defaults
     # These defaults are different on Windows (1 process, many threads)
-    threads = cluster_config['cores']
-    processes = max(1, threads - 1)
-    options.append(f"Boto:parallel_thread_count={threads}")
+    processes = max(1, n_threads - 1)
+    options.append(f"Boto:parallel_thread_count={n_threads}")
     options.append(f"Boto:parallel_process_count={processes}")
     return options
 
 
-def _set_gsutil_env_variables(cluster_config):
-    os.environ['TMPDIR'] = cluster_config['local_directory']
+def _set_gsutil_tmpdir(tmpdir):
+    # gsutil writes temporary data to this directory
+    os.environ["TMPDIR"] = tmpdir
 
 
-def _gsutil_upload_worker(bucket_name, files, gcs_path, worker_id, boto_options=None):
-    import tempfile
-
+def _gsutil_upload_worker(
+    bucket_name, files, gcs_path, worker_id, boto_options=None
+):
     options_str = ""
     if boto_options is not None:
         sep = " -o "
@@ -73,7 +52,9 @@ def _gsutil_upload_worker(bucket_name, files, gcs_path, worker_id, boto_options=
 
     failed_uploads = []
     if ret.returncode != 0:
-        logger.error(f"Error uploading files, gsutil exit code {ret.returncode}")
+        logger.error(
+            f"Error uploading files, gsutil exit code {ret.returncode}"
+        )
         # TODO get the specific paths that failed from the log?
         failed_uploads.extend(files)
 
@@ -95,10 +76,6 @@ def get_client(deployment="slurm"):
     return client, config
 
 
-def id_generator(size=16, chars=string.ascii_lowercase + string.digits):
-    return "".join(random.choice(chars) for _ in range(size))
-
-
 def run_cluster_job(
     input_dir,
     bucket,
@@ -116,9 +93,9 @@ def run_cluster_job(
         f"{len(chunked_files[0])} files each"
     )
 
-    _set_gsutil_env_variables(config)
+    _set_gsutil_tmpdir(config['local_directory'])
 
-    options = _make_boto_options(config)
+    options = _make_boto_options(config["cores"])
 
     futures = []
     for i, chunk in enumerate(chunked_files):
@@ -129,7 +106,7 @@ def run_cluster_job(
                 files=chunk,
                 gcs_path=gcs_path,
                 worker_id=i,
-                boto_options=options
+                boto_options=options,
             )
         )
     failed_uploads = list(itertools.chain(*client.gather(futures)))
@@ -137,17 +114,13 @@ def run_cluster_job(
     client.close()
 
 
-def run_local_job(input_dir, bucket, path, n_workers=4):
+def run_local_job(input_dir, bucket, path, n_threads):
     files = collect_filepaths(input_dir, recursive=True)
-    gcs_paths = make_cloud_paths(files, path, input_dir)
-    args = zip(itertools.repeat(bucket), files, gcs_paths)
-    t0 = time.time()
-    with multiprocessing.Pool(n_workers) as pool:
-        results = pool.starmap(_file_upload_worker, args)
-    write_time = time.time() - t0
-    bytes_uploaded = sum(results)
-    print(f"Done. Took {write_time}s")
-    print(f"{bytes_uploaded / write_time / (1024 ** 2)}MiB/s")
+    options = _make_boto_options(n_threads)
+    failed_uploads = _gsutil_upload_worker(
+        bucket_name=bucket, files=files, gcs_path=path, worker_id=0, boto_options=options
+    )
+    logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
 
 
 def parse_args():
@@ -194,11 +167,6 @@ def parse_args():
         type=int,
         default=1,
         help="number of threads if running locally",
-    )
-    parser.add_argument(
-        "--service-account",
-        type=str,
-        help="Path to Google application credentials json key file",
     )
     args = parser.parse_args()
     return args
