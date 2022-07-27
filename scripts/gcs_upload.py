@@ -40,20 +40,44 @@ def _files_upload_worker(bucket_name, files, gcs_path):
     return uploader.upload_files(files, prefixed_gcs_paths)
 
 
-def _gsutil_upload_worker(bucket_name, files, gcs_path, worker_id):
+def _make_boto_options(cluster_config):
+    options = []
+    # Use the same process / thread ratio as the ~/.boto defaults
+    # These defaults are different on Windows (1 process, many threads)
+    threads = cluster_config['cores']
+    processes = max(1, threads - 1)
+    options.append(f"Boto:parallel_thread_count={threads}")
+    options.append(f"Boto:parallel_process_count={processes}")
+    return options
+
+
+def _set_gsutil_env_variables(cluster_config):
+    os.environ['TMPDIR'] = cluster_config['local_directory']
+
+
+def _gsutil_upload_worker(bucket_name, files, gcs_path, worker_id, boto_options=None):
     import tempfile
+
+    options_str = ""
+    if boto_options is not None:
+        sep = " -o "
+        options_str = f"{sep}{sep.join(boto_options)}"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         catfile = os.path.join(tmpdir, f"file-subset-{worker_id}.txt")
         with open(catfile, "w") as f:
             for file in files:
                 f.write(file + "\n")
-        # TODO: check if -m flag respects SLURM allocated resources.
-        #  wouldn't be surprised if it tries to use all cores on a node.
-        cmd = f"cat {catfile} | gsutil -m cp -I gs://{bucket_name}/{gcs_path}"
-        subprocess.call(cmd, shell=True)
-    # TODO: get failed uploads from gsutil?
-    return []
+        cmd = f"cat {catfile} | gsutil -m {options_str} cp -I gs://{bucket_name}/{gcs_path}"
+        ret = subprocess.run(cmd, shell=True)
+
+    failed_uploads = []
+    if ret.returncode != 0:
+        logger.error(f"Error uploading files, gsutil exit code {ret.returncode}")
+        # TODO get the specific paths that failed from the log?
+        failed_uploads.extend(files)
+
+    return failed_uploads
 
 
 def get_client(deployment="slurm"):
@@ -92,6 +116,10 @@ def run_cluster_job(
         f"{len(chunked_files[0])} files each"
     )
 
+    _set_gsutil_env_variables(config)
+
+    options = _make_boto_options(config)
+
     futures = []
     for i, chunk in enumerate(chunked_files):
         futures.append(
@@ -101,6 +129,7 @@ def run_cluster_job(
                 files=chunk,
                 gcs_path=gcs_path,
                 worker_id=i,
+                boto_options=options
             )
         )
     failed_uploads = list(itertools.chain(*client.gather(futures)))
