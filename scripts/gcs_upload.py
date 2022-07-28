@@ -261,7 +261,7 @@ def main():
     files = collect_filepaths(args.input, recursive=args.recursive)
     cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
 
-    symlink_dir = os.path.join(os.getcwd(), 'symlinks')
+    symlink_dir = os.path.join(os.getcwd(), f'symlinks-{time.time()}')
     if os.path.isdir(symlink_dir):
         shutil.rmtree(symlink_dir)
     os.makedirs(symlink_dir)
