@@ -115,7 +115,7 @@ def run_cluster_job(
         )
     failed_uploads = list(itertools.chain(*client.gather(futures)))
     logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
-    client.close()
+    client.shutdown()
 
 
 def run_local_job(input_dir, bucket, path, n_threads):
