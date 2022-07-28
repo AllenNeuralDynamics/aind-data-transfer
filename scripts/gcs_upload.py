@@ -43,22 +43,36 @@ def _gsutil_upload_worker(
         options_str = f"{sep}{sep.join(boto_options)}"
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        logfile = os.path.join(tmpdir, f"gsutil-cp-worker-{worker_id}-log.log")
         catfile = os.path.join(tmpdir, f"file-subset-{worker_id}.txt")
         with open(catfile, "w") as f:
             for file in files:
                 f.write(file + "\n")
-        cmd = f"cat {catfile} | gsutil -m {options_str} cp -I gs://{bucket_name}/{gcs_path}"
+        cmd = f"cat {catfile} | gsutil -m {options_str} cp -L {logfile} -I gs://{bucket_name}/{gcs_path}"
         ret = subprocess.run(cmd, shell=True)
 
-    failed_uploads = []
-    if ret.returncode != 0:
-        logger.error(
-            f"Error uploading files, gsutil exit code {ret.returncode}"
-        )
-        # TODO get the specific paths that failed from the log?
-        failed_uploads.extend(files)
+        failed_uploads = []
+        if ret.returncode != 0:
+            logger.error(
+                f"Error uploading files, gsutil exit code {ret.returncode}"
+            )
+            failures = _parse_cp_failures(logfile)
+            failed_uploads.extend(failures)
 
     return failed_uploads
+
+
+def _parse_cp_failures(log_path):
+    failures = []
+    with open(log_path, 'r') as f:
+        next(f)  # skip header
+        for line in f:
+            parts = line.strip().split(',')
+            src = parts[0]
+            status = parts[-2]
+            if status != "OK":
+                failures.append(src)
+    return failures
 
 
 def get_client(deployment="slurm"):
