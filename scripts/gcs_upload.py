@@ -7,7 +7,7 @@ import subprocess
 import time
 import tempfile
 from collections import defaultdict
-from pathlib import PurePath, Path
+from pathlib import PurePath
 
 import google.api_core.exceptions
 import numpy as np
@@ -39,7 +39,7 @@ def _set_gsutil_tmpdir(tmpdir):
 
 
 def _gsutil_upload_worker(
-    bucket_name, files, gcs_path, worker_id, boto_options=None
+    bucket_name, files, gcs_path, cloud_paths_map, worker_id, boto_options=None,
 ):
     options_str = ""
     if boto_options is not None:
@@ -61,6 +61,22 @@ def _gsutil_upload_worker(
                 f"Error uploading files, gsutil exit code {ret.returncode}"
             )
             failed_uploads.extend(_parse_cp_failures(logfile))
+
+    # convert flat list of blobs to original directory structure
+    storage_client = create_client()
+    bucket = storage_client.get_bucket(bucket_name)
+    for f in files:
+        name = PurePath(f).name
+        blob = bucket.get_blob(gcs_path + '/' + name)
+        target_path = cloud_paths_map[name]
+        if blob.name == target_path:
+            continue
+        logger.info(f"renaming blob from {blob.name} to {target_path}")
+        try:
+            bucket.rename_blob(blob, target_path)
+        except google.api_core.exceptions.NotFound:
+            # This seems to happen if the target blob already exists??
+            continue
 
     return failed_uploads
 
@@ -117,25 +133,6 @@ def _parse_cp_failures(log_path):
     return failures
 
 
-def _fix_blob_paths(bucket_name, path, cloud_paths_map):
-    # FIXME: having to do this at the end makes this approach not any faster
-    #  than just using the google-cloud-storage API. This might be faster
-    #  if broken into dask jobs.
-    client = create_client()
-    bucket = client.get_bucket(bucket_name)
-    for blob in client.list_blobs(bucket_name, prefix=path):
-        name = PurePath(blob.name).name
-        if name not in cloud_paths_map:
-            raise Exception("Blob name not found in cloud_paths_map")
-        target_path = cloud_paths_map[name]
-        logger.info(f"renaming blob from {blob.name} to {target_path}")
-        try:
-            bucket.rename_blob(blob, target_path)
-        except google.api_core.exceptions.NotFound:
-            # This seems to happen if the target blob already exists??
-            continue
-
-
 def get_client(deployment="slurm"):
     base_config = load_jobqueue_config()
     if deployment == "slurm":
@@ -155,6 +152,7 @@ def run_cluster_job(
     filepaths,
     bucket,
     gcs_path,
+    cloud_paths_map,
     tasks_per_worker,
 ):
     client, config = get_client()
@@ -182,7 +180,9 @@ def run_cluster_job(
                 bucket_name=bucket,
                 files=chunk,
                 gcs_path=gcs_path,
+                cloud_paths_map=cloud_paths_map,
                 worker_id=i,
+                boto_options=options
             )
         )
     failed_uploads = list(itertools.chain(*client.gather(futures)))
@@ -190,10 +190,11 @@ def run_cluster_job(
     client.shutdown()
 
 
-def run_local_job(files, bucket, gcs_path, n_threads):
+def run_local_job(files, bucket, gcs_path, cloud_paths_map, n_threads):
     options = _make_boto_options(n_threads)
     failed_uploads = _gsutil_upload_worker(
-        bucket_name=bucket, files=files, gcs_path=gcs_path, worker_id=0
+        bucket_name=bucket, files=files, gcs_path=gcs_path, cloud_paths_map=cloud_paths_map, worker_id=0,
+        boto_options=options
     )
     logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
 
@@ -274,13 +275,12 @@ def main():
             filepaths=fixed_files,
             bucket=args.bucket,
             gcs_path=args.gcs_path,
+            cloud_paths_map=cloud_paths_map,
             tasks_per_worker=args.tasks_per_worker,
         )
     else:
         print("Running local job")
-        run_local_job(fixed_files, args.bucket, args.gcs_path, args.nthreads)
-
-    _fix_blob_paths(args.bucket, args.gcs_path, cloud_paths_map)
+        run_local_job(fixed_files, args.bucket, args.gcs_path, cloud_paths_map, args.nthreads)
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")
 
