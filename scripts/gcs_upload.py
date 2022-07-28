@@ -2,17 +2,21 @@ import argparse
 import itertools
 import logging
 import os
+import shutil
 import subprocess
 import time
 import tempfile
-from pathlib import PurePath
+from collections import defaultdict
+from pathlib import PurePath, Path
 
+import google.api_core.exceptions
 import numpy as np
 from cluster.config import load_jobqueue_config
 from dask_jobqueue import SLURMCluster
 from distributed import Client
 
-from util.fileutils import collect_filepaths
+from transfer.gcs import create_client
+from util.fileutils import collect_filepaths, make_cloud_paths
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 logger = logging.getLogger(__name__)
@@ -56,10 +60,48 @@ def _gsutil_upload_worker(
             logger.error(
                 f"Error uploading files, gsutil exit code {ret.returncode}"
             )
-            failures = _parse_cp_failures(logfile)
-            failed_uploads.extend(failures)
+            failed_uploads.extend(_parse_cp_failures(logfile))
 
     return failed_uploads
+
+
+def _gsutil_upload_worker2(bucket_name, files, gcs_paths, worker_id):
+    """This is unexpectedly slow. There must be a lot of overhead with each call
+    to gsutil"""
+    failed_uploads = []
+    with tempfile.TemporaryDirectory() as tmpdir:
+        logfile = os.path.join(tmpdir, f"gsutil-cp-worker-{worker_id}-log.log")
+        for fpath, gpath in zip(files, gcs_paths):
+            cmd = f"gsutil cp {fpath} gs://{bucket_name}/{gpath}"
+            status_code = os.system(cmd)
+            if status_code != 0:
+                logger.error(
+                    f"Error uploading files, gsutil exit code {status_code}"
+                )
+                failed_uploads.append(fpath)
+
+    return failed_uploads
+
+
+def _symlink_duplicate_filenames(files, cloud_paths, symlink_dir):
+    max_ids = defaultdict(int)
+    corrected_paths = []
+    cloud_paths_map = {}
+    for fpath, cpath in zip(files, cloud_paths):
+        fname = PurePath(fpath).name
+        if fname in cloud_paths_map:
+            max_ids[fname] += 1
+            name, ext = os.path.splitext(fname)
+            new_name = f"{name}-{max_ids[fname]}{ext}"
+            new_path = os.path.join(symlink_dir, new_name)
+            os.symlink(fpath, new_path)
+            corrected_paths.append(new_path)
+            cloud_paths_map[new_name] = cpath
+        else:
+            cloud_paths_map[fname] = cpath
+            corrected_paths.append(fpath)
+
+    return corrected_paths, cloud_paths_map
 
 
 def _parse_cp_failures(log_path):
@@ -73,6 +115,25 @@ def _parse_cp_failures(log_path):
             if status != "OK":
                 failures.append(src)
     return failures
+
+
+def _fix_blob_paths(bucket_name, path, cloud_paths_map):
+    # FIXME: having to do this at the end makes this approach not any faster
+    #  than just using the google-cloud-storage API. This might be faster
+    #  if broken into dask jobs.
+    client = create_client()
+    bucket = client.get_bucket(bucket_name)
+    for blob in client.list_blobs(bucket_name, prefix=path):
+        name = PurePath(blob.name).name
+        if name not in cloud_paths_map:
+            raise Exception("Blob name not found in cloud_paths_map")
+        target_path = cloud_paths_map[name]
+        logger.info(f"renaming blob from {blob.name} to {target_path}")
+        try:
+            bucket.rename_blob(blob, target_path)
+        except google.api_core.exceptions.NotFound:
+            # This seems to happen if the target blob already exists??
+            continue
 
 
 def get_client(deployment="slurm"):
@@ -91,15 +152,13 @@ def get_client(deployment="slurm"):
 
 
 def run_cluster_job(
-    input_dir,
+    filepaths,
     bucket,
     gcs_path,
     tasks_per_worker,
-    recursive,
 ):
     client, config = get_client()
     ntasks = config["n_workers"]
-    filepaths = collect_filepaths(input_dir, recursive)
     # Our target is ~tasks_per_worker chunks of files for each dask worker to upload.
     # The way each job (upload of a single chunk) is actually distributed is up to the scheduler.
     # Some workers may get many jobs while others get few.
@@ -124,7 +183,6 @@ def run_cluster_job(
                 files=chunk,
                 gcs_path=gcs_path,
                 worker_id=i,
-                boto_options=options,
             )
         )
     failed_uploads = list(itertools.chain(*client.gather(futures)))
@@ -132,11 +190,10 @@ def run_cluster_job(
     client.shutdown()
 
 
-def run_local_job(input_dir, bucket, path, n_threads):
-    files = collect_filepaths(input_dir, recursive=True)
+def run_local_job(files, bucket, gcs_path, n_threads):
     options = _make_boto_options(n_threads)
     failed_uploads = _gsutil_upload_worker(
-        bucket_name=bucket, files=files, gcs_path=path, worker_id=0, boto_options=options
+        bucket_name=bucket, files=files, gcs_path=gcs_path, worker_id=0
     )
     logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
 
@@ -201,18 +258,34 @@ def main():
     gcs_path = gcs_path.strip("/")
     logger.info(f"Will upload to {args.bucket}/{gcs_path}")
 
+    files = collect_filepaths(args.input, recursive=args.recursive)
+    cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
+
+    symlink_dir = os.path.join(os.getcwd(), 'symlinks')
+    if os.path.isdir(symlink_dir):
+        shutil.rmtree(symlink_dir)
+    os.makedirs(symlink_dir)
+
+    fixed_files, cloud_paths_map = _symlink_duplicate_filenames(files, cloud_paths, symlink_dir)
+
     t0 = time.time()
     if args.cluster:
         run_cluster_job(
-            input_dir=args.input,
+            filepaths=fixed_files,
             bucket=args.bucket,
-            gcs_path=gcs_path,
+            gcs_path=args.gcs_path,
             tasks_per_worker=args.tasks_per_worker,
-            recursive=args.recursive,
         )
     else:
-        run_local_job(args.input, args.bucket, args.gcs_path, args.nthreads)
+        print("Running local job")
+        run_local_job(fixed_files, args.bucket, args.gcs_path, args.nthreads)
+
+    _fix_blob_paths(args.bucket, args.gcs_path, cloud_paths_map)
+
     logger.info(f"Upload done. Took {time.time() - t0}s ")
+
+    # clean up any symlinks
+    shutil.rmtree(symlink_dir)
 
 
 if __name__ == "__main__":
