@@ -34,9 +34,22 @@ def _make_boto_options(n_threads):
     return options
 
 
-def _set_gsutil_tmpdir(tmpdir):
+class EnvironmentVariableError(Exception):
+    pass
+
+
+def _set_gsutil_tmpdir():
+    ev = "SLURM_JOB_ID"
+    if ev not in os.environ:
+        raise EnvironmentVariableError(
+            "SLURM_JOB_ID is not set. "
+            "Are you running from a cluster environment?"
+        )
+    job_id = os.environ[ev]
+    if job_id == "":
+        raise EnvironmentVariableError("SLURM_JOB_ID is an empty string")
     # gsutil writes temporary data to this directory
-    os.environ["TMPDIR"] = tmpdir
+    os.environ["TMPDIR"] = f"/scratch/fast/{job_id}/gsutil-tmpdir"
 
 
 def _gsutil_upload_worker(
@@ -87,7 +100,9 @@ def _gsutil_upload_worker(
     return failed_uploads
 
 
-def _python_upload_worker(bucket_name, files, gcs_path, root=None, chunk_size=256 * 1024 * 1024):
+def _python_upload_worker(
+    bucket_name, files, gcs_path, root=None, chunk_size=256 * 1024 * 1024
+):
     uploader = GCSUploader(bucket_name)
     return uploader.upload_files(files, gcs_path, root, chunk_size=chunk_size)
 
@@ -191,7 +206,7 @@ def run_gsutil_cluster_job(
 
     chunked_files = _chunk_files(filepaths, ntasks, tasks_per_worker)
 
-    _set_gsutil_tmpdir(config["local_directory"])
+    _set_gsutil_tmpdir()
     options = _make_boto_options(config["cores"])
 
     futures = []
@@ -222,10 +237,17 @@ def run_gsutil_local_job(input_dir, bucket, gcs_path, n_threads):
         logger.error(f"gsutil exited with code {ret.returncode}")
 
 
-def run_python_local_job(input_dir, bucket, path, n_workers=4, chunk_size=256 * 1024 * 1024):
+def run_python_local_job(
+    input_dir, bucket, path, n_workers=4, chunk_size=256 * 1024 * 1024
+):
     files = collect_filepaths(input_dir, recursive=True)
     chunked_files = _chunk_files(files, n_workers, tasks_per_worker=1)
-    args = zip(itertools.repeat(bucket), chunked_files, itertools.repeat(path), itertools.repeat(chunk_size))
+    args = zip(
+        itertools.repeat(bucket),
+        chunked_files,
+        itertools.repeat(path),
+        itertools.repeat(chunk_size),
+    )
     with multiprocessing.Pool(n_workers) as pool:
         failed_uploads = list(
             itertools.chain(*pool.starmap(_python_upload_worker, args))
