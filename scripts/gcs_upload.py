@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import itertools
 import logging
 import multiprocessing
@@ -52,6 +53,31 @@ def _set_gsutil_tmpdir():
     os.environ["TMPDIR"] = f"/scratch/fast/{job_id}/gsutil-tmpdir"
 
 
+async def _rename_blob(bucket, blob, target_path):
+    try:
+        bucket.rename_blob(blob, target_path)
+    except google.api_core.exceptions.NotFound:
+        # This seems to happen if the target blob already exists??
+        pass
+
+
+async def _rename_blobs(files, bucket_name, gcs_path, cloud_paths_map):
+    # convert flat list of blobs to original directory structure
+    # each rename operation is blocking, so fire all the http requests asynchronously then wait
+    storage_client = create_client()
+    bucket = storage_client.get_bucket(bucket_name)
+    tasks = []
+    for f in files:
+        name = PurePath(f).name
+        blob = bucket.get_blob(gcs_path + "/" + name)
+        target_path = cloud_paths_map[name]
+        if blob.name == target_path:
+            continue
+        logger.info(f"renaming blob from {blob.name} to {target_path}")
+        tasks.append(_rename_blob(bucket=bucket, blob=blob, target_path=target_path))
+    await asyncio.gather(*tasks)
+
+
 def _gsutil_upload_worker(
     bucket_name,
     files,
@@ -81,21 +107,7 @@ def _gsutil_upload_worker(
             )
             failed_uploads.extend(_parse_cp_failures(logfile))
 
-    # convert flat list of blobs to original directory structure
-    storage_client = create_client()
-    bucket = storage_client.get_bucket(bucket_name)
-    for f in files:
-        name = PurePath(f).name
-        blob = bucket.get_blob(gcs_path + "/" + name)
-        target_path = cloud_paths_map[name]
-        if blob.name == target_path:
-            continue
-        logger.info(f"renaming blob from {blob.name} to {target_path}")
-        try:
-            bucket.rename_blob(blob, target_path)
-        except google.api_core.exceptions.NotFound:
-            # This seems to happen if the target blob already exists??
-            continue
+    asyncio.run(_rename_blobs(files, bucket_name, gcs_path, cloud_paths_map))
 
     return failed_uploads
 
