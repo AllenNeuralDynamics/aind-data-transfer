@@ -15,7 +15,7 @@ import numpy as np
 from dask_jobqueue import SLURMCluster
 from distributed import Client
 from transfer.gcs import create_client, GCSUploader
-from util.fileutils import collect_filepaths, make_cloud_paths
+from transfer.util.fileutils import collect_filepaths, make_cloud_paths
 
 from cluster.config import load_jobqueue_config
 
