@@ -86,10 +86,15 @@ class GCSUploader:
         if isinstance(gcs_path, str):
             gcs_paths = make_cloud_paths(filepaths, gcs_path, root=root)
         else:
-            gcs_paths = gcs_path
+            try:
+                _ = iter(gcs_path)
+                gcs_paths = gcs_path
+            except TypeError:
+                logger.error(f"Expected either a str or iterable, got {type(gcs_path)}")
+                raise
         failed_uploads = []
-        for fpath, gcs_path in zip(filepaths, gcs_paths):
-            if not self.upload_file(fpath, gcs_path, chunk_size=chunk_size):
+        for fpath, gpath in zip(filepaths, gcs_paths):
+            if not self.upload_file(fpath, gpath, chunk_size=chunk_size):
                 failed_uploads.append(fpath)
         return failed_uploads
 
