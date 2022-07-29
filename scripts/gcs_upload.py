@@ -15,6 +15,7 @@ import google.api_core.exceptions
 import numpy as np
 from dask_jobqueue import SLURMCluster
 from distributed import Client
+from google.cloud.storage import Blob
 from transfer.gcs import create_client, GCSUploader
 from transfer.util.fileutils import collect_filepaths, make_cloud_paths
 
@@ -74,7 +75,9 @@ async def _rename_blobs(files, bucket_name, gcs_path, cloud_paths_map):
         if blob.name == target_path:
             continue
         logger.info(f"renaming blob from {blob.name} to {target_path}")
-        tasks.append(_rename_blob(bucket=bucket, blob=blob, target_path=target_path))
+        tasks.append(
+            _rename_blob(bucket=bucket, blob=blob, target_path=target_path)
+        )
     await asyncio.gather(*tasks)
 
 
@@ -267,6 +270,16 @@ def run_python_local_job(
     logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
 
 
+def validate_blobs(bucket_name, target_paths):
+    storage_client = create_client()
+    bucket = storage_client.get_bucket(bucket_name)
+    missing_paths = []
+    for path in target_paths:
+        if not Blob(path, bucket).exists():
+            missing_paths.append(path)
+    return missing_paths
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -317,7 +330,16 @@ def parse_args():
         choices=["gsutil", "python"],
         default="python",
         help="use either gsutil or the google-cloud-storage Python API for upload. "
-        "gsutil is much faster, but less stable.",
+        "gsutil is much faster (>2X) in the case of a flat directory, but potentially slower otherwise"
+        "due to having to rename every blob to obtain the original directory structure. Renaming blobs"
+        "also incurs additional billed API requests.",
+    )
+    parser.add_argument(
+        "--validate",
+        default=False,
+        action="store_true",
+        help="Validate that all uploads were successful. This can take a while if there are many files."
+        "This is an additional billed API request for each uploaded object.",
     )
     args = parser.parse_args()
     return args
@@ -334,18 +356,17 @@ def main():
     gcs_path = gcs_path.strip("/")
     logger.info(f"Will upload to {args.bucket}/{gcs_path}")
 
+    files = collect_filepaths(args.input, recursive=args.recursive)
+    cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
+
     t0 = time.time()
     if args.cluster:
-
-        files = collect_filepaths(args.input, recursive=args.recursive)
 
         if args.method == "gsutil":
             symlink_dir = os.path.join(os.getcwd(), f"symlinks-{time.time()}")
             if os.path.isdir(symlink_dir):
                 shutil.rmtree(symlink_dir)
             os.makedirs(symlink_dir)
-
-            cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
 
             fixed_files, cloud_paths_map = _symlink_duplicate_filenames(
                 files, cloud_paths, symlink_dir
@@ -384,6 +405,17 @@ def main():
             raise ValueError(f"Unsupported method {args.method}")
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")
+
+    if args.validate:
+        missing_blobs = validate_blobs(
+            bucket_name=args.bucket, target_paths=cloud_paths
+        )
+        if not missing_blobs:
+            logger.info("All uploads were successful")
+        else:
+            logger.info(
+                f"{len(missing_blobs)} blobs missing.\n{missing_blobs}"
+            )
 
 
 if __name__ == "__main__":
