@@ -1,22 +1,23 @@
 import argparse
 import itertools
 import logging
+import multiprocessing
 import os
 import shutil
 import subprocess
-import time
 import tempfile
+import time
 from collections import defaultdict
 from pathlib import PurePath
 
 import google.api_core.exceptions
 import numpy as np
-from cluster.config import load_jobqueue_config
 from dask_jobqueue import SLURMCluster
 from distributed import Client
-
-from transfer.gcs import create_client
+from transfer.gcs import create_client, GCSUploader
 from util.fileutils import collect_filepaths, make_cloud_paths
+
+from cluster.config import load_jobqueue_config
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 logger = logging.getLogger(__name__)
@@ -39,7 +40,12 @@ def _set_gsutil_tmpdir(tmpdir):
 
 
 def _gsutil_upload_worker(
-    bucket_name, files, gcs_path, cloud_paths_map, worker_id, boto_options=None,
+    bucket_name,
+    files,
+    gcs_path,
+    cloud_paths_map,
+    worker_id,
+    boto_options=None,
 ):
     options_str = ""
     if boto_options is not None:
@@ -67,7 +73,7 @@ def _gsutil_upload_worker(
     bucket = storage_client.get_bucket(bucket_name)
     for f in files:
         name = PurePath(f).name
-        blob = bucket.get_blob(gcs_path + '/' + name)
+        blob = bucket.get_blob(gcs_path + "/" + name)
         target_path = cloud_paths_map[name]
         if blob.name == target_path:
             continue
@@ -81,22 +87,9 @@ def _gsutil_upload_worker(
     return failed_uploads
 
 
-def _gsutil_upload_worker2(bucket_name, files, gcs_paths, worker_id):
-    """This is unexpectedly slow. There must be a lot of overhead with each call
-    to gsutil"""
-    failed_uploads = []
-    with tempfile.TemporaryDirectory() as tmpdir:
-        logfile = os.path.join(tmpdir, f"gsutil-cp-worker-{worker_id}-log.log")
-        for fpath, gpath in zip(files, gcs_paths):
-            cmd = f"gsutil cp {fpath} gs://{bucket_name}/{gpath}"
-            status_code = os.system(cmd)
-            if status_code != 0:
-                logger.error(
-                    f"Error uploading files, gsutil exit code {status_code}"
-                )
-                failed_uploads.append(fpath)
-
-    return failed_uploads
+def _python_upload_worker(bucket_name, files, gcs_path, root=None):
+    uploader = GCSUploader(bucket_name)
+    return uploader.upload_files(files, gcs_path, root)
 
 
 def _symlink_duplicate_filenames(files, cloud_paths, symlink_dir):
@@ -122,10 +115,10 @@ def _symlink_duplicate_filenames(files, cloud_paths, symlink_dir):
 
 def _parse_cp_failures(log_path):
     failures = []
-    with open(log_path, 'r') as f:
+    with open(log_path, "r") as f:
         next(f)  # skip header
         for line in f:
-            parts = line.strip().split(',')
+            parts = line.strip().split(",")
             src = parts[0]
             status = parts[-2]
             if status != "OK":
@@ -148,7 +141,45 @@ def get_client(deployment="slurm"):
     return client, config
 
 
-def run_cluster_job(
+def _chunk_files(filepaths, n_workers, tasks_per_worker):
+    # Our target is ~tasks_per_worker chunks of files for each dask worker to upload.
+    # The way each job (upload of a single chunk) is actually distributed is up to the scheduler.
+    # Some workers may get many jobs while others get few.
+    # Increasing tasks_per_worker can help the scheduler balance jobs among workers.
+    n = min(n_workers * tasks_per_worker, len(filepaths))
+    chunked_files = np.array_split(filepaths, n)
+    logger.info(
+        f"Split files into {len(chunked_files)} chunks with "
+        f"{len(chunked_files[0])} files each"
+    )
+    return chunked_files
+
+
+def run_python_cluster_job(
+    filepaths, bucket, gcs_path, tasks_per_worker, root=None
+):
+    client, config = get_client()
+    ntasks = config["n_workers"]
+
+    chunked_files = _chunk_files(filepaths, ntasks, tasks_per_worker)
+
+    futures = []
+    for i, chunk in enumerate(chunked_files):
+        futures.append(
+            client.submit(
+                _python_upload_worker,
+                bucket_name=bucket,
+                files=chunk,
+                gcs_path=gcs_path,
+                root=root,
+            )
+        )
+    failed_uploads = list(itertools.chain(*client.gather(futures)))
+    logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
+    client.shutdown()
+
+
+def run_gsutil_cluster_job(
     filepaths,
     bucket,
     gcs_path,
@@ -157,19 +188,10 @@ def run_cluster_job(
 ):
     client, config = get_client()
     ntasks = config["n_workers"]
-    # Our target is ~tasks_per_worker chunks of files for each dask worker to upload.
-    # The way each job (upload of a single chunk) is actually distributed is up to the scheduler.
-    # Some workers may get many jobs while others get few.
-    # Increasing tasks_per_worker can help the scheduler balance jobs among workers.
-    n = min(ntasks * tasks_per_worker, len(filepaths))
-    chunked_files = np.array_split(filepaths, n)
-    logger.info(
-        f"Split files into {len(chunked_files)} chunks with "
-        f"{len(chunked_files[0])} files each"
-    )
 
-    _set_gsutil_tmpdir(config['local_directory'])
+    chunked_files = _chunk_files(filepaths, ntasks, tasks_per_worker)
 
+    _set_gsutil_tmpdir(config["local_directory"])
     options = _make_boto_options(config["cores"])
 
     futures = []
@@ -182,21 +204,33 @@ def run_cluster_job(
                 gcs_path=gcs_path,
                 cloud_paths_map=cloud_paths_map,
                 worker_id=i,
-                boto_options=options
+                boto_options=options,
             )
         )
+
     failed_uploads = list(itertools.chain(*client.gather(futures)))
     logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
     client.shutdown()
 
 
-def run_local_job(input_dir, bucket, gcs_path, n_threads):
+def run_gsutil_local_job(input_dir, bucket, gcs_path, n_threads):
     sep = " -o "
     options_str = f"{sep}{sep.join(_make_boto_options(n_threads))}"
     cmd = f"gsutil -m {options_str} cp -r {input_dir} gs://{bucket}/{gcs_path}"
     ret = subprocess.run(cmd, shell=True)
     if ret.returncode != 0:
         logger.error(f"gsutil exited with code {ret.returncode}")
+
+
+def run_python_local_job(input_dir, bucket, path, n_workers=4):
+    files = collect_filepaths(input_dir, recursive=True)
+    chunked_files = _chunk_files(files, n_workers, tasks_per_worker=1)
+    args = zip(itertools.repeat(bucket), chunked_files, itertools.repeat(path))
+    with multiprocessing.Pool(n_workers) as pool:
+        failed_uploads = list(
+            itertools.chain(*pool.starmap(_python_upload_worker, args))
+        )
+    logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
 
 
 def parse_args():
@@ -244,6 +278,13 @@ def parse_args():
         default=1,
         help="number of threads if running locally",
     )
+    parser.add_argument(
+        "--method",
+        choices=["gsutil", "python"],
+        default="python",
+        help="use either gsutil or the google-cloud-storage Python API for upload. "
+        "gsutil is much faster, but less stable.",
+    )
     args = parser.parse_args()
     return args
 
@@ -261,28 +302,52 @@ def main():
 
     t0 = time.time()
     if args.cluster:
+
         files = collect_filepaths(args.input, recursive=args.recursive)
-        cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
 
-        symlink_dir = os.path.join(os.getcwd(), f'symlinks-{time.time()}')
-        if os.path.isdir(symlink_dir):
+        if args.method == "gsutil":
+            symlink_dir = os.path.join(os.getcwd(), f"symlinks-{time.time()}")
+            if os.path.isdir(symlink_dir):
+                shutil.rmtree(symlink_dir)
+            os.makedirs(symlink_dir)
+
+            cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
+
+            fixed_files, cloud_paths_map = _symlink_duplicate_filenames(
+                files, cloud_paths, symlink_dir
+            )
+
+            run_gsutil_cluster_job(
+                filepaths=fixed_files,
+                bucket=args.bucket,
+                gcs_path=args.gcs_path,
+                cloud_paths_map=cloud_paths_map,
+                tasks_per_worker=args.tasks_per_worker,
+            )
+            # clean up any symlinks
             shutil.rmtree(symlink_dir)
-        os.makedirs(symlink_dir)
 
-        fixed_files, cloud_paths_map = _symlink_duplicate_filenames(files, cloud_paths, symlink_dir)
-
-        run_cluster_job(
-            filepaths=fixed_files,
-            bucket=args.bucket,
-            gcs_path=args.gcs_path,
-            cloud_paths_map=cloud_paths_map,
-            tasks_per_worker=args.tasks_per_worker,
-        )
-        # clean up any symlinks
-        shutil.rmtree(symlink_dir)
+        elif args.method == "python":
+            run_python_cluster_job(
+                filepaths=files,
+                bucket=args.bucket,
+                gcs_path=args.gcs_path,
+                tasks_per_worker=args.tasks_per_worker,
+                root=args.input,
+            )
+        else:
+            raise ValueError(f"Unsupported method {args.method}")
     else:
-        print("Running local job")
-        run_local_job(args.input, args.bucket, args.gcs_path, args.nthreads)
+        if args.method == "gsutil":
+            run_gsutil_local_job(
+                args.input, args.bucket, args.gcs_path, args.nthreads
+            )
+        elif args.method == "python":
+            run_python_local_job(
+                args.input, args.bucket, args.gcs_path, args.nthreads
+            )
+        else:
+            raise ValueError(f"Unsupported method {args.method}")
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")
 
