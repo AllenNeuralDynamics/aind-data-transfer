@@ -190,13 +190,13 @@ def run_cluster_job(
     client.shutdown()
 
 
-def run_local_job(files, bucket, gcs_path, cloud_paths_map, n_threads):
-    options = _make_boto_options(n_threads)
-    failed_uploads = _gsutil_upload_worker(
-        bucket_name=bucket, files=files, gcs_path=gcs_path, cloud_paths_map=cloud_paths_map, worker_id=0,
-        boto_options=options
-    )
-    logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
+def run_local_job(input_dir, bucket, gcs_path, n_threads):
+    sep = " -o "
+    options_str = f"{sep}{sep.join(_make_boto_options(n_threads))}"
+    cmd = f"gsutil -m {options_str} cp -r {input_dir} gs://{bucket}/{gcs_path}"
+    ret = subprocess.run(cmd, shell=True)
+    if ret.returncode != 0:
+        logger.error(f"gsutil exited with code {ret.returncode}")
 
 
 def parse_args():
@@ -259,18 +259,18 @@ def main():
     gcs_path = gcs_path.strip("/")
     logger.info(f"Will upload to {args.bucket}/{gcs_path}")
 
-    files = collect_filepaths(args.input, recursive=args.recursive)
-    cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
-
-    symlink_dir = os.path.join(os.getcwd(), f'symlinks-{time.time()}')
-    if os.path.isdir(symlink_dir):
-        shutil.rmtree(symlink_dir)
-    os.makedirs(symlink_dir)
-
-    fixed_files, cloud_paths_map = _symlink_duplicate_filenames(files, cloud_paths, symlink_dir)
-
     t0 = time.time()
     if args.cluster:
+        files = collect_filepaths(args.input, recursive=args.recursive)
+        cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
+
+        symlink_dir = os.path.join(os.getcwd(), f'symlinks-{time.time()}')
+        if os.path.isdir(symlink_dir):
+            shutil.rmtree(symlink_dir)
+        os.makedirs(symlink_dir)
+
+        fixed_files, cloud_paths_map = _symlink_duplicate_filenames(files, cloud_paths, symlink_dir)
+
         run_cluster_job(
             filepaths=fixed_files,
             bucket=args.bucket,
@@ -278,14 +278,13 @@ def main():
             cloud_paths_map=cloud_paths_map,
             tasks_per_worker=args.tasks_per_worker,
         )
+        # clean up any symlinks
+        shutil.rmtree(symlink_dir)
     else:
         print("Running local job")
-        run_local_job(fixed_files, args.bucket, args.gcs_path, cloud_paths_map, args.nthreads)
+        run_local_job(args.input, args.bucket, args.gcs_path, args.nthreads)
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")
-
-    # clean up any symlinks
-    shutil.rmtree(symlink_dir)
 
 
 if __name__ == "__main__":
