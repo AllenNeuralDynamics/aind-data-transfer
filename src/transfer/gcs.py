@@ -50,6 +50,7 @@ class GCSUploader:
             gcs_bucket (str): name of gcs bucket
             gcs_key (str): location relative to bucket to store blob
             timeout (float): upload timeout
+            chunk_size (int): upload file in chunks of this size
         Returns:
             A list of filepaths for failed uploads
         """
@@ -67,6 +68,7 @@ class GCSUploader:
         filepaths: List[str],
         gcs_path: Union[str, List[str]],
         root: str = None,
+        chunk_size: int = 64 * 1024 * 1024,
     ) -> List[str]:
         """Upload a list of files to gcs.
         Args:
@@ -77,6 +79,7 @@ class GCSUploader:
             root (str): root directory shared by all files in filepaths.
                         If None, all files will be stored as a flat list
                         under gcs_folder. Default is None.
+            chunk_size (int): upload each file in chunks of this size
         Returns:
             A list of filepaths for failed uploads
         """
@@ -86,7 +89,7 @@ class GCSUploader:
             gcs_paths = gcs_path
         failed_uploads = []
         for fpath, gcs_path in zip(filepaths, gcs_paths):
-            if not self.upload_file(fpath, gcs_path):
+            if not self.upload_file(fpath, gcs_path, chunk_size=chunk_size):
                 failed_uploads.append(fpath)
         return failed_uploads
 
@@ -95,12 +98,14 @@ class GCSUploader:
         folder: str,
         gcs_folder: str,
         recursive: bool = True,
+        chunk_size: int = 64 * 1024 * 1024,
     ) -> List[str]:
         """Upload a directory to gcs.
         Args:
             folder (str): absolute path of the folder to upload.
             gcs_folder (str): location relative to bucket to store objects
             recursive (boolean): upload all sub-directories
+            chunk_size (int): upload each file in chunks of this size
         Returns:
             A list of filepaths for failed uploads
         """
@@ -108,4 +113,5 @@ class GCSUploader:
             collect_filepaths(folder, recursive),
             gcs_folder,
             root=folder,
+            chunk_size=chunk_size,
         )

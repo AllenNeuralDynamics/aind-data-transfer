@@ -87,9 +87,9 @@ def _gsutil_upload_worker(
     return failed_uploads
 
 
-def _python_upload_worker(bucket_name, files, gcs_path, root=None):
+def _python_upload_worker(bucket_name, files, gcs_path, root=None, chunk_size=256 * 1024 * 1024):
     uploader = GCSUploader(bucket_name)
-    return uploader.upload_files(files, gcs_path, root)
+    return uploader.upload_files(files, gcs_path, root, chunk_size=chunk_size)
 
 
 def _symlink_duplicate_filenames(files, cloud_paths, symlink_dir):
@@ -222,10 +222,10 @@ def run_gsutil_local_job(input_dir, bucket, gcs_path, n_threads):
         logger.error(f"gsutil exited with code {ret.returncode}")
 
 
-def run_python_local_job(input_dir, bucket, path, n_workers=4):
+def run_python_local_job(input_dir, bucket, path, n_workers=4, chunk_size=256 * 1024 * 1024):
     files = collect_filepaths(input_dir, recursive=True)
     chunked_files = _chunk_files(files, n_workers, tasks_per_worker=1)
-    args = zip(itertools.repeat(bucket), chunked_files, itertools.repeat(path))
+    args = zip(itertools.repeat(bucket), chunked_files, itertools.repeat(path), itertools.repeat(chunk_size))
     with multiprocessing.Pool(n_workers) as pool:
         failed_uploads = list(
             itertools.chain(*pool.starmap(_python_upload_worker, args))
