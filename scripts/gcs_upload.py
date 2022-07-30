@@ -122,25 +122,38 @@ def _python_upload_worker(
     return uploader.upload_files(files, gcs_path, root, chunk_size=chunk_size)
 
 
-def _symlink_duplicate_filenames(files, cloud_paths, symlink_dir):
+def _symlink_duplicate_filenames(filepaths, symlink_dir):
+    """If any files in filepaths have the same name (even if from different directories),
+    create symlinks with an index-based suffix to disambiguate them. This is necessary since
+    gsutil uploads all files to the same directory, and will overwrite any files with the same name.
+    Args:
+        filepaths (list): list of absolute filepaths
+        symlink_dir (str): temporary directory to store symlinks
+    Returns:
+        a list of disambiguated filepaths
+    """
     max_ids = defaultdict(int)
-    corrected_paths = []
-    cloud_paths_map = {}
-    for fpath, cpath in zip(files, cloud_paths):
+    seen_names = set()
+    disambiguated_paths = []
+    for fpath in filepaths:
         fname = PurePath(fpath).name
-        if fname in cloud_paths_map:
+        if fname in seen_names:
             max_ids[fname] += 1
             name, ext = os.path.splitext(fname)
             new_name = f"{name}-{max_ids[fname]}{ext}"
             new_path = os.path.join(symlink_dir, new_name)
             os.symlink(fpath, new_path)
-            corrected_paths.append(new_path)
-            cloud_paths_map[new_name] = cpath
+            disambiguated_paths.append(new_path)
         else:
-            cloud_paths_map[fname] = cpath
-            corrected_paths.append(fpath)
+            seen_names.add(fname)
+            disambiguated_paths.append(fpath)
 
-    return corrected_paths, cloud_paths_map
+    return disambiguated_paths
+
+
+def _map_filenames_to_cloud_paths(filepaths, cloud_paths):
+    fnames = [PurePath(f).name for f in filepaths]
+    return dict(zip(fnames, cloud_paths))
 
 
 def _parse_cp_failures(log_path):
@@ -356,8 +369,8 @@ def main():
     gcs_path = gcs_path.strip("/")
     logger.info(f"Will upload to {args.bucket}/{gcs_path}")
 
-    files = collect_filepaths(args.input, recursive=args.recursive)
-    cloud_paths = make_cloud_paths(files, args.gcs_path, args.input)
+    filepaths = collect_filepaths(args.input, recursive=args.recursive)
+    cloud_paths = make_cloud_paths(filepaths, args.gcs_path, args.input)
 
     t0 = time.time()
     if args.cluster:
@@ -368,12 +381,11 @@ def main():
                 shutil.rmtree(symlink_dir)
             os.makedirs(symlink_dir)
 
-            fixed_files, cloud_paths_map = _symlink_duplicate_filenames(
-                files, cloud_paths, symlink_dir
-            )
+            disambiguated_filepaths = _symlink_duplicate_filenames(filepaths, symlink_dir)
+            cloud_paths_map = _map_filenames_to_cloud_paths(disambiguated_filepaths, cloud_paths)
 
             run_gsutil_cluster_job(
-                filepaths=fixed_files,
+                filepaths=disambiguated_filepaths,
                 bucket=args.bucket,
                 gcs_path=args.gcs_path,
                 cloud_paths_map=cloud_paths_map,
@@ -384,7 +396,7 @@ def main():
 
         elif args.method == "python":
             run_python_cluster_job(
-                filepaths=files,
+                filepaths=filepaths,
                 bucket=args.bucket,
                 gcs_path=args.gcs_path,
                 tasks_per_worker=args.tasks_per_worker,
