@@ -20,9 +20,15 @@ def collect_filepaths(folder: str, recursive: bool = True) -> List[str]:
     return filepaths
 
 
-def join_cloud_paths(cloud_dest_path, relpath):
+def join_cloud_paths(cloud_dest_path: str, relpath: str) -> str:
     """Always produce posix-style paths, even if relpath
-    is Windows-style"""
+    is Windows-style
+    Args:
+        cloud_dest_path (str): first part of the path
+        relpath (str): second part of the path
+    Returns:
+        the joined path
+    """
     cloud_dest_path = PurePosixPath(cloud_dest_path)
     relpath = PurePath(relpath)
     return str(cloud_dest_path / relpath)
@@ -31,6 +37,29 @@ def join_cloud_paths(cloud_dest_path, relpath):
 def make_cloud_paths(
     filepaths: List[str], cloud_dest_path: str, root: str = None
 ) -> List[str]:
+    """
+    Given a list of filepaths and a cloud destination folder,
+    build a cloud path for each file relative to root.
+    Args:
+        filepaths (list): list of paths
+        cloud_dest_path (str): the cloud storage path to store files
+        root (str): a directory shared by all paths in filepaths, which will
+                    serve as the new root under cloud_dest path. If none,
+                    all files are uploaded as a flat list to cloud_dest_path,
+                    ignoring any exiting directory structure.
+    Returns:
+        list of cloud storage paths
+    Examples:
+    >>> filepaths = ["/data/micr/0001.tif", "/data/metadata/rig.json"]
+    >>> root = "/data"
+    >>> cloud_dest_path = "my-data"
+    >>> cloud_paths = make_cloud_paths(filepaths, cloud_dest_path, root)
+    >>> print(cloud_paths)
+    ['my-data/micr/001.tif', 'my-data/metadata/rig.json']
+    >>> cloud_paths = make_cloud_paths(filepaths, cloud_dest_path, None)
+    >>> print(cloud_paths)
+    ['my-data/001.tif', 'my-data/rig.json']
+    """
     cloud_paths = []
     # remove both leading and trailing '/'
     cloud_dest_path = cloud_dest_path.strip('/')
