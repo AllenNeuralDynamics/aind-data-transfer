@@ -199,7 +199,7 @@ def _chunk_files(filepaths, n_workers, tasks_per_worker):
 
 
 def run_python_cluster_job(
-    filepaths, bucket, gcs_path, tasks_per_worker, root=None
+    filepaths, bucket, gcs_path, tasks_per_worker, root=None, chunk_size=256 * 1024 * 1024
 ):
     client, config = get_client()
     ntasks = config["n_workers"]
@@ -215,6 +215,7 @@ def run_python_cluster_job(
                 files=chunk,
                 gcs_path=gcs_path,
                 root=root,
+                chunk_size=chunk_size
             )
         )
     failed_uploads = list(itertools.chain(*client.gather(futures)))
@@ -339,6 +340,12 @@ def parse_args():
         help="number of threads if running locally",
     )
     parser.add_argument(
+        "--chunk_size",
+        type=int,
+        default=256,
+        help="upload files in chunks of this size (MB)"
+    )
+    parser.add_argument(
         "--method",
         choices=["gsutil", "python"],
         default="python",
@@ -395,12 +402,14 @@ def main():
             shutil.rmtree(symlink_dir)
 
         elif args.method == "python":
+            chunk_size = args.chunk_size * 1024 * 1024  # MB to bytes
             run_python_cluster_job(
                 filepaths=filepaths,
                 bucket=args.bucket,
                 gcs_path=args.gcs_path,
                 tasks_per_worker=args.tasks_per_worker,
                 root=args.input,
+                chunk_size=chunk_size
             )
         else:
             raise ValueError(f"Unsupported method {args.method}")
