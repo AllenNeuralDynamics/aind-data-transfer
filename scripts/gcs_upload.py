@@ -27,6 +27,13 @@ logger.setLevel(logging.INFO)
 
 
 def _make_boto_options(n_threads):
+    """Create Boto options to pass to gsutil
+    See https://cloud.google.com/storage/docs/boto-gsutil
+    Args:
+        n_threads (int): number of threads to use for parallel uploads
+    Returns:
+        a list of option strings
+    """
     options = []
     # Use the same process / thread ratio as the ~/.boto defaults
     # These defaults are different on Windows (1 process, many threads)
@@ -41,6 +48,11 @@ class EnvironmentVariableError(Exception):
 
 
 def _set_gsutil_tmpdir():
+    """
+    Sets the temporary directory used by gsutil to the
+    fast node-local directory created for the
+    job this script is running under.
+    """
     ev = "SLURM_JOB_ID"
     if ev not in os.environ:
         raise EnvironmentVariableError(
@@ -55,6 +67,13 @@ def _set_gsutil_tmpdir():
 
 
 async def _rename_blob(bucket, blob, target_path):
+    """
+    Rename the blob to target_path
+    Args:
+        bucket (google.cloud.storage.Bucket) the bucket instance
+        blob (google.cloud.storage.Blob) the blob instance
+        target_path (str) the new name for the blob
+    """
     try:
         bucket.rename_blob(blob, target_path)
     except google.api_core.exceptions.NotFound:
@@ -63,6 +82,14 @@ async def _rename_blob(bucket, blob, target_path):
 
 
 async def _rename_blobs(files, bucket_name, gcs_path, cloud_paths_map):
+    """
+    Args:
+        files (list): list of local filepaths that were uploaded
+        bucket_name (str): the name of the bucket where the files were uploaded
+        gcs_path (str): the cloud storage path where files were uploaded
+        cloud_paths_map (dict): a dictionary mapping uploaded file names (not paths)
+                                to their desired cloud paths
+    """
     # convert flat list of blobs to original directory structure
     # each rename operation is blocking, so fire all the http requests asynchronously then wait
     storage_client = create_client()
@@ -89,6 +116,17 @@ def _gsutil_upload_worker(
     worker_id,
     boto_options=None,
 ):
+    """
+    Uploads a list of filepaths to GCS using gsutil
+    Args:
+        bucket_name (str): name of bucket to upload to
+        files (list): list of absolute filepaths to upload to the bucket
+        gcs_path (str): the cloud storage path to upload the files to
+        cloud_paths_map (dict): a dictionary mapping uploaded file names
+                                (not paths) to their target cloud paths
+        worker_id (int): A unique ID for this worker
+        boto_options (list): list of Boto options to pass to gsutil
+    """
     options_str = ""
     if boto_options is not None:
         sep = " -o "
@@ -118,6 +156,16 @@ def _gsutil_upload_worker(
 def _python_upload_worker(
     bucket_name, files, gcs_path, root=None, chunk_size=256 * 1024 * 1024
 ):
+    """
+    Uploads a list of filepaths to GCS using the google-cloud-storage Python API
+    Args:
+        bucket_name (str): name of bucket
+        files (list): list of absolute paths to upload to bucket
+        gcs_path (str): google cloud storage path to upload files to
+        root (str): directory shared by files to serve as root directory
+        chunk_size (int): set the blob chunk size (bytes).
+                          Increasing this can speed up transfers.
+    """
     uploader = GCSUploader(bucket_name)
     return uploader.upload_files(files, gcs_path, root, chunk_size=chunk_size)
 
@@ -152,11 +200,28 @@ def _symlink_duplicate_filenames(filepaths, symlink_dir):
 
 
 def _map_filenames_to_cloud_paths(filepaths, cloud_paths):
+    """
+    Create a dictionary associating file names (not paths) to their target
+    cloud paths. File names should be unique.
+    Args:
+        filepaths (list): list of local absolute paths
+        cloud_paths (list): list of corresponding cloud path for each file
+    Returns:
+        a dictionary mapping filepaths to cloud paths
+    """
     fnames = [PurePath(f).name for f in filepaths]
     return dict(zip(fnames, cloud_paths))
 
 
 def _parse_cp_failures(log_path):
+    """
+    Parse the gsutil cp log for any transfers with a non-OK status code
+    Args:
+        log_path (str): path to the log file created by gsutil,
+                        e.g., gsutil cp -L log_path.log ...
+    Returns:
+        a list of filepaths that resulted in an error during transfer
+    """
     failures = []
     with open(log_path, "r") as f:
         next(f)  # skip header
@@ -170,6 +235,12 @@ def _parse_cp_failures(log_path):
 
 
 def get_client(deployment="slurm"):
+    """
+    Args:
+        deployment (str): type of cluster
+    Returns:
+        the dask Client and its configuration dict
+    """
     base_config = load_jobqueue_config()
     if deployment == "slurm":
         config = base_config["jobqueue"]["slurm"]
@@ -185,10 +256,19 @@ def get_client(deployment="slurm"):
 
 
 def _chunk_files(filepaths, n_workers, tasks_per_worker):
-    # Our target is ~tasks_per_worker chunks of files for each dask worker to upload.
-    # The way each job (upload of a single chunk) is actually distributed is up to the scheduler.
-    # Some workers may get many jobs while others get few.
-    # Increasing tasks_per_worker can help the scheduler balance jobs among workers.
+    """
+    Partition a list of filepaths into chunks.
+    Our target is ~tasks_per_worker chunks of files for each dask worker to upload.
+    The way each job (upload of a single chunk) is actually distributed is up to the scheduler.
+    Some workers may get many jobs while others get few.
+    Increasing tasks_per_worker can help the scheduler balance jobs among workers.
+    Args:
+        filepaths (list): list of absolute paths to chunk
+        n_workers (int): the number of dask workers
+        tasks_per_worker (int): target # tasks per dask worker
+    Returns:
+        a list of lists, where each sublist contains a list of filepaths
+    """
     n = min(n_workers * tasks_per_worker, len(filepaths))
     chunked_files = np.array_split(filepaths, n)
     logger.info(
@@ -199,8 +279,24 @@ def _chunk_files(filepaths, n_workers, tasks_per_worker):
 
 
 def run_python_cluster_job(
-    filepaths, bucket, gcs_path, tasks_per_worker, root=None, chunk_size=256 * 1024 * 1024
+    filepaths,
+    bucket,
+    gcs_path,
+    tasks_per_worker,
+    root=None,
+    chunk_size=256 * 1024 * 1024,
 ):
+    """
+    Upload a list of filepaths using multiple distributed instances of the google-cloud-storage Python API
+    Args:
+        filepaths (list): list of absolute paths to upload
+        bucket (str): name of the bucket
+        gcs_path (str): cloud storage location to store uploaded files
+        tasks_per_worker (int): target number of chunks for each worker to process
+        root (str): shared directory for filepaths to serve as root folder in the bucket
+        chunk_size (int): set the blob chunk size (bytes).
+                          Increasing this can speed up transfers.
+    """
     client, config = get_client()
     ntasks = config["n_workers"]
 
@@ -215,7 +311,7 @@ def run_python_cluster_job(
                 files=chunk,
                 gcs_path=gcs_path,
                 root=root,
-                chunk_size=chunk_size
+                chunk_size=chunk_size,
             )
         )
     failed_uploads = list(itertools.chain(*client.gather(futures)))
@@ -230,6 +326,15 @@ def run_gsutil_cluster_job(
     cloud_paths_map,
     tasks_per_worker,
 ):
+    """
+    Upload a list of filepaths using multiple distributed instances of gsutil
+    Args:
+        filepaths (list): list of absolute paths to upload
+        bucket (str): name of the bucket
+        gcs_path (str): cloud storage location to store uploaded files
+        cloud_paths_map (dict): dictionary mapping file names (not paths) to target cloud paths
+        tasks_per_worker (int): target number of chunks for each worker to process
+    """
     client, config = get_client()
     ntasks = config["n_workers"]
 
@@ -258,6 +363,14 @@ def run_gsutil_cluster_job(
 
 
 def run_gsutil_local_job(input_dir, bucket, gcs_path, n_threads):
+    """
+    Upload a directory using multithreaded gsutil
+    Args:
+        input_dir (str): directory to upload
+        bucket (str): name of the bucket
+        gcs_path (str): cloud storage location to store uploaded files
+        n_threads (int): number of threads to use for gsutil
+    """
     sep = " -o "
     options_str = f"{sep}{sep.join(_make_boto_options(n_threads))}"
     cmd = f"gsutil -m {options_str} cp -r {input_dir} gs://{bucket}/{gcs_path}"
@@ -267,14 +380,24 @@ def run_gsutil_local_job(input_dir, bucket, gcs_path, n_threads):
 
 
 def run_python_local_job(
-    input_dir, bucket, path, n_workers=4, chunk_size=256 * 1024 * 1024
+    input_dir, bucket, gcs_path, n_workers=4, chunk_size=256 * 1024 * 1024
 ):
+    """
+    Upload a directory using the google-cloud-storage Python API and multiprocessing
+    Args:
+        input_dir (str): directory to upload
+        bucket (str): name of the bucket
+        gcs_path (str): cloud storage location to store uploaded files
+        n_workers (int): number of workers
+        chunk_size (int): set the blob chunk size (bytes).
+                          Increasing this can speed up transfers.
+    """
     files = collect_filepaths(input_dir, recursive=True)
     chunked_files = _chunk_files(files, n_workers, tasks_per_worker=1)
     args = zip(
         itertools.repeat(bucket),
         chunked_files,
-        itertools.repeat(path),
+        itertools.repeat(gcs_path),
         itertools.repeat(chunk_size),
     )
     with multiprocessing.Pool(n_workers) as pool:
@@ -285,6 +408,14 @@ def run_python_local_job(
 
 
 def validate_blobs(bucket_name, target_paths):
+    """
+    Ensure that all blobs were uploaded correctly
+    Args:
+        bucket_name (str): bucket name
+        target_paths (list): list of cloud paths to validate
+    Returns:
+        list of cloud storage paths that are missing a Blob
+    """
     storage_client = create_client()
     bucket = storage_client.get_bucket(bucket_name)
     missing_paths = []
@@ -343,7 +474,7 @@ def parse_args():
         "--chunk_size",
         type=int,
         default=256,
-        help="upload files in chunks of this size (MB)"
+        help="upload files in chunks of this size (MB)",
     )
     parser.add_argument(
         "--method",
@@ -388,8 +519,12 @@ def main():
                 shutil.rmtree(symlink_dir)
             os.makedirs(symlink_dir)
 
-            disambiguated_filepaths = _symlink_duplicate_filenames(filepaths, symlink_dir)
-            cloud_paths_map = _map_filenames_to_cloud_paths(disambiguated_filepaths, cloud_paths)
+            disambiguated_filepaths = _symlink_duplicate_filenames(
+                filepaths, symlink_dir
+            )
+            cloud_paths_map = _map_filenames_to_cloud_paths(
+                disambiguated_filepaths, cloud_paths
+            )
 
             run_gsutil_cluster_job(
                 filepaths=disambiguated_filepaths,
@@ -409,7 +544,7 @@ def main():
                 gcs_path=args.gcs_path,
                 tasks_per_worker=args.tasks_per_worker,
                 root=args.input,
-                chunk_size=chunk_size
+                chunk_size=chunk_size,
             )
         else:
             raise ValueError(f"Unsupported method {args.method}")
