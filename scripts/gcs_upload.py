@@ -481,7 +481,7 @@ def parse_args():
         choices=["gsutil", "python"],
         default="python",
         help="use either gsutil or the google-cloud-storage Python API for upload. "
-        "gsutil is much faster (>2X) in the case of a flat directory, but potentially slower otherwise"
+        "gsutil is much faster (~1.25X) in the case of a flat directory, but potentially slower otherwise"
         "due to having to rename every blob to obtain the original directory structure. Renaming blobs"
         "also incurs additional billed API requests.",
     )
