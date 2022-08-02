@@ -140,12 +140,10 @@ def _gsutil_upload_worker(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         logfile = os.path.join(tmpdir, f"gsutil-cp-worker-{worker_id}-log.log")
-        catfile = os.path.join(tmpdir, f"file-subset-{worker_id}.txt")
-        with open(catfile, "w") as f:
-            for file in files:
-                f.write(file + "\n")
-        cmd = f"cat {catfile} | gsutil -m {options_str} cp -L {logfile} -I gs://{bucket_name}/{gcs_path}"
-        ret = subprocess.run(cmd, shell=True)
+        # pass file list to subprocess as a string via stdin
+        files_str = "\n".join(files) + "\n"  # carriage return
+        cmd = f"gsutil -m {options_str} cp -L {logfile} -I gs://{bucket_name}/{gcs_path}"
+        ret = subprocess.run(cmd, shell=True, text=True, input=files_str)
 
         failed_uploads = []
         if ret.returncode != 0:
