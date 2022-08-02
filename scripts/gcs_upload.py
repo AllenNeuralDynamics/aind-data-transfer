@@ -76,9 +76,15 @@ async def _rename_blob(bucket, blob, target_path):
     """
     try:
         bucket.rename_blob(blob, target_path)
-    except google.api_core.exceptions.NotFound:
+    except google.api_core.exceptions.NotFound as e:
         # This seems to happen if the target blob already exists??
-        pass
+        logger.warning(
+            f"Error renaming blob {blob.name} to {target_path}\n"
+            f"code: {e.code}\n"
+            f"errors: {e.errors}\n"
+            f"message: {e.message}\n"
+            f"details: {e.details}"
+        )
 
 
 async def _rename_blobs(files, bucket_name, gcs_path, cloud_paths_map):
