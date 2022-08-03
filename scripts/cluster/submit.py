@@ -80,6 +80,9 @@ def write_dask_config(args, run_info, deployment="slurm"):
     with open(run_info.dask_conf_file, "w") as f:
         yaml.dump(config, f, default_flow_style=None)
     # Now save the file actually used by Dask
+    dask_conf_dir = os.path.dirname(DASK_CONF_FILE)
+    if not os.path.exists(dask_conf_dir):
+        os.makedirs(dask_conf_dir)
     with open(DASK_CONF_FILE, "w") as f:
         yaml.dump(config, f, default_flow_style=None)
 
