@@ -43,6 +43,8 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
 
 ENV AWS_DEFAULT_REGION="us-west-2"
 
+RUN mkdir -p /scratch/fast && chmod -R 777 /scratch/fast
+
 COPY slurm.conf /etc/slurm-llnl/
 COPY cgroup.conf /etc/slurm-llnl/
 COPY docker-entrypoint.sh /etc/slurm-llnl/
