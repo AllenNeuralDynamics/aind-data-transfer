@@ -1,0 +1,57 @@
+services:
+  slurmmaster:
+    build:
+      context: ./master
+      dockerfile: Dockerfile
+    hostname: slurmmaster
+    user: admin
+    volumes:
+      - shared-vol:/home/nd-data-transfer
+    ports:
+      - 6817:6817
+      - 6818:6818
+      - 6819:6819
+  slurmnode1:
+    build:
+      context: ./node
+      dockerfile: Dockerfile
+    hostname: slurmnode1
+    user: admin
+    volumes:
+      - shared-vol:/home/nd-data-transfer
+    environment:
+      - SLURM_NODENAME=slurmnode1
+    links:
+      - slurmmaster
+  slurmnode2:
+    build:
+      context: ./node
+      dockerfile: Dockerfile
+    hostname: slurmnode2
+    user: admin
+    volumes:
+      - shared-vol:/home/nd-data-transfer
+    environment:
+      - SLURM_NODENAME=slurmnode2
+    links:
+      - slurmmaster
+  slurmnode3:
+    build:
+      context: ./node
+      dockerfile: Dockerfile
+    hostname: slurmnode3
+    user: admin
+    volumes:
+      - shared-vol:/home/nd-data-transfer
+    environment:
+      - SLURM_NODENAME=slurmnode3
+    links:
+      - slurmmaster
+volumes:
+  shared-vol:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '../'
+      
