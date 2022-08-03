@@ -10,10 +10,11 @@ RUN apt update --fix-missing -y && \
 	apt install vim -y && \
 	apt install build-essential -y && \
 	apt install git -y && \
-	apt-get install mariadb-server -y && \
+	apt install mariadb-server -y && \
 	apt install wget -y && \
 	apt install -y bzip2 ca-certificates curl && \
-	apt clean
+    apt install unzip && \
+    apt clean
 
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-4.5.11-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /opt/conda && \
@@ -28,7 +29,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt install slurmd slurm-client slurmctld -y
 
 RUN apt install sudo -y && \
-	useradd -m admin -s /usr/bin/bash -d /home/admin && \
+	useradd -m admin -s /usr/bin/bash -d /home/nd-data-transfer && \
 	echo "admin:admin" | chpasswd && \
 	adduser admin sudo && \
 	echo "admin     ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers 
@@ -36,12 +37,18 @@ RUN apt install sudo -y && \
 RUN source ~/.bashrc && python3 -m pip install --upgrade pip
 RUN source ~/.bashrc && apt update -y && apt install libopenmpi-dev -y && python3 -m pip install mpi4py
 
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    sudo ./aws/install
+
+ENV AWS_DEFAULT_REGION="us-west-2"
+
 COPY slurm.conf /etc/slurm-llnl/
 COPY cgroup.conf /etc/slurm-llnl/
 COPY docker-entrypoint.sh /etc/slurm-llnl/
 
 EXPOSE 6817 6818 6819 3306 
 
-WORKDIR /home/admin
+WORKDIR /home/nd-data-transfer
 
 ENTRYPOINT ["/etc/slurm-llnl/docker-entrypoint.sh"]
