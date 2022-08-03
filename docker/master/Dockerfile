@@ -28,7 +28,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt install slurmd slurm-client slurmctld -y
 
 RUN apt install sudo -y && \
-	useradd -m admin -s /usr/bin/bash -d /home/admin && \
+	useradd -m admin -s /usr/bin/bash -d /home/nd-data-transfer && \
 	echo "admin:admin" | chpasswd && \
 	adduser admin sudo && \
 	echo "admin     ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers 
@@ -42,6 +42,6 @@ COPY docker-entrypoint.sh /etc/slurm-llnl/
 
 EXPOSE 6817 6818 6819 3306 
 
-WORKDIR /home/admin
+WORKDIR /home/nd-data-transfer
 
 ENTRYPOINT ["/etc/slurm-llnl/docker-entrypoint.sh"]

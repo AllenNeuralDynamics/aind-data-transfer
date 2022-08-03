@@ -28,7 +28,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt install slurmd slurm-client -y
 
 RUN apt install sudo -y && \
-	useradd -m admin -s /usr/bin/bash -d /home/admin && \
+	useradd -m admin -s /usr/bin/bash -d /home/nd-data-transfer && \
 	echo "admin:admin" | chpasswd && \
 	adduser admin sudo && \
 	echo "admin     ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
