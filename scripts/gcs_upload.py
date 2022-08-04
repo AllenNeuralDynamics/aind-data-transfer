@@ -2,8 +2,11 @@ import argparse
 import itertools
 import logging
 import multiprocessing
+import os
+import errno
 import subprocess
 import time
+from datetime import datetime
 from pathlib import PurePath
 
 import numpy as np
@@ -197,12 +200,20 @@ def run_gsutil_local_job(input_dir, bucket, gcs_path, n_threads):
         gcs_path (str): cloud storage location to store uploaded files
         n_threads (int): number of threads to use for gsutil
     """
+    logfile = f"gsutil-log-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.log"
     sep = " -o "
     options_str = f"{sep}{sep.join(_make_boto_options(n_threads))}"
-    cmd = f"gsutil -m {options_str} cp -r {input_dir} gs://{bucket}/{gcs_path}"
+    cmd = f"gsutil -m {options_str} cp -L {logfile} -r {input_dir} gs://{bucket}/{gcs_path}"
     ret = subprocess.run(cmd, shell=True)
     if ret.returncode != 0:
         logger.error(f"gsutil exited with code {ret.returncode}")
+        failed_uploads = _parse_cp_failures(logfile)
+        logger.error(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
+    try:
+        os.remove(logfile)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
 
 
 def validate_blobs(bucket_name, target_paths):
