@@ -2,11 +2,8 @@ import argparse
 import logging
 import os
 import time
-from abc import ABC, abstractmethod
 from pathlib import Path
 
-import dask.array
-import dask_image.imread
 import numpy as np
 from aicsimageio.writers import OmeZarrWriter
 from bids import BIDSLayout
@@ -14,51 +11,14 @@ from cluster.config import load_jobqueue_config
 from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
 from numcodecs import blosc
-from tifffile import tifffile
+
+from transfer.transcode.io import DataReaderFactory
 
 blosc.use_threads = False
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
-
-
-class DataLoader(ABC):
-    def __init__(self, filepath):
-        self.filepath = filepath
-        super().__init__()
-
-    @abstractmethod
-    def as_dask_array(self) -> dask.array.Array:
-        pass
-
-    @abstractmethod
-    def as_array(self) -> np.ndarray:
-        pass
-
-
-class TiffLoader(DataLoader):
-    def as_dask_array(self):
-        return dask_image.imread.imread(self.filepath)
-
-    def as_array(self):
-        return tifffile.imread(self.filepath)
-
-
-class DataLoaderFactory:
-    VALID_EXTENSIONS = [".tif", ".tiff"]  # ".h5", ".ims"]
-
-    factory = {}
-
-    def __init__(self):
-        self.factory[".tif"] = TiffLoader
-        self.factory[".tiff"] = TiffLoader
-
-    def create(self, filepath) -> DataLoader:
-        _, ext = os.path.splitext(filepath)
-        if ext not in self.VALID_EXTENSIONS:
-            raise NotImplementedError(f"File type {ext} not supported")
-        return self.factory[ext](filepath)
 
 
 def parse_bids_dir(indir):
@@ -73,7 +33,7 @@ def get_blosc_codec(codec, clevel):
 
 
 def get_images(input_dir):
-    valid_exts = DataLoaderFactory().VALID_EXTENSIONS
+    valid_exts = DataReaderFactory().VALID_EXTENSIONS
     image_paths = []
     for root, _, files in os.walk(input_dir):
         for f in files:
@@ -179,11 +139,12 @@ def main():
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
 
-        data = DataLoaderFactory().create(impath).as_dask_array()
+        reader = DataReaderFactory().create(impath)
+        data = reader.as_dask_array()
         # Force 3D Tile to TCZYX
         data = pad_array_5d(data)
 
-        LOGGER.debug(f"{data}")
+        LOGGER.info(f"{data}")
         LOGGER.info(f"tile size: {data.nbytes / (1024 ** 2)} MB")
 
         tile_name = Path(impath).stem
@@ -207,6 +168,8 @@ def main():
         LOGGER.info(
             f"Done. Took {write_time}s. {data.nbytes / write_time / (1024 ** 2)} MiB/s"
         )
+
+        reader.close()
 
 
 if __name__ == "__main__":
