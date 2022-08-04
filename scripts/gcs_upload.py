@@ -144,6 +144,7 @@ def run_python_local_job(
         itertools.repeat(bucket),
         chunked_files,
         itertools.repeat(gcs_path),
+        itertools.repeat(input_dir),
         itertools.repeat(chunk_size),
     )
     with multiprocessing.Pool(n_workers) as pool:
