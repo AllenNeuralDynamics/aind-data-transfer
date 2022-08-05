@@ -3,7 +3,6 @@
 
 import logging
 import os
-from pathlib import PurePath
 from typing import List
 
 from awscrt.s3 import S3Client
@@ -13,7 +12,7 @@ from s3transfer.constants import GB, MB
 from s3transfer.crt import (BotocoreCRTRequestSerializer, CRTTransferFuture,
                             CRTTransferManager, create_s3_crt_client)
 
-from util.fileutils import collect_filepaths
+from util.fileutils import collect_filepaths, make_cloud_paths
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -85,7 +84,7 @@ class S3Uploader:
         Returns:
             A list of filepaths for failed uploads
         """
-        s3_paths = _make_s3_paths(filepaths, s3_folder, root=root)
+        s3_paths = make_cloud_paths(filepaths, s3_folder, root=root)
         with CRTTransferManager(
             self.s3_crt_client, self.request_serializer
         ) as manager:
@@ -130,20 +129,6 @@ class S3Uploader:
 
     def set_timeout(self, timeout: float) -> None:
         self.upload_timeout = timeout
-
-
-def _make_s3_paths(
-    filepaths: List[str], s3_folder: str, root: str = None
-) -> List[str]:
-    s3_paths = []
-    for fpath in filepaths:
-        if root is None:
-            s3_paths.append(os.path.join(s3_folder, PurePath(fpath).name))
-        else:
-            s3_paths.append(
-                os.path.join(s3_folder, os.path.relpath(fpath, root))
-            )
-    return s3_paths
 
 
 def _await_file_upload_futures(
