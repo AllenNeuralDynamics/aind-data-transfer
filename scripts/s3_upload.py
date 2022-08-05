@@ -12,7 +12,7 @@ from distributed import Client
 from s3transfer.constants import GB, MB
 
 from transfer.s3 import S3Uploader
-from util.fileutils import collect_filepaths
+from transfer.util.fileutils import collect_filepaths
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"
