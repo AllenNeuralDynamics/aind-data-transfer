@@ -16,6 +16,11 @@ To develop the code, run
 pip install -e .[dev]
 ```
 
+Install `hdf5plugin` if transcoding HDF5 or Imaris files
+```
+pip install hdf5plugin --no-binary hdf5plugin
+```
+
 ## Contributing
 
 ### Linters and testing
