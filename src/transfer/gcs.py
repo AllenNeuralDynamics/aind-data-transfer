@@ -5,7 +5,7 @@ import google.auth
 import google.auth.exceptions
 from google.cloud import storage
 from google.cloud.storage import Client
-from util.fileutils import make_cloud_paths, collect_filepaths
+from .util.fileutils import make_cloud_paths, collect_filepaths
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -50,6 +50,7 @@ class GCSUploader:
             gcs_bucket (str): name of gcs bucket
             gcs_key (str): location relative to bucket to store blob
             timeout (float): upload timeout
+            chunk_size (int): upload file in chunks of this size
         Returns:
             A list of filepaths for failed uploads
         """
@@ -67,6 +68,7 @@ class GCSUploader:
         filepaths: List[str],
         gcs_path: Union[str, List[str]],
         root: str = None,
+        chunk_size: int = 64 * 1024 * 1024,
     ) -> List[str]:
         """Upload a list of files to gcs.
         Args:
@@ -77,16 +79,22 @@ class GCSUploader:
             root (str): root directory shared by all files in filepaths.
                         If None, all files will be stored as a flat list
                         under gcs_folder. Default is None.
+            chunk_size (int): upload each file in chunks of this size
         Returns:
             A list of filepaths for failed uploads
         """
         if isinstance(gcs_path, str):
             gcs_paths = make_cloud_paths(filepaths, gcs_path, root=root)
         else:
-            gcs_paths = gcs_path
+            try:
+                _ = iter(gcs_path)
+                gcs_paths = gcs_path
+            except TypeError:
+                logger.error(f"Expected either a str or iterable, got {type(gcs_path)}")
+                raise
         failed_uploads = []
-        for fpath, gcs_path in zip(filepaths, gcs_paths):
-            if not self.upload_file(fpath, gcs_path):
+        for fpath, gpath in zip(filepaths, gcs_paths):
+            if not self.upload_file(fpath, gpath, chunk_size=chunk_size):
                 failed_uploads.append(fpath)
         return failed_uploads
 
@@ -95,12 +103,14 @@ class GCSUploader:
         folder: str,
         gcs_folder: str,
         recursive: bool = True,
+        chunk_size: int = 64 * 1024 * 1024,
     ) -> List[str]:
         """Upload a directory to gcs.
         Args:
             folder (str): absolute path of the folder to upload.
             gcs_folder (str): location relative to bucket to store objects
             recursive (boolean): upload all sub-directories
+            chunk_size (int): upload each file in chunks of this size
         Returns:
             A list of filepaths for failed uploads
         """
@@ -108,4 +118,5 @@ class GCSUploader:
             collect_filepaths(folder, recursive),
             gcs_folder,
             root=folder,
+            chunk_size=chunk_size,
         )
