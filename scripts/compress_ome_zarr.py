@@ -5,6 +5,11 @@ import time
 from pathlib import Path
 
 import numpy as np
+import h5py
+# Importing this alone doesn't work on HPC
+# Must manually override HDF5_PLUGIN_PATH environment variable
+# in each Dask worker
+import hdf5plugin
 from aicsimageio.writers import OmeZarrWriter
 from bids import BIDSLayout
 from cluster.config import load_jobqueue_config
@@ -46,13 +51,13 @@ def get_images(input_dir):
     return image_paths
 
 
-def get_client(deployment="slurm"):
+def get_client(deployment="slurm", **kwargs):
     base_config = load_jobqueue_config()
     if deployment == "slurm":
         config = base_config["jobqueue"]["slurm"]
         # cluster config is automatically populated from
         # ~/.config/dask/jobqueue.yaml
-        cluster = SLURMCluster()
+        cluster = SLURMCluster(**kwargs)
         cluster.scale(config["n_workers"])
         LOGGER.info(cluster.job_script())
     elif deployment == "local":
@@ -116,6 +121,12 @@ def parse_args():
         help="cluster deployment type",
     )
     parser.add_argument("--log_level", type=int, default=logging.INFO)
+    parser.add_argument(
+        "--hdf5_plugin_path",
+        type=str,
+        default="/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/envs/nd-data-transfer/lib/python3.10/site-packages/hdf5plugin/plugins",
+        help="path to HDF5 filter plugins. Specifying this is necessary if transcoding HDF5 or IMS files on HPC."
+    )
     args = parser.parse_args()
     return args
 
@@ -127,7 +138,13 @@ def main():
 
     validate_output_path(args.output)
 
-    client, _ = get_client(args.deployment)
+    my_dask_kwargs = {}
+    if args.hdf5_plugin_path is not None:
+        # TODO: figure out why this is necessary
+        # Override plugin path in each Dask worker
+        my_dask_kwargs["env_extra"] = [f"export HDF5_PLUGIN_PATH={args.hdf5_plugin_path}"]
+
+    client, _ = get_client(args.deployment, **my_dask_kwargs)
 
     compressor = get_blosc_codec(args.codec, args.clevel)
     opts = {

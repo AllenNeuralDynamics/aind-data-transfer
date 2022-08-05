@@ -4,6 +4,10 @@ from abc import ABC, abstractmethod
 import dask.array as da
 import dask_image.imread
 import h5py
+# Importing this alone doesn't work on HPC
+# Must manually override HDF5_PLUGIN_PATH environment variable
+# in each Dask worker
+import hdf5plugin
 import numpy as np
 import tifffile
 
