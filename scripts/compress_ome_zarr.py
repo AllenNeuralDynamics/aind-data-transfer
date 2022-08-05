@@ -26,6 +26,22 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 
+def set_hdf5_env_vars(hdf5_plugin_path=None):
+    if hdf5_plugin_path is not None:
+        os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+
+
+def get_dask_kwargs(hdf5_plugin_path=None):
+    my_dask_kwargs = {'env_extra': []}
+    if hdf5_plugin_path is not None:
+        # TODO: figure out why this is necessary
+        # Override plugin path in each Dask worker
+        my_dask_kwargs['env_extra'].append(f"export HDF5_PLUGIN_PATH={hdf5_plugin_path}")
+    my_dask_kwargs['env_extra'].append("export HDF5_USE_FILE_LOCKING=FALSE")
+    return my_dask_kwargs
+
+
 def parse_bids_dir(indir):
     layout = BIDSLayout(indir)
     print(layout)
@@ -138,11 +154,9 @@ def main():
 
     validate_output_path(args.output)
 
-    my_dask_kwargs = {}
-    if args.hdf5_plugin_path is not None:
-        # TODO: figure out why this is necessary
-        # Override plugin path in each Dask worker
-        my_dask_kwargs["env_extra"] = [f"export HDF5_PLUGIN_PATH={args.hdf5_plugin_path}"]
+    set_hdf5_env_vars(args.hdf5_plugin_path)
+
+    my_dask_kwargs = get_dask_kwargs(args.hdf5_plugin_path)
 
     client, _ = get_client(args.deployment, **my_dask_kwargs)
 
