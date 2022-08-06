@@ -23,6 +23,15 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
+GCLOUD_TOOLS = ['gcloud alpha storage', 'gsutil']
+# FIXME map input arg to tool command since cli args can't have spaces
+METHODS = {
+    "gsutil": "gsutil",
+    "python": "python",
+    "gcloud": "gcloud alpha storage"
+}
+
+
 def get_client(deployment="slurm"):
     """
     Args:
@@ -192,22 +201,47 @@ def _make_boto_options(n_threads):
     return options
 
 
-def run_gsutil_local_job(input_dir, bucket, gcs_path, n_threads):
+def build_gcloud_cmd(tool, func, input_dir, bucket, gcs_path, nthreads, recursive=True, logfile=None):
+    if tool not in GCLOUD_TOOLS:
+        raise ValueError(f"Invalid tool {tool}")
+    cmd = f"{tool}"
+    if tool == "gsutil" and nthreads > 1:
+        sep = " -o "
+        cmd += f" -m {sep}{sep.join(_make_boto_options(nthreads))}"
+    cmd += f" {func}"
+    if logfile is not None:
+        cmd += f" -L {logfile}"
+    if recursive:
+        cmd += " -r"
+    cmd += f" {input_dir} gs://{bucket}/{gcs_path}"
+    logger.debug(f"Built command: {cmd}")
+    return cmd
+
+
+def run_gcloud_local_job(tool, input_dir, bucket, gcs_path, nthreads):
     """
-    Upload a directory using multithreaded gsutil
+    Upload a directory using the gcloud storage CLI
     Args:
+        tool (str): either "gcloud alpha storage" or "gsutil"
         input_dir (str): directory to upload
         bucket (str): name of the bucket
         gcs_path (str): cloud storage location to store uploaded files
-        n_threads (int): number of threads to use for gsutil
+        nthreads (int): num threads to use for upload. Only applies to gsutil
     """
-    logfile = f"gsutil-log-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.log"
-    sep = " -o "
-    options_str = f"{sep}{sep.join(_make_boto_options(n_threads))}"
-    cmd = f"gsutil -m {options_str} cp -L {logfile} -r {input_dir} gs://{bucket}/{gcs_path}"
+    # assumes there will only be a single space, which should always be the case
+    logfile = f"{tool.replace(' ', '_')}-log-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.log"
+    cmd = build_gcloud_cmd(
+        tool,
+        func="cp",
+        input_dir=input_dir,
+        bucket=bucket,
+        gcs_path=gcs_path,
+        nthreads=nthreads,
+        logfile=logfile
+    )
     ret = subprocess.run(cmd, shell=True)
     if ret.returncode != 0:
-        logger.error(f"gsutil exited with code {ret.returncode}")
+        logger.error(f"{tool} exited with code {ret.returncode}")
         failed_uploads = _parse_cp_failures(logfile)
         logger.error(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
     try:
@@ -233,6 +267,14 @@ def validate_blobs(bucket_name, target_paths):
         if not Blob(path, bucket).exists():
             missing_paths.append(path)
     return missing_paths
+
+
+def get_normalized_method(method):
+    try:
+        return METHODS[method]
+    except KeyError:
+        logger.error(f"Invalid method {method}. Choices are {METHODS.keys()}")
+        raise
 
 
 def parse_args():
@@ -288,9 +330,9 @@ def parse_args():
     )
     parser.add_argument(
         "--method",
-        choices=["gsutil", "python"],
+        choices=list(METHODS.keys()),
         default="python",
-        help="use either gsutil or the google-cloud-storage Python API for local upload.",
+        help="use either gsutil, gcloud storage or the google-cloud-storage Python API for local upload.",
     )
     parser.add_argument(
         "--validate",
@@ -329,16 +371,17 @@ def main():
             chunk_size=chunk_size,
         )
     else:
-        if args.method == "gsutil":
-            run_gsutil_local_job(
-                args.input, args.bucket, args.gcs_path, args.nthreads
+        norm_method = get_normalized_method(args.method)
+        if norm_method in GCLOUD_TOOLS:
+            run_gcloud_local_job(
+                norm_method, args.input, args.bucket, args.gcs_path, args.nthreads
             )
-        elif args.method == "python":
+        elif norm_method == "python":
             run_python_local_job(
                 args.input, args.bucket, args.gcs_path, args.nthreads
             )
         else:
-            raise ValueError(f"Unsupported method {args.method}")
+            raise ValueError(f"Unsupported method {norm_method}")
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")
 
