@@ -24,11 +24,12 @@ logger.setLevel(logging.INFO)
 
 def chunk_files(input_dir, ntasks, recursive=True):
     filepaths = collect_filepaths(input_dir, recursive)
+    logger.info(f"Collected {len(filepaths)} files")
     return np.array_split(filepaths, ntasks)
 
 
 def upload_files_job(
-    files, bucket, s3_path, n_threads, target_throughput, part_size, timeout
+    input_dir, files, bucket, s3_path, n_threads, target_throughput, part_size, timeout
 ):
     uploader = S3Uploader(
         num_threads=n_threads,
@@ -36,7 +37,7 @@ def upload_files_job(
         part_size=part_size,
         upload_timeout=timeout,
     )
-    return uploader.upload_files(files, bucket, s3_path)
+    return uploader.upload_files(files, bucket, s3_path, root=input_dir)
 
 
 def get_client():
@@ -76,6 +77,7 @@ def run_cluster_job(
         futures.append(
             client.submit(
                 upload_files_job,
+                input_dir=input_dir,
                 files=chunk,
                 bucket=bucket,
                 s3_path=s3_path,
