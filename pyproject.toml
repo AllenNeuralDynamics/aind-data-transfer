@@ -23,6 +23,7 @@ dependencies = [
     'google-cloud-storage',
     'ome-zarr@git+https://github.com/toloudis/ome-zarr-py.git@feature/dask-poc',
     'aicsimageio@git+https://github.com/carshadi/aicsimageio.git@feature/zarrwriter-compression',
+    'hdf5plugin@https://github.com/silx-kit/hdf5plugin/archive/refs/tags/v3.3.1.tar.gz',
     'pybids',
     'gcsfs'
 ]
