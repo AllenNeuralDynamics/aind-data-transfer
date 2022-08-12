@@ -149,7 +149,7 @@ def expand_chunks(chunks, target_size, itemsize, mode="iso"):
         prev = current.copy()
         idx = 0
         ndims = len(spatial_chunks)
-        while np.product(current) * itemsize < target_size:
+        while _get_size(current, itemsize) < target_size:
             prev = current.copy()
             current[idx % ndims] *= 2
             idx += 1
@@ -217,13 +217,13 @@ def parse_args():
     parser.add_argument(
         "--output",
         type=str,
-        default="gs://aind-transfer-service-test/ome-zarr-test/test-file.zarr",
+        default="gs://aind-transfer-service-test/ome-zarr-test/exaSPIM-tile-test",
         help="output directory",
     )
     parser.add_argument("--codec", type=str, default="zstd")
     parser.add_argument("--clevel", type=int, default=1)
     parser.add_argument(
-        "--chunk_size", type=float, default=128, help="chunk size in MB"
+        "--chunk_size", type=float, default=64, help="chunk size in MB"
     )
     parser.add_argument(
         "--chunk_shape", type=int, nargs='+', default=None, help="5D sequence of chunk dimensions, in TCZYX order"
