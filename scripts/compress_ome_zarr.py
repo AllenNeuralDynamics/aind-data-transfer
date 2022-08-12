@@ -124,6 +124,16 @@ def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
             spatial_dims[1],
             spatial_dims[2]
         )
+    elif mode == "iso":
+        # TODO: should this be a power of 2?
+        chunk_dim = int(math.ceil((target_size / bytes_per_pixel) ** (1.0 / 3)))
+        chunks = (
+            1,
+            1,
+            chunk_dim,
+            chunk_dim,
+            chunk_dim
+        )
     else:
         raise ValueError(f"Invalid mode {mode}")
 
@@ -227,7 +237,7 @@ def main():
 
         if args.chunk_shape is None:
             target_size_bytes = args.chunk_size * 1024 * 1024
-            chunks = guess_chunks(data.shape, target_size_bytes, data.itemsize, mode="z")
+            chunks = guess_chunks(data.shape, target_size_bytes, data.itemsize, mode="iso")
         else:
             chunks = tuple(args.chunk_shape)
         LOGGER.info(f"chunks: {chunks}")
