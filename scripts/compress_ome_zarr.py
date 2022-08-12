@@ -1,5 +1,6 @@
 import argparse
 import logging
+import math
 import os
 import time
 from pathlib import Path
@@ -92,6 +93,44 @@ def pad_array_5d(arr):
     return arr
 
 
+def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
+    if mode == "z":
+        plane_size = data_shape[3] * data_shape[4] * bytes_per_pixel
+        nplanes_per_chunk = int(math.ceil(target_size / plane_size))
+        nplanes_per_chunk = min(nplanes_per_chunk, data_shape[2])
+        chunks = (
+            1,
+            1,
+            nplanes_per_chunk,
+            data_shape[3],
+            data_shape[4],
+        )
+    elif mode == "cycle":
+        # get the spatial dimensions only
+        spatial_dims = np.array(data_shape)[2:]
+        idx = 0
+        ndims = len(spatial_dims)
+        while np.product(spatial_dims) * bytes_per_pixel > target_size:
+            spatial_dims[idx % ndims] = int(
+                math.ceil(
+                    spatial_dims[idx % ndims] / 2.0
+                )
+            )
+            idx += 1
+        chunks = (
+            1,
+            1,
+            spatial_dims[0],
+            spatial_dims[1],
+            spatial_dims[2]
+        )
+    else:
+        raise ValueError(f"Invalid mode {mode}")
+
+    # convert numpy int64 to Python int or zarr will complain
+    return tuple(int(d) for d in chunks)
+
+
 def validate_output_path(output):
     # TODO cloud path validation
     if output.startswith("gs://"):
@@ -120,6 +159,9 @@ def parse_args():
     parser.add_argument("--clevel", type=int, default=1)
     parser.add_argument(
         "--chunk_size", type=float, default=128, help="chunk size in MB"
+    )
+    parser.add_argument(
+        "--chunk_shape", type=int, nargs='+', default=None
     )
     parser.add_argument(
         "--n_levels", type=int, default=1, help="number of resolution levels"
@@ -183,6 +225,13 @@ def main():
 
         writer = OmeZarrWriter(out_zarr)
 
+        if args.chunk_shape is None:
+            target_size_bytes = args.chunk_size * 1024 * 1024
+            chunks = guess_chunks(data.shape, target_size_bytes, data.itemsize, mode="z")
+        else:
+            chunks = tuple(args.chunk_shape)
+        LOGGER.info(f"chunks: {chunks}")
+
         t0 = time.time()
         writer.write_image(
             image_data=data,  # : types.ArrayLike,  # must be 5D TCZYX
@@ -192,7 +241,7 @@ def main():
             channel_colors=None,
             scale_num_levels=args.n_levels,  # : int = 1,
             scale_factor=args.scale_factor,  # : float = 2.0,
-            target_chunk_size=args.chunk_size,  # MB
+            chunks=chunks,
             storage_options=opts,
         )
         write_time = time.time() - t0
