@@ -141,6 +141,42 @@ def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
     return tuple(int(d) for d in chunks)
 
 
+def expand_chunks(chunks, target_size, bytes_per_pixel, mode="iso"):
+    if mode == "cycle":
+        # get the spatial dimensions only
+        spatial_chunks = np.array(chunks)[2:]
+        idx = 0
+        ndims = len(spatial_chunks)
+        while np.product(spatial_chunks) * bytes_per_pixel < target_size:
+            spatial_chunks[idx % ndims] *= 2
+            idx += 1
+        expanded = (
+            1,
+            1,
+            spatial_chunks[0],
+            spatial_chunks[1],
+            spatial_chunks[2]
+        )
+    elif mode == "iso":
+        spatial_chunks = np.array(chunks)[2:]
+        current = spatial_chunks
+        i = 2
+        while np.product(current) * bytes_per_pixel < target_size:
+            current = spatial_chunks * i
+            i += 1
+        expanded = (
+            1,
+            1,
+            current[0],
+            current[1],
+            current[2]
+        )
+    else:
+        raise ValueError(f"Invalid mode {mode}")
+
+    return tuple(int(d) for d in expanded)
+
+
 def validate_output_path(output):
     # TODO cloud path validation
     if output.startswith("gs://"):
@@ -156,7 +192,7 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default=r"Y:\mnt\vast\aind\mesospim_ANM457202_2022_07_11",
+        default=r"/mnt/vast/aind/cameron.arshadi/test_ims",
         help="directory of images to transcode",
     )
     parser.add_argument(
@@ -171,7 +207,7 @@ def parse_args():
         "--chunk_size", type=float, default=128, help="chunk size in MB"
     )
     parser.add_argument(
-        "--chunk_shape", type=int, nargs='+', default=None
+        "--chunk_shape", type=int, nargs='+', default=None, help="5D sequence of chunk dimensions, in TCZYX order"
     )
     parser.add_argument(
         "--n_levels", type=int, default=1, help="number of resolution levels"
@@ -237,7 +273,15 @@ def main():
 
         if args.chunk_shape is None:
             target_size_bytes = args.chunk_size * 1024 * 1024
-            chunks = guess_chunks(data.shape, target_size_bytes, data.itemsize, mode="iso")
+            if hasattr(data, "chunksize"):
+                # If we're working with a Dask array which is already chunked,
+                # use a multiple of the base chunk size to ensure optimal access patterns.
+                # Use the "chunksize" property instead of "chunks" since "chunks" is a tuple of tuples
+                LOGGER.info(f"Using multiple of base chunksize: {data.chunksize}")
+                chunks = expand_chunks(data.chunksize, target_size_bytes, data.itemsize, mode="iso")
+            else:
+                # Otherwise, hazard a guess
+                chunks = guess_chunks(data.shape, target_size_bytes, data.itemsize, mode="iso")
         else:
             chunks = tuple(args.chunk_shape)
         LOGGER.info(f"chunks: {chunks}")
