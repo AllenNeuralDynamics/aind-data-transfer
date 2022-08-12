@@ -141,29 +141,36 @@ def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
     return tuple(int(d) for d in chunks)
 
 
-def expand_chunks(chunks, target_size, bytes_per_pixel, mode="iso"):
+def expand_chunks(chunks, target_size, itemsize, mode="iso"):
     if mode == "cycle":
         # get the spatial dimensions only
         spatial_chunks = np.array(chunks)[2:]
+        current = spatial_chunks
+        prev = current.copy()
         idx = 0
         ndims = len(spatial_chunks)
-        while np.product(spatial_chunks) * bytes_per_pixel < target_size:
-            spatial_chunks[idx % ndims] *= 2
+        while np.product(current) * itemsize < target_size:
+            prev = current.copy()
+            current[idx % ndims] *= 2
             idx += 1
+        current = _closer_to_target(current, prev, target_size, itemsize)
         expanded = (
             1,
             1,
-            spatial_chunks[0],
-            spatial_chunks[1],
-            spatial_chunks[2]
+            current[0],
+            current[1],
+            current[2]
         )
     elif mode == "iso":
         spatial_chunks = np.array(chunks)[2:]
         current = spatial_chunks
+        prev = current
         i = 2
-        while np.product(current) * bytes_per_pixel < target_size:
+        while _get_size(current, itemsize) < target_size:
+            prev = current
             current = spatial_chunks * i
             i += 1
+        current = _closer_to_target(current, prev, target_size, itemsize)
         expanded = (
             1,
             1,
@@ -175,6 +182,18 @@ def expand_chunks(chunks, target_size, bytes_per_pixel, mode="iso"):
         raise ValueError(f"Invalid mode {mode}")
 
     return tuple(int(d) for d in expanded)
+
+
+def _closer_to_target(shape1, shape2, target_bytes, itemsize):
+    size1 = _get_size(shape1, itemsize)
+    size2 = _get_size(shape2, itemsize)
+    if abs(size1 - target_bytes) < abs(size2 - target_bytes):
+        return shape1
+    return shape2
+
+
+def _get_size(shape, itemsize):
+    return np.product(shape) * itemsize
 
 
 def validate_output_path(output):
@@ -192,7 +211,7 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default=r"/mnt/vast/aind/cameron.arshadi/test_ims",
+        default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
         help="directory of images to transcode",
     )
     parser.add_argument(
@@ -278,13 +297,13 @@ def main():
                 # use a multiple of the base chunk size to ensure optimal access patterns.
                 # Use the "chunksize" property instead of "chunks" since "chunks" is a tuple of tuples
                 LOGGER.info(f"Using multiple of base chunksize: {data.chunksize}")
-                chunks = expand_chunks(data.chunksize, target_size_bytes, data.itemsize, mode="iso")
+                chunks = expand_chunks(data.chunksize, target_size_bytes, data.itemsize, mode="cycle")
             else:
                 # Otherwise, hazard a guess
                 chunks = guess_chunks(data.shape, target_size_bytes, data.itemsize, mode="iso")
         else:
             chunks = tuple(args.chunk_shape)
-        LOGGER.info(f"chunks: {chunks}")
+        LOGGER.info(f"chunks: {chunks}, {np.product(chunks) * data.itemsize / (1024 ** 2)} MiB")
 
         t0 = time.time()
         writer.write_image(
