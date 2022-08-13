@@ -298,6 +298,7 @@ def main():
                 # Use the "chunksize" property instead of "chunks" since "chunks" is a tuple of tuples
                 LOGGER.info(f"Using multiple of base chunksize: {data.chunksize}")
                 chunks = expand_chunks(data.chunksize, target_size_bytes, data.itemsize, mode="cycle")
+                data = data.rechunk(chunks)
             else:
                 # Otherwise, hazard a guess
                 chunks = guess_chunks(data.shape, target_size_bytes, data.itemsize, mode="iso")
