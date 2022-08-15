@@ -130,9 +130,9 @@ def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
         chunks = (
             1,
             1,
-            chunk_dim,
-            chunk_dim,
-            chunk_dim
+            min(data_shape[2], chunk_dim),
+            min(data_shape[3], chunk_dim),
+            min(data_shape[4], chunk_dim)
         )
     else:
         raise ValueError(f"Invalid mode {mode}")
@@ -141,7 +141,7 @@ def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
     return tuple(int(d) for d in chunks)
 
 
-def expand_chunks(chunks, target_size, itemsize, mode="iso"):
+def expand_chunks(chunks, data_shape, target_size, itemsize, mode="iso"):
     if mode == "cycle":
         # get the spatial dimensions only
         spatial_chunks = np.array(chunks)[2:]
@@ -157,9 +157,9 @@ def expand_chunks(chunks, target_size, itemsize, mode="iso"):
         expanded = (
             1,
             1,
-            current[0],
-            current[1],
-            current[2]
+            min(data_shape[2], current[0]),
+            min(data_shape[3], current[1]),
+            min(data_shape[4], current[2])
         )
     elif mode == "iso":
         spatial_chunks = np.array(chunks)[2:]
@@ -174,9 +174,9 @@ def expand_chunks(chunks, target_size, itemsize, mode="iso"):
         expanded = (
             1,
             1,
-            current[0],
-            current[1],
-            current[2]
+            min(data_shape[2], current[0]),
+            min(data_shape[3], current[1]),
+            min(data_shape[4], current[2])
         )
     else:
         raise ValueError(f"Invalid mode {mode}")
@@ -297,7 +297,7 @@ def main():
                 # use a multiple of the base chunk size to ensure optimal access patterns.
                 # Use the "chunksize" property instead of "chunks" since "chunks" is a tuple of tuples
                 LOGGER.info(f"Using multiple of base chunksize: {data.chunksize}")
-                chunks = expand_chunks(data.chunksize, target_size_bytes, data.itemsize, mode="cycle")
+                chunks = expand_chunks(data.chunksize, data.shape, target_size_bytes, data.itemsize, mode="cycle")
                 data = data.rechunk(chunks)
             else:
                 # Otherwise, hazard a guess
