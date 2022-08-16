@@ -1,4 +1,5 @@
 import os
+import zarr
 from abc import ABC, abstractmethod
 
 import dask.array as da
@@ -18,7 +19,7 @@ class DataReader(ABC):
         super().__init__()
 
     @abstractmethod
-    def as_dask_array(self) -> da.Array:
+    def as_dask_array(self, chunks=True) -> da.Array:
         pass
 
     @abstractmethod
@@ -29,13 +30,40 @@ class DataReader(ABC):
     def close(self) -> None:
         pass
 
+    @abstractmethod
+    def get_shape(self) -> tuple:
+        pass
+
+    @abstractmethod
+    def get_chunks(self) -> tuple:
+        pass
+
+    @abstractmethod
+    def get_itemsize(self) -> int:
+        pass
+
 
 class TiffReader(DataReader):
-    def as_dask_array(self):
+    def as_dask_array(self, chunks=True):
         return dask_image.imread.imread(self.filepath)
 
     def as_array(self):
         return tifffile.imread(self.filepath)
+
+    def as_zarr(self):
+        with tifffile.TiffFile(self.filepath) as tif:
+            return zarr.open(tif.aszarr(), 'r')
+
+    def get_shape(self):
+        # Open as Zarr store in case we're dealing with
+        # ImageJ hyperstacks
+        return self.as_zarr().shape
+
+    def get_chunks(self):
+        return self.as_zarr().chunks
+
+    def get_itemsize(self):
+        return self.as_zarr().itemsize
 
     def close(self):
         pass
@@ -48,14 +76,23 @@ class HDF5Reader(DataReader):
         super().__init__(filepath)
         self.handle = h5py.File(self.filepath, mode='r')
 
-    def as_dask_array(self):
-        return da.from_array(self.get_dataset())
+    def as_dask_array(self, chunks=True):
+        return da.from_array(self.get_dataset(), chunks=chunks)
 
     def as_array(self):
         return self.get_dataset()[:]
 
-    def get_dataset(self):
+    def get_dataset(self) -> h5py.Dataset:
         return self.handle[self.IMAGE_DATA_PATH]
+
+    def get_shape(self):
+        return self.get_dataset().shape
+
+    def get_chunks(self):
+        return self.get_dataset().chunks
+
+    def get_itemsize(self):
+        return self.get_dataset().dtype.itemsize
 
     def close(self):
         if self.handle is not None:
