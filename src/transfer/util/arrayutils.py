@@ -2,13 +2,21 @@ import math
 import numpy as np
 
 
-def pad_array_5d(arr):
+class DimensionsError(Exception):
+    pass
+
+
+def ensure_array_5d(arr):
+    if arr.ndim > 5:
+        raise DimensionsError("Only arrays up to 5D are supported")
     while arr.ndim < 5:
         arr = arr[np.newaxis, ...]
     return arr
 
 
-def pad_shape_5d(shape):
+def ensure_shape_5d(shape):
+    if len(shape) > 5:
+        raise DimensionsError("Only shapes up to 5D are supported")
     while len(shape) < 5:
         shape = (1, *shape)
     return shape

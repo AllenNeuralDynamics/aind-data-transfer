@@ -13,7 +13,7 @@ from distributed import Client, LocalCluster
 from numcodecs import blosc
 from pathlib import Path
 from transfer.transcode.io import DataReaderFactory
-from transfer.util.arrayutils import (pad_array_5d, pad_shape_5d,
+from transfer.util.arrayutils import (ensure_array_5d, ensure_shape_5d,
                                       guess_chunks, expand_chunks)
 from transfer.util.fileutils import collect_filepaths
 
