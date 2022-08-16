@@ -42,13 +42,6 @@ def get_dask_kwargs(hdf5_plugin_path=None):
     return my_dask_kwargs
 
 
-def parse_bids_dir(indir):
-    layout = BIDSLayout(indir)
-    print(layout)
-    all_files = layout.get()
-    print(all_files)
-
-
 def get_blosc_codec(codec, clevel):
     return blosc.Blosc(cname=codec, clevel=clevel, shuffle=blosc.SHUFFLE)
 
