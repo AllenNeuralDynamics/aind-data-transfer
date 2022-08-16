@@ -93,6 +93,12 @@ def pad_array_5d(arr):
     return arr
 
 
+def pad_shape_5d(shape):
+    while len(shape) < 5:
+        shape = (1, *shape)
+    return shape
+
+
 def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
     if mode == "z":
         plane_size = data_shape[3] * data_shape[4] * bytes_per_pixel
@@ -277,8 +283,33 @@ def main():
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
 
+        # Create reader, but don't construct dask array
+        # until we know the optimal chunk shape.
         reader = DataReaderFactory().create(impath)
-        data = reader.as_dask_array()
+
+        if args.chunk_shape is None:
+            target_size_bytes = args.chunk_size * 1024 * 1024
+            padded_chunks = pad_shape_5d(reader.get_chunks())
+            padded_shape = pad_shape_5d(reader.get_shape())
+            LOGGER.info(f"Using multiple of base chunk size: {padded_chunks}")
+            chunks = expand_chunks(
+                padded_chunks,
+                padded_shape,
+                target_size_bytes,
+                reader.get_itemsize(),
+                mode="cycle"
+            )
+        else:
+            chunks = tuple(args.chunk_shape)
+
+        LOGGER.info(f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB")
+
+        # We determine the chunk size before creating the dask array since
+        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
+        # causes memory use to grow (unbounded?) during the zarr write step.
+        # See https://github.com/dask/dask/issues/5105.
+        # Use only the dimensions that exist in the base image.
+        data = reader.as_dask_array(chunks=chunks[5 - len(reader.get_shape()):])
         # Force 3D Tile to TCZYX
         data = pad_array_5d(data)
 
@@ -287,24 +318,7 @@ def main():
 
         tile_name = Path(impath).stem
         out_zarr = os.path.join(args.output, tile_name + ".zarr")
-
         writer = OmeZarrWriter(out_zarr)
-
-        if args.chunk_shape is None:
-            target_size_bytes = args.chunk_size * 1024 * 1024
-            if hasattr(data, "chunksize"):
-                # If we're working with a Dask array which is already chunked,
-                # use a multiple of the base chunk size to ensure optimal access patterns.
-                # Use the "chunksize" property instead of "chunks" since "chunks" is a tuple of tuples
-                LOGGER.info(f"Using multiple of base chunksize: {data.chunksize}")
-                chunks = expand_chunks(data.chunksize, data.shape, target_size_bytes, data.itemsize, mode="cycle")
-                data = data.rechunk(chunks)
-            else:
-                # Otherwise, hazard a guess
-                chunks = guess_chunks(data.shape, target_size_bytes, data.itemsize, mode="iso")
-        else:
-            chunks = tuple(args.chunk_shape)
-        LOGGER.info(f"chunks: {chunks}, {np.product(chunks) * data.itemsize / (1024 ** 2)} MiB")
 
         t0 = time.time()
         writer.write_image(
