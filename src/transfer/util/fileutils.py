@@ -1,20 +1,25 @@
 import os
 from pathlib import PurePath, PurePosixPath
-from typing import List
+from typing import List, Optional
 
 
-def collect_filepaths(folder: str, recursive: bool = True) -> List[str]:
+def collect_filepaths(folder: str, recursive: bool = True, include_exts: Optional[List[str]] = None) -> List[str]:
     """Get the absolute paths for all files in folder
     Args:
         folder (str): the directory to look for files
         recursive (bool): whether to traverse all sub-folders
+        include_exts (optional): list of valid file extensions to include.
+                                 e.g., ['.tiff', '.h5', '.ims']
     Returns:
         list of filepaths
     """
     filepaths = []
     for root, _, files in os.walk(folder):
         for f in files:
-            filepaths.append(os.path.join(root, f))
+            path = os.path.join(root, f)
+            _, ext = os.path.splitext(path)
+            if include_exts is None or ext in include_exts:
+                filepaths.append(path)
         if not recursive:
             break
     return filepaths
