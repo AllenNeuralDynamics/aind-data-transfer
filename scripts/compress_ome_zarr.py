@@ -15,6 +15,7 @@ from pathlib import Path
 from transfer.transcode.io import DataReaderFactory
 from transfer.util.arrayutils import (pad_array_5d, pad_shape_5d,
                                       guess_chunks, expand_chunks)
+from transfer.util.fileutils import collect_filepaths
 
 from cluster.config import load_jobqueue_config
 
@@ -50,20 +51,6 @@ def parse_bids_dir(indir):
 
 def get_blosc_codec(codec, clevel):
     return blosc.Blosc(cname=codec, clevel=clevel, shuffle=blosc.SHUFFLE)
-
-
-def get_images(input_dir):
-    valid_exts = DataReaderFactory().VALID_EXTENSIONS
-    image_paths = []
-    for root, _, files in os.walk(input_dir):
-        for f in files:
-            filepath = os.path.join(root, f)
-            if not os.path.isfile(filepath):
-                continue
-            _, ext = os.path.splitext(filepath)
-            if ext in valid_exts:
-                image_paths.append(filepath)
-    return image_paths
 
 
 def get_client(deployment="slurm", **kwargs):
@@ -161,7 +148,11 @@ def main():
         "compressor": compressor,
     }
 
-    image_paths = get_images(args.input)
+    image_paths = collect_filepaths(
+        args.input,
+        recursive=True,
+        include_exts=DataReaderFactory().VALID_EXTENSIONS
+    )
     LOGGER.info(f"Found {len(image_paths)} images to process")
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
