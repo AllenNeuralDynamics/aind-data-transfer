@@ -65,7 +65,8 @@ class TiffReader(DataReader):
         return self.as_zarr().chunks
 
     def get_itemsize(self):
-        return self.as_zarr().itemsize
+        with tifffile.TiffFile(self.filepath) as tif:
+            return tif.series[0].dtype.itemsize
 
     def close(self):
         pass
