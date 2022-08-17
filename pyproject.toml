@@ -21,8 +21,8 @@ dependencies = [
     'bokeh>=2.1.1',
     'pyyaml',
     'google-cloud-storage',
-    'ome-zarr@git+https://github.com/toloudis/ome-zarr-py.git@feature/dask-poc',
-    'aicsimageio@git+https://github.com/carshadi/aicsimageio.git@feature/zarrwriter-compression',
+    'ome-zarr@git+https://github.com/carshadi/ome-zarr-py.git@feature/dask-poc',
+    'aicsimageio@git+https://github.com/carshadi/aicsimageio.git@feature/zarrwriter-multiscales',
     'hdf5plugin@https://github.com/silx-kit/hdf5plugin/archive/refs/tags/v3.3.1.tar.gz',
     'pybids',
     'gcsfs'
