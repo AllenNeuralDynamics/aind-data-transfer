@@ -22,9 +22,9 @@ def ensure_shape_5d(shape):
     return shape
 
 
-def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
+def guess_chunks(data_shape, target_size, itemsize, mode="z"):
     if mode == "z":
-        plane_size = data_shape[3] * data_shape[4] * bytes_per_pixel
+        plane_size = data_shape[3] * data_shape[4] * itemsize
         nplanes_per_chunk = int(math.ceil(target_size / plane_size))
         nplanes_per_chunk = min(nplanes_per_chunk, data_shape[2])
         chunks = (
@@ -39,7 +39,7 @@ def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
         spatial_dims = np.array(data_shape)[2:]
         idx = 0
         ndims = len(spatial_dims)
-        while np.product(spatial_dims) * bytes_per_pixel > target_size:
+        while _get_size(spatial_dims, itemsize) > target_size:
             spatial_dims[idx % ndims] = int(
                 math.ceil(
                     spatial_dims[idx % ndims] / 2.0
@@ -55,7 +55,7 @@ def guess_chunks(data_shape, target_size, bytes_per_pixel, mode="z"):
         )
     elif mode == "iso":
         # TODO: should this be a power of 2?
-        chunk_dim = int(math.ceil((target_size / bytes_per_pixel) ** (1.0 / 3)))
+        chunk_dim = int(math.ceil((target_size / itemsize) ** (1.0 / 3)))
         chunks = (
             1,
             1,
