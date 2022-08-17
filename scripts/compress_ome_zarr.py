@@ -119,6 +119,31 @@ def get_or_create_pyramid(reader, n_levels, chunks):
     return pyramid
 
 
+def _compute_chunks(reader, target_size_mb):
+    target_size_bytes = target_size_mb * 1024 * 1024
+    padded_chunks = ensure_shape_5d(reader.get_chunks())
+    padded_shape = ensure_shape_5d(reader.get_shape())
+    LOGGER.info(f"Using multiple of base chunk size: {padded_chunks}")
+    if padded_chunks[-2:] == padded_shape[-2:]:
+        LOGGER.info("chunks and shape have same XY dimensions, "
+                    "will chunk along Z only.")
+        chunks = guess_chunks(
+            padded_shape,
+            target_size_bytes,
+            reader.get_itemsize(),
+            mode="z"
+        )
+    else:
+        chunks = expand_chunks(
+            padded_chunks,
+            padded_shape,
+            target_size_bytes,
+            reader.get_itemsize(),
+            mode="cycle"
+        )
+    return chunks
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -199,19 +224,11 @@ def main():
         reader = DataReaderFactory().create(impath)
 
         if args.chunk_shape is None:
-            target_size_bytes = args.chunk_size * 1024 * 1024
-            padded_chunks = ensure_shape_5d(reader.get_chunks())
-            padded_shape = ensure_shape_5d(reader.get_shape())
-            LOGGER.info(f"Using multiple of base chunk size: {padded_chunks}")
-            chunks = expand_chunks(
-                padded_chunks,
-                padded_shape,
-                target_size_bytes,
-                reader.get_itemsize(),
-                mode="cycle"
-            )
+            assert args.chunk_size > 0
+            chunks = _compute_chunks(reader, args.chunk_size)
         else:
             chunks = tuple(args.chunk_shape)
+            assert np.all(chunks)
 
         LOGGER.info(f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB")
 
