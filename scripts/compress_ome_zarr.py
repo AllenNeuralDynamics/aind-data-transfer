@@ -1,3 +1,5 @@
+from typing import Union
+
 import argparse
 import logging
 import numpy as np
@@ -12,7 +14,7 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
 from numcodecs import blosc
 from pathlib import Path
-from transfer.transcode.io import DataReaderFactory
+from transfer.transcode.io import DataReaderFactory, HDF5Reader
 from transfer.util.arrayutils import (ensure_array_5d, ensure_shape_5d,
                                       guess_chunks, expand_chunks)
 from transfer.util.fileutils import collect_filepaths
@@ -156,8 +158,8 @@ def main():
 
         if args.chunk_shape is None:
             target_size_bytes = args.chunk_size * 1024 * 1024
-            padded_chunks = pad_shape_5d(reader.get_chunks())
-            padded_shape = pad_shape_5d(reader.get_shape())
+            padded_chunks = ensure_shape_5d(reader.get_chunks())
+            padded_shape = ensure_shape_5d(reader.get_shape())
             LOGGER.info(f"Using multiple of base chunk size: {padded_chunks}")
             chunks = expand_chunks(
                 padded_chunks,
@@ -175,13 +177,25 @@ def main():
         # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
         # causes memory use to grow (unbounded?) during the zarr write step.
         # See https://github.com/dask/dask/issues/5105.
-        # Use only the dimensions that exist in the base image.
-        data = reader.as_dask_array(chunks=chunks[5 - len(reader.get_shape()):])
-        # Force 3D Tile to TCZYX
-        data = pad_array_5d(data)
 
-        LOGGER.info(f"{data}")
-        LOGGER.info(f"tile size: {data.nbytes / (1024 ** 2)} MB")
+        if isinstance(reader, HDF5Reader) and args.n_levels > 1:
+            data = reader.get_multiscale_dask_arrays(
+                args.n_levels,
+                timepoint=0,
+                channel=0,
+                # Use only the dimensions that exist in the base image.
+                chunks=chunks[len(chunks) - len(reader.get_shape()):]
+            )
+            for i in range(len(data)):
+                data[i] = ensure_array_5d(data[i])
+            LOGGER.info(f"{data[0]}")
+            LOGGER.info(f"tile size: {data[0].nbytes / (1024 ** 2)} MB")
+        else:
+            data = reader.as_dask_array(chunks=chunks[5 - len(reader.get_shape()):])
+            # Force 3D Tile to TCZYX
+            data = ensure_array_5d(data)
+            LOGGER.info(f"{data}")
+            LOGGER.info(f"tile size: {data.nbytes / (1024 ** 2)} MB")
 
         tile_name = Path(impath).stem
         out_zarr = os.path.join(args.output, tile_name + ".zarr")
@@ -201,10 +215,20 @@ def main():
         )
         write_time = time.time() - t0
         LOGGER.info(
-            f"Done. Took {write_time}s. {data.nbytes / write_time / (1024 ** 2)} MiB/s"
+            f"Done. Took {write_time}s. {_get_bytes_written(data) / write_time / (1024 ** 2)} MiB/s"
         )
 
         reader.close()
+
+
+def _get_bytes_written(data: Union[list, np.ndarray]):
+    if isinstance(data, list):
+        total_bytes = 0
+        for arr in data:
+            total_bytes += arr.nbytes
+        return total_bytes
+
+    return data.nbytes
 
 
 if __name__ == "__main__":
