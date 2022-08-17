@@ -44,6 +44,9 @@ class DataReader(ABC):
     def get_itemsize(self) -> int:
         pass
 
+    def get_filepath(self) -> str:
+        return self.filepath
+
 
 class TiffReader(DataReader):
     def as_dask_array(self, chunks=True):
@@ -104,7 +107,7 @@ class HDF5Reader(DataReader):
     def get_handle(self):
         return self.handle
 
-    def get_multiscale_dask_arrays(self, num_levels, timepoint=0, channel=0, chunks: Any = True):
+    def get_dask_pyramid(self, num_levels, timepoint=0, channel=0, chunks: Any = True):
         darrays = []
         for lvl in range(0, num_levels):
             ds_path = f"/DataSet/ResolutionLevel {lvl}/TimePoint {timepoint}/Channel {channel}/Data"
