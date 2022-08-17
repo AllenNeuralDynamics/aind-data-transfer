@@ -47,10 +47,10 @@ class DataReader(ABC):
 
 class TiffReader(DataReader):
     def as_dask_array(self, chunks=True):
-        return dask_image.imread.imread(self.filepath)
+        return da.from_array(self.as_zarr(), chunks=chunks)
 
     def as_array(self):
-        return tifffile.imread(self.filepath)
+        return self.as_zarr()[:]
 
     def as_zarr(self):
         with tifffile.TiffFile(self.filepath) as tif:
