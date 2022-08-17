@@ -49,8 +49,8 @@ def get_blosc_codec(codec, clevel):
 
 
 def get_client(deployment="slurm", **kwargs):
-    base_config = load_jobqueue_config()
     if deployment == "slurm":
+        base_config = load_jobqueue_config()
         config = base_config["jobqueue"]["slurm"]
         # cluster config is automatically populated from
         # ~/.config/dask/jobqueue.yaml
@@ -58,7 +58,9 @@ def get_client(deployment="slurm", **kwargs):
         cluster.scale(config["n_workers"])
         LOGGER.info(cluster.job_script())
     elif deployment == "local":
-        cluster = LocalCluster(processes=True)
+        import platform
+        use_procs = False if platform.system() == "Windows" else True
+        cluster = LocalCluster(processes=use_procs)
         config = None
     else:
         raise NotImplementedError
