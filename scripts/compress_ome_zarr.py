@@ -9,12 +9,11 @@ import time
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
 from aicsimageio.writers import OmeZarrWriter
-from bids import BIDSLayout
 from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
 from numcodecs import blosc
 from pathlib import Path
-from transfer.transcode.io import DataReaderFactory, HDF5Reader
+from transfer.transcode.io import DataReaderFactory, HDF5Reader, MissingDatasetError
 from transfer.util.arrayutils import (ensure_array_5d, ensure_shape_5d,
                                       guess_chunks, expand_chunks)
 from transfer.util.fileutils import collect_filepaths
@@ -77,6 +76,47 @@ def validate_output_path(output):
         pass
     else:
         os.makedirs(output, exist_ok=True)
+
+
+def compute_pyramid(data, n_lvls):
+    from xarray_multiscale import multiscale
+    from xarray_multiscale.reducers import windowed_mean
+
+    pyramid = multiscale(
+        data,
+        windowed_mean,  # func
+        (2,) * data.ndim,  # scale factors
+        depth=n_lvls - 1,
+        preserve_dtype=True
+    )
+    return [arr.data for arr in pyramid]
+
+
+def get_or_create_pyramid(reader, n_levels, chunks):
+    if isinstance(reader, HDF5Reader):
+        try:
+            pyramid = reader.get_dask_pyramid(
+                n_levels,
+                timepoint=0,
+                channel=0,
+                # Use only the dimensions that exist in the base image.
+                chunks=chunks
+            )
+        except MissingDatasetError as e:
+            LOGGER.error(e)
+            LOGGER.warning(f"{reader.get_filepath()} does not contain all requested scales."
+                           f"Computing them instead...")
+            pyramid = compute_pyramid(
+                reader.as_dask_array(chunks=chunks),
+                n_levels
+            )
+    else:
+        pyramid = compute_pyramid(
+            reader.as_dask_array(chunks=chunks),
+            n_levels
+        )
+
+    return pyramid
 
 
 def parse_args():
@@ -180,46 +220,63 @@ def main():
         # causes memory use to grow (unbounded?) during the zarr write step.
         # See https://github.com/dask/dask/issues/5105.
 
-        if isinstance(reader, HDF5Reader) and args.n_levels > 1:
-            data = reader.get_multiscale_dask_arrays(
-                args.n_levels,
-                timepoint=0,
-                channel=0,
-                # Use only the dimensions that exist in the base image.
-                chunks=chunks[len(chunks) - len(reader.get_shape()):]
-            )
-            for i in range(len(data)):
-                data[i] = ensure_array_5d(data[i])
-            LOGGER.info(f"{data[0]}")
-            LOGGER.info(f"tile size: {data[0].nbytes / (1024 ** 2)} MB")
-        else:
-            data = reader.as_dask_array(chunks=chunks[5 - len(reader.get_shape()):])
-            # Force 3D Tile to TCZYX
-            data = ensure_array_5d(data)
-            LOGGER.info(f"{data}")
-            LOGGER.info(f"tile size: {data.nbytes / (1024 ** 2)} MB")
-
         tile_name = Path(impath).stem
         out_zarr = os.path.join(args.output, tile_name + ".zarr")
         writer = OmeZarrWriter(out_zarr)
 
-        t0 = time.time()
-        LOGGER.info("Starting write...")
-        writer.write_image(
-            image_data=data,  # : types.ArrayLike,  # must be 5D TCZYX
-            image_name=tile_name,  #: str,
-            physical_pixel_sizes=None,
-            channel_names=None,
-            channel_colors=None,
-            scale_num_levels=args.n_levels,  # : int = 1,
-            scale_factor=args.scale_factor,  # : float = 2.0,
-            chunks=chunks,
-            storage_options=opts,
-        )
-        write_time = time.time() - t0
-        LOGGER.info(
-            f"Done. Took {write_time}s. {_get_bytes_written(data) / write_time / (1024 ** 2)} MiB/s"
-        )
+        reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
+
+        if args.n_levels > 1:
+            pyramid = get_or_create_pyramid(reader, args.n_levels, reader_chunks)
+
+            for i in range(len(pyramid)):
+                pyramid[i] = ensure_array_5d(pyramid[i])
+
+            LOGGER.info(f"{pyramid[0]}")
+            LOGGER.info(f"tile size: {pyramid[0].nbytes / (1024 ** 2)} MB")
+
+            t0 = time.time()
+            LOGGER.info("Starting write...")
+            writer.write_multiscale(
+                pyramid=pyramid,  # : types.ArrayLike,  # must be 5D TCZYX
+                image_name=tile_name,  #: str,
+                physical_pixel_sizes=None,
+                channel_names=None,
+                channel_colors=None,
+                scale_factor=args.scale_factor,  # : float = 2.0,
+                chunks=chunks,
+                storage_options=opts,
+            )
+            write_time = time.time() - t0
+            LOGGER.info(
+                f"Done. Took {write_time}s. {_get_bytes_written(pyramid) / write_time / (1024 ** 2)} MiB/s"
+            )
+
+        else:
+            data = reader.as_dask_array(chunks=reader_chunks)
+            # Force 3D Tile to TCZYX
+            data = ensure_array_5d(data)
+
+            LOGGER.info(f"{data}")
+            LOGGER.info(f"tile size: {data.nbytes / (1024 ** 2)} MB")
+
+            t0 = time.time()
+            LOGGER.info("Starting write...")
+            writer.write_image(
+                image_data=data,  # : types.ArrayLike,  # must be 5D TCZYX
+                image_name=tile_name,  #: str,
+                physical_pixel_sizes=None,
+                channel_names=None,
+                channel_colors=None,
+                scale_num_levels=args.n_levels,  # : int = 1,
+                scale_factor=args.scale_factor,  # : float = 2.0,
+                chunks=chunks,
+                storage_options=opts,
+            )
+            write_time = time.time() - t0
+            LOGGER.info(
+                f"Done. Took {write_time}s. {_get_bytes_written(data) / write_time / (1024 ** 2)} MiB/s"
+            )
 
         reader.close()
 
