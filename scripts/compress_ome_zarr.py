@@ -202,6 +202,7 @@ def main():
         writer = OmeZarrWriter(out_zarr)
 
         t0 = time.time()
+        LOGGER.info("Starting write...")
         writer.write_image(
             image_data=data,  # : types.ArrayLike,  # must be 5D TCZYX
             image_name=tile_name,  #: str,
