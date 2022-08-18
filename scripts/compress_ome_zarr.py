@@ -297,6 +297,8 @@ def main():
 
         reader.close()
 
+    client.shutdown()
+
 
 def _get_bytes_written(data: Union[list, np.ndarray]):
     if isinstance(data, list):
