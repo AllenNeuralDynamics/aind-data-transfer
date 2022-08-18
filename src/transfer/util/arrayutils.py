@@ -1,12 +1,25 @@
+from typing import Union, Tuple
+
 import math
 import numpy as np
+import dask.array as da
 
 
 class DimensionsError(Exception):
     pass
 
 
-def ensure_array_5d(arr):
+def ensure_array_5d(arr: Union[np.ndarray, da.Array]) -> Union[np.ndarray, da.Array]:
+    """
+    Checks that the array is 5D, adding singleton dimensions to the
+    start of the array if less, throwing a DimensionsError if more
+    Args:
+        arr: the arraylike object
+    Returns:
+        the 5D array
+    Raises:
+        DimensionsError: if the array has more than 5 dimensions
+    """
     if arr.ndim > 5:
         raise DimensionsError("Only arrays up to 5D are supported")
     while arr.ndim < 5:
@@ -14,7 +27,17 @@ def ensure_array_5d(arr):
     return arr
 
 
-def ensure_shape_5d(shape):
+def ensure_shape_5d(shape: Tuple[int, ...]) -> Tuple[int, int, int, int, int]:
+    """
+    Checks that the shape is 5D, adding singleton dimensions to the
+    start of the sequence if less, throwing a DimensionsError if more.
+    Args:
+        shape: the sequence
+    Returns:
+        the 5D tuple
+    Raises:
+        DimensionsError: if the input has more than 5 dimensions
+    """
     if len(shape) > 5:
         raise DimensionsError("Only shapes up to 5D are supported")
     while len(shape) < 5:
@@ -22,7 +45,23 @@ def ensure_shape_5d(shape):
     return shape
 
 
-def guess_chunks(data_shape, target_size, itemsize, mode="z"):
+def guess_chunks(
+        data_shape: Tuple[int, int, int, int, int],
+        target_size: int,
+        itemsize: int,
+        mode: str = "z"
+) -> Tuple[int, int, int, int, int]:
+    """
+    Given the shape of a 5D array, determine the optimal chunk shape
+    closest to target_size.
+    Args:
+        data_shape: the shape of the input array
+        target_size: target chunk size in bytes
+        itemsize: the number of bytes per array element
+        mode: chunking strategy. Must be one of "z", "cycle", or "iso"
+    Returns:
+        the optimal chunk shape
+    """
     if mode == "z":
         plane_size = data_shape[3] * data_shape[4] * itemsize
         nplanes_per_chunk = int(math.ceil(target_size / plane_size))
@@ -70,7 +109,26 @@ def guess_chunks(data_shape, target_size, itemsize, mode="z"):
     return tuple(int(d) for d in chunks)
 
 
-def expand_chunks(chunks, data_shape, target_size, itemsize, mode="iso"):
+def expand_chunks(
+        chunks: Tuple[int, int, int, int, int],
+        data_shape: Tuple[int, int, int, int, int],
+        target_size: int,
+        itemsize: int,
+        mode: str = "iso",
+) -> Tuple[int, int, int, int, int]:
+    """
+    Given the shape and chunk size of a pre-chunked 5D array, determine the optimal chunk shape
+    closest to target_size. Expanded chunk dimensions are an integer multiple of the base chunk dimension,
+    to ensure optimal access patterns.
+    Args:
+        chunks: the shape of the input array chunks
+        data_shape: the shape of the input array
+        target_size: target chunk size in bytes
+        itemsize: the number of bytes per array element
+        mode: chunking strategy. Must be one of "cycle", or "iso"
+    Returns:
+        the optimal chunk shape
+    """
     if mode == "cycle":
         # get the spatial dimensions only
         spatial_chunks = np.array(chunks)[2:]
@@ -113,7 +171,21 @@ def expand_chunks(chunks, data_shape, target_size, itemsize, mode="iso"):
     return tuple(int(d) for d in expanded)
 
 
-def _closer_to_target(shape1, shape2, target_bytes, itemsize):
+def _closer_to_target(
+        shape1: Tuple[int, ...],
+        shape2: Tuple[int, ...],
+        target_bytes: int,
+        itemsize: int
+) -> Tuple[int, ...]:
+    """
+    Given two shapes with the same number of dimensions,
+    find which one is closer to target_bytes.
+    Args:
+        shape1: the first shape
+        shape2: the second shape
+        target_bytes: the target size for the returned shape
+        itemsize: number of bytes per array element
+    """
     size1 = _get_size(shape1, itemsize)
     size2 = _get_size(shape2, itemsize)
     if abs(size1 - target_bytes) < abs(size2 - target_bytes):
@@ -121,5 +193,13 @@ def _closer_to_target(shape1, shape2, target_bytes, itemsize):
     return shape2
 
 
-def _get_size(shape, itemsize):
+def _get_size(shape: Tuple[int, ...], itemsize: int) -> int:
+    """
+    Return the size of an array with the given shape, in bytes
+    Args:
+        shape: the shape of the array
+        itemsize: number of bytes per array element
+    Returns:
+        the size of the array, in bytes
+    """
     return np.product(shape) * itemsize
