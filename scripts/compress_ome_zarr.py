@@ -260,7 +260,7 @@ def main():
                 physical_pixel_sizes=None,
                 channel_names=None,
                 channel_colors=None,
-                scale_factor=args.scale_factor,  # : float = 2.0,
+                scale_factor=(args.scale_factor,) * 3,  # : float = 2.0,
                 chunks=chunks,
                 storage_options=opts,
             )
@@ -286,7 +286,7 @@ def main():
                 channel_names=None,
                 channel_colors=None,
                 scale_num_levels=args.n_levels,  # : int = 1,
-                scale_factor=args.scale_factor,  # : float = 2.0,
+                scale_factor=(args.scale_factor,) * 3,  # : float = 2.0,
                 chunks=chunks,
                 storage_options=opts,
             )
