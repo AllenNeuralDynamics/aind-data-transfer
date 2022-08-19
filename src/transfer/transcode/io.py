@@ -55,7 +55,9 @@ class TiffReader(DataReader):
         self.handle = tifffile.TiffFile(filepath)
 
     def as_dask_array(self, chunks=True):
-        return da.from_array(self.as_zarr(), chunks=chunks)
+        # Note, this will only read the first plane of
+        # ImageJ-formatted Tiffs that are larger than 4GB
+        return dask_image.imread.imread(self.filepath)
 
     def as_array(self):
         return self.as_zarr()[:]
