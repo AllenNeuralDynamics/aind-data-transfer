@@ -8,6 +8,7 @@ import time
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
+import zarr
 from aicsimageio.writers import OmeZarrWriter
 from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
@@ -144,6 +145,12 @@ def _compute_chunks(reader, target_size_mb):
     return chunks
 
 
+def get_storage_ratio(zarr_path):
+    z = zarr.open(zarr_path, 'r')
+    full_res = z[list(z.keys())[0] + '/0']
+    return full_res.nbytes / full_res.nbytes_stored
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -268,6 +275,7 @@ def main():
             LOGGER.info(
                 f"Done. Took {write_time}s. {_get_bytes_written(pyramid) / write_time / (1024 ** 2)} MiB/s"
             )
+            LOGGER.info(f"Compress ratio: {get_storage_ratio(out_zarr)}")
 
         else:
             data = reader.as_dask_array(chunks=reader_chunks)
@@ -294,6 +302,7 @@ def main():
             LOGGER.info(
                 f"Done. Took {write_time}s. {_get_bytes_written(data) / write_time / (1024 ** 2)} MiB/s"
             )
+            LOGGER.info(f"Compress ratio: {get_storage_ratio(out_zarr)}")
 
         reader.close()
 
