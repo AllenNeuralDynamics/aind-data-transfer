@@ -59,7 +59,7 @@ def get_client(deployment="slurm", **kwargs):
     elif deployment == "local":
         import platform
         use_procs = False if platform.system() == "Windows" else True
-        cluster = LocalCluster(processes=use_procs)
+        cluster = LocalCluster(processes=use_procs, threads_per_worker=1)
         config = None
     else:
         raise NotImplementedError
