@@ -49,6 +49,11 @@ class DataReader(ABC):
 
 
 class TiffReader(DataReader):
+
+    def __init__(self, filepath):
+        super().__init__(filepath)
+        self.handle = tifffile.TiffFile(filepath)
+
     def as_dask_array(self, chunks=True):
         return da.from_array(self.as_zarr(), chunks=chunks)
 
@@ -56,8 +61,7 @@ class TiffReader(DataReader):
         return self.as_zarr()[:]
 
     def as_zarr(self):
-        with tifffile.TiffFile(self.filepath) as tif:
-            return zarr.open(tif.aszarr(), 'r')
+        return zarr.open(self.handle.aszarr(), 'r')
 
     def get_shape(self):
         # Open as Zarr store in case we're dealing with
@@ -72,7 +76,9 @@ class TiffReader(DataReader):
             return tif.series[0].dtype.itemsize
 
     def close(self):
-        pass
+        if self.handle is not None:
+            self.handle.close()
+            self.handle = None
 
 
 class MissingDatasetError(Exception):
