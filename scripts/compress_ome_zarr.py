@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List
 
 import argparse
 import logging
@@ -9,6 +9,8 @@ import time
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
 import zarr
+import pandas as pd
+from numpy.typing import NDArray
 from aicsimageio.writers import OmeZarrWriter
 from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
@@ -145,10 +147,49 @@ def _compute_chunks(reader, target_size_mb):
     return chunks
 
 
-def get_storage_ratio(zarr_path):
+def _get_storage_ratio(zarr_path: str, dataset_name: str):
     z = zarr.open(zarr_path, 'r')
-    full_res = z[list(z.keys())[0] + '/0']
+    full_res = z[f'{dataset_name}/0']
     return full_res.nbytes / full_res.nbytes_stored
+
+
+def _get_bytes(data: Union[List[NDArray], NDArray]):
+    if isinstance(data, list):
+        total_bytes = 0
+        for arr in data:
+            total_bytes += arr.nbytes
+        return total_bytes
+    return data.nbytes
+
+
+def _get_bytes_stored(zarr_path: str, dataset_name: str, n_levels: int):
+    z = zarr.open(zarr_path, 'r')
+    total_bytes_stored = 0
+    for res in range(n_levels):
+        arr = z[f'{dataset_name}/{res}']
+        total_bytes_stored += arr.nbytes_stored
+    return total_bytes_stored
+
+
+def _ensure_metrics_file(metrics_file):
+    if not metrics_file.endswith(".csv"):
+        raise ValueError("metrics_file must be .csv")
+    metrics_dir = os.path.dirname(os.path.abspath(metrics_file))
+    if not os.path.isdir(metrics_dir):
+        os.makedirs(metrics_dir, exist_ok=True)
+
+
+def _populate_metrics(tile_metrics, tile_name,  out_zarr, bytes_read, write_time, n_levels, shape, dtype):
+    tile_metrics['n_levels'] = n_levels
+    tile_metrics['shape'] = shape
+    tile_metrics['dtype'] = dtype
+    tile_metrics['write_time'] = write_time
+    tile_metrics['bytes_read'] = bytes_read
+    tile_metrics['write_bps'] = tile_metrics['bytes_read'] / write_time
+    tile_metrics['bytes_stored'] = _get_bytes_stored(out_zarr, tile_name, n_levels)
+    storage_ratio = _get_storage_ratio(out_zarr, tile_name)
+    tile_metrics['storage_ratio'] = storage_ratio
+    LOGGER.info(f"Compress ratio: {storage_ratio}")
 
 
 def parse_args():
@@ -195,6 +236,12 @@ def parse_args():
         default="/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/envs/nd-data-transfer/lib/python3.10/site-packages/hdf5plugin/plugins",
         help="path to HDF5 filter plugins. Specifying this is necessary if transcoding HDF5 or IMS files on HPC."
     )
+    parser.add_argument(
+        "--metrics_file",
+        type=str,
+        default="tile-metrics.csv",
+        help="output tile metrics csv file"
+    )
     args = parser.parse_args()
     return args
 
@@ -203,6 +250,8 @@ def main():
     args = parse_args()
 
     LOGGER.setLevel(args.log_level)
+
+    _ensure_metrics_file(args.metrics_file)
 
     validate_output_path(args.output)
 
@@ -223,8 +272,18 @@ def main():
         include_exts=DataReaderFactory().VALID_EXTENSIONS
     )
     LOGGER.info(f"Found {len(image_paths)} images to process")
+
+    all_metrics = []
+
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
+
+        tile_metrics = {
+            'tile': Path(impath).absolute(),
+            'codec': args.codec,
+            'clevel': args.clevel,
+            'shuffle': compressor.SHUFFLE
+        }
 
         # Create reader, but don't construct dask array
         # until we know the optimal chunk shape.
@@ -238,6 +297,8 @@ def main():
             assert np.all(chunks)
 
         LOGGER.info(f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB")
+
+        tile_metrics['chunks'] = chunks
 
         # We determine the chunk size before creating the dask array since
         # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
@@ -257,10 +318,9 @@ def main():
                 pyramid[i] = ensure_array_5d(pyramid[i])
 
             LOGGER.info(f"{pyramid[0]}")
-            LOGGER.info(f"tile size: {pyramid[0].nbytes / (1024 ** 2)} MB")
 
-            t0 = time.time()
             LOGGER.info("Starting write...")
+            t0 = time.time()
             writer.write_multiscale(
                 pyramid=pyramid,  # : types.ArrayLike,  # must be 5D TCZYX
                 image_name=tile_name,  #: str,
@@ -272,10 +332,17 @@ def main():
                 storage_options=opts,
             )
             write_time = time.time() - t0
-            LOGGER.info(
-                f"Done. Took {write_time}s. {_get_bytes_written(pyramid) / write_time / (1024 ** 2)} MiB/s"
+
+            _populate_metrics(
+                tile_metrics,
+                tile_name,
+                out_zarr,
+                _get_bytes(pyramid),
+                write_time,
+                args.n_levels,
+                pyramid[0].shape,
+                pyramid[0].dtype,
             )
-            LOGGER.info(f"Compress ratio: {get_storage_ratio(out_zarr)}")
 
         else:
             data = reader.as_dask_array(chunks=reader_chunks)
@@ -283,7 +350,6 @@ def main():
             data = ensure_array_5d(data)
 
             LOGGER.info(f"{data}")
-            LOGGER.info(f"tile size: {data.nbytes / (1024 ** 2)} MB")
 
             t0 = time.time()
             LOGGER.info("Starting write...")
@@ -299,24 +365,32 @@ def main():
                 storage_options=opts,
             )
             write_time = time.time() - t0
-            LOGGER.info(
-                f"Done. Took {write_time}s. {_get_bytes_written(data) / write_time / (1024 ** 2)} MiB/s"
+
+            _populate_metrics(
+                tile_metrics,
+                tile_name,
+                out_zarr,
+                _get_bytes(data),
+                write_time,
+                args.n_levels,
+                data.shape,
+                data.dtype,
             )
-            LOGGER.info(f"Compress ratio: {get_storage_ratio(out_zarr)}")
+
+        LOGGER.info(
+            f"Finished writing tile {tile_name}.\n"
+            f"Took {write_time}s. {tile_metrics['write_bps'] / (1024 ** 2)} MiB/s"
+        )
+
+        all_metrics.append(tile_metrics)
 
         reader.close()
 
     client.shutdown()
 
 
-def _get_bytes_written(data: Union[list, np.ndarray]):
-    if isinstance(data, list):
-        total_bytes = 0
-        for arr in data:
-            total_bytes += arr.nbytes
-        return total_bytes
-
-    return data.nbytes
+    df = pd.DataFrame.from_records(all_metrics)
+    df.to_csv(args.metrics_file, index_label='test_number')
 
 
 if __name__ == "__main__":
