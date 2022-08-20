@@ -8,6 +8,7 @@ import time
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
+import hdf5plugin
 import zarr
 import pandas as pd
 from numpy.typing import NDArray
