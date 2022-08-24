@@ -204,8 +204,8 @@ def parse_args():
     parser.add_argument(
         "--output",
         type=str,
-        default="gs://aind-transfer-service-test/ome-zarr-test/exaSPIM-tile-test",
-        help="output directory",
+        default="gs://aind-msma-data/cameron-mesospim-tiles-test/mesospim-tiles.zarr",
+        help="output Zarr path, e.g., s3://bucket/tiles.zarr",
     )
     parser.add_argument("--codec", type=str, default="zstd")
     parser.add_argument("--clevel", type=int, default=1)
@@ -276,8 +276,13 @@ def main():
 
     all_metrics = []
 
+    out_zarr = os.path.join(args.output)
+    writer = OmeZarrWriter(out_zarr)
+
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
+
+        tile_name = Path(impath).stem
 
         tile_metrics = {
             'tile': Path(impath).absolute(),
@@ -290,6 +295,10 @@ def main():
         # until we know the optimal chunk shape.
         reader = DataReaderFactory().create(impath)
 
+        # We determine the chunk size before creating the dask array since
+        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
+        # causes memory use to grow (unbounded?) during the zarr write step.
+        # See https://github.com/dask/dask/issues/5105.
         if args.chunk_shape is None:
             assert args.chunk_size > 0
             chunks = _compute_chunks(reader, args.chunk_size)
@@ -301,15 +310,7 @@ def main():
 
         tile_metrics['chunks'] = chunks
 
-        # We determine the chunk size before creating the dask array since
-        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
-        # causes memory use to grow (unbounded?) during the zarr write step.
-        # See https://github.com/dask/dask/issues/5105.
-
-        tile_name = Path(impath).stem
-        out_zarr = os.path.join(args.output, tile_name + ".zarr")
-        writer = OmeZarrWriter(out_zarr)
-
+        # Get the chunk dimensions that exist in the original, un-padded image
         reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
 
         if args.n_levels > 1:
@@ -323,12 +324,12 @@ def main():
             LOGGER.info("Starting write...")
             t0 = time.time()
             writer.write_multiscale(
-                pyramid=pyramid,  # : types.ArrayLike,  # must be 5D TCZYX
-                image_name=tile_name,  #: str,
+                pyramid=pyramid,
+                image_name=tile_name,
                 physical_pixel_sizes=None,
                 channel_names=None,
                 channel_colors=None,
-                scale_factor=(args.scale_factor,) * 3,  # : float = 2.0,
+                scale_factor=(args.scale_factor,) * 3,
                 chunks=chunks,
                 storage_options=opts,
             )
@@ -388,7 +389,6 @@ def main():
         reader.close()
 
     client.shutdown()
-
 
     df = pd.DataFrame.from_records(all_metrics)
     df.to_csv(args.metrics_file, index_label='test_number')
