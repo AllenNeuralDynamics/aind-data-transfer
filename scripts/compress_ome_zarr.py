@@ -198,7 +198,8 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
+        default="/net/172.20.102.30/aind/mesospim_ANM457202_2022_07_11/sub-01/micr",
+        # default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
         help="directory of images to transcode",
     )
     parser.add_argument(
@@ -216,7 +217,7 @@ def parse_args():
         "--chunk_shape", type=int, nargs='+', default=None, help="5D sequence of chunk dimensions, in TCZYX order"
     )
     parser.add_argument(
-        "--n_levels", type=int, default=1, help="number of resolution levels"
+        "--n_levels", type=int, default=4, help="number of resolution levels"
     )
     parser.add_argument(
         "--scale_factor",
@@ -276,7 +277,7 @@ def main():
 
     all_metrics = []
 
-    out_zarr = os.path.join(args.output)
+    out_zarr = args.output
     writer = OmeZarrWriter(out_zarr)
 
     for impath in image_paths:
