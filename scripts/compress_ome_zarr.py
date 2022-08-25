@@ -1,5 +1,5 @@
+import fnmatch
 from typing import Union, List
-
 import argparse
 import logging
 import numpy as np
@@ -208,14 +208,14 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default="/net/172.20.102.30/aind/mesospim_ANM457202_2022_07_11/sub-01/micr",
+        default="/net/172.20.102.30/aind/exaSPIM/20220805_172536/",
         # default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
         help="directory of images to transcode",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="gs://aind-msma-data/cameron-mesospim-tiles-test/mesospim-tiles.zarr",
+        default="gs://aind-msma-data/ExaSPIM_20220805_172536.zarr",
         help="output Zarr path, e.g., s3://bucket/tiles.zarr",
     )
     parser.add_argument("--codec", type=str, default="zstd")
@@ -227,7 +227,7 @@ def parse_args():
         "--chunk_shape", type=int, nargs='+', default=None, help="5D sequence of chunk dimensions, in TCZYX order"
     )
     parser.add_argument(
-        "--n_levels", type=int, default=4, help="number of resolution levels"
+        "--n_levels", type=int, default=1, help="number of resolution levels"
     )
     parser.add_argument(
         "--scale_factor",
@@ -260,6 +260,13 @@ def parse_args():
         action="store_true",
         help="resume processing"
     )
+    parser.add_argument(
+        "--exclude",
+        default=[],
+        type=str,
+        nargs="+",
+        help="filename patterns to exclude, e.g., \"*.tif\", \"*.memento\", etc"
+    )
     args = parser.parse_args()
     return args
 
@@ -289,7 +296,20 @@ def main():
         recursive=True,
         include_exts=DataReaderFactory().VALID_EXTENSIONS
     )
+
+    exclude_paths = []
+    for path in image_paths:
+        if any(fnmatch.fnmatch(path, pattern) for pattern in args.exclude):
+            exclude_paths.append(path)
+
+    for path in exclude_paths:
+        image_paths.remove(path)
+
     LOGGER.info(f"Found {len(image_paths)} images to process")
+
+    if not image_paths:
+        LOGGER.warning("No images found. Exiting.")
+        return
 
     all_metrics = []
 
