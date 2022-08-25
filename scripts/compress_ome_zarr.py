@@ -193,6 +193,16 @@ def _populate_metrics(tile_metrics, tile_name,  out_zarr, bytes_read, write_time
     LOGGER.info(f"Compress ratio: {storage_ratio}")
 
 
+def _tile_exists(zarr_path, tile_name, n_levels):
+    z = zarr.open(zarr_path, 'r')
+    try:
+        # TODO: only re-upload missing levels
+        a = z[f'{tile_name}/{n_levels - 1}']
+        return a.nbytes > 0
+    except KeyError:
+        return False
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -244,6 +254,12 @@ def parse_args():
         default="tile-metrics.csv",
         help="output tile metrics csv file"
     )
+    parser.add_argument(
+        "--resume",
+        default=False,
+        action="store_true",
+        help="resume processing"
+    )
     args = parser.parse_args()
     return args
 
@@ -284,6 +300,10 @@ def main():
         LOGGER.info(f"Writing tile {impath}")
 
         tile_name = Path(impath).stem
+
+        if args.resume and _tile_exists(out_zarr, tile_name, args.n_levels):
+            LOGGER.info(f"Skipping tile {tile_name}, already exists.")
+            continue
 
         tile_metrics = {
             'tile': Path(impath).absolute(),
