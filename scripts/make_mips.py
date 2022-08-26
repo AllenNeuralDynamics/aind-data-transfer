@@ -97,6 +97,12 @@ def parse_args():
         nargs="+",
         help="filename patterns to exclude, e.g., \"*.tif\", \"*.memento\", etc"
     )
+    parser.add_argument(
+        "--overwrite",
+        default=False,
+        action="store_true",
+        help="Overwrite MIPs if they already exist on disk."
+    )
     args = parser.parse_args()
     return args
 
@@ -126,14 +132,29 @@ def compute_chunks(reader, target_size_mb):
     return chunks
 
 
-def project_and_write(arr, axis, out_dir):
+def mip_exists(out_h5):
+    if not os.path.exists(out_h5):
+        return False
+    with h5py.File(out_h5) as f:
+        try:
+            check = f['data']
+            return check.nbytes > 0
+        except KeyError:
+            return False
+
+
+def project_and_write(arr, axis, out_dir, overwrite=False):
     LOGGER.info(f"computing axis {axis}")
+    out_h5 = os.path.join(out_dir, f"MIP_axis_{axis}.h5")
+    if not overwrite and mip_exists(out_h5):
+        LOGGER.info(f"{out_h5} exists, skipping.")
+        return
     t0 = time.time()
     res = arr.max(axis=axis).compute()
     t1 = time.time()
     LOGGER.info(f"{t1 - t0}s")
     LOGGER.info(res.shape)
-    with h5py.File(os.path.join(out_dir, f"MIP_axis_{axis}.h5"), 'w') as f:
+    with h5py.File(out_h5, 'w') as f:
         f.create_dataset("data", data=res, chunks=(128, 128))
 
 
@@ -187,7 +208,7 @@ def main():
         if args.do_xy:
             axes.insert(0, 0)
         for a in axes:
-            project_and_write(arr, a, out_dir)
+            project_and_write(arr, a, out_dir, overwrite=args.overwrite)
 
 
 if __name__ == "__main__":
