@@ -1,4 +1,5 @@
 import argparse
+import fnmatch
 import logging
 import os
 import time
@@ -8,6 +9,7 @@ import h5py
 from dask_jobqueue import SLURMCluster
 from distributed import LocalCluster, Client
 from transfer.transcode.io import DataReaderFactory
+from transfer.util.fileutils import collect_filepaths
 
 from cluster.config import load_jobqueue_config
 from transfer.util.arrayutils import ensure_shape_5d, guess_chunks, expand_chunks
@@ -59,7 +61,7 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default="/net/172.20.102.30/aind/exaSPIM/20220805_172536/",
+        default="/net/172.20.102.30/aind/exaSPIM/20220805_172536_brain1/",
         # default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
         help="directory of images to transcode",
     )
@@ -87,6 +89,13 @@ def parse_args():
         default=False,
         action="store_true",
         help="save the XY MIP in addition to XZ and YZ"
+    )
+    parser.add_argument(
+        "--exclude",
+        default=[],
+        type=str,
+        nargs="+",
+        help="filename patterns to exclude, e.g., \"*.tif\", \"*.memento\", etc"
     )
     args = parser.parse_args()
     return args
@@ -129,23 +138,26 @@ def project_and_write(arr, axis, out_dir):
 
 
 def main():
-    # TODO: the directory contains spurious .ims files which can't be opened, parse only the correct ones
-    files = [
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0000_y_0000_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0000_y_0001_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0000_y_0002_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0001_y_0000_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0001_y_0001_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0001_y_0002_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0002_y_0000_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0002_y_0001_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0002_y_0002_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0003_y_0000_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0003_y_0001_z_0000_ch_0000.ims",
-        "/net/172.20.102.30/aind/exaSPIM/20220805_172536/tile_x_0003_y_0002_z_0000_ch_0000.ims",
-    ]
-
     args = parse_args()
+
+    image_paths = collect_filepaths(
+        args.input,
+        recursive=True,
+        include_exts=DataReaderFactory().VALID_EXTENSIONS
+    )
+
+    exclude_paths = set()
+    for path in image_paths:
+        if any(fnmatch.fnmatch(path, pattern) for pattern in args.exclude):
+            exclude_paths.add(path)
+
+    image_paths = [p for p in image_paths if p not in exclude_paths]
+
+    LOGGER.info(f"Found {len(image_paths)} images to process")
+
+    if not image_paths:
+        LOGGER.warning("No images found. Exiting.")
+        return
 
     set_hdf5_env_vars(args.hdf5_plugin_path)
 
@@ -153,17 +165,17 @@ def main():
 
     client, _ = get_client(args.deployment, **my_dask_kwargs)
 
-    for f in files:
+    for impath in image_paths:
 
-        LOGGER.info(f"Processing {f}")
+        LOGGER.info(f"Processing {impath}")
 
-        reader = DataReaderFactory().create(f)
+        reader = DataReaderFactory().create(impath)
         chunks = compute_chunks(reader, 1024)[2:]  # MB
         LOGGER.info(f"chunks: {chunks}")
 
         arr = reader.as_dask_array(chunks=chunks)
 
-        tile_name = Path(f).stem
+        tile_name = Path(impath).stem
 
         out_dir = os.path.join(args.output, tile_name)
         os.makedirs(out_dir, exist_ok=True)
