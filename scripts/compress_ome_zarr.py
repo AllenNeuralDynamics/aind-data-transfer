@@ -354,71 +354,37 @@ def main():
         # Get the chunk dimensions that exist in the original, un-padded image
         reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
 
-        if args.n_levels > 1:
-            pyramid = get_or_create_pyramid(reader, args.n_levels, reader_chunks)
+        pyramid = get_or_create_pyramid(reader, args.n_levels, reader_chunks)
 
-            for i in range(len(pyramid)):
-                pyramid[i] = ensure_array_5d(pyramid[i])
+        for i in range(len(pyramid)):
+            pyramid[i] = ensure_array_5d(pyramid[i])
 
-            LOGGER.info(f"{pyramid[0]}")
+        LOGGER.info(f"{pyramid[0]}")
 
-            LOGGER.info("Starting write...")
-            t0 = time.time()
-            writer.write_multiscale(
-                pyramid=pyramid,
-                image_name=tile_name,
-                physical_pixel_sizes=None,
-                channel_names=None,
-                channel_colors=None,
-                scale_factor=(args.scale_factor,) * 3,
-                chunks=chunks,
-                storage_options=opts,
-            )
-            write_time = time.time() - t0
+        LOGGER.info("Starting write...")
+        t0 = time.time()
+        writer.write_multiscale(
+            pyramid=pyramid,
+            image_name=tile_name,
+            physical_pixel_sizes=None,
+            channel_names=None,
+            channel_colors=None,
+            scale_factor=(args.scale_factor,) * 3,
+            chunks=chunks,
+            storage_options=opts,
+        )
+        write_time = time.time() - t0
 
-            _populate_metrics(
-                tile_metrics,
-                tile_name,
-                out_zarr,
-                _get_bytes(pyramid),
-                write_time,
-                args.n_levels,
-                pyramid[0].shape,
-                pyramid[0].dtype,
-            )
-
-        else:
-            data = reader.as_dask_array(chunks=reader_chunks)
-            # Force 3D Tile to TCZYX
-            data = ensure_array_5d(data)
-
-            LOGGER.info(f"{data}")
-
-            t0 = time.time()
-            LOGGER.info("Starting write...")
-            writer.write_image(
-                image_data=data,  # : types.ArrayLike,  # must be 5D TCZYX
-                image_name=tile_name,  #: str,
-                physical_pixel_sizes=None,
-                channel_names=None,
-                channel_colors=None,
-                scale_num_levels=args.n_levels,  # : int = 1,
-                scale_factor=args.scale_factor,  # : float = 2.0,
-                chunks=chunks,
-                storage_options=opts,
-            )
-            write_time = time.time() - t0
-
-            _populate_metrics(
-                tile_metrics,
-                tile_name,
-                out_zarr,
-                _get_bytes(data),
-                write_time,
-                args.n_levels,
-                data.shape,
-                data.dtype,
-            )
+        _populate_metrics(
+            tile_metrics,
+            tile_name,
+            out_zarr,
+            _get_bytes(pyramid),
+            write_time,
+            args.n_levels,
+            pyramid[0].shape,
+            pyramid[0].dtype,
+        )
 
         LOGGER.info(
             f"Finished writing tile {tile_name}.\n"
