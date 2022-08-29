@@ -27,78 +27,58 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 
-def write_folder_to_zarr(
-    input: str,
-    output: str,
-    n_levels: int,
-    scale_factor: int,
-    overwrite: bool = True,
-    chunk_size: float = 64,  # MB
-    chunk_shape: tuple = None,
-    exclude: list = None,
-    storage_options: dict = None,
-    recursive: bool = False,
+def write_files_to_zarr(
+        image_paths: list,
+        output: str,
+        n_levels: int,
+        scale_factor: int,
+        overwrite: bool = True,
+        chunk_size: float = 64,  # MB
+        chunk_shape: tuple = None,
+        storage_options: dict = None,
 ) -> list:
     """
-    Write each image in the input directory as a separate group
-    to a Zarr store. Each group will be named according to the image filename
-    minus extension. For example, if a file has path /data/tiff/tile_0_0.tif, the group name
-    for that image is tile_0_0. Within each group there are n_levels arrays, one for each resolution level.
-    For example, if n_levels is 4, the group structure is as follows:
+    Write each image as a separate group to a Zarr store.
+    Each group will be named according to the image filename minus extension.
+    For example, if a file has path /data/tiff/tile_0_0.tif, the group name
+    for that image is tile_0_0. Within each group there are n_levels arrays,
+    one for each resolution level. For example, if n_levels is 4,
+    the group structure is as follows:
     tile_0_0/
         0/
         1/
         2/
         3/
     Args:
-        input: the directory of images to convert to Zarr
+        image_paths: the list of image filepaths to convert to Zarr
         output: the location of the output Zarr store (filesystem, s3, gs)
         n_levels: number of downsampling levels
         scale_factor: scale factor for downsampling in X, Y and Z
         overwrite: whether to overwrite image groups that already exist
         chunk_size: the target chunk size in MB
         chunk_shape: the chunk shape, if None will be computed from chunk_size
-        exclude: a list of filename patterns to exclude from conversion
         storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
-        recursive: whether to convert all images in all subfolders
     Returns:
         A list of metrics for each converted image
     """
-    if exclude is None:
-        exclude = []
-    if storage_options is None:
-        storage_options = {}
-    image_paths = collect_filepaths(
-        input,
-        recursive=recursive,
-        include_exts=DataReaderFactory().VALID_EXTENSIONS,
-    )
-
-    exclude_paths = []
-    for path in image_paths:
-        if any(fnmatch.fnmatch(path, pattern) for pattern in exclude):
-            exclude_paths.append(path)
-
-    for path in exclude_paths:
-        image_paths.remove(path)
-
-    LOGGER.info(f"Found {len(image_paths)} images to process")
 
     if not image_paths:
         LOGGER.warning("No images found. Exiting.")
         return []
 
-    all_metrics = []
+    if storage_options is None:
+        storage_options = {}
 
-    out_zarr = output
-    writer = OmeZarrWriter(out_zarr)
+    writer = OmeZarrWriter(output)
+
+    all_metrics = []
 
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
 
         tile_name = Path(impath).stem
 
-        if not overwrite and _tile_exists(out_zarr, tile_name, n_levels):
+        if not overwrite and _tile_exists(output, tile_name, n_levels):
             LOGGER.info(f"Skipping tile {tile_name}, already exists.")
             continue
 
@@ -158,7 +138,7 @@ def write_folder_to_zarr(
         _populate_metrics(
             tile_metrics,
             tile_name,
-            out_zarr,
+            output,
             _get_bytes(pyramid),
             write_time,
             n_levels,
@@ -176,6 +156,72 @@ def write_folder_to_zarr(
         reader.close()
 
     return all_metrics
+
+
+def write_folder_to_zarr(
+    input: str,
+    output: str,
+    n_levels: int,
+    scale_factor: int,
+    overwrite: bool = True,
+    chunk_size: float = 64,  # MB
+    chunk_shape: tuple = None,
+    exclude: list = None,
+    storage_options: dict = None,
+    recursive: bool = False,
+) -> list:
+    """
+    Write each image in the input directory as a separate group
+    to a Zarr store. Each group will be named according to the image filename
+    minus extension. For example, if a file has path /data/tiff/tile_0_0.tif, the group name
+    for that image is tile_0_0. Within each group there are n_levels arrays, one for each resolution level.
+    For example, if n_levels is 4, the group structure is as follows:
+    tile_0_0/
+        0/
+        1/
+        2/
+        3/
+    Args:
+        input: the directory of images to convert to Zarr
+        output: the location of the output Zarr store (filesystem, s3, gs)
+        n_levels: number of downsampling levels
+        scale_factor: scale factor for downsampling in X, Y and Z
+        overwrite: whether to overwrite image groups that already exist
+        chunk_size: the target chunk size in MB
+        chunk_shape: the chunk shape, if None will be computed from chunk_size
+        exclude: a list of filename patterns to exclude from conversion
+        storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
+        recursive: whether to convert all images in all subfolders
+    Returns:
+        A list of metrics for each converted image
+    """
+    if exclude is None:
+        exclude = []
+
+    image_paths = collect_filepaths(
+        input,
+        recursive=recursive,
+        include_exts=DataReaderFactory().VALID_EXTENSIONS,
+    )
+
+    exclude_paths = set()
+    for path in image_paths:
+        if any(fnmatch.fnmatch(path, pattern) for pattern in exclude):
+            exclude_paths.add(path)
+
+    image_paths = [p for p in image_paths if p not in exclude_paths]
+    LOGGER.info(f"Found {len(image_paths)} images to process")
+
+    return write_files_to_zarr(
+        image_paths,
+        output,
+        n_levels,
+        scale_factor,
+        overwrite,
+        chunk_size,
+        chunk_shape,
+        storage_options
+    )
 
 
 def _tile_exists(zarr_path, tile_name, n_levels):
