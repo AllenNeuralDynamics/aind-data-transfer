@@ -17,10 +17,10 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
 from numcodecs import blosc
 from pathlib import Path
-from transfer.transcode.io import DataReaderFactory, HDF5Reader, MissingDatasetError
-from transfer.util.arrayutils import (ensure_array_5d, ensure_shape_5d,
+from transfer.util.io_utils import DataReaderFactory, HDF5Reader, MissingDatasetError
+from transfer.util.array_utils import (ensure_array_5d, ensure_shape_5d,
                                       guess_chunks, expand_chunks)
-from transfer.util.fileutils import collect_filepaths
+from transfer.util.file_utils import collect_filepaths
 
 from cluster.config import load_jobqueue_config
 
