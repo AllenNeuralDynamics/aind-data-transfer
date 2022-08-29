@@ -47,8 +47,16 @@ def get_dask_kwargs(hdf5_plugin_path=None):
     return my_dask_kwargs
 
 
-def get_blosc_codec(codec, clevel):
-    return blosc.Blosc(cname=codec, clevel=clevel, shuffle=blosc.SHUFFLE)
+def get_blosc_codec(cname, clevel):
+    opts = {
+        'compressor': blosc.Blosc(cname=cname, clevel=clevel, shuffle=blosc.SHUFFLE),
+        'params': {
+            'shuffle': blosc.SHUFFLE,
+            'level': clevel,
+            'name': f'blosc-{cname}',
+        }
+    }
+    return opts
 
 
 def get_client(deployment="slurm", **kwargs):
@@ -271,6 +279,129 @@ def parse_args():
     return args
 
 
+def write_folder_to_zarr(
+        input: str,
+        output: str,
+        n_levels: int,
+        scale_factor: int,
+        resume: bool,
+        chunk_size: float = 64,
+        chunk_shape: tuple = None,
+        exclude: list = None,
+        storage_options: dict = None
+) -> list:
+    if exclude is None:
+        exclude = []
+    if storage_options is None:
+        storage_options = {}
+    image_paths = collect_filepaths(
+        input,
+        recursive=True,
+        include_exts=DataReaderFactory().VALID_EXTENSIONS
+    )
+
+    exclude_paths = []
+    for path in image_paths:
+        if any(fnmatch.fnmatch(path, pattern) for pattern in exclude):
+            exclude_paths.append(path)
+
+    for path in exclude_paths:
+        image_paths.remove(path)
+
+    LOGGER.info(f"Found {len(image_paths)} images to process")
+
+    if not image_paths:
+        LOGGER.warning("No images found. Exiting.")
+        return []
+
+    all_metrics = []
+
+    out_zarr = output
+    writer = OmeZarrWriter(out_zarr)
+
+    for impath in image_paths:
+        LOGGER.info(f"Writing tile {impath}")
+
+        tile_name = Path(impath).stem
+
+        if resume and _tile_exists(out_zarr, tile_name, n_levels):
+            LOGGER.info(f"Skipping tile {tile_name}, already exists.")
+            continue
+
+        tile_metrics = {
+            'tile': Path(impath).absolute(),
+        }
+        try:
+            tile_metrics.update(storage_options['params'])
+        except KeyError:
+            LOGGER.warning("compression parameters will not be logged")
+
+        # Create reader, but don't construct dask array
+        # until we know the optimal chunk shape.
+        reader = DataReaderFactory().create(impath)
+
+        # We determine the chunk size before creating the dask array since
+        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
+        # causes memory use to grow (unbounded?) during the zarr write step.
+        # See https://github.com/dask/dask/issues/5105.
+        if chunk_shape is None:
+            assert chunk_size > 0
+            chunks = _compute_chunks(reader, chunk_size)
+        else:
+            chunks = tuple(chunk_shape)
+            assert np.all(chunks)
+
+        LOGGER.info(f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB")
+
+        tile_metrics['chunks'] = chunks
+
+        # Get the chunk dimensions that exist in the original, un-padded image
+        reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
+
+        pyramid = get_or_create_pyramid(reader, n_levels, reader_chunks)
+
+        for i in range(len(pyramid)):
+            pyramid[i] = ensure_array_5d(pyramid[i])
+
+        LOGGER.info(f"{pyramid[0]}")
+
+        LOGGER.info("Starting write...")
+        t0 = time.time()
+        writer.write_multiscale(
+            pyramid=pyramid,
+            image_name=tile_name,
+            physical_pixel_sizes=None,
+            channel_names=None,
+            channel_colors=None,
+            scale_factor=(scale_factor,) * 3,
+            chunks=chunks,
+            storage_options=storage_options,
+        )
+        write_time = time.time() - t0
+
+        _populate_metrics(
+            tile_metrics,
+            tile_name,
+            out_zarr,
+            _get_bytes(pyramid),
+            write_time,
+            n_levels,
+            pyramid[0].shape,
+            pyramid[0].dtype,
+        )
+
+        LOGGER.info(
+            f"Finished writing tile {tile_name}.\n"
+            f"Took {write_time}s. {tile_metrics['write_bps'] / (1024 ** 2)} MiB/s"
+        )
+
+        all_metrics.append(tile_metrics)
+
+        reader.close()
+
+    return all_metrics
+
+
 def main():
     args = parse_args()
 
@@ -286,114 +417,19 @@ def main():
 
     client, _ = get_client(args.deployment, **my_dask_kwargs)
 
-    compressor = get_blosc_codec(args.codec, args.clevel)
-    opts = {
-        "compressor": compressor,
-    }
+    opts = get_blosc_codec(args.codec, args.clevel)
 
-    image_paths = collect_filepaths(
+    all_metrics = write_folder_to_zarr(
         args.input,
-        recursive=True,
-        include_exts=DataReaderFactory().VALID_EXTENSIONS
+        args.output,
+        args.n_levels,
+        args.scale_factor,
+        args.resume,
+        args.chunk_size,
+        args.chunk_shape,
+        args.exclude,
+        opts
     )
-
-    exclude_paths = []
-    for path in image_paths:
-        if any(fnmatch.fnmatch(path, pattern) for pattern in args.exclude):
-            exclude_paths.append(path)
-
-    for path in exclude_paths:
-        image_paths.remove(path)
-
-    LOGGER.info(f"Found {len(image_paths)} images to process")
-
-    if not image_paths:
-        LOGGER.warning("No images found. Exiting.")
-        return
-
-    all_metrics = []
-
-    out_zarr = args.output
-    writer = OmeZarrWriter(out_zarr)
-
-    for impath in image_paths:
-        LOGGER.info(f"Writing tile {impath}")
-
-        tile_name = Path(impath).stem
-
-        if args.resume and _tile_exists(out_zarr, tile_name, args.n_levels):
-            LOGGER.info(f"Skipping tile {tile_name}, already exists.")
-            continue
-
-        tile_metrics = {
-            'tile': Path(impath).absolute(),
-            'codec': args.codec,
-            'clevel': args.clevel,
-            'shuffle': compressor.SHUFFLE
-        }
-
-        # Create reader, but don't construct dask array
-        # until we know the optimal chunk shape.
-        reader = DataReaderFactory().create(impath)
-
-        # We determine the chunk size before creating the dask array since
-        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
-        # causes memory use to grow (unbounded?) during the zarr write step.
-        # See https://github.com/dask/dask/issues/5105.
-        if args.chunk_shape is None:
-            assert args.chunk_size > 0
-            chunks = _compute_chunks(reader, args.chunk_size)
-        else:
-            chunks = tuple(args.chunk_shape)
-            assert np.all(chunks)
-
-        LOGGER.info(f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB")
-
-        tile_metrics['chunks'] = chunks
-
-        # Get the chunk dimensions that exist in the original, un-padded image
-        reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
-
-        pyramid = get_or_create_pyramid(reader, args.n_levels, reader_chunks)
-
-        for i in range(len(pyramid)):
-            pyramid[i] = ensure_array_5d(pyramid[i])
-
-        LOGGER.info(f"{pyramid[0]}")
-
-        LOGGER.info("Starting write...")
-        t0 = time.time()
-        writer.write_multiscale(
-            pyramid=pyramid,
-            image_name=tile_name,
-            physical_pixel_sizes=None,
-            channel_names=None,
-            channel_colors=None,
-            scale_factor=(args.scale_factor,) * 3,
-            chunks=chunks,
-            storage_options=opts,
-        )
-        write_time = time.time() - t0
-
-        _populate_metrics(
-            tile_metrics,
-            tile_name,
-            out_zarr,
-            _get_bytes(pyramid),
-            write_time,
-            args.n_levels,
-            pyramid[0].shape,
-            pyramid[0].dtype,
-        )
-
-        LOGGER.info(
-            f"Finished writing tile {tile_name}.\n"
-            f"Took {write_time}s. {tile_metrics['write_bps'] / (1024 ** 2)} MiB/s"
-        )
-
-        all_metrics.append(tile_metrics)
-
-        reader.close()
 
     client.shutdown()
 
