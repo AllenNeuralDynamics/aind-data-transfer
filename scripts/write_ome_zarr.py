@@ -1,10 +1,15 @@
 import argparse
+import fnmatch
 import logging
 import os
 
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
+import shutil
+import sys
+from pathlib import Path, PurePath
+
 import hdf5plugin
 
 import pandas as pd
@@ -13,7 +18,11 @@ from distributed import Client, LocalCluster
 from numcodecs import blosc
 
 from cluster.config import load_jobqueue_config
-from transfer.transcode.ome_zarr import write_folder_to_zarr
+from transfer.transcode.ome_zarr import write_files_to_zarr
+from transfer.util.file_utils import collect_filepaths, make_cloud_paths
+from transfer.util.io_utils import DataReaderFactory
+from transfer.gcs import GCSUploader
+from transfer.s3 import S3Uploader
 
 blosc.use_threads = False
 
@@ -99,14 +108,19 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default="/net/172.20.102.30/aind/mesoSPIM/mesospim_ANM457202_2022_07_11/sub-01/micr",
+        default="/mnt/vast/aind/mesoSPIM/mesospim_ANM457202_2022_07_11/sub-01/micr",
         # default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
         help="directory of images to transcode",
     )
     parser.add_argument(
+        "--root_folder",
+        type=str,
+        default="/mnt/vast/aind/mesoSPIM/mesospim_ANM457202_2022_07_11"
+    )
+    parser.add_argument(
         "--output",
         type=str,
-        default="/net/172.20.102.30/aind/mesoSPIM/mesospim_ANM457202_2022_07_11/sub-01/derivatives/ome-zarr",
+        default="s3://aind-transfer-test/mesoSPIM/mesospim_ANM457202_2022_07_11",
         help="output Zarr path, e.g., s3://bucket/tiles.zarr",
     )
     parser.add_argument("--codec", type=str, default="zstd")
@@ -166,6 +180,25 @@ def parse_args():
     return args
 
 
+def get_images(image_folder, exclude=None):
+    if exclude is None:
+        exclude = []
+    image_paths = set(collect_filepaths(
+        image_folder,
+        recursive=False,
+        include_exts=DataReaderFactory().VALID_EXTENSIONS,
+    ))
+
+    exclude_paths = set()
+    for path in image_paths:
+        if any(fnmatch.fnmatch(path, pattern) for pattern in exclude):
+            exclude_paths.add(path)
+
+    image_paths = [p for p in image_paths if p not in exclude_paths]
+
+    return image_paths
+
+
 def main():
     args = parse_args()
 
@@ -183,15 +216,57 @@ def main():
 
     opts = get_blosc_codec(args.codec, args.clevel)
 
-    all_metrics = write_folder_to_zarr(
-        args.input,
-        args.output,
+    filepaths = collect_filepaths(args.root_folder, recursive=True)
+    images = set(get_images(args.input, exclude=args.exclude))
+
+    # Filter out the images we're transcoding, we won't upload the raw data
+    filepaths = [p for p in filepaths if p not in images]
+    print(filepaths)
+
+    if args.output.startswith("s3://") or args.output.startswith("gs://"):
+        parts = Path(args.output).parts
+        provider = parts[0]
+        bucket = parts[1]
+        cloud_dst = "/".join(parts[2:])
+
+        # Upload all the files that we're not converting to Zarr
+        if provider == "gs:":
+            LOGGER.info("Uploading files to GCS")
+            uploader = GCSUploader(bucket)
+            uploader.upload_files(filepaths, cloud_dst, args.root_folder)
+        else:
+            LOGGER.info("Uploading files to s3")
+            uploader = S3Uploader(
+                target_throughput=1000 * (1024 ** 2) ** 2,
+                part_size=64 * (1024 ** 2)
+            )
+            uploader.upload_files(filepaths, bucket, cloud_dst, args.root_folder)
+
+        zarr_dst = make_cloud_paths([args.input], cloud_dst, args.root_folder)[0]
+        zarr_url = f"{provider}//{bucket}/{zarr_dst}"
+
+    else:
+        LOGGER.info("Uploading to filesystem")
+        # we're transferring to a traditional filesystem
+        for f in filepaths:
+            out_path = os.path.join(args.output, PurePath(os.path.relpath(f, args.root_folder)))
+            print(out_path)
+            Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, out_path)
+
+        zarr_url = os.path.join(args.output, PurePath(os.path.relpath(args.input, args.root_folder)))
+        Path(zarr_url).mkdir(parents=True, exist_ok=True)
+
+    print(zarr_url)
+
+    all_metrics = write_files_to_zarr(
+        images,
+        zarr_url,
         args.n_levels,
         args.scale_factor,
         not args.resume,
         args.chunk_size,
         args.chunk_shape,
-        args.exclude,
         opts,
     )
 
