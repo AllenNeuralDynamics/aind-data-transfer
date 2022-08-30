@@ -31,7 +31,7 @@ def write_files_to_zarr(
         image_paths: list,
         output: str,
         n_levels: int,
-        scale_factor: int,
+        scale_factor: float,
         overwrite: bool = True,
         chunk_size: float = 64,  # MB
         chunk_shape: tuple = None,
@@ -162,7 +162,7 @@ def write_folder_to_zarr(
     input: str,
     output: str,
     n_levels: int,
-    scale_factor: int,
+    scale_factor: float,
     overwrite: bool = True,
     chunk_size: float = 64,  # MB
     chunk_shape: tuple = None,
