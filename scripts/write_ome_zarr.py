@@ -19,7 +19,12 @@ from numcodecs import blosc
 
 from cluster.config import load_jobqueue_config
 from transfer.transcode.ome_zarr import write_files_to_zarr
-from transfer.util.file_utils import collect_filepaths, make_cloud_paths
+from transfer.util.file_utils import (
+    collect_filepaths,
+    make_cloud_paths,
+    parse_cloud_url,
+    is_cloud_url,
+)
 from transfer.util.io_utils import DataReaderFactory
 from transfer.gcs import GCSUploader
 from transfer.s3 import S3Uploader
@@ -108,19 +113,19 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default="/mnt/vast/aind/mesoSPIM/mesospim_ANM457202_2022_07_11/sub-01/micr",
+        default=r"C:\Users\cameron.arshadi\Desktop\mesoSPIM-test\sub-01\micr",
         # default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
         help="directory of images to transcode",
     )
     parser.add_argument(
         "--root_folder",
         type=str,
-        default="/mnt/vast/aind/mesoSPIM/mesospim_ANM457202_2022_07_11"
+        default=r"C:\Users\cameron.arshadi\Desktop\mesoSPIM-test",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="s3://aind-transfer-test/mesoSPIM/mesospim_ANM457202_2022_07_11",
+        default=r"C:\Users\cameron.arshadi\Desktop\mesoSPIM-test-dst",
         help="output Zarr path, e.g., s3://bucket/tiles.zarr",
     )
     parser.add_argument("--codec", type=str, default="zstd")
@@ -154,7 +159,7 @@ def parse_args():
     parser.add_argument(
         "--hdf5_plugin_path",
         type=str,
-        default="/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/envs/nd-data-transfer/lib/python3.10/site-packages/hdf5plugin/plugins",
+        default=None,
         help="path to HDF5 filter plugins. Specifying this is necessary if transcoding HDF5 or IMS files on HPC.",
     )
     parser.add_argument(
@@ -183,11 +188,13 @@ def parse_args():
 def get_images(image_folder, exclude=None):
     if exclude is None:
         exclude = []
-    image_paths = set(collect_filepaths(
-        image_folder,
-        recursive=False,
-        include_exts=DataReaderFactory().VALID_EXTENSIONS,
-    ))
+    image_paths = set(
+        collect_filepaths(
+            image_folder,
+            recursive=False,
+            include_exts=DataReaderFactory().VALID_EXTENSIONS,
+        )
+    )
 
     exclude_paths = set()
     for path in image_paths:
@@ -197,6 +204,29 @@ def get_images(image_folder, exclude=None):
     image_paths = [p for p in image_paths if p not in exclude_paths]
 
     return image_paths
+
+
+def copy_files(filepaths, output, root_folder):
+    for f in filepaths:
+        out_path = os.path.join(output, os.path.relpath(f, root_folder))
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(f, out_path)
+
+
+def copy_files_to_cloud(filepaths, provider, bucket, cloud_dst, root_folder):
+    if provider == "gs://":
+        LOGGER.info("Uploading files to GCS")
+        uploader = GCSUploader(bucket)
+        uploader.upload_files(filepaths, cloud_dst, root_folder)
+    elif provider == "s3://":
+        LOGGER.info("Uploading files to s3")
+        uploader = S3Uploader(
+            target_throughput=1000 * (1024**2) ** 2,
+            part_size=128 * (1024**2),
+        )
+        uploader.upload_files(filepaths, bucket, cloud_dst, root_folder)
+    else:
+        raise ValueError("Invalid cloud storage provider: {provider}")
 
 
 def main():
@@ -221,47 +251,31 @@ def main():
 
     # Filter out the images we're transcoding, we won't upload the raw data
     filepaths = [p for p in filepaths if p not in images]
-    print(filepaths)
 
-    if args.output.startswith("s3://") or args.output.startswith("gs://"):
-        parts = Path(args.output).parts
-        provider = parts[0]
-        bucket = parts[1]
-        cloud_dst = "/".join(parts[2:])
+    # Upload all the files that we're not converting to Zarr
+    if is_cloud_url(args.output):
+        provider, bucket, cloud_dst = parse_cloud_url(args.output)
+        copy_files_to_cloud(
+            filepaths, provider, bucket, cloud_dst, args.root_folder
+        )
 
-        # Upload all the files that we're not converting to Zarr
-        if provider == "gs:":
-            LOGGER.info("Uploading files to GCS")
-            uploader = GCSUploader(bucket)
-            uploader.upload_files(filepaths, cloud_dst, args.root_folder)
-        else:
-            LOGGER.info("Uploading files to s3")
-            uploader = S3Uploader(
-                target_throughput=1000 * (1024 ** 2) ** 2,
-                part_size=64 * (1024 ** 2)
-            )
-            uploader.upload_files(filepaths, bucket, cloud_dst, args.root_folder)
-
-        zarr_dst = make_cloud_paths([args.input], cloud_dst, args.root_folder)[0]
-        zarr_url = f"{provider}//{bucket}/{zarr_dst}"
-
+        # We will place the Zarr in the cloud folder corresponding to the input image folder
+        zarr_dst = make_cloud_paths([args.input], cloud_dst, args.root_folder)[
+            0
+        ]
+        zarr_dst = f"{provider}{bucket}/{zarr_dst}"
     else:
         LOGGER.info("Uploading to filesystem")
-        # we're transferring to a traditional filesystem
-        for f in filepaths:
-            out_path = os.path.join(args.output, PurePath(os.path.relpath(f, args.root_folder)))
-            print(out_path)
-            Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(f, out_path)
-
-        zarr_url = os.path.join(args.output, PurePath(os.path.relpath(args.input, args.root_folder)))
-        Path(zarr_url).mkdir(parents=True, exist_ok=True)
-
-    print(zarr_url)
+        copy_files(filepaths, args.output, args.root_folder)
+        # We will place the Zarr in the output folder corresponding to the input image folder
+        zarr_dst = os.path.join(
+            args.output, os.path.relpath(args.input, args.root_folder)
+        )
+        Path(zarr_dst).mkdir(parents=True, exist_ok=True)
 
     all_metrics = write_files_to_zarr(
         images,
-        zarr_url,
+        zarr_dst,
         args.n_levels,
         args.scale_factor,
         not args.resume,

@@ -1,5 +1,5 @@
 import os
-from pathlib import PurePath, PurePosixPath
+from pathlib import PurePath, PurePosixPath, Path
 from typing import List, Optional
 
 
@@ -78,3 +78,19 @@ def make_cloud_paths(
                 join_cloud_paths(cloud_dest_path, os.path.relpath(fpath, root))
             )
     return cloud_paths
+
+
+def is_cloud_url(url):
+    if url.startswith("s3://"):
+        return True
+    if url.startswith("gs://"):
+        return True
+    return False
+
+
+def parse_cloud_url(cloud_url):
+    parts = Path(cloud_url).parts
+    provider = parts[0] + "//"
+    bucket = parts[1]
+    cloud_dst = "/".join(parts[2:])
+    return provider, bucket, cloud_dst
