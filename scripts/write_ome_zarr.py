@@ -2,14 +2,14 @@ import argparse
 import fnmatch
 import logging
 import os
+import shutil
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
-import shutil
-import sys
-from pathlib import Path, PurePath
-
 import hdf5plugin
 
 import pandas as pd
@@ -206,11 +206,16 @@ def get_images(image_folder, exclude=None):
     return image_paths
 
 
-def copy_files(filepaths, output, root_folder):
+def copy_files(filepaths, output, root_folder, n_workers=4):
+    dst_list = []
     for f in filepaths:
-        out_path = os.path.join(output, os.path.relpath(f, root_folder))
-        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(f, out_path)
+        dst = os.path.join(output, os.path.relpath(f, root_folder))
+        dst_list.append(dst)
+        Path(dst).parent.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    with ThreadPoolExecutor(n_workers) as executor:
+        executor.map(shutil.copyfile, filepaths, dst_list)
+    LOGGER.info(f"Copy took {time.time() - t0}s")
 
 
 def copy_files_to_cloud(filepaths, provider, bucket, cloud_dst, root_folder):
