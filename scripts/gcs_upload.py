@@ -24,12 +24,6 @@ logger.setLevel(logging.INFO)
 
 
 GCLOUD_TOOLS = ['gcloud alpha storage', 'gsutil']
-# FIXME map input arg to tool command since cli args can't have spaces
-METHODS = {
-    "gsutil": "gsutil",
-    "python": "python",
-    "gcloud": "gcloud alpha storage"
-}
 
 
 def get_client(deployment="slurm"):
@@ -269,14 +263,6 @@ def validate_blobs(bucket_name, target_paths):
     return missing_paths
 
 
-def get_normalized_method(method):
-    try:
-        return METHODS[method]
-    except KeyError:
-        logger.error(f"Invalid method {method}. Choices are {METHODS.keys()}")
-        raise
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -330,9 +316,10 @@ def parse_args():
     )
     parser.add_argument(
         "--method",
-        choices=list(METHODS.keys()),
+        choices=['python', 'gsutil', 'gcloud_alpha_storage'],
         default="python",
-        help="use either gsutil, gcloud storage or the google-cloud-storage Python API for local upload.",
+        help="use either gsutil, gcloud storage or the google-cloud-storage Python API for local upload."
+             "This does not apply when --cluster is used.",
     )
     parser.add_argument(
         "--validate",
@@ -371,7 +358,8 @@ def main():
             chunk_size=chunk_size,
         )
     else:
-        norm_method = get_normalized_method(args.method)
+        # replace CLI friendly string (no spaces) with actual gcloud command string
+        norm_method = args.method.replace("_", " ")
         if norm_method in GCLOUD_TOOLS:
             run_gcloud_local_job(
                 norm_method, args.input, args.bucket, args.gcs_path, args.nthreads
