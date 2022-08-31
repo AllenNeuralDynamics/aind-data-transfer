@@ -111,22 +111,23 @@ def _ensure_metrics_file(metrics_file):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input",
+        "--image_dir",
         type=str,
-        default=r"C:\Users\cameron.arshadi\Desktop\mesoSPIM-test\sub-01\micr",
-        # default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
         help="directory of images to transcode",
     )
     parser.add_argument(
         "--root_folder",
         type=str,
-        default=r"C:\Users\cameron.arshadi\Desktop\mesoSPIM-test",
+        default=None,
+        help="top-level directory to upload to --output which includes --image_dir. "
+             "Only the files in --image_dir will be converted to OME-Zarr, "
+             "the rest are transferred as-is. If None, only the OME-Zarr will be "
+             "uploaded to --output.",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default=r"C:\Users\cameron.arshadi\Desktop\mesoSPIM-test-dst",
-        help="output Zarr path, e.g., s3://bucket/tiles.zarr",
+        help="where to store the data",
     )
     parser.add_argument("--codec", type=str, default="zstd")
     parser.add_argument("--clevel", type=int, default=1)
@@ -207,6 +208,9 @@ def get_images(image_folder, exclude=None):
 
 
 def copy_files(filepaths, output, root_folder, n_workers=4):
+    if not filepaths:
+        LOGGER.info("No files to upload. Returning.")
+        return
     dst_list = []
     for f in filepaths:
         dst = os.path.join(output, os.path.relpath(f, root_folder))
@@ -219,6 +223,9 @@ def copy_files(filepaths, output, root_folder, n_workers=4):
 
 
 def copy_files_to_cloud(filepaths, provider, bucket, cloud_dst, root_folder):
+    if not filepaths:
+        LOGGER.info("No files to upload. Returning.")
+        return
     if provider == "gs://":
         LOGGER.info("Uploading files to GCS")
         uploader = GCSUploader(bucket)
@@ -251,30 +258,35 @@ def main():
 
     opts = get_blosc_codec(args.codec, args.clevel)
 
-    filepaths = collect_filepaths(args.root_folder, recursive=True)
-    images = set(get_images(args.input, exclude=args.exclude))
+    images = set(get_images(args.image_dir, exclude=args.exclude))
 
-    # Filter out the images we're transcoding, we won't upload the raw data
-    filepaths = [p for p in filepaths if p not in images]
+    if args.root_folder is not None:
+        # We will upload all files in root
+        root_folder = args.root_folder
+        filepaths = collect_filepaths(root_folder, recursive=True)
+        # Filter out the images we're transcoding, we won't upload the raw data
+        filepaths = [p for p in filepaths if p not in images]
+    else:
+        # We will upload only the image directory as ome-zarr
+        root_folder = args.image_dir
+        filepaths = []
 
     # Upload all the files that we're not converting to Zarr
     if is_cloud_url(args.output):
         provider, bucket, cloud_dst = parse_cloud_url(args.output)
         copy_files_to_cloud(
-            filepaths, provider, bucket, cloud_dst, args.root_folder
+            filepaths, provider, bucket, cloud_dst, root_folder
         )
 
-        # We will place the Zarr in the cloud folder corresponding to the input image folder
-        zarr_dst = make_cloud_paths([args.input], cloud_dst, args.root_folder)[
-            0
-        ]
+        # We will place the Zarr in the cloud folder corresponding to --image_dir
+        zarr_dst = make_cloud_paths([args.image_dir], cloud_dst, root_folder)[0]
         zarr_dst = f"{provider}{bucket}/{zarr_dst}"
     else:
         LOGGER.info("Uploading to filesystem")
-        copy_files(filepaths, args.output, args.root_folder)
-        # We will place the Zarr in the output folder corresponding to the input image folder
+        copy_files(filepaths, args.output, root_folder)
+        # We will place the Zarr in the output folder corresponding to --image_dir
         zarr_dst = os.path.join(
-            args.output, os.path.relpath(args.input, args.root_folder)
+            args.output, os.path.relpath(args.image_dir, root_folder)
         )
         Path(zarr_dst).mkdir(parents=True, exist_ok=True)
 
