@@ -338,6 +338,7 @@ def main():
         overwrite,
         args.chunk_size,
         args.chunk_shape,
+        None,
         opts,
     )
 
