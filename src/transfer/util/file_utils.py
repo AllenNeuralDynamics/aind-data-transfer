@@ -1,9 +1,13 @@
 import os
 from pathlib import PurePath, PurePosixPath, Path
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
 
-def collect_filepaths(folder: str, recursive: bool = True, include_exts: Optional[List[str]] = None) -> List[str]:
+def collect_filepaths(
+        folder: Union[str, os.PathLike],
+        recursive: bool = True,
+        include_exts: Optional[List[str]] = None
+) -> List[str]:
     """Get the absolute paths for all files in folder
     Args:
         folder (str): the directory to look for files
@@ -40,7 +44,9 @@ def join_cloud_paths(cloud_dest_path: str, relpath: str) -> str:
 
 
 def make_cloud_paths(
-    filepaths: List[str], cloud_dest_path: str, root: str = None
+    filepaths: List[Union[str, os.PathLike]],
+    cloud_dest_path: Union[str, os.PathLike],
+    root: Union[str, os.PathLike] = None,
 ) -> List[str]:
     """
     Given a list of filepaths and a cloud destination folder,
@@ -80,7 +86,14 @@ def make_cloud_paths(
     return cloud_paths
 
 
-def is_cloud_url(url):
+def is_cloud_url(url: str):
+    """
+    Test if the url points to an AWS S3 or Google Cloud Storage URI
+    Args:
+        url: the url to test
+    Returns:
+        True if url is a cloud url
+    """
     if url.startswith("s3://"):
         return True
     if url.startswith("gs://"):
@@ -88,7 +101,15 @@ def is_cloud_url(url):
     return False
 
 
-def parse_cloud_url(cloud_url):
+def parse_cloud_url(cloud_url: str) -> Tuple[str, str, str]:
+    """
+    Get the cloud storage provider, bucket name, and path
+    from an AWS S3 or Google Cloud Storage url.
+    Args:
+        cloud_url: the cloud url to parse
+    Returns:
+        a tuple containing the provider, bucket and path
+    """
     parts = Path(cloud_url).parts
     provider = parts[0] + "//"
     bucket = parts[1]
