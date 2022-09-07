@@ -150,18 +150,11 @@ def ensure_metrics_file(metrics_file):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--image_dir",
+        "--input",
         type=str,
-        help="directory of images to transcode",
-    )
-    parser.add_argument(
-        "--root_folder",
-        type=str,
-        default=None,
-        help="top-level directory to upload to --output which includes --image_dir. "
-             "Only the files in --image_dir will be converted to OME-Zarr, "
-             "the rest are transferred as-is. If None, only the OME-Zarr will be "
-             "uploaded to --output.",
+        help="top-level directory to upload to --output."
+             "If a micr/ directory is present, only images within that directory are transcoded, "
+             "the rest are transferred as-is."
     )
     parser.add_argument(
         "--output",
@@ -219,7 +212,7 @@ def parse_args():
         default=[],
         type=str,
         nargs="+",
-        help='filename patterns to exclude, e.g., "*.tif", "*.memento", etc',
+        help='filename patterns to exclude from transcoding, e.g., "*.tif", "*.memento", etc',
     )
     args = parser.parse_args()
     return args
@@ -228,12 +221,10 @@ def parse_args():
 def get_images(image_folder, exclude=None):
     if exclude is None:
         exclude = []
-    image_paths = set(
-        collect_filepaths(
-            image_folder,
-            recursive=False,
-            include_exts=DataReaderFactory().VALID_EXTENSIONS,
-        )
+    image_paths = collect_filepaths(
+        image_folder,
+        recursive=False,
+        include_exts=DataReaderFactory().VALID_EXTENSIONS,
     )
 
     exclude_paths = set()
@@ -299,44 +290,52 @@ def main():
 
     opts = get_blosc_codec(args.codec, args.clevel)
 
-    images = set(get_images(args.image_dir, exclude=args.exclude))
+    input_dir = Path(args.input)
+    image_dir = input_dir / "micr"
+    if not image_dir.is_dir():
+        LOGGER.warning(f'"micr/" not found, converting all images in {input_dir}')
+        image_dir = input_dir
+    images = set(get_images(image_dir, exclude=args.exclude))
+    LOGGER.info(f"Found {len(images)} images in {image_dir}")
 
-    if args.root_folder is not None:
-        # We will upload all files in root
-        root_folder = args.root_folder
-        filepaths = collect_filepaths(root_folder, recursive=True)
-        # Filter out the images we're transcoding, we won't upload the raw data
-        filepaths = [p for p in filepaths if p not in images]
-    else:
-        # We will upload only the image directory as ome-zarr
-        root_folder = args.image_dir
-        filepaths = []
+    filepaths = collect_filepaths(input_dir, recursive=True)
+    # Filter out the images we're transcoding, we won't upload the raw data
+    filepaths = [p for p in filepaths if p not in images]
 
     # Upload all the files that we're not converting to Zarr
     if is_cloud_url(args.output):
         provider, bucket, cloud_dst = parse_cloud_url(args.output)
         copy_files_to_cloud(
-            filepaths, provider, bucket, cloud_dst, root_folder
+            filepaths, provider, bucket, cloud_dst, input_dir
         )
 
-        # We will place the Zarr in the cloud folder corresponding to --image_dir
-        zarr_dst = make_cloud_paths([args.image_dir], cloud_dst, root_folder)[0]
+        # We will place the Zarr in the cloud folder corresponding to image_dir
+        zarr_dst = make_cloud_paths([image_dir], cloud_dst, input_dir)[0]
         zarr_dst = f"{provider}{bucket}/{zarr_dst}"
     else:
         LOGGER.info("Uploading to filesystem")
-        copy_files(filepaths, args.output, root_folder)
-        # We will place the Zarr in the output folder corresponding to --image_dir
+        copy_files(filepaths, args.output, input_dir)
+        # We will place the Zarr in the output folder corresponding to image_dir
         zarr_dst = os.path.join(
-            args.output, os.path.relpath(args.image_dir, root_folder)
+            args.output, os.path.relpath(image_dir, input_dir)
         )
         Path(zarr_dst).mkdir(parents=True, exist_ok=True)
+
+    if not images:
+        LOGGER.info(f"No images found, exiting.")
+        return
+
+    LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
+    LOGGER.info(f"Writing OME-Zarr to {zarr_dst}")
+
+    overwrite = not args.resume
 
     all_metrics = write_files_to_zarr(
         images,
         zarr_dst,
         args.n_levels,
         args.scale_factor,
-        not args.resume,
+        overwrite,
         args.chunk_size,
         args.chunk_shape,
         opts,
