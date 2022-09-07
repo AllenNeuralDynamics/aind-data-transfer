@@ -214,6 +214,12 @@ def parse_args():
         nargs="+",
         help='filename patterns to exclude from transcoding, e.g., "*.tif", "*.memento", etc',
     )
+    parser.add_argument(
+        "--voxsize",
+        type=str,
+        default="1.0,1.0,1.0",
+        help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"'
+    )
     args = parser.parse_args()
     return args
 
@@ -269,6 +275,24 @@ def copy_files_to_cloud(filepaths, provider, bucket, cloud_dst, root_folder):
         uploader.upload_files(filepaths, bucket, cloud_dst, root_folder)
     else:
         raise ValueError("Invalid cloud storage provider: {provider}")
+
+
+def parse_voxel_size(voxsize_str):
+    vsstr = voxsize_str.split(",")
+    vs = []
+    if len(vsstr) > 0:
+        vs.append(float(vsstr[2]))
+    else:
+        vs.append(1.0)
+    if len(vsstr) > 1:
+        vs.append(float(vsstr[1]))
+    else:
+        vs.append(1.0)
+    if len(vsstr) > 2:
+        vs.append(float(vsstr[0]))
+    else:
+        vs.append(1.0)
+    return vs
 
 
 def main():
@@ -328,6 +352,8 @@ def main():
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
     LOGGER.info(f"Writing OME-Zarr to {zarr_dst}")
 
+    voxsize = parse_voxel_size(args.voxsize)
+
     overwrite = not args.resume
 
     all_metrics = write_files_to_zarr(
@@ -338,7 +364,7 @@ def main():
         overwrite,
         args.chunk_size,
         args.chunk_shape,
-        None,
+        voxsize,
         opts,
     )
 
