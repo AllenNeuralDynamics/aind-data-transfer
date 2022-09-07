@@ -6,6 +6,7 @@ from typing import Union, List
 
 import numpy as np
 import zarr
+from aicsimageio.types import PhysicalPixelSizes
 from aicsimageio.writers import OmeZarrWriter
 from numpy.typing import NDArray
 
@@ -35,6 +36,7 @@ def write_files_to_zarr(
         overwrite: bool = True,
         chunk_size: float = 64,  # MB
         chunk_shape: tuple = None,
+        voxel_size: tuple = None,
         storage_options: dict = None,
 ) -> list:
     """
@@ -57,6 +59,7 @@ def write_files_to_zarr(
         overwrite: whether to overwrite image groups that already exist
         chunk_size: the target chunk size in MB
         chunk_shape: the chunk shape, if None will be computed from chunk_size
+        voxel_size: three element tuple giving physical voxel sizes in Z,Y,X order
         storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
     Returns:
         A list of metrics for each converted image
@@ -94,6 +97,20 @@ def write_files_to_zarr(
         # until we know the optimal chunk shape.
         reader = DataReaderFactory().create(impath)
 
+        # TODO: pass units to zarr writer
+        if voxel_size is None:
+            try:
+                voxel_size, unit = reader.get_voxel_size()
+            except Exception:
+                voxel_size = [1.0, 1.0, 1.0]
+                unit = "um"
+        LOGGER.info(f"Using voxel size: {voxel_size}")
+        physical_pixel_sizes = PhysicalPixelSizes(
+            Z=voxel_size[0],
+            Y=voxel_size[1],
+            X=voxel_size[2]
+        )
+
         # We determine the chunk size before creating the dask array since
         # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
         # causes memory use to grow (unbounded?) during the zarr write step.
@@ -126,7 +143,7 @@ def write_files_to_zarr(
         writer.write_multiscale(
             pyramid=pyramid,
             image_name=tile_name,
-            physical_pixel_sizes=None,
+            physical_pixel_sizes=physical_pixel_sizes,
             channel_names=None,
             channel_colors=None,
             scale_factor=(scale_factor,) * 3,
