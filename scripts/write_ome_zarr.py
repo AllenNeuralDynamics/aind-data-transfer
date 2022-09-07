@@ -6,18 +6,16 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Union
 
-# Importing this alone doesn't work on HPC
-# Must manually override HDF5_PLUGIN_PATH environment variable
-# in each Dask worker
-import hdf5plugin
-
+import google.cloud.exceptions
 import pandas as pd
+from botocore.session import get_session
 from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
 from numcodecs import blosc
-
-from cluster.config import load_jobqueue_config
+from transfer.gcs import GCSUploader, create_client
+from transfer.s3 import S3Uploader
 from transfer.transcode.ome_zarr import write_files_to_zarr
 from transfer.util.file_utils import (
     collect_filepaths,
@@ -26,8 +24,13 @@ from transfer.util.file_utils import (
     is_cloud_url,
 )
 from transfer.util.io_utils import DataReaderFactory
-from transfer.gcs import GCSUploader
-from transfer.s3 import S3Uploader
+
+from cluster.config import load_jobqueue_config
+
+# Importing this alone doesn't work on HPC
+# Must manually override HDF5_PLUGIN_PATH environment variable
+# in each Dask worker
+import hdf5plugin
 
 blosc.use_threads = False
 
@@ -90,17 +93,53 @@ def get_client(deployment="slurm", **kwargs):
     return client, config
 
 
-def validate_output_path(output):
-    # TODO cloud path validation
+def output_valid(output: Union[str, os.PathLike]) -> bool:
+    """
+    Check if the output path is valid. If the path is a cloud storage location,
+    check if the bucket exists and is accessible (but not necessarily writable) by the current user.
+
+    Args:
+        output: the output path or url
+
+    Returns:
+        True if the bucket exists and is accessible
+    """
     if output.startswith("gs://"):
-        pass
+        _, bucket_name, __ = parse_cloud_url(output)
+        client = create_client()
+        try:
+            _ = client.get_bucket(bucket_name)
+            return True
+        except google.cloud.exceptions.NotFound:
+            LOGGER.error(f"Bucket not found: {bucket_name}")
+            return False
+        except Exception as e:
+            LOGGER.error(f"Error retrieving bucket {bucket_name}: {e}")
+            return False
     elif output.startswith("s3://"):
-        pass
+        _, bucket_name, __ = parse_cloud_url(output)
+        session = get_session()
+        client = session.create_client("s3")
+        try:
+            response = client.head_bucket(Bucket=bucket_name)
+        except Exception as e:
+            LOGGER.error(f"Error connecting to bucket {bucket_name}: {e}")
+            return False
+        status = response['ResponseMetadata']['HTTPStatusCode']
+        if status == 200:
+            return True
+        else:
+            LOGGER.error(
+                f"Error accessing bucket: {bucket_name}"
+                f"\nHTTP status code: {status}"
+            )
+            return False
     else:
         os.makedirs(output, exist_ok=True)
+        return True
 
 
-def _ensure_metrics_file(metrics_file):
+def ensure_metrics_file(metrics_file):
     if not metrics_file.endswith(".csv"):
         raise ValueError("metrics_file must be .csv")
     metrics_dir = os.path.dirname(os.path.abspath(metrics_file))
@@ -246,9 +285,11 @@ def main():
 
     LOGGER.setLevel(args.log_level)
 
-    _ensure_metrics_file(args.metrics_file)
+    if not output_valid(args.output):
+        LOGGER.error("Output path not valid, aborting.")
+        return
 
-    validate_output_path(args.output)
+    ensure_metrics_file(args.metrics_file)
 
     set_hdf5_env_vars(args.hdf5_plugin_path)
 
