@@ -12,7 +12,7 @@ from s3transfer.constants import GB, MB
 from s3transfer.crt import (BotocoreCRTRequestSerializer, CRTTransferFuture,
                             CRTTransferManager, create_s3_crt_client)
 
-from transfer.util.fileutils import collect_filepaths, make_cloud_paths
+from transfer.util.file_utils import collect_filepaths, make_cloud_paths
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
