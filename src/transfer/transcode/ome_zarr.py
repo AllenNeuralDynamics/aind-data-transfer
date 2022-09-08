@@ -4,10 +4,12 @@ import time
 from pathlib import Path
 from typing import Union, List
 
+import dask
 import numpy as np
 import zarr
 from aicsimageio.types import PhysicalPixelSizes
 from aicsimageio.writers import OmeZarrWriter
+from distributed import progress
 from numpy.typing import NDArray
 
 from transfer.util.chunk_utils import (
@@ -140,7 +142,7 @@ def write_files_to_zarr(
 
         LOGGER.info("Starting write...")
         t0 = time.time()
-        writer.write_multiscale(
+        jobs = writer.write_multiscale(
             pyramid=pyramid,
             image_name=tile_name,
             physical_pixel_sizes=physical_pixel_sizes,
@@ -149,7 +151,12 @@ def write_files_to_zarr(
             scale_factor=(scale_factor,) * 3,
             chunks=chunks,
             storage_options=storage_options,
+            compute_dask=False,
         )
+        if jobs:
+            LOGGER.info("Computing dask arrays...")
+            arrs = dask.persist(*jobs)
+            progress(arrs)
         write_time = time.time() - t0
 
         _populate_metrics(
