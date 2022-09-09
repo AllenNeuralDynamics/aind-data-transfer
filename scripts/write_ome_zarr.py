@@ -45,6 +45,29 @@ def set_hdf5_env_vars(hdf5_plugin_path=None):
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 
+class HDF5PluginError(Exception):
+    pass
+
+
+def find_hdf5plugin_path():
+    # this should work with both conda environments and virtualenv
+    # see https://stackoverflow.com/a/46071447
+    import sysconfig
+    site_packages = sysconfig.get_paths()["purelib"]
+    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
+    if not os.path.isdir(plugin_path):
+        raise HDF5PluginError(
+            f"Could not find hdf5plugin in site-packages, "
+            f"{plugin_path} does not exist. "
+            f"Try setting --hdf5_plugin_path manually."
+        )
+    return plugin_path
+
+
+def check_any_hdf5(filepaths):
+    return any(f.endswith((".ims", ".h5")) for f in filepaths)
+
+
 def get_dask_kwargs(hdf5_plugin_path=None):
     my_dask_kwargs = {"env_extra": []}
     if hdf5_plugin_path is not None:
@@ -314,14 +337,6 @@ def main():
 
     ensure_metrics_file(args.metrics_file)
 
-    set_hdf5_env_vars(args.hdf5_plugin_path)
-
-    my_dask_kwargs = get_dask_kwargs(args.hdf5_plugin_path)
-
-    client, _ = get_client(args.deployment, **my_dask_kwargs)
-
-    opts = get_blosc_codec(args.codec, args.clevel)
-
     input_dir = Path(args.input)
     image_dir = find_image_dir(input_dir)
     if image_dir is None:
@@ -330,9 +345,22 @@ def main():
     images = set(get_images(image_dir, exclude=args.exclude))
     LOGGER.info(f"Found {len(images)} images in {image_dir}")
 
+    my_dask_kwargs = {}
+    if check_any_hdf5(images):
+        # We only care to set this if we're reading HDF5 or IMS
+        hdf5_plugin_path = args.hdf5_plugin_path
+        if hdf5_plugin_path is None:
+            hdf5_plugin_path = find_hdf5plugin_path()
+        set_hdf5_env_vars(hdf5_plugin_path)
+        my_dask_kwargs.update(get_dask_kwargs(hdf5_plugin_path))
+    LOGGER.info(f"dask kwargs: {my_dask_kwargs}")
+
+    client, _ = get_client(args.deployment, **my_dask_kwargs)
+
     filepaths = collect_filepaths(input_dir, recursive=True)
     # Filter out the images we're transcoding, we won't upload the raw data
     filepaths = [p for p in filepaths if p not in images]
+    LOGGER.info(f"Found {len(filepaths)} other files")
 
     # Upload all the files that we're not converting to Zarr
     if is_cloud_url(args.output):
@@ -367,6 +395,8 @@ def main():
         voxsize = parse_voxel_size(args.voxsize)
 
     overwrite = not args.resume
+
+    opts = get_blosc_codec(args.codec, args.clevel)
 
     all_metrics = write_files_to_zarr(
         images,
