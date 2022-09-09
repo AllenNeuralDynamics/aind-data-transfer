@@ -299,7 +299,8 @@ def find_image_dir(directory):
     RAW_IMAGE_DIR = "micr"
     for root, dirs, files in os.walk(directory):
         if RAW_IMAGE_DIR in dirs:
-            return os.path.join(root, RAW_IMAGE_DIR)
+            return Path(os.path.join(root, RAW_IMAGE_DIR))
+    return None
 
 
 def main():
@@ -322,9 +323,8 @@ def main():
     opts = get_blosc_codec(args.codec, args.clevel)
 
     input_dir = Path(args.input)
-    image_dir = Path(find_image_dir(input_dir))
-
-    if not image_dir.is_dir():
+    image_dir = find_image_dir(input_dir)
+    if image_dir is None:
         LOGGER.warning(f'"micr/" not found, converting all images in {input_dir}')
         image_dir = input_dir
     images = set(get_images(image_dir, exclude=args.exclude))
