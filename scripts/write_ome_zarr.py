@@ -217,7 +217,7 @@ def parse_args():
     parser.add_argument(
         "--voxsize",
         type=str,
-        default="1.0,1.0,1.0",
+        default=None,
         help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"'
     )
     args = parser.parse_args()
@@ -352,7 +352,11 @@ def main():
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
     LOGGER.info(f"Writing OME-Zarr to {zarr_dst}")
 
-    voxsize = parse_voxel_size(args.voxsize)
+    # If voxsize is None, we will
+    # attempt to parse it from the image metadata
+    voxsize = None
+    if args.voxsize is not None:
+        voxsize = parse_voxel_size(args.voxsize)
 
     overwrite = not args.resume
 
