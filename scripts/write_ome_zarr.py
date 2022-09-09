@@ -295,6 +295,13 @@ def parse_voxel_size(voxsize_str):
     return vs
 
 
+def find_image_dir(directory):
+    RAW_IMAGE_DIR = "micr"
+    for root, dirs, files in os.walk(directory):
+        if RAW_IMAGE_DIR in dirs:
+            return os.path.join(root, RAW_IMAGE_DIR)
+
+
 def main():
     args = parse_args()
 
@@ -315,7 +322,8 @@ def main():
     opts = get_blosc_codec(args.codec, args.clevel)
 
     input_dir = Path(args.input)
-    image_dir = input_dir / "micr"
+    image_dir = Path(find_image_dir(input_dir))
+
     if not image_dir.is_dir():
         LOGGER.warning(f'"micr/" not found, converting all images in {input_dir}')
         image_dir = input_dir
