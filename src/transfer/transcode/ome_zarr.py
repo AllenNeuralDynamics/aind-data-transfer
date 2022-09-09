@@ -9,7 +9,7 @@ import numpy as np
 import zarr
 from aicsimageio.types import PhysicalPixelSizes
 from aicsimageio.writers import OmeZarrWriter
-from distributed import progress
+from distributed import wait
 from numpy.typing import NDArray
 
 from transfer.util.chunk_utils import (
@@ -156,7 +156,7 @@ def write_files_to_zarr(
         if jobs:
             LOGGER.info("Computing dask arrays...")
             arrs = dask.persist(*jobs)
-            progress(arrs)
+            wait(arrs)
         write_time = time.time() - t0
 
         _populate_metrics(
