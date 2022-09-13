@@ -46,13 +46,13 @@ def ensure_shape_5d(shape: Tuple[int, ...]) -> Tuple[int, int, int, int, int]:
 
 
 def guess_chunks(
-        data_shape: Tuple[int, int, int, int, int],
+        data_shape: Tuple[int, int, int],
         target_size: int,
         itemsize: int,
         mode: str = "z"
-) -> Tuple[int, int, int, int, int]:
+) -> Tuple[int, int, int]:
     """
-    Given the shape of a 5D array, determine the optimal chunk shape
+    Given the shape of a 3D array, determine the optimal chunk shape
     closest to target_size.
     Args:
         data_shape: the shape of the input array
@@ -62,45 +62,43 @@ def guess_chunks(
     Returns:
         the optimal chunk shape
     """
+    if any(s < 1 for s in data_shape):
+        raise ValueError("data_shape must be >= 1 for all dimensions")
+    if target_size <= 0:
+        raise ValueError("target_size must be > 0")
+    if itemsize <= 0:
+        raise ValueError("itemsize must be > 0")
     if mode == "z":
-        plane_size = data_shape[3] * data_shape[4] * itemsize
+        plane_size = data_shape[1] * data_shape[2] * itemsize
         nplanes_per_chunk = int(math.ceil(target_size / plane_size))
-        nplanes_per_chunk = min(nplanes_per_chunk, data_shape[2])
+        nplanes_per_chunk = min(nplanes_per_chunk, data_shape[0])
         chunks = (
-            1,
-            1,
             nplanes_per_chunk,
-            data_shape[3],
-            data_shape[4],
+            data_shape[1],
+            data_shape[2],
         )
     elif mode == "cycle":
-        # get the spatial dimensions only
-        spatial_dims = np.array(data_shape)[2:]
+        current = np.array(data_shape)
         idx = 0
-        ndims = len(spatial_dims)
-        while _get_size(spatial_dims, itemsize) > target_size:
-            spatial_dims[idx % ndims] = int(
+        ndims = len(current)
+        while _get_size(current, itemsize) > target_size:
+            current[idx % ndims] = int(
                 math.ceil(
-                    spatial_dims[idx % ndims] / 2.0
+                    current[idx % ndims] / 2.0
                 )
             )
             idx += 1
         chunks = (
-            1,
-            1,
-            spatial_dims[0],
-            spatial_dims[1],
-            spatial_dims[2]
+            current[0],
+            current[1],
+            current[2]
         )
     elif mode == "iso":
-        # TODO: should this be a power of 2?
         chunk_dim = int(math.ceil((target_size / itemsize) ** (1.0 / 3)))
         chunks = (
-            1,
-            1,
-            min(data_shape[2], chunk_dim),
-            min(data_shape[3], chunk_dim),
-            min(data_shape[4], chunk_dim)
+            min(data_shape[0], chunk_dim),
+            min(data_shape[1], chunk_dim),
+            min(data_shape[2], chunk_dim)
         )
     else:
         raise ValueError(f"Invalid mode {mode}")
@@ -110,14 +108,14 @@ def guess_chunks(
 
 
 def expand_chunks(
-        chunks: Tuple[int, int, int, int, int],
-        data_shape: Tuple[int, int, int, int, int],
+        chunks: Tuple[int, int, int],
+        data_shape: Tuple[int, int, int],
         target_size: int,
         itemsize: int,
         mode: str = "iso",
-) -> Tuple[int, int, int, int, int]:
+) -> Tuple[int, int, int]:
     """
-    Given the shape and chunk size of a pre-chunked 5D array, determine the optimal chunk shape
+    Given the shape and chunk size of a pre-chunked 3D array, determine the optimal chunk shape
     closest to target_size. Expanded chunk dimensions are an integer multiple of the base chunk dimension,
     to ensure optimal access patterns.
     Args:
@@ -129,41 +127,46 @@ def expand_chunks(
     Returns:
         the optimal chunk shape
     """
+    if any(c < 1 for c in chunks):
+        raise ValueError("data_shape must be >= 1 for all dimensions")
+    if any(s < 1 for s in data_shape):
+        raise ValueError("data_shape must be >= 1 for all dimensions")
+    if any(c > s for c, s in zip(chunks, data_shape)):
+        raise ValueError("chunks cannot be larger than data_shape in any dimension")
+    if target_size <= 0:
+        raise ValueError("target_size must be > 0")
+    if itemsize <= 0:
+        raise ValueError("itemsize must be > 0")
     if mode == "cycle":
         # get the spatial dimensions only
-        spatial_chunks = np.array(chunks)[2:]
-        current = spatial_chunks
+        current = np.array(chunks)
         prev = current.copy()
         idx = 0
-        ndims = len(spatial_chunks)
+        ndims = len(current)
         while _get_size(current, itemsize) < target_size:
             prev = current.copy()
             current[idx % ndims] *= 2
             idx += 1
         current = _closer_to_target(current, prev, target_size, itemsize)
         expanded = (
-            1,
-            1,
-            min(data_shape[2], current[0]),
-            min(data_shape[3], current[1]),
-            min(data_shape[4], current[2])
+            min(data_shape[0], current[0]),
+            min(data_shape[1], current[1]),
+            min(data_shape[2], current[2])
         )
     elif mode == "iso":
-        spatial_chunks = np.array(chunks)[2:]
-        current = spatial_chunks
+        initial = np.array(chunks)
+        current = initial
         prev = current
         i = 2
         while _get_size(current, itemsize) < target_size:
             prev = current
-            current = spatial_chunks * i
+            current = initial * i
             i += 1
         current = _closer_to_target(current, prev, target_size, itemsize)
         expanded = (
-            1,
-            1,
-            min(data_shape[2], current[0]),
-            min(data_shape[3], current[1]),
-            min(data_shape[4], current[2])
+            min(data_shape[0], current[0]),
+            min(data_shape[1], current[1]),
+            min(data_shape[2], current[2])
         )
     else:
         raise ValueError(f"Invalid mode {mode}")
@@ -202,4 +205,6 @@ def _get_size(shape: Tuple[int, ...], itemsize: int) -> int:
     Returns:
         the size of the array, in bytes
     """
+    if any(s <= 0 for s in shape):
+        raise ValueError("shape must be > 0 in all dimensions")
     return np.product(shape) * itemsize
