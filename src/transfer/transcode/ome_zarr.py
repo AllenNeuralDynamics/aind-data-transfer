@@ -30,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 
-def write_files_to_zarr(
+def write_files(
         image_paths: list,
         output: str,
         n_levels: int,
@@ -46,13 +46,7 @@ def write_files_to_zarr(
     Each group will be named according to the image filename minus extension.
     For example, if a file has path /data/tiff/tile_0_0.tif, the group name
     for that image is tile_0_0. Within each group there are n_levels arrays,
-    one for each resolution level. For example, if n_levels is 4,
-    the group structure is as follows:
-    tile_0_0/
-        0/
-        1/
-        2/
-        3/
+    one for each resolution level.
     Args:
         image_paths: the list of image filepaths to convert to Zarr
         output: the location of the output Zarr store (filesystem, s3, gs)
@@ -66,6 +60,10 @@ def write_files_to_zarr(
     Returns:
         A list of metrics for each converted image
     """
+    if chunk_shape is None and chunk_size <= 0:
+        raise ValueError("Either chunk_shape must be set or chunk_size must be greater than 0")
+    if chunk_shape is not None and any(s < 1 for s in chunk_shape):
+        raise ValueError("chunk_shape must be at least 1 in all dimensions")
 
     if not image_paths:
         LOGGER.warning("No images found. Exiting.")
@@ -118,11 +116,9 @@ def write_files_to_zarr(
         # causes memory use to grow (unbounded?) during the zarr write step.
         # See https://github.com/dask/dask/issues/5105.
         if chunk_shape is None:
-            assert chunk_size > 0
             chunks = _compute_chunks(reader, chunk_size)
         else:
             chunks = tuple(chunk_shape)
-            assert np.all(chunks)
 
         LOGGER.info(
             f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB"
@@ -182,7 +178,7 @@ def write_files_to_zarr(
     return all_metrics
 
 
-def write_folder_to_zarr(
+def write_folder(
     input: str,
     output: str,
     n_levels: int,
@@ -236,7 +232,7 @@ def write_folder_to_zarr(
     image_paths = [p for p in image_paths if p not in exclude_paths]
     LOGGER.info(f"Found {len(image_paths)} images to process")
 
-    return write_files_to_zarr(
+    return write_files(
         image_paths,
         output,
         n_levels,
