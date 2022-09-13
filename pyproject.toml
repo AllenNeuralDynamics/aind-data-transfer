@@ -20,6 +20,8 @@ dependencies = [
     'bokeh>=2.1.1',
     'pyyaml',
     'google-cloud-storage',
+    'spikeinterface',
+    'neo'
 ]
 
 [project.optional-dependencies]
