@@ -34,19 +34,25 @@ class TestChunkUtils(unittest.TestCase):
 
     def test_guess_chunks(self):
         data_shape = (2048, 2048, 2048)
-        target_size = 128 * (1024 ** 2)  # 128MB
+        target_size = 128 * (1024**2)  # 128MB
         itemsize = 2
 
         expected_chunks = (16, 2048, 2048)
-        actual_chunks = chunk_utils.guess_chunks(data_shape, target_size, itemsize, mode="z")
+        actual_chunks = chunk_utils.guess_chunks(
+            data_shape, target_size, itemsize, mode="z"
+        )
         self.assertEqual(expected_chunks, actual_chunks)
 
-        actual_chunks = chunk_utils.guess_chunks(data_shape, target_size, itemsize, mode="cycle")
+        actual_chunks = chunk_utils.guess_chunks(
+            data_shape, target_size, itemsize, mode="cycle"
+        )
         expected_chunks = (256, 512, 512)
         self.assertEqual(expected_chunks, actual_chunks)
 
         expected_chunks = (407, 407, 407)
-        actual_chunks = chunk_utils.guess_chunks(data_shape, target_size, itemsize, mode="iso")
+        actual_chunks = chunk_utils.guess_chunks(
+            data_shape, target_size, itemsize, mode="iso"
+        )
         self.assertEqual(expected_chunks, actual_chunks)
 
         # Test expected exceptions
@@ -63,31 +69,41 @@ class TestChunkUtils(unittest.TestCase):
             chunk_utils.guess_chunks(data_shape, target_size, 0)
 
     def test_expand_chunks(self):
-        data_shape = (2048,2048,2048)
+        data_shape = (2048, 2048, 2048)
         chunks = (32, 32, 32)
-        target_size = 128 * (1024 ** 2)  # 128MB
+        target_size = 128 * (1024**2)  # 128MB
         itemsize = 2
 
         expected_chunks = (416, 416, 416)
-        actual_chunks = chunk_utils.expand_chunks(chunks, data_shape, target_size, itemsize, mode="iso")
+        actual_chunks = chunk_utils.expand_chunks(
+            chunks, data_shape, target_size, itemsize, mode="iso"
+        )
         self.assertEqual(expected_chunks, actual_chunks)
 
         expected_chunks = (512, 512, 256)
-        actual_chunks = chunk_utils.expand_chunks(chunks, data_shape, target_size, itemsize, mode="cycle")
+        actual_chunks = chunk_utils.expand_chunks(
+            chunks, data_shape, target_size, itemsize, mode="cycle"
+        )
         self.assertEqual(expected_chunks, actual_chunks)
 
         # Test expected exceptions
         with self.assertRaises(ValueError):
             # 0 chunk dims
-            chunk_utils.expand_chunks((256, 256, 0), data_shape, target_size, itemsize)
+            chunk_utils.expand_chunks(
+                (256, 256, 0), data_shape, target_size, itemsize
+            )
 
         with self.assertRaises(ValueError):
             # 0 shape dims
-            chunk_utils.expand_chunks(chunks, (256, 256, 0), target_size, itemsize)
+            chunk_utils.expand_chunks(
+                chunks, (256, 256, 0), target_size, itemsize
+            )
 
         with self.assertRaises(ValueError):
             # chunks larger than shape
-            chunk_utils.expand_chunks((128, 128, 129), (128, 128, 128), target_size, itemsize)
+            chunk_utils.expand_chunks(
+                (128, 128, 129), (128, 128, 128), target_size, itemsize
+            )
 
         with self.assertRaises(ValueError):
             # 0 target size
@@ -98,7 +114,7 @@ class TestChunkUtils(unittest.TestCase):
             chunk_utils.expand_chunks(chunks, data_shape, target_size, 0)
 
     def test_closer_to_target(self):
-        target_bytes = 128 * (1024 ** 2)
+        target_bytes = 128 * (1024**2)
         itemsize = 2
 
         s1 = (1024, 256, 256)

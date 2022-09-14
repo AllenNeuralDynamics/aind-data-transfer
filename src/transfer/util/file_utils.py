@@ -4,9 +4,9 @@ from typing import List, Optional, Tuple, Union
 
 
 def collect_filepaths(
-        folder: Union[str, os.PathLike],
-        recursive: bool = True,
-        include_exts: Optional[List[str]] = None
+    folder: Union[str, os.PathLike],
+    recursive: bool = True,
+    include_exts: Optional[List[str]] = None,
 ) -> List[str]:
     """Get the absolute paths for all files in folder
     Args:
@@ -73,7 +73,7 @@ def make_cloud_paths(
     """
     cloud_paths = []
     # remove both leading and trailing '/'
-    cloud_dest_path = cloud_dest_path.strip('/')
+    cloud_dest_path = cloud_dest_path.strip("/")
     for fpath in filepaths:
         if root is None:
             cloud_paths.append(

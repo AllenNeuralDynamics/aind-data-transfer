@@ -31,15 +31,15 @@ LOGGER.setLevel(logging.INFO)
 
 
 def write_files(
-        image_paths: list,
-        output: str,
-        n_levels: int,
-        scale_factor: float,
-        overwrite: bool = True,
-        chunk_size: float = 64,  # MB
-        chunk_shape: tuple = None,
-        voxel_size: tuple = None,
-        storage_options: dict = None,
+    image_paths: list,
+    output: str,
+    n_levels: int,
+    scale_factor: float,
+    overwrite: bool = True,
+    chunk_size: float = 64,  # MB
+    chunk_shape: tuple = None,
+    voxel_size: tuple = None,
+    storage_options: dict = None,
 ) -> list:
     """
     Write each image as a separate group to a Zarr store.
@@ -61,7 +61,9 @@ def write_files(
         A list of metrics for each converted image
     """
     if chunk_shape is None and chunk_size <= 0:
-        raise ValueError("Either chunk_shape must be set or chunk_size must be greater than 0")
+        raise ValueError(
+            "Either chunk_shape must be set or chunk_size must be greater than 0"
+        )
     if chunk_shape is not None and any(s < 1 for s in chunk_shape):
         raise ValueError("chunk_shape must be at least 1 in all dimensions")
 
@@ -106,9 +108,7 @@ def write_files(
                 unit = "um"
         LOGGER.info(f"Using voxel size: {voxel_size}")
         physical_pixel_sizes = PhysicalPixelSizes(
-            Z=voxel_size[0],
-            Y=voxel_size[1],
-            X=voxel_size[2]
+            Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
         )
 
         # We determine the chunk size before creating the dask array since
@@ -237,7 +237,7 @@ def write_folder(
         chunk_size,
         chunk_shape,
         voxel_size,
-        storage_options
+        storage_options,
     )
 
 
