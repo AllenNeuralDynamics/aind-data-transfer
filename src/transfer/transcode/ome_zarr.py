@@ -186,6 +186,7 @@ def write_folder(
     overwrite: bool = True,
     chunk_size: float = 64,  # MB
     chunk_shape: tuple = None,
+    voxel_size: tuple = None,
     exclude: list = None,
     storage_options: dict = None,
     recursive: bool = False,
@@ -195,12 +196,6 @@ def write_folder(
     to a Zarr store. Each group will be named according to the image filename
     minus extension. For example, if a file has path /data/tiff/tile_0_0.tif, the group name
     for that image is tile_0_0. Within each group there are n_levels arrays, one for each resolution level.
-    For example, if n_levels is 4, the group structure is as follows:
-    tile_0_0/
-        0/
-        1/
-        2/
-        3/
     Args:
         input: the directory of images to convert to Zarr
         output: the location of the output Zarr store (filesystem, s3, gs)
@@ -209,6 +204,7 @@ def write_folder(
         overwrite: whether to overwrite image groups that already exist
         chunk_size: the target chunk size in MB
         chunk_shape: the chunk shape, if None will be computed from chunk_size
+        voxel_size: three element tuple giving physical voxel sizes in Z,Y,X order
         exclude: a list of filename patterns to exclude from conversion
         storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
         recursive: whether to convert all images in all subfolders
@@ -240,6 +236,7 @@ def write_folder(
         overwrite,
         chunk_size,
         chunk_shape,
+        voxel_size,
         storage_options
     )
 
