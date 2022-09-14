@@ -90,7 +90,9 @@ class GCSUploader:
                 _ = iter(gcs_path)
                 gcs_paths = gcs_path
             except TypeError:
-                logger.error(f"Expected either a str or iterable, got {type(gcs_path)}")
+                logger.error(
+                    f"Expected either a str or iterable, got {type(gcs_path)}"
+                )
                 raise
         failed_uploads = []
         for fpath, gpath in zip(filepaths, gcs_paths):

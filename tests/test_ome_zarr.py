@@ -24,17 +24,19 @@ class TestOmeZarr(unittest.TestCase):
         self._temp_dir.cleanup()
         self._client.close()
 
-    def _check_multiscales_arrays(self, z, full_shape, actual_keys, n_levels, scale_factor):
+    def _check_multiscales_arrays(
+        self, z, full_shape, actual_keys, n_levels, scale_factor
+    ):
         # Test arrays across resolution levels
         for key in actual_keys:
             for lvl in range(n_levels):
-                a = z[key + f'/{lvl}']
+                a = z[key + f"/{lvl}"]
                 expected_shape_at_lvl = (
                     1,
                     1,
-                    int(math.ceil(full_shape[2] / (scale_factor ** lvl))),
-                    int(math.ceil(full_shape[3] / (scale_factor ** lvl))),
-                    int(math.ceil(full_shape[4] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[2] / (scale_factor**lvl))),
+                    int(math.ceil(full_shape[3] / (scale_factor**lvl))),
+                    int(math.ceil(full_shape[4] / (scale_factor**lvl))),
                 )
                 self.assertEqual(expected_shape_at_lvl, a.shape)
                 self.assertTrue(a.nbytes_stored > 0)
@@ -56,54 +58,43 @@ class TestOmeZarr(unittest.TestCase):
                             "end": 1.0,
                             "max": 1.0,
                             "min": 0.0,
-                            "start": 0.0
-                        }
+                            "start": 0.0,
+                        },
                     }
                 ],
                 "id": 1,
                 "name": f"{key}",
-                "rdefs": {
-                    "defaultT": 0,
-                    "defaultZ": 32,
-                    "model": "color"
-                },
-                "version": "0.4"  # TODO: test against version?
+                "rdefs": {"defaultT": 0, "defaultZ": 32, "model": "color"},
+                "version": "0.4",  # TODO: test against version?
             }
-            actual_omero_metadata = attrs['omero']
-            self.assertEqual(expected_omero_metadata['channels'], actual_omero_metadata['channels'])
-            self.assertEqual(expected_omero_metadata['id'], actual_omero_metadata['id'])
-            self.assertEqual(expected_omero_metadata['name'], actual_omero_metadata['name'])
-            self.assertEqual(expected_omero_metadata['rdefs'], actual_omero_metadata['rdefs'])
+            actual_omero_metadata = attrs["omero"]
+            self.assertEqual(
+                expected_omero_metadata["channels"],
+                actual_omero_metadata["channels"],
+            )
+            self.assertEqual(
+                expected_omero_metadata["id"], actual_omero_metadata["id"]
+            )
+            self.assertEqual(
+                expected_omero_metadata["name"], actual_omero_metadata["name"]
+            )
+            self.assertEqual(
+                expected_omero_metadata["rdefs"],
+                actual_omero_metadata["rdefs"],
+            )
 
             expected_axes_metadata = [
-                {
-                    "name": "t",
-                    "type": "time",
-                    "unit": "millisecond"
-                },
-                {
-                    "name": "c",
-                    "type": "channel"
-                },
-                {
-                    "name": "z",
-                    "type": "space",
-                    "unit": "micrometer"
-                },
-                {
-                    "name": "y",
-                    "type": "space",
-                    "unit": "micrometer"
-                },
-                {
-                    "name": "x",
-                    "type": "space",
-                    "unit": "micrometer"
-                }
+                {"name": "t", "type": "time", "unit": "millisecond"},
+                {"name": "c", "type": "channel"},
+                {"name": "z", "type": "space", "unit": "micrometer"},
+                {"name": "y", "type": "space", "unit": "micrometer"},
+                {"name": "x", "type": "space", "unit": "micrometer"},
             ]
-            self.assertEqual(expected_axes_metadata, attrs['multiscales'][0]['axes'])
+            self.assertEqual(
+                expected_axes_metadata, attrs["multiscales"][0]["axes"]
+            )
 
-            datasets_metadata = attrs['multiscales'][0]['datasets']
+            datasets_metadata = attrs["multiscales"][0]["datasets"]
             for i, ds_metadata in enumerate(datasets_metadata):
                 expected_transform = {
                     "coordinateTransformations": [
@@ -111,33 +102,37 @@ class TestOmeZarr(unittest.TestCase):
                             "scale": [
                                 1.0,
                                 1.0,
-                                voxel_size[0] * (scale_factor ** i),
-                                voxel_size[1] * (scale_factor ** i),
-                                voxel_size[2] * (scale_factor ** i)
+                                voxel_size[0] * (scale_factor**i),
+                                voxel_size[1] * (scale_factor**i),
+                                voxel_size[2] * (scale_factor**i),
                             ],
-                            "type": "scale"
+                            "type": "scale",
                         }
                     ],
-                    "path": f"{i}"
+                    "path": f"{i}",
                 }
                 self.assertEqual(expected_transform, datasets_metadata[i])
 
-            self.assertEqual(f"/{key}", attrs['multiscales'][0]['name'])
+            self.assertEqual(f"/{key}", attrs["multiscales"][0]["name"])
 
     def test_write_files(self):
         shape = (64, 128, 128)
         _write_test_tiffs(self._image_dir, shape=shape)
 
-        files = list(sorted([self._image_dir / f for f in self._image_dir.iterdir()]))
+        files = list(
+            sorted([self._image_dir / f for f in self._image_dir.iterdir()])
+        )
         out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
         n_levels = 4
         scale_factor = 2.0
         voxel_size = [1.0, 1.0, 1.0]
-        metrics = write_files(files, out_zarr, n_levels, scale_factor, voxel_size=voxel_size)
+        metrics = write_files(
+            files, out_zarr, n_levels, scale_factor, voxel_size=voxel_size
+        )
 
         self.assertEqual(len(metrics), len(files))
 
-        z = zarr.open(out_zarr, 'r')
+        z = zarr.open(out_zarr, "r")
 
         # Test group for each written image
         expected_keys = {"data_0", "data_1", "data_2", "data_3"}
@@ -145,7 +140,9 @@ class TestOmeZarr(unittest.TestCase):
         self.assertEqual(expected_keys, actual_keys)
 
         expected_shape = (1, 1, *shape)
-        self._check_multiscales_arrays(z, expected_shape, actual_keys, n_levels, scale_factor)
+        self._check_multiscales_arrays(
+            z, expected_shape, actual_keys, n_levels, scale_factor
+        )
 
         self._check_zarr_attributes(z, voxel_size, scale_factor)
 
@@ -159,7 +156,9 @@ class TestOmeZarr(unittest.TestCase):
         voxel_size = [1.0, 1.0, 1.0]
 
         # create a dummy file to exclude from conversion
-        tifffile.imwrite(self._image_dir / "dummy.tif", np.zeros((64, 128, 128)))
+        tifffile.imwrite(
+            self._image_dir / "dummy.tif", np.zeros(shape)
+        )
         exclude = ["*dummy*"]
 
         write_folder(
@@ -168,10 +167,10 @@ class TestOmeZarr(unittest.TestCase):
             n_levels,
             scale_factor,
             voxel_size=voxel_size,
-            exclude=exclude
+            exclude=exclude,
         )
 
-        z = zarr.open(out_zarr, 'r')
+        z = zarr.open(out_zarr, "r")
 
         # Test that all images were written except exclusion
         expected_keys = {"data_0", "data_1", "data_2", "data_3"}
@@ -179,7 +178,9 @@ class TestOmeZarr(unittest.TestCase):
         self.assertEqual(expected_keys, actual_keys)
 
         expected_shape = (1, 1, *shape)
-        self._check_multiscales_arrays(z, expected_shape, actual_keys, n_levels, scale_factor)
+        self._check_multiscales_arrays(
+            z, expected_shape, actual_keys, n_levels, scale_factor
+        )
 
         self._check_zarr_attributes(z, voxel_size, scale_factor)
 

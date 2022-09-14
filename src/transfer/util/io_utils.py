@@ -49,7 +49,6 @@ class DataReader(ABC):
 
 
 class TiffReader(DataReader):
-
     def __init__(self, filepath):
         super().__init__(filepath)
         self.handle = tifffile.TiffFile(filepath)
@@ -63,7 +62,7 @@ class TiffReader(DataReader):
         return self.as_zarr()[:]
 
     def as_zarr(self):
-        return zarr.open(self.handle.aszarr(), 'r')
+        return zarr.open(self.handle.aszarr(), "r")
 
     def get_shape(self):
         # Open as Zarr store in case we're dealing with
@@ -92,7 +91,7 @@ class HDF5Reader(DataReader):
 
     def __init__(self, filepath):
         super().__init__(filepath)
-        self.handle = h5py.File(self.filepath, mode='r')
+        self.handle = h5py.File(self.filepath, mode="r")
 
     def as_dask_array(self, data_path=DEFAULT_DATA_PATH, chunks=True):
         return da.from_array(self.get_dataset(data_path), chunks=chunks)
@@ -115,7 +114,9 @@ class HDF5Reader(DataReader):
     def get_handle(self):
         return self.handle
 
-    def get_dask_pyramid(self, num_levels, timepoint=0, channel=0, chunks: Any = True):
+    def get_dask_pyramid(
+        self, num_levels, timepoint=0, channel=0, chunks: Any = True
+    ):
         darrays = []
         for lvl in range(0, num_levels):
             ds_path = f"/DataSet/ResolutionLevel {lvl}/TimePoint {timepoint}/Channel {channel}/Data"
@@ -140,20 +141,20 @@ class HDF5Reader(DataReader):
 
     def get_voxel_size(self):
         info = self.get_dataset_info()
-        x_min = float(info.attrs['ExtMin0'].tostring())
-        y_min = float(info.attrs['ExtMin1'].tostring())
-        z_min = float(info.attrs['ExtMin2'].tostring())
-        x_max = float(info.attrs['ExtMax0'].tostring())
-        y_max = float(info.attrs['ExtMax1'].tostring())
-        z_max = float(info.attrs['ExtMax2'].tostring())
-        x = int(info.attrs['X'].tostring())
-        y = int(info.attrs['Y'].tostring())
-        z = int(info.attrs['Z'].tostring())
-        unit = info.attrs['Unit'].tostring()
+        x_min = float(info.attrs["ExtMin0"].tostring())
+        y_min = float(info.attrs["ExtMin1"].tostring())
+        z_min = float(info.attrs["ExtMin2"].tostring())
+        x_max = float(info.attrs["ExtMax0"].tostring())
+        y_max = float(info.attrs["ExtMax1"].tostring())
+        z_max = float(info.attrs["ExtMax2"].tostring())
+        x = int(info.attrs["X"].tostring())
+        y = int(info.attrs["Y"].tostring())
+        z = int(info.attrs["Z"].tostring())
+        unit = info.attrs["Unit"].tostring()
         voxsize = [
             (z_max - z_min) / z,
             (y_max - y_min) / y,
-            (x_max - x_min) / x
+            (x_max - x_min) / x,
         ]
         return voxsize, unit
 

@@ -9,7 +9,9 @@ class DimensionsError(Exception):
     pass
 
 
-def ensure_array_5d(arr: Union[np.ndarray, da.Array]) -> Union[np.ndarray, da.Array]:
+def ensure_array_5d(
+    arr: Union[np.ndarray, da.Array]
+) -> Union[np.ndarray, da.Array]:
     """
     Checks that the array is 5D, adding singleton dimensions to the
     start of the array if less, throwing a DimensionsError if more
@@ -46,10 +48,10 @@ def ensure_shape_5d(shape: Tuple[int, ...]) -> Tuple[int, int, int, int, int]:
 
 
 def guess_chunks(
-        data_shape: Tuple[int, int, int],
-        target_size: int,
-        itemsize: int,
-        mode: str = "z"
+    data_shape: Tuple[int, int, int],
+    target_size: int,
+    itemsize: int,
+    mode: str = "z",
 ) -> Tuple[int, int, int]:
     """
     Given the shape of a 3D array, determine the optimal chunk shape
@@ -82,23 +84,15 @@ def guess_chunks(
         idx = 0
         ndims = len(current)
         while _get_size(current, itemsize) > target_size:
-            current[idx % ndims] = int(
-                math.ceil(
-                    current[idx % ndims] / 2.0
-                )
-            )
+            current[idx % ndims] = int(math.ceil(current[idx % ndims] / 2.0))
             idx += 1
-        chunks = (
-            current[0],
-            current[1],
-            current[2]
-        )
+        chunks = (current[0], current[1], current[2])
     elif mode == "iso":
         chunk_dim = int(math.ceil((target_size / itemsize) ** (1.0 / 3)))
         chunks = (
             min(data_shape[0], chunk_dim),
             min(data_shape[1], chunk_dim),
-            min(data_shape[2], chunk_dim)
+            min(data_shape[2], chunk_dim),
         )
     else:
         raise ValueError(f"Invalid mode {mode}")
@@ -108,11 +102,11 @@ def guess_chunks(
 
 
 def expand_chunks(
-        chunks: Tuple[int, int, int],
-        data_shape: Tuple[int, int, int],
-        target_size: int,
-        itemsize: int,
-        mode: str = "iso",
+    chunks: Tuple[int, int, int],
+    data_shape: Tuple[int, int, int],
+    target_size: int,
+    itemsize: int,
+    mode: str = "iso",
 ) -> Tuple[int, int, int]:
     """
     Given the shape and chunk size of a pre-chunked 3D array, determine the optimal chunk shape
@@ -132,7 +126,9 @@ def expand_chunks(
     if any(s < 1 for s in data_shape):
         raise ValueError("data_shape must be >= 1 for all dimensions")
     if any(c > s for c, s in zip(chunks, data_shape)):
-        raise ValueError("chunks cannot be larger than data_shape in any dimension")
+        raise ValueError(
+            "chunks cannot be larger than data_shape in any dimension"
+        )
     if target_size <= 0:
         raise ValueError("target_size must be > 0")
     if itemsize <= 0:
@@ -151,7 +147,7 @@ def expand_chunks(
         expanded = (
             min(data_shape[0], current[0]),
             min(data_shape[1], current[1]),
-            min(data_shape[2], current[2])
+            min(data_shape[2], current[2]),
         )
     elif mode == "iso":
         initial = np.array(chunks)
@@ -166,7 +162,7 @@ def expand_chunks(
         expanded = (
             min(data_shape[0], current[0]),
             min(data_shape[1], current[1]),
-            min(data_shape[2], current[2])
+            min(data_shape[2], current[2]),
         )
     else:
         raise ValueError(f"Invalid mode {mode}")
@@ -175,10 +171,10 @@ def expand_chunks(
 
 
 def _closer_to_target(
-        shape1: Tuple[int, ...],
-        shape2: Tuple[int, ...],
-        target_bytes: int,
-        itemsize: int
+    shape1: Tuple[int, ...],
+    shape2: Tuple[int, ...],
+    target_bytes: int,
+    itemsize: int,
 ) -> Tuple[int, ...]:
     """
     Given two shapes with the same number of dimensions,
