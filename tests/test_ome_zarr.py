@@ -2,18 +2,13 @@ import math
 import os
 import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 import tifffile
 import zarr
 from distributed import Client
-from transfer.transcode.ome_zarr import write_files
-
-
-def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
-    for i in range(n):
-        a = np.ones(shape, dtype=np.uint16)
-        tifffile.imwrite(os.path.join(folder, f"data_{i}.tif"), a)
+from transfer.transcode.ome_zarr import write_files, write_folder
 
 
 class TestOmeZarr(unittest.TestCase):
@@ -21,48 +16,31 @@ class TestOmeZarr(unittest.TestCase):
 
     def setUp(self):
         self._temp_dir = tempfile.TemporaryDirectory()
-        _write_test_tiffs(self._temp_dir.name)
+        self._image_dir = Path(self._temp_dir.name) / "images"
+        os.makedirs(self._image_dir, exist_ok=True)
         self._client = Client()
 
     def tearDown(self):
         self._temp_dir.cleanup()
         self._client.close()
 
-    def test_write_files(self):
-        files = list(sorted([os.path.join(self._temp_dir.name, f) for f in os.listdir(self._temp_dir.name)]))
-        out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
-        n_levels = 4
-        scale_factor = 2.0
-        voxel_size = [1.0, 1.0, 1.0]
-        metrics = write_files(files, out_zarr, n_levels, scale_factor, voxel_size=voxel_size)
-
-        self.assertEqual(len(metrics), len(files))
-
-        z = zarr.open(out_zarr, 'r')
-
-        # Test group for each written image
-        expected_keys = {"data_0", "data_1", "data_2", "data_3"}
-        actual_keys = set(z.keys())
-        self.assertEqual(expected_keys, actual_keys)
-
+    def _check_multiscales_arrays(self, z, full_shape, actual_keys, n_levels, scale_factor):
         # Test arrays across resolution levels
-        expected_shape = (1, 1, 64, 128, 128)
         for key in actual_keys:
             for lvl in range(n_levels):
                 a = z[key + f'/{lvl}']
                 expected_shape_at_lvl = (
                     1,
                     1,
-                    int(math.ceil(expected_shape[2] / (scale_factor ** lvl))),
-                    int(math.ceil(expected_shape[3] / (scale_factor ** lvl))),
-                    int(math.ceil(expected_shape[4] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[2] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[3] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[4] / (scale_factor ** lvl))),
                 )
                 self.assertEqual(expected_shape_at_lvl, a.shape)
                 self.assertTrue(a.nbytes_stored > 0)
 
-        # zarr attributes tests
-
-        for key in actual_keys:
+    def _check_zarr_attributes(self, z, voxel_size, scale_factor):
+        for key in z.keys():
             tile_group = z[key]
             attrs = dict(tile_group.attrs)
             expected_omero_metadata = {
@@ -145,6 +123,71 @@ class TestOmeZarr(unittest.TestCase):
                 self.assertEqual(expected_transform, datasets_metadata[i])
 
             self.assertEqual(f"/{key}", attrs['multiscales'][0]['name'])
+
+    def test_write_files(self):
+        shape = (64, 128, 128)
+        _write_test_tiffs(self._image_dir, shape=shape)
+
+        files = list(sorted([self._image_dir / f for f in self._image_dir.iterdir()]))
+        out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
+        n_levels = 4
+        scale_factor = 2.0
+        voxel_size = [1.0, 1.0, 1.0]
+        metrics = write_files(files, out_zarr, n_levels, scale_factor, voxel_size=voxel_size)
+
+        self.assertEqual(len(metrics), len(files))
+
+        z = zarr.open(out_zarr, 'r')
+
+        # Test group for each written image
+        expected_keys = {"data_0", "data_1", "data_2", "data_3"}
+        actual_keys = set(z.keys())
+        self.assertEqual(expected_keys, actual_keys)
+
+        expected_shape = (1, 1, *shape)
+        self._check_multiscales_arrays(z, expected_shape, actual_keys, n_levels, scale_factor)
+
+        self._check_zarr_attributes(z, voxel_size, scale_factor)
+
+    def test_write_folder(self):
+        shape = (64, 128, 128)
+        _write_test_tiffs(self._image_dir, shape=shape)
+
+        out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
+        n_levels = 4
+        scale_factor = 2.0
+        voxel_size = [1.0, 1.0, 1.0]
+
+        # create a dummy file to exclude from conversion
+        tifffile.imwrite(self._image_dir / "dummy.tif", np.zeros((64, 128, 128)))
+        exclude = ["*dummy*"]
+
+        write_folder(
+            self._image_dir,
+            out_zarr,
+            n_levels,
+            scale_factor,
+            voxel_size=voxel_size,
+            exclude=exclude
+        )
+
+        z = zarr.open(out_zarr, 'r')
+
+        # Test that all images were written except exclusion
+        expected_keys = {"data_0", "data_1", "data_2", "data_3"}
+        actual_keys = set(z.keys())
+        self.assertEqual(expected_keys, actual_keys)
+
+        expected_shape = (1, 1, *shape)
+        self._check_multiscales_arrays(z, expected_shape, actual_keys, n_levels, scale_factor)
+
+        self._check_zarr_attributes(z, voxel_size, scale_factor)
+
+
+def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
+    for i in range(n):
+        a = np.ones(shape, dtype=np.uint16)
+        tifffile.imwrite(os.path.join(folder, f"data_{i}.tif"), a)
 
 
 if __name__ == "__main__":
