@@ -26,6 +26,7 @@ dependencies = [
     'hdf5plugin@https://github.com/silx-kit/hdf5plugin/archive/refs/tags/v3.3.1.tar.gz',
     'gcsfs',
     'xarray-multiscale',
+    'parameterized',
 ]
 
 [project.optional-dependencies]

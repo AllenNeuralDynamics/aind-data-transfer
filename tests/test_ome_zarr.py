@@ -4,11 +4,27 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import h5py
 import numpy as np
 import tifffile
 import zarr
 from distributed import Client
 from transfer.transcode.ome_zarr import write_files, write_folder
+from parameterized import parameterized
+
+
+def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
+    for i in range(n):
+        a = np.ones(shape, dtype=np.uint16)
+        tifffile.imwrite(os.path.join(folder, f"data_{i}.tif"), a)
+
+
+def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
+    DEFAULT_DATA_PATH = "/DataSet/ResolutionLevel 0/TimePoint 0/Channel 0/Data"
+    for i in range(n):
+        a = np.ones(shape, dtype=np.uint16)
+        with h5py.File(os.path.join(folder, f"data_{i}.h5"), 'w') as f:
+            f.create_dataset(DEFAULT_DATA_PATH, data=a, chunks=True)
 
 
 class TestOmeZarr(unittest.TestCase):
@@ -18,6 +34,12 @@ class TestOmeZarr(unittest.TestCase):
         self._temp_dir = tempfile.TemporaryDirectory()
         self._image_dir = Path(self._temp_dir.name) / "images"
         os.makedirs(self._image_dir, exist_ok=True)
+        self.tiff_dir = self._image_dir / "tiff"
+        self.h5_dir = self._image_dir / "h5"
+        os.mkdir(self.tiff_dir)
+        os.mkdir(self.h5_dir)
+        _write_test_tiffs(self.tiff_dir)
+        _write_test_h5(self.h5_dir)
         self._client = Client()
 
     def tearDown(self):
@@ -115,13 +137,19 @@ class TestOmeZarr(unittest.TestCase):
 
             self.assertEqual(f"/{key}", attrs["multiscales"][0]["name"])
 
-    def test_write_files(self):
-        shape = (64, 128, 128)
-        _write_test_tiffs(self._image_dir, shape=shape)
+    @parameterized.expand(["h5", "tiff"])
+    def test_write_files(self, file_type):
+        image_dir = None
+        if file_type == "h5":
+            image_dir = self.h5_dir
+        elif file_type == "tiff":
+            image_dir = self.tiff_dir
 
         files = list(
-            sorted([self._image_dir / f for f in self._image_dir.iterdir()])
+            sorted([image_dir / f for f in image_dir.iterdir()])
         )
+
+        shape = (64, 128, 128)
         out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
         n_levels = 4
         scale_factor = 2.0
@@ -146,10 +174,15 @@ class TestOmeZarr(unittest.TestCase):
 
         self._check_zarr_attributes(z, voxel_size, scale_factor)
 
-    def test_write_folder(self):
-        shape = (64, 128, 128)
-        _write_test_tiffs(self._image_dir, shape=shape)
+    @parameterized.expand(["h5", "tiff"])
+    def test_write_folder(self, file_type):
+        image_dir = None
+        if file_type == "h5":
+            image_dir = self.h5_dir
+        elif file_type == "tiff":
+            image_dir = self.tiff_dir
 
+        shape = (64, 128, 128)
         out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
         n_levels = 4
         scale_factor = 2.0
@@ -157,12 +190,12 @@ class TestOmeZarr(unittest.TestCase):
 
         # create a dummy file to exclude from conversion
         tifffile.imwrite(
-            self._image_dir / "dummy.tif", np.zeros(shape)
+            image_dir / "dummy.tif", np.zeros(shape)
         )
         exclude = ["*dummy*"]
 
         write_folder(
-            self._image_dir,
+            image_dir,
             out_zarr,
             n_levels,
             scale_factor,
@@ -183,12 +216,6 @@ class TestOmeZarr(unittest.TestCase):
         )
 
         self._check_zarr_attributes(z, voxel_size, scale_factor)
-
-
-def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
-    for i in range(n):
-        a = np.ones(shape, dtype=np.uint16)
-        tifffile.imwrite(os.path.join(folder, f"data_{i}.tif"), a)
 
 
 if __name__ == "__main__":
