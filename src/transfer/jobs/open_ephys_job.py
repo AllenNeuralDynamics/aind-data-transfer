@@ -1,12 +1,18 @@
-import spikeinterface.extractors as se
-from numcodecs import Blosc
+from transfer.readers import EphysReaders
+from transfer.compressors import EphysCompressors
+from transfer.writers import EphysWriters
 
-def read_data(directory):
-    return se.read_openephys(folder_path=directory,
-                      stream_id='0',
-                      block_index=0)
+if __name__ == "__main__":
+    # TODO: Convert openephys to configurable param?
+    input_dir = ""
+    output_dir = ""
+    job_kwargs = {}
+    read_blocks = EphysReaders.get_read_blocks("openephys",
+                                               input_dir=input_dir)
+    compressor = EphysCompressors.get_compressor("wavpack", level="3")
+    scaled_read_blocks = EphysCompressors.scale_read_blocks(read_blocks)
 
-def compress_data(rec_to_compress):
-    compressor = Blosc(cname="zstd", clevel=9, shuffle=Blosc.BITSHUFFLE)
-    rec_to_compress.save(format="zarr", zarr_path=zarr_path,
-                         compressor=compressor, **job_kwargs)
+    EphysWriters.compress_and_write_block(read_blocks=read_blocks,
+                                          compressor=compressor,
+                                          output_dir=output_dir,
+                                          job_kwargs={})
