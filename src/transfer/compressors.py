@@ -1,3 +1,5 @@
+"""Module that contains the API to retrieve a Compressor for Ephys Data.
+"""
 from enum import Enum
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
@@ -9,14 +11,26 @@ from tqdm import tqdm
 
 
 class EphysCompressors:
+    """This class contains the methods to retrieve a compressor, and to scale
+    a read block by lsb and median values.
+    """
     class Compressors(Enum):
+        """Enum for compression algorithms a user can select"""
         blosc = "blosc"
         wavpack = "wavpack"
 
     compressors = ([member.value for member in Compressors])
 
     @staticmethod
-    def get_compressor(compressor_name, **kwargs):
+    def get_compressor(compressor_name, kwargs):
+        """
+        Retrieve a compressor for a given name and optional kwargs.
+        Args:
+            compressor_name (str): Matches one of the names Compressors enum
+            **kwargs (dict): Options to pass into the Compressor
+        Returns:
+            An instantiated compressor class.
+        """
         if compressor_name == EphysCompressors.Compressors.blosc.name:
             return Blosc(**kwargs)
         elif compressor_name == EphysCompressors.Compressors.wavpack.name:
@@ -94,6 +108,21 @@ class EphysCompressors:
                           num_chunks_per_segment=1,
                           chunk_size=20,
                           disable_tqdm=False):
+        """
+        Scales a read_block. A read_block is dict of
+        {'recording', 'block_index', 'stream_name'}.
+        Args:
+            read_blocks (iterable): A generator of read_blocks
+            num_random_chunks (int):
+            num_chunks_per_segment (int):
+            chunk_size (int):
+            disable_tqdm (boolean): Optionally disable a progress bar.
+              Defaults to False.
+        Returns:
+            A generated scaled_read_block. A dict of
+            {'scaled_recording', 'block_index', 'stream_name'}.
+
+        """
         for read_block in read_blocks:
             lsb_value, median_values = (
                 EphysCompressors._get_median_and_lsb(

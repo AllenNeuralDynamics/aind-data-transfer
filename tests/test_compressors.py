@@ -57,6 +57,7 @@ class TestEphysCompressors(unittest.TestCase):
             EphysCompressors.scale_read_blocks([read_block], disable_tqdm=True)
         )
         scaled_read_block_str = str(next(scaled_read_blocks))
+        # Maybe there's a better way to test rather than comparing strings?
         expected_scaled_read_block_str = (
             "{'scaled_recording': ScaleRecording: 384 channels - 1 segments - "
             "30.0kHz - 0.003s, 'block_index': 0, 'stream_name': 'Record Node "
