@@ -76,6 +76,9 @@ class TiffReader(DataReader):
         with tifffile.TiffFile(self.filepath) as tif:
             return tif.series[0].dtype.itemsize
 
+    def get_handle(self):
+        return self.handle
+
     def close(self):
         if self.handle is not None:
             self.handle.close()
@@ -174,6 +177,9 @@ class DataReaderFactory:
         self.factory[".tiff"] = TiffReader
         self.factory[".h5"] = HDF5Reader
         self.factory[".ims"] = HDF5Reader
+
+    def get_valid_extensions(self):
+        return self.VALID_EXTENSIONS
 
     def create(self, filepath) -> DataReader:
         _, ext = os.path.splitext(filepath)
