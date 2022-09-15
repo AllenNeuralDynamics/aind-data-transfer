@@ -1,3 +1,4 @@
+"""Job that reads open ephys data, compresses, and writes it."""
 from transfer.readers import EphysReaders
 from transfer.compressors import EphysCompressors
 from transfer.writers import EphysWriters
