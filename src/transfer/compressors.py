@@ -117,8 +117,8 @@ class EphysCompressors:
     def scale_read_blocks(
         read_blocks,
         num_random_chunks=10,
-        num_chunks_per_segment=1,
-        chunk_size=20,
+        num_chunks_per_segment=10,
+        chunk_size=10000,
         disable_tqdm=False,
     ):
         """

@@ -47,19 +47,21 @@ class TestEphysCompressors(unittest.TestCase):
         )
 
         read_block = next(read_blocks)
-        expected_lsb_value = 7
+        chunk_size = min(read_block['recording'].get_num_frames(0)-1, 10000)
+        expected_lsb_value = 4
         expected_median_values_shape = (384,)
-        expected_median_values_first = 194
-        expected_median_values_last = 338
+        expected_median_values_first = 211
+        expected_median_values_last = 344
         lsb_value, median_values = EphysCompressors._get_median_and_lsb(
             read_block["recording"],
             disable_tqdm=True,
-            num_random_chunks=2,
-            num_chunks_per_segment=1,
-            chunk_size=20,
+            num_chunks_per_segment=10,
+            chunk_size=chunk_size
         )
         scaled_read_blocks = EphysCompressors.scale_read_blocks(
-            [read_block], disable_tqdm=True
+            [read_block],
+            disable_tqdm=True,
+            chunk_size=chunk_size
         )
         scaled_read_block_str = str(next(scaled_read_blocks))
         # Maybe there's a better way to test rather than comparing strings?
