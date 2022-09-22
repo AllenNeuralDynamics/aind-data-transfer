@@ -1,6 +1,9 @@
+import fnmatch
 import os
 from pathlib import PurePath, PurePosixPath, Path
 from typing import List, Optional, Tuple, Union
+
+from transfer.util.io_utils import DataReaderFactory
 
 
 def collect_filepaths(
@@ -27,6 +30,40 @@ def collect_filepaths(
         if not recursive:
             break
     return filepaths
+
+
+def get_images(
+        image_folder: Union[str, os.PathLike],
+        exclude: List[str] = None,
+        include_exts: List[str] = DataReaderFactory().VALID_EXTENSIONS,
+        recursive: bool = False
+) -> List[str]:
+    """Get the absolute paths for all images in a folder
+    Args:
+        image_folder: the directory to look for images
+        exclude: list of filename patterns to exclude
+        include_exts: list of valid file extensions to include.
+                                 e.g., ['.tiff', '.h5', '.ims']
+        recursive: whether to traverse all sub-folders
+    Returns:
+        list of image paths
+    """
+    if exclude is None:
+        exclude = []
+    image_paths = collect_filepaths(
+        image_folder,
+        recursive=recursive,
+        include_exts=include_exts,
+    )
+
+    exclude_paths = set()
+    for path in image_paths:
+        if any(fnmatch.fnmatch(path, pattern) for pattern in exclude):
+            exclude_paths.add(path)
+
+    image_paths = [p for p in image_paths if p not in exclude_paths]
+
+    return image_paths
 
 
 def join_cloud_paths(cloud_dest_path: str, relpath: str) -> str:

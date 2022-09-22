@@ -17,12 +17,7 @@ from numcodecs import blosc
 from transfer.gcs import GCSUploader, create_client
 from transfer.s3 import S3Uploader
 from transfer.transcode.ome_zarr import write_files
-from transfer.util.file_utils import (
-    collect_filepaths,
-    make_cloud_paths,
-    parse_cloud_url,
-    is_cloud_url,
-)
+from transfer.util.file_utils import *
 from transfer.util.io_utils import DataReaderFactory
 
 from cluster.config import load_jobqueue_config
@@ -245,25 +240,6 @@ def parse_args():
     )
     args = parser.parse_args()
     return args
-
-
-def get_images(image_folder, exclude=None):
-    if exclude is None:
-        exclude = []
-    image_paths = collect_filepaths(
-        image_folder,
-        recursive=False,
-        include_exts=DataReaderFactory().VALID_EXTENSIONS,
-    )
-
-    exclude_paths = set()
-    for path in image_paths:
-        if any(fnmatch.fnmatch(path, pattern) for pattern in exclude):
-            exclude_paths.add(path)
-
-    image_paths = [p for p in image_paths if p not in exclude_paths]
-
-    return image_paths
 
 
 def copy_files(filepaths, output, root_folder, n_workers=4):
