@@ -21,7 +21,7 @@ from transfer.util.chunk_utils import (
 from transfer.util.file_utils import collect_filepaths
 from transfer.util.io_utils import (
     DataReaderFactory,
-    HDF5Reader,
+    ImarisReader,
     MissingDatasetError,
 )
 
@@ -293,7 +293,7 @@ def _create_pyramid(data, n_lvls):
 
 
 def _get_or_create_pyramid(reader, n_levels, chunks):
-    if isinstance(reader, HDF5Reader):
+    if isinstance(reader, ImarisReader):
         try:
             pyramid = reader.get_dask_pyramid(
                 n_levels,
