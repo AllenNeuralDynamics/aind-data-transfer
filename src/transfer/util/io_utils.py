@@ -142,22 +142,32 @@ class ImarisReader(DataReader):
     def get_dataset_info(self):
         return self.get_handle()[f"DataSetInfo/Image"]
 
-    def get_voxel_size(self):
+    def get_origin(self):
         info = self.get_dataset_info()
         x_min = float(info.attrs["ExtMin0"].tostring())
         y_min = float(info.attrs["ExtMin1"].tostring())
         z_min = float(info.attrs["ExtMin2"].tostring())
+        return [z_min, y_min, x_min]
+
+    def get_extent(self):
+        info = self.get_dataset_info()
         x_max = float(info.attrs["ExtMax0"].tostring())
         y_max = float(info.attrs["ExtMax1"].tostring())
         z_max = float(info.attrs["ExtMax2"].tostring())
+        return [z_max, y_max, x_max]
+
+    def get_voxel_size(self):
+        info = self.get_dataset_info()
+        extmin = self.get_origin()
+        extmax = self.get_extent()
         x = int(info.attrs["X"].tostring())
         y = int(info.attrs["Y"].tostring())
         z = int(info.attrs["Z"].tostring())
         unit = info.attrs["Unit"].tostring()
         voxsize = [
-            (z_max - z_min) / z,
-            (y_max - y_min) / y,
-            (x_max - x_min) / x,
+            (extmax[0] - extmin[0]) / z,
+            (extmax[1] - extmin[1]) / y,
+            (extmax[2] - extmin[2]) / x,
         ]
         return voxsize, unit
 
