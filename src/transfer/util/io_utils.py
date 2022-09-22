@@ -89,7 +89,7 @@ class MissingDatasetError(Exception):
     pass
 
 
-class HDF5Reader(DataReader):
+class ImarisReader(DataReader):
     DEFAULT_DATA_PATH = "/DataSet/ResolutionLevel 0/TimePoint 0/Channel 0/Data"
 
     def __init__(self, filepath):
@@ -175,8 +175,8 @@ class DataReaderFactory:
     def __init__(self):
         self.factory[".tif"] = TiffReader
         self.factory[".tiff"] = TiffReader
-        self.factory[".h5"] = HDF5Reader
-        self.factory[".ims"] = HDF5Reader
+        self.factory[".h5"] = ImarisReader
+        self.factory[".ims"] = ImarisReader
 
     def get_valid_extensions(self):
         return self.VALID_EXTENSIONS
