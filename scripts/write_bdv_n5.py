@@ -99,12 +99,20 @@ def get_datatype_str(dtype):
         raise NotImplementedError(f"dtype {dtype} not implemented")
 
 
+def write_attributes(n5_path, attrs, fs):
+    # HACK: setting group attributes directly does not work
+    #  when writing to google cloud storage with N5FSStore
+    #  e.g., group.attrs['field'] = value
+    with fs.open(os.path.join(n5_path, "attributes.json"), mode="w") as f:
+        json.dump(attrs, f)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input",
         type=str,
-        default="/net/172.20.102.30/aind/exaSPIM/exaSPIM_125L_20220805_172536/micr",
+        default="/mnt/vast/aind/exaSPIM/exaSPIM_125L_20220805_172536/micr",
     )
     parser.add_argument(
         "--output",
@@ -141,7 +149,7 @@ def main():
 
     imdir = args.input
     images = get_images(imdir)
-    print(len(images))
+    LOGGER.info(f"Found {len(images)} images")
 
     if not images:
         LOGGER.warning("No images found, exiting.")
@@ -194,16 +202,31 @@ def main():
             reader, n_levels, chunks=tuple(reversed(args.block_size))
         )
 
-        datatype = get_datatype_str(pyramid[0].dtype)
+        setup_name = f"setup{i}"
+        setup = root.create_group(setup_name)
+        setup_attrs = {
+            "downsamplingFactors": factors_by_lvl,
+            "dataType": get_datatype_str(pyramid[0].dtype)
+        }
+        write_attributes(
+            os.path.join(out_n5, setup_name),
+            setup_attrs,
+            fs
+        )
 
-        setup = root.create_group(f"setup{i}")
-        setup.attrs["downsamplingFactors"] = factors_by_lvl
-        setup.attrs["dataType"] = datatype
-
-        timepoint = setup.create_group("timepoint0")
-        timepoint.attrs["resolution"] = voxel_size
-        timepoint.attrs["saved_completely"] = True
-        timepoint.attrs["multiScale"] = True
+        # TODO: support multiple timepoints?
+        timepoint_name = "timepoint0"
+        timepoint = setup.create_group(timepoint_name)
+        timepoint_attrs = {
+            "resolution": voxel_size,
+            "saved_completely": True,
+            "multiScale": True
+        }
+        write_attributes(
+            os.path.join(out_n5, setup_name, timepoint_name),
+            timepoint_attrs,
+            fs
+        )
 
         im_meta = {}
         im_meta["tileName"] = Path(impath).name
@@ -238,6 +261,7 @@ def main():
                 compressor=GZip(1),
             )
             futures.append(fut)
+            # Setting array attributes directly works??
             timepoint[path].attrs["downsamplingFactors"] = factors_by_lvl[i]
 
         ret = dask.persist(*futures)
