@@ -17,7 +17,7 @@ class TestEphysCompressors(unittest.TestCase):
         blosc_configs = {
             "cname": "zstd",
             "clevel": 9,
-            "shuffle": Blosc.BITSHUFFLE,
+            "shuffle": Blosc.BITSHUFFLE
         }
         wavpack_configs = {"level": 3}
         blosc = EphysCompressors.get_compressor(
