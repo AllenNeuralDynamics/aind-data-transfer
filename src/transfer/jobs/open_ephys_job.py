@@ -1,13 +1,14 @@
 """Job that reads open ephys data, compresses, and writes it."""
 from transfer.compressors import EphysCompressors
-from transfer.configuration_loader import EphysJobConfigs
+from transfer.configuration_loader import EphysJobConfigurationLoader
 from transfer.readers import EphysReaders
 from transfer.writers import EphysWriters
 
 if __name__ == "__main__":
-    reader_configs = EphysJobConfigs.read_configs
-    writer_configs = EphysJobConfigs.write_configs
-    compressor_configs = EphysJobConfigs.compressor_configs
+    config_loader = EphysJobConfigurationLoader()
+    reader_configs, compressor_configs, writer_configs = (
+        config_loader.get_configs()
+    )
 
     read_blocks = EphysReaders.get_read_blocks(**reader_configs)
     compressor = EphysCompressors.get_compressor(**compressor_configs)
