@@ -11,18 +11,33 @@ RESOURCES_DIR = TEST_DIR / "resources"
 class TestEphysReaders(unittest.TestCase):
 
     open_ephys_dir = RESOURCES_DIR / "v0.6.x_neuropixels_multiexp_multistream"
-    rec_string = (
-        "'recording': OpenEphysBinaryRecordingExtractor: "
-        "384 channels - 1 segments - 30.0kHz - 0.003s"
+
+    nidaq_rec_prefix = (
+        "'recording': OpenEphysBinaryRecordingExtractor: 8 channels - 1 "
+        "segments - 30.0kHz - 0.003s, 'block_index': "
     )
-    stream_prefix = "'stream_name': 'Record Node 101#Neuropix-PXI-100.Probe"
+    nidaq_rec_suffix = (
+        "'stream_name': 'Record Node 101#NI-DAQmx-103.PXIe-6341'"
+    )
+
+    neuropix_rec_prefix = (
+        "'recording': OpenEphysBinaryRecordingExtractor: 384 channels - 1 "
+        "segments - 30.0kHz - 0.003s, 'block_index': "
+    )
+    neuropix_rec_suffix = (
+        "'stream_name': 'Record Node 101#Neuropix-PXI-100.Probe"
+    )
+
     expected_read_blocks_info = [
-        f"{{{rec_string}, 'block_index': 0, {stream_prefix}B'}}",
-        f"{{{rec_string}, 'block_index': 0, {stream_prefix}C'}}",
-        f"{{{rec_string}, 'block_index': 1, {stream_prefix}B'}}",
-        f"{{{rec_string}, 'block_index': 1, {stream_prefix}C'}}",
-        f"{{{rec_string}, 'block_index': 2, {stream_prefix}B'}}",
-        f"{{{rec_string}, 'block_index': 2, {stream_prefix}C'}}",
+        f"{{{nidaq_rec_prefix}0, {nidaq_rec_suffix}}}",
+        f"{{{neuropix_rec_prefix}0, {neuropix_rec_suffix}B'}}",
+        f"{{{neuropix_rec_prefix}0, {neuropix_rec_suffix}C'}}",
+        f"{{{nidaq_rec_prefix}1, {nidaq_rec_suffix}}}",
+        f"{{{neuropix_rec_prefix}1, {neuropix_rec_suffix}B'}}",
+        f"{{{neuropix_rec_prefix}1, {neuropix_rec_suffix}C'}}",
+        f"{{{nidaq_rec_prefix}2, {nidaq_rec_suffix}}}",
+        f"{{{neuropix_rec_prefix}2, {neuropix_rec_suffix}B'}}",
+        f"{{{neuropix_rec_prefix}2, {neuropix_rec_suffix}C'}}",
     ]
 
     def test_read(self):

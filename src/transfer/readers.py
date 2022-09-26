@@ -15,6 +15,13 @@ class EphysReaders:
 
     readers = [member.value for member in Readers]
 
+    class RecordingBlockPrefixes(Enum):
+        """Enum for types of recording blocks."""
+
+        # TODO: Convert these to regex patterns?
+        neuropix = "Neuropix"
+        nidaq = "NI-DAQ"
+
     @staticmethod
     def get_read_blocks(reader_name, input_dir):
         """
@@ -28,16 +35,13 @@ class EphysReaders:
             {'recording', 'block_index', 'stream_name'}.
 
         """
-        if reader_name == EphysReaders.Readers.openephys.name:
+        if reader_name == EphysReaders.Readers.openephys.value:
             nblocks = se.get_neo_num_blocks(reader_name, input_dir)
             stream_names, stream_ids = se.get_neo_streams(
                 reader_name, input_dir
             )
             for block_index in range(nblocks):
                 for stream_name in stream_names:
-                    # TODO: Move the filtering logic to own method
-                    if "NI-DAQ" in stream_name:
-                        continue
                     rec = se.read_openephys(
                         input_dir,
                         stream_name=stream_name,
