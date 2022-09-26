@@ -2,6 +2,7 @@ import os
 import unittest
 from pathlib import Path
 
+import numpy as np
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
 
@@ -45,38 +46,53 @@ class TestEphysCompressors(unittest.TestCase):
         read_blocks = EphysReaders.get_read_blocks(
             openephys_reader, open_ephys_dir
         )
+        read_block = next(read_blocks)
+        chunk_size = min(read_block["recording"].get_num_frames(0) - 1, 10000)
+        # The first read block should be a NI-DAQ recording.
+        self.assertTrue(
+            EphysReaders.RecordingBlockPrefixes.nidaq.value
+            in read_block["stream_name"],
+            "The first block isn't NI-DAQ. If the test data has "
+            "been updated, this test needs to be updated too.",
+        )
+        # We expect the NI-DAQ scaled recordings to be the same as the original
+        scaled_read_blocks = EphysCompressors.scale_read_blocks(
+            [read_block], disable_tqdm=True, chunk_size=chunk_size
+        )
+        scaled_read_block = next(scaled_read_blocks)
+        self.assertEqual(
+            scaled_read_block["scaled_recording"], read_block["recording"]
+        )
 
         read_block = next(read_blocks)
-        chunk_size = min(read_block['recording'].get_num_frames(0)-1, 10000)
-        expected_lsb_value = 4
-        expected_median_values_shape = (384,)
-        expected_median_values_first = 211
-        expected_median_values_last = 344
+        # The second read block should be a Neuropixel recording.
+        self.assertTrue(
+            EphysReaders.RecordingBlockPrefixes.neuropix.value
+            in read_block["stream_name"],
+            "The second block isn't Neuropixel. If the test data "
+            "has been updated, this test needs to be updated too.",
+        )
+        chunk_size = min(read_block["recording"].get_num_frames(0) - 1, 10000)
+        scaled_read_blocks = EphysCompressors.scale_read_blocks(
+            [read_block], disable_tqdm=True, chunk_size=chunk_size
+        )
+        scaled_read_block = next(scaled_read_blocks)
+
+        # The lsb value should be 1 and the median values should be 0 in the
+        # scaled neuropixel recordings.
         lsb_value, median_values = EphysCompressors._get_median_and_lsb(
-            read_block["recording"],
+            scaled_read_block["scaled_recording"],
             disable_tqdm=True,
             num_chunks_per_segment=10,
-            chunk_size=chunk_size
+            chunk_size=chunk_size,
         )
-        scaled_read_blocks = EphysCompressors.scale_read_blocks(
-            [read_block],
-            disable_tqdm=True,
-            chunk_size=chunk_size
+
+        expected_median_values = np.zeros(
+            shape=median_values.shape, dtype=median_values.dtype
         )
-        scaled_read_block_str = str(next(scaled_read_blocks))
-        # Maybe there's a better way to test rather than comparing strings?
-        expected_scaled_read_block_str = (
-            "{'scaled_recording': ScaleRecording: 384 channels - 1 segments - "
-            "30.0kHz - 0.003s, 'block_index': 0, 'stream_name': 'Record Node "
-            "101#Neuropix-PXI-100.ProbeB'}"
-        )
-        self.assertEqual(lsb_value, expected_lsb_value)
-        self.assertEqual(expected_median_values_shape, median_values.shape)
-        self.assertEqual(expected_median_values_first, median_values[0])
-        self.assertEqual(expected_median_values_last, median_values[-1])
-        self.assertEqual(
-            expected_scaled_read_block_str, str(scaled_read_block_str)
-        )
+
+        self.assertEqual(lsb_value, 1)
+        self.assertTrue(np.array_equal(expected_median_values, median_values))
 
 
 if __name__ == "__main__":
