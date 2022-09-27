@@ -8,7 +8,8 @@ from numcodecs import Blosc
 class EphysJobConfigurationLoader:
     """Loads Ephys compression job configs"""
 
-    # TODO: Add sanity checks and error handling.
+    # TODO: Add sanity checks, error handling, and better document what the
+    #  configs are
     _parser = argparse.ArgumentParser()
     _parser.add_argument(
         "-r", "--reader-configs", required=True, type=json.loads
