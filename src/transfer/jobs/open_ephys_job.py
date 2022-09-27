@@ -6,14 +6,19 @@ from transfer.writers import EphysWriters
 
 if __name__ == "__main__":
     config_loader = EphysJobConfigurationLoader()
-    reader_configs, compressor_configs, writer_configs = (
-        config_loader.get_configs()
+    (
+        reader_conf,
+        compressor_conf,
+        scale_read_block_conf,
+        writer_conf,
+    ) = config_loader.get_configs()
+
+    read_blocks = EphysReaders.get_read_blocks(**reader_conf)
+    compressor = EphysCompressors.get_compressor(**compressor_conf)
+    scaled_read_blocks = EphysCompressors.scale_read_blocks(
+        read_blocks, **scale_read_block_conf
     )
 
-    read_blocks = EphysReaders.get_read_blocks(**reader_configs)
-    compressor = EphysCompressors.get_compressor(**compressor_configs)
-    scaled_read_blocks = EphysCompressors.scale_read_blocks(read_blocks)
-
     EphysWriters.compress_and_write_block(
-        read_blocks=read_blocks, compressor=compressor, **writer_configs
+        read_blocks=scaled_read_blocks, compressor=compressor, **writer_conf
     )
