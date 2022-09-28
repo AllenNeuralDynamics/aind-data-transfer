@@ -24,11 +24,14 @@ class EphysWriters:
             Nothing. Writes data to a folder.
         """
         for read_block in read_blocks:
-            rec = read_block["recording"]
+            if "recording" in read_block:
+                rec = read_block["recording"]
+            else:
+                rec = read_block["scaled_recording"]
             block_index = read_block["block_index"]
             stream_name = read_block["stream_name"]
             zarr_path = output_dir / f"block{block_index}_{stream_name}.zarr"
-            rec_local = rec.save(
+            _ = rec.save(
                 format=output_format,
                 zarr_path=zarr_path,
                 compressor=compressor,
