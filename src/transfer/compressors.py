@@ -173,7 +173,7 @@ class EphysCompressors:
             yield (
                 {
                     "scaled_recording": rec_to_compress,
-                    "block_index": read_block["block_index"],
+                    "experiment_name": read_block["experiment_name"],
                     "stream_name": read_block["stream_name"],
                 }
             )

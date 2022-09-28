@@ -28,9 +28,9 @@ class EphysWriters:
                 rec = read_block["recording"]
             else:
                 rec = read_block["scaled_recording"]
-            block_index = read_block["block_index"]
+            experiment_name = read_block["experiment_name"]
             stream_name = read_block["stream_name"]
-            zarr_path = output_dir / f"block{block_index}_{stream_name}.zarr"
+            zarr_path = output_dir / f"{experiment_name}_{stream_name}.zarr"
             _ = rec.save(
                 format=output_format,
                 zarr_path=zarr_path,

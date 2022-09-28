@@ -32,7 +32,7 @@ class EphysReaders:
             input_dir (Path): Directory of ephys data to read.
         Returns:
             A generator of read blocks. A read_block is dict of
-            {'recording', 'block_index', 'stream_name'}.
+            {'recording', 'experiment_name', 'stream_name'}.
 
         """
         if reader_name == EphysReaders.Readers.openephys.value:
@@ -40,6 +40,16 @@ class EphysReaders:
             stream_names, stream_ids = se.get_neo_streams(
                 reader_name, input_dir
             )
+            # load first stream to map block_indices to experiment_names
+            rec_test = se.read_openephys(
+                input_dir, 
+                block_index=0,
+                stream_name=stream_names[0]
+            )
+            record_node = list(rec_test.neo_reader.folder_structure.keys())[0]
+            experiments = rec_test.neo_reader.folder_structure[record_node]["experiments"]
+            exp_ids = list(experiments.keys())
+            experiment_names = [experiments[exp_id]["name"] for exp_id in sorted(exp_ids)]
             for block_index in range(nblocks):
                 for stream_name in stream_names:
                     rec = se.read_openephys(
@@ -50,7 +60,7 @@ class EphysReaders:
                     yield (
                         {
                             "recording": rec,
-                            "block_index": block_index,
+                            "experiment_name": experiment_names[block_index],
                             "stream_name": stream_name,
                         }
                     )
