@@ -48,7 +48,8 @@ class EphysReaders:
             )
             record_node = list(rec_test.neo_reader.folder_structure.keys())[0]
             experiments = rec_test.neo_reader.folder_structure[record_node]["experiments"]
-            experiment_names = [exp["name"] for exp_id, exp in experiments.items()]
+            exp_ids = list(experiments.keys())
+            experiment_names = [experiments[exp_id]["name"] for exp_id in sorted(exp_ids)]
             for block_index in range(nblocks):
                 for stream_name in stream_names:
                     rec = se.read_openephys(
