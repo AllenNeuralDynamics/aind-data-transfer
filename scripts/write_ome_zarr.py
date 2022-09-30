@@ -16,7 +16,7 @@ from distributed import Client, LocalCluster
 from numcodecs import blosc
 from transfer.gcs import GCSUploader, create_client
 from transfer.s3 import S3Uploader
-from transfer.transcode.ome_zarr import write_files_to_zarr
+from transfer.transcode.ome_zarr import write_files
 from transfer.util.file_utils import (
     collect_filepaths,
     make_cloud_paths,
@@ -398,7 +398,7 @@ def main():
 
     opts = get_blosc_codec(args.codec, args.clevel)
 
-    all_metrics = write_files_to_zarr(
+    all_metrics = write_files(
         images,
         zarr_dst,
         args.n_levels,
