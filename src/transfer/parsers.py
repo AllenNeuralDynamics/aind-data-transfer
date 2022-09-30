@@ -15,7 +15,7 @@ class TileParser:
         tile_name_pattern = re.compile(r"^tile_x_\d{1,4}_y_\d{1,4}_z_\d{1,4}_ch_\d{1,4}.ims$")
         xy_pattern = re.compile(r"x_\d{1,4}_y_\d{1,4}")
         channel_pattern = re.compile(r"ch_\d{1,4}")
-        z_pattern = re.compile(r"z_\d{4}")
+        z_pattern = re.compile(r"z_\d{1,4}")
 
         xy_tile_dict = defaultdict(list)
         grouped_tile_paths = []
@@ -35,7 +35,7 @@ class TileParser:
                 channel_dict[channel].append(tile_path)
             # we want to keep Z tiles together, but channels separate
             for z_tiles in channel_dict.values():
-                sorted_z_tiles = tuple(sorted(z_tiles, key=lambda x: z_pattern.search(tile_path).group(0)))
+                sorted_z_tiles = tuple(sorted(z_tiles, key=lambda x: z_pattern.search(x).group(0)))
                 grouped_tile_paths.append(sorted_z_tiles)
 
         return grouped_tile_paths

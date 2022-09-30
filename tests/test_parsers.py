@@ -1,13 +1,16 @@
 import unittest
+import random
 
 from src.transfer.parsers import TileParser
 
 
 def _create_test_data():
-    channels = ["488", "512"]
+    channels = ["512", "488"]
     z_range = list(range(3))
-    x_range = list(range(2))
-    y_range = list(range(2))
+    x_range = list(range(10))
+    y_range = list(range(11))
+
+    random.seed(13)
 
     test_tiles = []
     for c in channels:
@@ -16,6 +19,7 @@ def _create_test_data():
                 for x in x_range:
                     tile = f"tile_x_{x:04}_y_{y:04}_z_{z:04}_ch_{c}.ims"
                     test_tiles.append(tile)
+    random.shuffle(test_tiles)
 
     expected_groups = []
     for x in x_range:
