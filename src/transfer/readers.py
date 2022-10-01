@@ -1,7 +1,7 @@
 """This module contains the api to retrieve a reader for ephys data.
 """
 from enum import Enum
-
+import numpy as np
 import spikeinterface.extractors as se
 
 
@@ -69,3 +69,25 @@ class EphysReaders:
                 f"Unknown reader: {reader_name}. "
                 f"Please select one of {EphysReaders.readers}"
             )
+
+    @staticmethod
+    def get_streams_to_clip(reader_name, input_dir):
+        stream_names, stream_ids = se.get_neo_streams(
+            reader_name, input_dir
+        )
+        for dat_file in input_dir.glob("**/*.dat"):
+            oe_stream_name = dat_file.parent.name
+            si_stream_name = [stream_name for stream_name in stream_names if
+                              oe_stream_name in stream_name][0]
+            n_chan = (
+                se.read_openephys(input_dir,
+                                  block_index=0, stream_name=si_stream_name
+                                  ).get_num_channels()
+            )
+            data = np.memmap(dat_file,
+                             dtype="int16",
+                             order='C',
+                             mode='r').reshape(-1, n_chan)
+            yield {"data": data,
+                   "relative_path_name": str(dat_file.relative_to(input_dir)),
+                   "n_chan": n_chan}

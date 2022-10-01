@@ -1,91 +1,50 @@
 """Loads job configurations"""
-import argparse
-import json
-from pathlib import Path
-
+import yaml
 from numcodecs import Blosc
 
 
 class EphysJobConfigurationLoader:
-    """Loads Ephys compression job configs"""
+    """Class to handle loading ephys job configs"""
 
-    # TODO: Add sanity checks, error handling, and better document what the
-    #  configs are
-    _parser = argparse.ArgumentParser()
-    _parser.add_argument(
-        "-r", "--reader-configs", required=True, type=json.loads
-    )
-    _parser.add_argument(
-        "-c", "--compressor-configs", required=True, type=json.loads
-    )
-    _parser.add_argument(
-        "-w", "--write-configs", required=True, type=json.loads
-    )
+    def __remove_none(self, data):
+        """Remove keys whose value is None."""
+        if isinstance(data, dict):
+            return ({k: self.__remove_none(v)
+                     for k, v in data.items() if v is not None})
+        else:
+            return data
 
     @staticmethod
-    def _parse_compressor_configs(compressor_configs):
-        """
-        Parses compressor configs. If the compressor is blosc, and shuffle is
-        defined, it will convert the string to the appropriate enum value. So
-        if 'BITSHUFFLE' is defined, it will be mapped to Blosc.BITSHUFFLE
-        Args:
-            compressor_configs (dict): parameter settings for the compressor.
-            Will look like
-                '{"compressor_conf":{"compressor_name":"wavpack",
-                                     "kwargs":{"level":3}},
-                  "scale_read_block_conf":{"chunk_size":20}
-                }'
-            where the scale_read_block_conf is optional.
-
-        Returns: A tuple where the first part is a dictionary of compressor
-        configs, and the second part is the config dict of scale_read_block
-        options.
-        """
-        compressor_conf = {}
-        scale_read_block_conf = {}
-        if "compressor_conf" in compressor_configs:
-            compressor_conf = compressor_configs["compressor_conf"]
-        if (
-            compressor_conf
-            and "compressor_name" in compressor_conf
-            and compressor_conf["compressor_name"] == Blosc.codec_id
-            and "kwargs" in compressor_conf
-            and "shuffle" in compressor_conf["kwargs"]
-            and isinstance(compressor_conf["kwargs"]["shuffle"], str)
+    def __parse_compressor_configs(configs):
+        """Util method to map a string to class attribute"""
+        try:
+            compressor_name = (
+                configs["compress_data_job"]["compressor"]["compressor_name"])
+        except KeyError:
+            compressor_name = None
+        try:
+            compressor_kwargs = (
+                configs["compress_data_job"]["compressor"]["kwargs"])
+        except KeyError:
+            compressor_kwargs = None
+        if(
+                compressor_name
+                and compressor_name == Blosc.codec_id
+                and compressor_kwargs
+                and "shuffle" in compressor_kwargs
         ):
-            shuffle_setting = compressor_conf["kwargs"]["shuffle"]
-            # If "shuffle" is something like "1", convert it to an int
-            # Else, convert the string like "BITSHUFFLE" to Blosc attr
-            if shuffle_setting.isdigit():
-                compressor_conf["kwargs"]["shuffle"] = int(shuffle_setting)
-            else:
-                compressor_conf["kwargs"]["shuffle"] = getattr(
-                    Blosc, compressor_conf["kwargs"]["shuffle"]
-                )
-        if "scale_read_block_conf" in compressor_configs:
-            scale_read_block_conf = compressor_configs["scale_read_block_conf"]
+            shuffle_str = (
+                configs["compress_data_job"]["compressor"]["kwargs"]["shuffle"]
+            )
+            shuffle_val = getattr(Blosc, shuffle_str)
+            configs["compress_data_job"]["compressor"]["kwargs"]["shuffle"] = (
+                shuffle_val
+            )
 
-        return compressor_conf, scale_read_block_conf
-
-    def get_configs(self, args=None):
-        """
-        Parses command line arguments into configs.
-        Args:
-            args (List[str]): Command line arguments.
-
-        Returns:
-            A tuple of configs for an Ephys Job. scale_read_block_conf
-            may be an empty dict if the defaults are to be used.
-            (read_conf, comp_configs, scale_read_block_conf, write_conf)
-        """
-        job_args = self._parser.parse_args(args=args)
-
-        read_conf = job_args.reader_configs
-        read_conf["input_dir"] = Path(read_conf["input_dir"])
-        write_conf = job_args.write_configs
-        write_conf["output_dir"] = Path(write_conf["output_dir"])
-        compressor_configs = job_args.compressor_configs
-        comp_conf, scale_read_block_conf = self._parse_compressor_configs(
-            compressor_configs
-        )
-        return read_conf, comp_conf, scale_read_block_conf, write_conf
+    def load_configs(self, conf_src):
+        """Load yaml config at conf_src Path as python dict"""
+        with open(conf_src) as f:
+            raw_config = yaml.load(f, Loader=yaml.SafeLoader)
+        config_without_nones = self.__remove_none(raw_config)
+        self.__parse_compressor_configs(config_without_nones)
+        return config_without_nones
