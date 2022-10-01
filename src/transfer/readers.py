@@ -1,6 +1,7 @@
 """This module contains the api to retrieve a reader for ephys data.
 """
 from enum import Enum
+
 import numpy as np
 import spikeinterface.extractors as se
 
@@ -42,14 +43,16 @@ class EphysReaders:
             )
             # load first stream to map block_indices to experiment_names
             rec_test = se.read_openephys(
-                input_dir, 
-                block_index=0,
-                stream_name=stream_names[0]
+                input_dir, block_index=0, stream_name=stream_names[0]
             )
             record_node = list(rec_test.neo_reader.folder_structure.keys())[0]
-            experiments = rec_test.neo_reader.folder_structure[record_node]["experiments"]
+            experiments = rec_test.neo_reader.folder_structure[record_node][
+                "experiments"
+            ]
             exp_ids = list(experiments.keys())
-            experiment_names = [experiments[exp_id]["name"] for exp_id in sorted(exp_ids)]
+            experiment_names = [
+                experiments[exp_id]["name"] for exp_id in sorted(exp_ids)
+            ]
             for block_index in range(nblocks):
                 for stream_name in stream_names:
                     rec = se.read_openephys(
@@ -72,22 +75,22 @@ class EphysReaders:
 
     @staticmethod
     def get_streams_to_clip(reader_name, input_dir):
-        stream_names, stream_ids = se.get_neo_streams(
-            reader_name, input_dir
-        )
+        stream_names, stream_ids = se.get_neo_streams(reader_name, input_dir)
         for dat_file in input_dir.glob("**/*.dat"):
             oe_stream_name = dat_file.parent.name
-            si_stream_name = [stream_name for stream_name in stream_names if
-                              oe_stream_name in stream_name][0]
-            n_chan = (
-                se.read_openephys(input_dir,
-                                  block_index=0, stream_name=si_stream_name
-                                  ).get_num_channels()
-            )
-            data = np.memmap(dat_file,
-                             dtype="int16",
-                             order='C',
-                             mode='r').reshape(-1, n_chan)
-            yield {"data": data,
-                   "relative_path_name": str(dat_file.relative_to(input_dir)),
-                   "n_chan": n_chan}
+            si_stream_name = [
+                stream_name
+                for stream_name in stream_names
+                if oe_stream_name in stream_name
+            ][0]
+            n_chan = se.read_openephys(
+                input_dir, block_index=0, stream_name=si_stream_name
+            ).get_num_channels()
+            data = np.memmap(
+                dat_file, dtype="int16", order="C", mode="r"
+            ).reshape(-1, n_chan)
+            yield {
+                "data": data,
+                "relative_path_name": str(dat_file.relative_to(input_dir)),
+                "n_chan": n_chan,
+            }

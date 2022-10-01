@@ -1,6 +1,7 @@
 """This module contains the api to write ephys data.
 """
 import shutil
+
 import numpy as np
 
 
@@ -43,16 +44,20 @@ class EphysWriters:
     @staticmethod
     def copy_and_clip_data(src_dir, dst_dir, stream_gen, n_frames=100):
         # first: copy everything except .dat files
-        shutil.copytree(src_dir,
-                        dst_dir,
-                        ignore=shutil.ignore_patterns("*.dat"))
+        shutil.copytree(
+            src_dir, dst_dir, ignore=shutil.ignore_patterns("*.dat")
+        )
         # second: copy clipped dat files
         for stream in stream_gen:
             data = stream["data"]
             rel_path_name = stream["relative_path_name"]
             n_chan = stream["n_chan"]
             dst_raw_file = dst_dir / rel_path_name
-            dst_data = np.memmap(dst_raw_file, dtype="int16",
-                                 shape=(n_frames, n_chan),
-                                 order='C', mode='w+')
+            dst_data = np.memmap(
+                dst_raw_file,
+                dtype="int16",
+                shape=(n_frames, n_chan),
+                order="C",
+                mode="w+",
+            )
             dst_data[:] = data[:n_frames]
