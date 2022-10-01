@@ -20,7 +20,7 @@ compress_data_job:
     chunk_size: 20
     disable_tqdm: false
 upload_data_job:
-  dryrun: true # Set as false to do a dry run first
+  dryrun: true # Set this as false to perform the actual upload
   upload_to_s3: true # Set as false to skip uploading to s3
   s3_dest: "s3://aind-transfer-test/test_20221001"
   upload_to_gcp: true # Set as false to skip uploading to s3

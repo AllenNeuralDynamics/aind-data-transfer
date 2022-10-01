@@ -46,7 +46,8 @@ class TestEphysJobConfigs(unittest.TestCase):
             "dryrun": True,
             "upload_to_s3": True,
             "s3_dest": "s3://aind-transfer-test/test_20221001",
-            "upload_to_gcp": False,
+            "upload_to_gcp": True,
+            "gcp_dest": "gs://aind-data-dev/test_20221001"
         },
     }
 
