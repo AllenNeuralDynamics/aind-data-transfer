@@ -45,7 +45,7 @@ if __name__ == "__main__":
         compressor_kwargs = job_configs["compress_data_job"]["compressor"][
             "kwargs"
         ]
-        output_format = job_configs["compress_data_job"]["output_format"]
+        format_kwargs = job_configs["compress_data_job"]["format_kwargs"]
         scale_kwargs = job_configs["compress_data_job"]["scale_params"]
         write_kwargs = job_configs["compress_data_job"]["write_kwargs"]
         read_blocks = EphysReaders.get_read_blocks(data_name, data_src_dir)
@@ -59,8 +59,8 @@ if __name__ == "__main__":
             read_blocks=scaled_read_blocks,
             compressor=compressor,
             output_dir=compressed_data_path,
-            output_format=output_format,
             job_kwargs=write_kwargs,
+            **format_kwargs
         )
 
     # Upload to s3

@@ -36,7 +36,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "chunk_duration": "1s",
                 "progress_bar": True,
             },
-            "output_format": "zarr",
+            "format_kwargs": {},
             "compressor": {
                 "compressor_name": "blosc",
                 "kwargs": {"shuffle": Blosc.BITSHUFFLE},
