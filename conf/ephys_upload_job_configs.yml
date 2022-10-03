@@ -5,7 +5,8 @@ raw_data:
 clip_data_job:
   clip: true # Set as false to skip clip step
   clipped_data_dest:  # Set to folder named ecephys_clipped
-  n_frames:
+  clip_kwargs:
+    n_frames:
 compress_data_job:
   compress: true # Set as false to skip compress step
   compressed_data_dest:  # Set to folder named ecephys_compressed

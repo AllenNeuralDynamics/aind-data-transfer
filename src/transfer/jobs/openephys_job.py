@@ -26,12 +26,12 @@ if __name__ == "__main__":
         clipped_data_path = Path(
             job_configs["clip_data_job"]["clipped_data_dest"]
         )
-        n_frames = job_configs["clip_data_job"]["n_frames"]
+        clip_kwargs = job_configs["clip_data_job"]["clip_kwargs"]
         streams_to_clip = EphysReaders.get_streams_to_clip(
             data_name, data_src_dir
         )
         EphysWriters.copy_and_clip_data(
-            data_src_dir, clipped_data_path, streams_to_clip, n_frames
+            data_src_dir, clipped_data_path, streams_to_clip, **clip_kwargs
         )
 
     # Compress data job

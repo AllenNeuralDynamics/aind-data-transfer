@@ -26,7 +26,7 @@ class TestEphysJobConfigs(unittest.TestCase):
         "clip_data_job": {
             "clip": True,
             "clipped_data_dest": "tests/resources/ecephys_clipped",
-            "n_frames": 100,
+            "clip_kwargs": {},
         },
         "compress_data_job": {
             "compress": True,
