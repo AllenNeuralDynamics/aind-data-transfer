@@ -20,16 +20,17 @@ class TestEphysJobConfigs(unittest.TestCase):
     expected_configs = {
         "raw_data": {
             "name": "openephys",
-            "source_dir": "v0.6.x_neuropixels_multiexp_multistream",
+            "source_dir":
+                "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
         },
         "clip_data_job": {
             "clip": True,
-            "clipped_data_dest": "ecephys_clipped",
+            "clipped_data_dest": "tests/resources/ecephys_clipped",
             "n_frames": 100,
         },
         "compress_data_job": {
             "compress": True,
-            "compressed_data_dest": "ecephys_compressed",
+            "compressed_data_dest": "tests/resources/ecephys_compressed",
             "write_kwargs": {
                 "n_jobs": 20,
                 "chunk_duration": "1s",
