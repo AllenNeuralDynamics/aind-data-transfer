@@ -1,27 +1,27 @@
 # Leave values blank to use defaults
 raw_data:
   name: openephys
-  source_dir: /home/jon.young/Projects/nd-data-transfer/tests/resources/v0.6.x_neuropixels_multiexp_multistream
+  source_dir:  # Set this to raw data location
 clip_data_job:
   clip: true # Set as false to skip clip step
-  clipped_data_dest: /home/jon.young/Projects/nd-data-transfer/tests/resources/ephys_clipped_data
-  n_frames: 100
+  clipped_data_dest:  # Set to folder named ecephys_clipped
+  n_frames:
 compress_data_job:
   compress: true # Set as false to skip compress step
-  compressed_data_dest: /home/jon.young/Projects/nd-data-transfer/tests/resources/ephys_compressed_data
+  compressed_data_dest:  # Set to folder named ecephys_compressed
   write_kwargs: {"n_jobs": 20, "chunk_duration": "1s", "progress_bar": true}
-  output_format: zarr
+  output_format:
   compressor:
     compressor_name: wavpack
     kwargs: {"level": 3}
   scale_params:
     num_random_chunks:
     num_chunks_per_segment:
-    chunk_size: 20
-    disable_tqdm: false
+    chunk_size:
+    disable_tqdm:
 upload_data_job:
-  dryrun: true # Set this as false to perform the actual upload
+  dryrun: false # Set this as false to perform the actual upload
   upload_to_s3: true # Set as false to skip uploading to s3
-  s3_dest: "s3://aind-transfer-test/test_20221001"
+  s3_dest:  # Set to something like s3://BUCKET/PATH
   upload_to_gcp: true # Set as false to skip uploading to s3
-  gcp_dest: "gs://aind-data-dev/test_20221001"
+  gcp_dest:  # Set to something like gs://BUCKET/PATH

@@ -24,12 +24,12 @@ class TestEphysJobConfigs(unittest.TestCase):
         },
         "clip_data_job": {
             "clip": True,
-            "clipped_data_dest": "ephys_clipped_data",
+            "clipped_data_dest": "ecephys_clipped",
             "n_frames": 100,
         },
         "compress_data_job": {
             "compress": True,
-            "compressed_data_dest": "ephys_compressed_data",
+            "compressed_data_dest": "ecephys_compressed",
             "write_kwargs": {
                 "n_jobs": 20,
                 "chunk_duration": "1s",
@@ -47,7 +47,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             "upload_to_s3": True,
             "s3_dest": "s3://aind-transfer-test/test_20221001",
             "upload_to_gcp": True,
-            "gcp_dest": "gs://aind-data-dev/test_20221001"
+            "gcp_dest": "gs://aind-data-dev/test_20221001",
         },
     }
 
