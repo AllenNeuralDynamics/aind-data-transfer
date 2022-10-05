@@ -20,7 +20,7 @@ class EphysCompressors:
     class Compressors(Enum):
         """Enum for compression algorithms a user can select"""
 
-        blosc = "blosc"
+        blosc = Blosc.codec_id
         wavpack = "wavpack"
 
     compressors = [member.value for member in Compressors]
