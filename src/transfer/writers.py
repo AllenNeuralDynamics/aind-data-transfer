@@ -80,4 +80,4 @@ class EphysWriters:
         videos_path = dst_dir / "Videos"
         if os.path.isdir(videos_path):
             new_videos_path = dst_dir / ".." / "videos"
-            shutil.copytree(videos_path, new_videos_path)
+            shutil.move(videos_path, new_videos_path)
