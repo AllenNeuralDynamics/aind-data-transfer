@@ -1,15 +1,14 @@
 # Leave values blank to use defaults
-raw_data:
+data:
   name: openephys
   source_dir: tests/resources/v0.6.x_neuropixels_multiexp_multistream
+  dest_dir:  tests/resources/new/v0.6.x_neuropixels_multiexp_multistream
 clip_data_job:
   clip: true # Set as false to skip clip step
-  clipped_data_dest: tests/resources/ecephys_clipped
   clip_kwargs:
     n_frames:
 compress_data_job:
   compress: true # Set as false to skip compress step
-  compressed_data_dest: tests/resources/ecephys_compressed
   write_kwargs: {"n_jobs": 20, "chunk_duration": "1s", "progress_bar": true}
   format_kwargs:
     output_format:

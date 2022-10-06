@@ -18,19 +18,19 @@ class TestEphysJobConfigs(unittest.TestCase):
     test_configs = EphysJobConfigurationLoader().load_configs(conf_file_path)
 
     expected_configs = {
-        "raw_data": {
+        "data": {
             "name": "openephys",
             "source_dir":
                 "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
+            "dest_dir":
+                "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream",
         },
         "clip_data_job": {
             "clip": True,
-            "clipped_data_dest": "tests/resources/ecephys_clipped",
             "clip_kwargs": {},
         },
         "compress_data_job": {
             "compress": True,
-            "compressed_data_dest": "tests/resources/ecephys_compressed",
             "write_kwargs": {
                 "n_jobs": 20,
                 "chunk_duration": "1s",

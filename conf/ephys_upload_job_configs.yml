@@ -1,15 +1,14 @@
 # Leave values blank to use defaults
-raw_data:
+data:
   name: openephys
   source_dir:  # Set this to raw data location
+  dest_dir:  # Set this to where the clipped and compressed folders go
 clip_data_job:
   clip: true # Set as false to skip clip step
-  clipped_data_dest:  # Set to folder named ecephys_clipped
   clip_kwargs:
     n_frames:
 compress_data_job:
   compress: true # Set as false to skip compress step
-  compressed_data_dest:  # Set to folder named ecephys_compressed
   write_kwargs: {"n_jobs": 20, "chunk_duration": "1s", "progress_bar": true}
   format_kwargs:
     output_format:
