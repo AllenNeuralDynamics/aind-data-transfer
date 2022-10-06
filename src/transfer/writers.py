@@ -1,7 +1,7 @@
 """This module contains the api to write ephys data.
 """
-import os
 import shutil
+import os
 
 import numpy as np
 
@@ -27,6 +27,9 @@ class EphysWriters:
         Returns:
             Nothing. Writes data to a folder.
         """
+        if job_kwargs["n_jobs"] == -1:
+            job_kwargs["n_jobs"] = os.cpu_count()
+
         for read_block in read_blocks:
             if "recording" in read_block:
                 rec = read_block["recording"]
