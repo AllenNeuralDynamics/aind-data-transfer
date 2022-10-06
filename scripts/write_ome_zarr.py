@@ -402,7 +402,7 @@ def main():
         images,
         zarr_dst,
         args.n_levels,
-        args.scale_factor,
+        (args.scale_factor,) * 3,
         overwrite,
         args.chunk_size,
         args.chunk_shape,

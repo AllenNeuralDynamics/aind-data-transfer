@@ -5,13 +5,14 @@ from pathlib import Path
 from typing import Union, List
 
 import dask
+import dask.array as da
 import numpy as np
 import zarr
 from aicsimageio.types import PhysicalPixelSizes
 from aicsimageio.writers import OmeZarrWriter
 from distributed import wait
 from numpy.typing import NDArray
-
+from transfer.parsers import TileParser
 from transfer.util.chunk_utils import (
     guess_chunks,
     expand_chunks,
@@ -30,16 +31,75 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 
+def _parse_voxel_size(image_path):
+    reader = DataReaderFactory().create(image_path)
+    try:
+        voxel_size, unit = reader.get_voxel_size()
+    except AttributeError:
+        voxel_size = [1.0, 1.0, 1.0]
+        unit = "um"
+    return voxel_size, unit
+
+
+def _merge_z_tiles(grouped_tile_paths: List[tuple], n_levels, chunk_size=64, chunk_shape=None, scale_factors=(2, 2, 2)):
+    merged_name = Path(grouped_tile_paths[0]).name
+    print(merged_name)
+
+    arrs = []
+
+    readers = []
+
+    chunks = None
+    for path in grouped_tile_paths:
+        # Use lowest index in merged filename
+
+        reader = DataReaderFactory().create(path)
+        # these need to be kept in scope until we no longer need to access data,
+        # then all must be closed
+        readers.append(reader)
+
+        # We determine the chunk size before creating the dask array since
+        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
+        # adds a bunch of unnecessary nodes to the task graph and hurts performance.
+        # See https://github.com/dask/dask/issues/5105.
+        if chunk_shape is None:
+            chunks = _compute_chunks(reader, chunk_size)
+        else:
+            chunks = tuple(chunk_shape)
+
+        # Get the chunk dimensions that exist in the original, un-padded image
+        reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
+
+        a = reader.as_dask_array(chunks=reader_chunks)
+        a = a[0:8600, ...]
+        arrs.append(a)
+
+    merged_arr = da.concatenate(arrs, axis=0)
+    LOGGER.info(f"merged shape: {merged_arr.shape}")
+    merged_pyramid = _create_pyramid(merged_arr, n_levels, scale_factors)
+    merged_pyramid = [ensure_array_5d(p) for p in merged_pyramid]
+
+    if chunks is None:
+        raise Exception("somehow chunks is None")
+
+    return merged_pyramid, merged_name, chunks, readers
+
+
+def _close_readers(readers: list):
+    for r in readers:
+        r.close()
+
+
 def write_files(
-    image_paths: list,
-    output: str,
-    n_levels: int,
-    scale_factor: float,
-    overwrite: bool = True,
-    chunk_size: float = 64,  # MB
-    chunk_shape: tuple = None,
-    voxel_size: tuple = None,
-    storage_options: dict = None,
+        image_paths: list,
+        output: str,
+        n_levels: int,
+        scale_factors: tuple = (2, 2, 2),
+        overwrite: bool = True,
+        chunk_size: float = 64,  # MB
+        chunk_shape: tuple = None,
+        voxel_size: tuple = None,
+        storage_options: dict = None,
 ) -> list:
     """
     Write each image as a separate group to a Zarr store.
@@ -51,7 +111,7 @@ def write_files(
         image_paths: the list of image filepaths to convert to Zarr
         output: the location of the output Zarr store (filesystem, s3, gs)
         n_levels: number of downsampling levels
-        scale_factor: scale factor for downsampling in X, Y and Z
+        scale_factors: scale factor for downsampling in X, Y and Z
         overwrite: whether to overwrite image groups that already exist
         chunk_size: the target chunk size in MB
         chunk_shape: the chunk shape, if None will be computed from chunk_size
@@ -78,61 +138,40 @@ def write_files(
 
     all_metrics = []
 
-    for impath in image_paths:
-        LOGGER.info(f"Writing tile {impath}")
+    if voxel_size is None:
+        voxel_size, _ = _parse_voxel_size(next(iter(image_paths)))
+    LOGGER.info(f"Using voxel size: {voxel_size}")
 
-        tile_name = Path(impath).stem
+    physical_pixel_sizes = PhysicalPixelSizes(
+        Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
+    )
+
+    ordered_z_tiles = TileParser.group_z_tiles(image_paths)
+
+    for z_tiles in ordered_z_tiles:
+
+        pyramid, tile_name, chunks, readers = _merge_z_tiles(z_tiles, n_levels, chunk_size, chunk_shape,
+                                                             scale_factors=scale_factors)
+
+        LOGGER.info(f"Writing tile {tile_name}")
 
         if not overwrite and _tile_exists(output, tile_name, n_levels):
             LOGGER.info(f"Skipping tile {tile_name}, already exists.")
             continue
 
         tile_metrics = {
-            "tile": Path(impath).absolute(),
+            "tile": tile_name,
         }
         try:
             tile_metrics.update(storage_options["params"])
         except KeyError:
             LOGGER.warning("compression parameters will not be logged")
 
-        # Create reader, but don't construct dask array
-        # until we know the optimal chunk shape.
-        reader = DataReaderFactory().create(impath)
-
-        # TODO: pass units to zarr writer
-        if voxel_size is None:
-            try:
-                voxel_size, unit = reader.get_voxel_size()
-            except Exception:
-                voxel_size = [1.0, 1.0, 1.0]
-                unit = "um"
-        LOGGER.info(f"Using voxel size: {voxel_size}")
-        physical_pixel_sizes = PhysicalPixelSizes(
-            Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
-        )
-
-        # We determine the chunk size before creating the dask array since
-        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
-        # causes memory use to grow (unbounded?) during the zarr write step.
-        # See https://github.com/dask/dask/issues/5105.
-        if chunk_shape is None:
-            chunks = _compute_chunks(reader, chunk_size)
-        else:
-            chunks = tuple(chunk_shape)
-
         LOGGER.info(
-            f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB"
+            f"chunks: {chunks}, {np.product(chunks) * pyramid[0].itemsize / (1024 ** 2)} MiB"
         )
 
         tile_metrics["chunks"] = chunks
-
-        # Get the chunk dimensions that exist in the original, un-padded image
-        reader_chunks = chunks[len(chunks) - len(reader.get_shape()) :]
-
-        pyramid = _get_or_create_pyramid(reader, n_levels, reader_chunks)
-
-        for i in range(len(pyramid)):
-            pyramid[i] = ensure_array_5d(pyramid[i])
 
         LOGGER.info(f"{pyramid[0]}")
 
@@ -144,7 +183,7 @@ def write_files(
             physical_pixel_sizes=physical_pixel_sizes,
             channel_names=None,
             channel_colors=None,
-            scale_factor=(scale_factor,) * 3,
+            scale_factor=scale_factors,
             chunks=chunks,
             storage_options=storage_options,
             compute_dask=False,
@@ -173,23 +212,26 @@ def write_files(
 
         all_metrics.append(tile_metrics)
 
-        reader.close()
+        # Only close once write is finished
+        _close_readers(readers)
+
+        break
 
     return all_metrics
 
 
 def write_folder(
-    input: str,
-    output: str,
-    n_levels: int,
-    scale_factor: float,
-    overwrite: bool = True,
-    chunk_size: float = 64,  # MB
-    chunk_shape: tuple = None,
-    voxel_size: tuple = None,
-    exclude: list = None,
-    storage_options: dict = None,
-    recursive: bool = False,
+        input: str,
+        output: str,
+        n_levels: int,
+        scale_factors: tuple = (2,2,2),
+        overwrite: bool = True,
+        chunk_size: float = 64,  # MB
+        chunk_shape: tuple = None,
+        voxel_size: tuple = None,
+        exclude: list = None,
+        storage_options: dict = None,
+        recursive: bool = False,
 ) -> list:
     """
     Write each image in the input directory as a separate group
@@ -232,7 +274,7 @@ def write_folder(
         image_paths,
         output,
         n_levels,
-        scale_factor,
+        scale_factors,
         overwrite,
         chunk_size,
         chunk_shape,
@@ -278,21 +320,21 @@ def _compute_chunks(reader, target_size_mb):
     return chunks
 
 
-def _create_pyramid(data, n_lvls):
+def _create_pyramid(data, n_lvls, scale_factors):
     from xarray_multiscale import multiscale
     from xarray_multiscale.reducers import windowed_mean
 
     pyramid = multiscale(
         data,
         windowed_mean,  # func
-        (2,) * data.ndim,  # scale factors
+        scale_factors,  # scale factors
         depth=n_lvls - 1,
         preserve_dtype=True,
     )
     return [arr.data for arr in pyramid]
 
 
-def _get_or_create_pyramid(reader, n_levels, chunks):
+def _get_or_create_pyramid(reader, n_levels, chunks, scale_factors=(2, 2, 2)):
     if isinstance(reader, HDF5Reader):
         try:
             pyramid = reader.get_dask_pyramid(
@@ -309,11 +351,11 @@ def _get_or_create_pyramid(reader, n_levels, chunks):
                 f"Computing them instead..."
             )
             pyramid = _create_pyramid(
-                reader.as_dask_array(chunks=chunks), n_levels
+                reader.as_dask_array(chunks=chunks), n_levels, scale_factors
             )
     else:
         pyramid = _create_pyramid(
-            reader.as_dask_array(chunks=chunks), n_levels
+            reader.as_dask_array(chunks=chunks), n_levels, scale_factors
         )
 
     return pyramid
@@ -344,14 +386,14 @@ def _get_bytes_stored(zarr_path: str, dataset_name: str, n_levels: int):
 
 
 def _populate_metrics(
-    tile_metrics,
-    tile_name,
-    out_zarr,
-    bytes_read,
-    write_time,
-    n_levels,
-    shape,
-    dtype,
+        tile_metrics,
+        tile_name,
+        out_zarr,
+        bytes_read,
+        write_time,
+        n_levels,
+        shape,
+        dtype,
 ):
     tile_metrics["n_levels"] = n_levels
     tile_metrics["shape"] = shape
