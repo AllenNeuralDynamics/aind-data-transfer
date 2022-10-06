@@ -21,6 +21,7 @@ dependencies = [
     'pyyaml',
     'google-cloud-storage',
     'spikeinterface[full]',
+    'probeinterface>=0.2.11',
     'zarr',
     'wavpack-numcodecs'
 ]

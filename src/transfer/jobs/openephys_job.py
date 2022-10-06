@@ -18,14 +18,13 @@ if __name__ == "__main__":
     )
 
     # Extract raw data name, (e.g., openephys) and raw data path
-    data_name = job_configs["raw_data"]["name"]
-    data_src_dir = Path(job_configs["raw_data"]["source_dir"])
+    data_name = job_configs["data"]["name"]
+    data_src_dir = Path(job_configs["data"]["source_dir"])
+    data_dest_dir = Path(job_configs["data"]["dest_dir"])
 
     # Clip data job
     if job_configs["clip_data_job"]["clip"]:
-        clipped_data_path = Path(
-            job_configs["clip_data_job"]["clipped_data_dest"]
-        )
+        clipped_data_path = data_dest_dir / "ecephys_clipped"
         clip_kwargs = job_configs["clip_data_job"]["clip_kwargs"]
         streams_to_clip = EphysReaders.get_streams_to_clip(
             data_name, data_src_dir
@@ -36,9 +35,7 @@ if __name__ == "__main__":
 
     # Compress data job
     if job_configs["compress_data_job"]["compress"]:
-        compressed_data_path = Path(
-            job_configs["compress_data_job"]["compressed_data_dest"]
-        )
+        compressed_data_path = data_dest_dir / "ecephys_compressed"
         compressor_name = job_configs["compress_data_job"]["compressor"][
             "compressor_name"
         ]
@@ -65,63 +62,24 @@ if __name__ == "__main__":
 
     # Upload to s3
     if job_configs["upload_data_job"]["upload_to_s3"]:
-        aws_compressed_dest = (
-            job_configs["upload_data_job"]["s3_dest"] + "/ecephys_compressed"
-        )
-        aws_clipped_dest = (
-            job_configs["upload_data_job"]["s3_dest"] + "/ecephys_clipped"
-        )
-        clipped_data_path = job_configs["clip_data_job"]["clipped_data_dest"]
-        compressed_data_path = job_configs["compress_data_job"][
-            "compressed_data_dest"
-        ]
+        aws_dest = job_configs["upload_data_job"]["s3_dest"]
         if job_configs["upload_data_job"]["dryrun"]:
             subprocess.run(
                 [
                     "aws",
                     "s3",
                     "sync",
-                    clipped_data_path,
-                    aws_clipped_dest,
-                    "--dryrun",
-                ]
-            )
-            subprocess.run(
-                [
-                    "aws",
-                    "s3",
-                    "sync",
-                    compressed_data_path,
-                    aws_compressed_dest,
+                    data_dest_dir,
+                    aws_dest,
                     "--dryrun",
                 ]
             )
         else:
-            subprocess.run(
-                ["aws", "s3", "sync", clipped_data_path, aws_clipped_dest]
-            )
-            subprocess.run(
-                [
-                    "aws",
-                    "s3",
-                    "sync",
-                    compressed_data_path,
-                    aws_compressed_dest,
-                ]
-            )
+            subprocess.run(["aws", "s3", "sync", data_dest_dir, aws_dest])
 
     # Upload to gcp
     if job_configs["upload_data_job"]["upload_to_gcp"]:
-        gcp_compressed_dest = (
-            job_configs["upload_data_job"]["gcp_dest"] + "/ecephys_compressed"
-        )
-        gcp_clipped_dest = (
-            job_configs["upload_data_job"]["gcp_dest"] + "/ecephys_clipped"
-        )
-        clipped_data_path = job_configs["clip_data_job"]["clipped_data_dest"]
-        compressed_data_path = job_configs["compress_data_job"][
-            "compressed_data_dest"
-        ]
+        gcp_dest = job_configs["upload_data_job"]["gcp_dest"]
         if job_configs["upload_data_job"]["dryrun"]:
             subprocess.run(
                 [
@@ -129,30 +87,9 @@ if __name__ == "__main__":
                     "-m",
                     "rsync",
                     "-n",
-                    clipped_data_path,
-                    gcp_clipped_dest,
-                ]
-            )
-            subprocess.run(
-                [
-                    "gsutil",
-                    "-m",
-                    "rsync",
-                    "-n",
-                    compressed_data_path,
-                    gcp_compressed_dest,
+                    data_dest_dir,
+                    gcp_dest,
                 ]
             )
         else:
-            subprocess.run(
-                ["gsutil", "-m", "rsync", clipped_data_path, gcp_clipped_dest]
-            )
-            subprocess.run(
-                [
-                    "gsutil",
-                    "-m",
-                    "rsync",
-                    compressed_data_path,
-                    gcp_compressed_dest,
-                ]
-            )
+            subprocess.run(["gsutil", "-m", "rsync", data_dest_dir, gcp_dest])
