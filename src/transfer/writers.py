@@ -1,6 +1,5 @@
 """This module contains the api to write ephys data.
 """
-import os
 import shutil
 import os
 
