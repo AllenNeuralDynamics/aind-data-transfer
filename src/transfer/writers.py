@@ -1,5 +1,6 @@
 """This module contains the api to write ephys data.
 """
+import os
 import shutil
 
 import numpy as np
@@ -75,3 +76,8 @@ class EphysWriters:
                 mode="w+",
             )
             dst_data[:] = data[:n_frames]
+        # third: check if videos directory exists and copy it up one level
+        videos_path = dst_dir / "Videos"
+        if os.path.isdir(videos_path):
+            new_videos_path = dst_dir / ".." / "videos"
+            shutil.move(videos_path, new_videos_path)
