@@ -10,14 +10,13 @@ clip_data_job:
 compress_data_job:
   compress: true # Set as false to skip compress step
   compressed_data_dest:  # Set to folder named ecephys_compressed
-  write_kwargs: {"n_jobs": 20, "chunk_duration": "1s", "progress_bar": true}
+  write_kwargs: {"n_jobs": -1, "chunk_duration": "1s", "progress_bar": true}
   format_kwargs:
     output_format:
   compressor:
     compressor_name: wavpack
     kwargs: {"level": 3}
   scale_params:
-    num_random_chunks:
     num_chunks_per_segment:
     chunk_size:
     disable_tqdm:

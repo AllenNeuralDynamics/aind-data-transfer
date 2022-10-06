@@ -32,7 +32,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             "compress": True,
             "compressed_data_dest": "tests/resources/ecephys_compressed",
             "write_kwargs": {
-                "n_jobs": 20,
+                "n_jobs": -1,
                 "chunk_duration": "1s",
                 "progress_bar": True,
             },
