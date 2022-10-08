@@ -7,50 +7,100 @@ from numcodecs import Blosc
 from transfer.configuration_loader import EphysJobConfigurationLoader
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
+CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
 
 
 class TestEphysJobConfigs(unittest.TestCase):
-
-    conf_file_path = (
-        TEST_DIR / "resources" / "ephys_upload_job_test_configs.yml"
-    )
-
-    test_configs = EphysJobConfigurationLoader().load_configs(conf_file_path)
-
-    expected_configs = {
-        "data": {
-            "name": "openephys",
-            "source_dir":
-                "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
-            "dest_dir":
-                "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream",
-        },
-        "clip_data_job": {
-            "clip": True,
-            "clip_kwargs": {},
-        },
-        "compress_data_job": {
-            "compress": True,
-            "write_kwargs": {
-                "n_jobs": -1,
-                "chunk_duration": "1s",
-                "progress_bar": True,
-            },
-            "format_kwargs": {},
-            "compressor": {
-                "compressor_name": "blosc",
-                "kwargs": {"shuffle": Blosc.BITSHUFFLE},
-            },
-            "scale_params": {"chunk_size": 20, "disable_tqdm": False},
-        },
-        "upload_data_job": {
-            "dryrun": True,
-            "upload_to_s3": True,
-            "s3_dest": "s3://aind-transfer-test/test_20221001",
-            "upload_to_gcp": True,
-            "gcp_dest": "gs://aind-data-dev/test_20221001",
-        },
-    }
-
     def test_conf_loads(self):
-        self.assertEqual(self.test_configs, self.expected_configs)
+        raw_data_dir = (
+            "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
+        )
+        shrunk_data_dir = (
+            "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream"
+        )
+        expected_configs = {
+            "jobs": {
+                "clip": True,
+                "compress": True,
+                "upload_to_s3": True,
+                "upload_to_gcp": True,
+            },
+            "endpoints": {
+                "raw_data_dir": raw_data_dir,
+                "shrunk_data_dir": shrunk_data_dir,
+                "s3_bucket": "aind-transfer-test",
+                "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
+                "gcp_bucket": "aind-data-dev",
+                "gcp_prefix": "test_20221001",
+            },
+            "data": {"name": "openephys"},
+            "clip_data_job": {"clip_kwargs": {}},
+            "compress_data_job": {
+                "write_kwargs": {
+                    "n_jobs": -1,
+                    "chunk_duration": "1s",
+                    "progress_bar": True,
+                },
+                "format_kwargs": {},
+                "compressor": {
+                    "compressor_name": "blosc",
+                    "kwargs": {"shuffle": Blosc.BITSHUFFLE},
+                },
+                "scale_params": {"chunk_size": 20},
+            },
+            "upload_data_job": {"dryrun": True},
+        }
+        conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
+
+        args = ["-c", str(conf_file_path)]
+
+        loaded_configs = EphysJobConfigurationLoader().load_configs(args)
+        self.assertEqual(loaded_configs, expected_configs)
+
+    def test_second_conf_loads(self):
+        raw_data_dir = "/some/random/folder/625463_2022-10-06_10-14-25"
+        expected_configs = {
+            "jobs": {
+                "clip": True,
+                "compress": True,
+                "upload_to_s3": True,
+                "upload_to_gcp": True,
+            },
+            "endpoints": {
+                "raw_data_dir": raw_data_dir,
+                "shrunk_data_dir": "ecephys_625463_2022-10-06_10-14-25",
+                "s3_bucket": "aind-ephys-data",
+                "s3_prefix": "ecephys_625463_2022-10-06_10-14-25",
+                "gcp_bucket": "aind-data-dev",
+                "gcp_prefix": "ecephys_625463_2022-10-06_10-14-25",
+            },
+            "data": {"name": "openephys"},
+            "clip_data_job": {"clip_kwargs": {}},
+            "compress_data_job": {
+                "write_kwargs": {
+                    "n_jobs": -1,
+                    "chunk_duration": "1s",
+                    "progress_bar": True,
+                },
+                "format_kwargs": {},
+                "compressor": {
+                    "compressor_name": "wavpack",
+                    "kwargs": {"level": 3},
+                },
+                "scale_params": {},
+            },
+            "upload_data_job": {"dryrun": True},
+        }
+
+        conf_file_path1 = CONFIGS_DIR / "example_configs_src_pattern1.yml"
+        conf_file_path2 = CONFIGS_DIR / "example_configs_src_pattern2.yml"
+        args1 = ["-c", str(conf_file_path1)]
+        args2 = ["-c", str(conf_file_path2)]
+        loaded_configs1 = EphysJobConfigurationLoader().load_configs(args1)
+        loaded_configs2 = EphysJobConfigurationLoader().load_configs(args2)
+        self.assertEqual(loaded_configs1, expected_configs)
+        self.assertEqual(loaded_configs2, expected_configs)
+
+
+if __name__ == "__main__":
+    unittest.main()

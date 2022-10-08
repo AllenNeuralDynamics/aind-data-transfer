@@ -1,16 +1,16 @@
 # Leave values blank to use defaults
-endpoints:
-  raw_data_dir: # Set this to raw data location
-  shrunk_data_dir: # Defaults to the raw_data_dir folder name
-  s3_bucket: aind-ephys-data
-  s3_prefix: # Defaults to folder name in shrunk_data_dir
-  gcp_bucket:
-  gcp_prefix:
 jobs: # Select which jobs to run
   clip: true
   compress: true
   upload_to_s3: true
-  upload_to_gcp: false
+  upload_to_gcp: true
+endpoints:
+  raw_data_dir: /some/random/folder/625463_2022-10-06_10-14-25
+  shrunk_data_dir:
+  s3_bucket: aind-ephys-data
+  s3_prefix: # Defaults to folder in temp_data_dir name
+  gcp_bucket: aind-data-dev
+  gcp_prefix:
 data:
   name: openephys
 clip_data_job:
@@ -28,4 +28,4 @@ compress_data_job:
     chunk_size:
     disable_tqdm:
 upload_data_job:
-  dryrun: false # Set this to true to perform a dryrun of the upload
+  dryrun: true # Set this to true to perform a dryrun of the upload
