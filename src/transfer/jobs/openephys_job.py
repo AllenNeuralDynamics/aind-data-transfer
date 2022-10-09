@@ -2,11 +2,13 @@
 import subprocess
 import sys
 from pathlib import Path
+from botocore.session import get_session
 
 from transfer.compressors import EphysCompressors
 from transfer.configuration_loader import EphysJobConfigurationLoader
 from transfer.readers import EphysReaders
 from transfer.writers import EphysWriters
+from transfer.codeocean import CodeOceanDataAssetRequests
 
 if __name__ == "__main__":
     # Location of conf file passed in as command line arg
@@ -57,6 +59,7 @@ if __name__ == "__main__":
 
     # Upload to s3
     if job_configs["jobs"]["upload_to_s3"]:
+        # TODO: Use s3transfer library instead of subprocess?
         s3_bucket = job_configs["endpoints"]["s3_bucket"]
         s3_prefix = job_configs["endpoints"]["s3_prefix"]
         aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
@@ -94,3 +97,40 @@ if __name__ == "__main__":
             subprocess.run(
                 ["gsutil", "-m", "rsync", shrunk_data_dir, gcp_dest]
             )
+
+    # Register Asset on CodeOcean
+    if job_configs["jobs"]["register_to_codeocean"]:
+        # Use botocore to retrieve aws access tokens
+        aws_session = get_session()
+        aws_credentials = aws_session.get_credentials()
+        aws_key = aws_credentials.access_key
+        aws_secret = aws_credentials.secret_key
+
+        co_api_token = job_configs["register_on_codeocean_job"]["api_token"]
+        co_url = (job_configs["endpoints"]["codeocean_url"] +
+                  job_configs["register_on_codeocean_job"]["api_url"])
+        co_tags = job_configs["register_on_codeocean_job"]["tags"]
+
+        asset_name = job_configs["register_on_codeocean_job"]["asset_name"]
+        mount = job_configs["register_on_codeocean_job"]["mount"]
+
+        bucket = job_configs["endpoints"]["s3_bucket"]
+        prefix = job_configs["endpoints"]["s3_prefix"]
+
+        json_data = (
+            CodeOceanDataAssetRequests.create_json_data(
+                asset_name=asset_name,
+                mount=mount,
+                bucket=bucket,
+                prefix=prefix,
+                access_key_id=aws_key,
+                secret_access_key=aws_secret,
+                tags=co_tags
+            )
+        )
+
+        CodeOceanDataAssetRequests.register_data_asset(
+            url=co_url,
+            json_data=json_data,
+            auth_token=co_api_token
+        )

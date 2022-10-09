@@ -1,5 +1,6 @@
 """Loads job configurations"""
 import argparse
+import os
 import re
 from enum import Enum
 from pathlib import Path
@@ -96,6 +97,19 @@ class EphysJobConfigurationLoader:
                 configs["endpoints"]["shrunk_data_dir"]
             ).name
             configs["endpoints"]["gcp_prefix"] = shrunk_data_folder
+
+        if configs["register_on_codeocean_job"]["asset_name"] is None:
+            configs["register_on_codeocean_job"]["asset_name"] = (
+                configs["endpoints"]["s3_prefix"])
+
+        if configs["register_on_codeocean_job"]["mount"] is None:
+            configs["register_on_codeocean_job"]["mount"] = (
+                configs["endpoints"]["s3_prefix"])
+
+        if (configs["jobs"]["register_to_codeocean"] and
+                configs["register_on_codeocean_job"]["api_token"] is None):
+            configs["register_on_codeocean_job"]["api_token"] = (
+                os.getenv('CODEOCEAN_API_TOKEN'))
 
     def load_configs(self, sys_args):
         """Load yaml config at conf_src Path as python dict"""
