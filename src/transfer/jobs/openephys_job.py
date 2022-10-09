@@ -2,13 +2,14 @@
 import subprocess
 import sys
 from pathlib import Path
+
 from botocore.session import get_session
 
+from transfer.codeocean import CodeOceanDataAssetRequests
 from transfer.compressors import EphysCompressors
 from transfer.configuration_loader import EphysJobConfigurationLoader
 from transfer.readers import EphysReaders
 from transfer.writers import EphysWriters
-from transfer.codeocean import CodeOceanDataAssetRequests
 
 if __name__ == "__main__":
     # Location of conf file passed in as command line arg
@@ -107,8 +108,11 @@ if __name__ == "__main__":
         aws_secret = aws_credentials.secret_key
 
         co_api_token = job_configs["register_on_codeocean_job"]["api_token"]
-        co_url = (job_configs["endpoints"]["codeocean_url"] +
-                  job_configs["register_on_codeocean_job"]["api_url"])
+        co_domain = job_configs["endpoints"]["codeocean_domain"]
+        co_client = CodeOceanDataAssetRequests(
+            domain=co_domain, token=co_api_token
+        )
+
         co_tags = job_configs["register_on_codeocean_job"]["tags"]
 
         asset_name = job_configs["register_on_codeocean_job"]["asset_name"]
@@ -117,20 +121,14 @@ if __name__ == "__main__":
         bucket = job_configs["endpoints"]["s3_bucket"]
         prefix = job_configs["endpoints"]["s3_prefix"]
 
-        json_data = (
-            CodeOceanDataAssetRequests.create_json_data(
-                asset_name=asset_name,
-                mount=mount,
-                bucket=bucket,
-                prefix=prefix,
-                access_key_id=aws_key,
-                secret_access_key=aws_secret,
-                tags=co_tags
-            )
+        json_data = CodeOceanDataAssetRequests.create_post_json_data(
+            asset_name=asset_name,
+            mount=mount,
+            bucket=bucket,
+            prefix=prefix,
+            access_key_id=aws_key,
+            secret_access_key=aws_secret,
+            tags=co_tags,
         )
 
-        CodeOceanDataAssetRequests.register_data_asset(
-            url=co_url,
-            json_data=json_data,
-            auth_token=co_api_token
-        )
+        co_client.register_data_asset(json_data=json_data)

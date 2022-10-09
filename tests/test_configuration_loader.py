@@ -1,3 +1,4 @@
+"""Tests configurations are set properly"""
 import os
 import unittest
 from pathlib import Path
@@ -11,7 +12,11 @@ CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
 
 
 class TestEphysJobConfigs(unittest.TestCase):
+    """Tests ephys job pipeline methods"""
+
     def test_conf_loads(self):
+        """Basic config loads test"""
+
         raw_data_dir = (
             "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
         )
@@ -24,6 +29,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "compress": True,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
+                "register_to_codeocean": False,
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
@@ -32,6 +38,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
                 "gcp_bucket": "aind-data-dev",
                 "gcp_prefix": "test_20221001",
+                "codeocean_domain": "https://acmecorp.codeocean.com",
             },
             "data": {"name": "openephys"},
             "clip_data_job": {"clip_kwargs": {}},
@@ -49,6 +56,11 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "scale_params": {"chunk_size": 20},
             },
             "upload_data_job": {"dryrun": True},
+            "register_on_codeocean_job": {
+                "tags": ["ecephys"],
+                "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
+                "mount": "v0.6.x_neuropixels_multiexp_multistream",
+            },
         }
         conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
 
@@ -57,7 +69,9 @@ class TestEphysJobConfigs(unittest.TestCase):
         loaded_configs = EphysJobConfigurationLoader().load_configs(args)
         self.assertEqual(loaded_configs, expected_configs)
 
-    def test_second_conf_loads(self):
+    def test_endpoints_are_resolved(self):
+        """Tests default endpoints are resolved correctly"""
+
         raw_data_dir = "/some/random/folder/625463_2022-10-06_10-14-25"
         expected_configs = {
             "jobs": {
@@ -65,6 +79,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "compress": True,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
+                "register_to_codeocean": False,
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
@@ -73,6 +88,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "s3_prefix": "ecephys_625463_2022-10-06_10-14-25",
                 "gcp_bucket": "aind-data-dev",
                 "gcp_prefix": "ecephys_625463_2022-10-06_10-14-25",
+                "codeocean_domain": "https://acmecorp.codeocean.com",
             },
             "data": {"name": "openephys"},
             "clip_data_job": {"clip_kwargs": {}},
@@ -90,6 +106,11 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "scale_params": {},
             },
             "upload_data_job": {"dryrun": True},
+            "register_on_codeocean_job": {
+                "tags": ["ecephys"],
+                "asset_name": "ecephys_625463_2022-10-06_10-14-25",
+                "mount": "ecephys_625463_2022-10-06_10-14-25",
+            },
         }
 
         conf_file_path1 = CONFIGS_DIR / "example_configs_src_pattern1.yml"
