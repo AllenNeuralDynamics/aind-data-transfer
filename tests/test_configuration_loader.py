@@ -57,7 +57,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             },
             "upload_data_job": {"dryrun": True},
             "register_on_codeocean_job": {
-                "tags": ["ecephys"],
+                "tags": ["ecephys", "raw"],
                 "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
                 "mount": "v0.6.x_neuropixels_multiexp_multistream",
             },
