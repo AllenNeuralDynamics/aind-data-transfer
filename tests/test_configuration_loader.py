@@ -20,7 +20,7 @@ class TestEphysJobConfigs(unittest.TestCase):
         raw_data_dir = (
             "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
         )
-        shrunk_data_dir = (
+        dest_data_dir = (
             "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream"
         )
         expected_configs = {
@@ -33,7 +33,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
-                "shrunk_data_dir": shrunk_data_dir,
+                "dest_data_dir": dest_data_dir,
                 "s3_bucket": "aind-transfer-test",
                 "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
                 "gcp_bucket": "aind-data-dev",
@@ -83,7 +83,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
-                "shrunk_data_dir": "ecephys_625463_2022-10-06_10-14-25",
+                "dest_data_dir": "ecephys_625463_2022-10-06_10-14-25",
                 "s3_bucket": "aind-ephys-data",
                 "s3_prefix": "ecephys_625463_2022-10-06_10-14-25",
                 "gcp_bucket": "aind-data-dev",

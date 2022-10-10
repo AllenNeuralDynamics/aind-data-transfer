@@ -7,7 +7,7 @@ jobs: # Select which jobs to run
   register_to_codeocean: false
 endpoints:
   raw_data_dir: tests/resources/v0.6.x_neuropixels_multiexp_multistream
-  shrunk_data_dir: tests/resources/new/v0.6.x_neuropixels_multiexp_multistream
+  dest_data_dir: tests/resources/new/v0.6.x_neuropixels_multiexp_multistream
   s3_bucket: aind-transfer-test
   s3_prefix: # Defaults to folder in temp_data_dir name
   gcp_bucket: aind-data-dev

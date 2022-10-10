@@ -7,7 +7,7 @@ jobs: # Select which jobs to run
   register_to_codeocean: false
 endpoints:
   raw_data_dir: /some/random/folder/625463_2022-10-06_10-14-25
-  shrunk_data_dir:
+  dest_data_dir:
   s3_bucket: aind-ephys-data
   s3_prefix: # Defaults to folder in temp_data_dir name
   gcp_bucket: aind-data-dev

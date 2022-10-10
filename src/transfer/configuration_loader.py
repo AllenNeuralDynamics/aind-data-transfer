@@ -63,7 +63,7 @@ class EphysJobConfigurationLoader:
     def __resolve_endpoints(self, configs):
         """
         Only the raw data source needs to be provided as long as the base dir
-        name is formatted correctly. If the shrunk_data_dir and cloud endpoints
+        name is formatted correctly. If the dest_data_dir and cloud endpoints
         are not set in the conf file, they will be created automatically based
         on the name of the raw_data_source.
         Args:
@@ -74,29 +74,29 @@ class EphysJobConfigurationLoader:
         """
         raw_data_folder = Path(configs["endpoints"]["raw_data_dir"]).name
 
-        shrunk_data_dir = configs["endpoints"]["shrunk_data_dir"]
-        if shrunk_data_dir is None and re.match(
+        dest_data_dir = configs["endpoints"]["dest_data_dir"]
+        if dest_data_dir is None and re.match(
             self.RegexPatterns.subject_datetime.value, raw_data_folder
         ):
-            configs["endpoints"]["shrunk_data_dir"] = (
+            configs["endpoints"]["dest_data_dir"] = (
                 "ecephys_" + raw_data_folder
             )
-        if shrunk_data_dir is None and re.match(
+        if dest_data_dir is None and re.match(
             self.RegexPatterns.ecephys_subject_datetime.value, raw_data_folder
         ):
-            configs["endpoints"]["shrunk_data_dir"] = raw_data_folder
+            configs["endpoints"]["dest_data_dir"] = raw_data_folder
 
         if configs["endpoints"]["s3_prefix"] is None:
-            shrunk_data_folder = Path(
-                configs["endpoints"]["shrunk_data_dir"]
+            dest_data_folder = Path(
+                configs["endpoints"]["dest_data_dir"]
             ).name
-            configs["endpoints"]["s3_prefix"] = shrunk_data_folder
+            configs["endpoints"]["s3_prefix"] = dest_data_folder
 
         if configs["endpoints"]["gcp_prefix"] is None:
-            shrunk_data_folder = Path(
-                configs["endpoints"]["shrunk_data_dir"]
+            dest_data_folder = Path(
+                configs["endpoints"]["dest_data_dir"]
             ).name
-            configs["endpoints"]["gcp_prefix"] = shrunk_data_folder
+            configs["endpoints"]["gcp_prefix"] = dest_data_folder
 
         if configs["register_on_codeocean_job"]["asset_name"] is None:
             configs["register_on_codeocean_job"]["asset_name"] = (
