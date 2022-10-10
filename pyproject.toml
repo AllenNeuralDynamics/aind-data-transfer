@@ -23,7 +23,7 @@ dependencies = [
     'spikeinterface[full]',
     'probeinterface>=0.2.11',
     'zarr',
-    'wavpack-numcodecs'
+    'wavpack-numcodecs>=0.1.2'
 ]
 
 [project.optional-dependencies]
