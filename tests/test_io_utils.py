@@ -10,7 +10,7 @@ import zarr.core
 from distributed import Client
 from tifffile import tifffile
 
-from transfer.util.io_utils import TiffReader, HDF5Reader, DataReaderFactory
+from transfer.util.io_utils import TiffReader, ImarisReader, DataReaderFactory
 
 # TODO: make test fixtures instead of constants?
 IM_SHAPE = (64, 128, 128)
@@ -108,7 +108,7 @@ class TestHDF5Reader(unittest.TestCase):
         self._image_dir = Path(self._temp_dir.name) / "images"
         os.makedirs(self._image_dir, exist_ok=True)
         self._image_path = _write_test_h5(self._image_dir, n=1)[0]
-        self._reader = HDF5Reader(self._image_path)
+        self._reader = ImarisReader(self._image_path)
         self.client = Client()
 
     def tearDown(self) -> None:
@@ -172,7 +172,7 @@ class TestDataReaderFactor(unittest.TestCase):
 
     def test_create_hdf5reader(self):
         reader = DataReaderFactory().create(self._h5_path)
-        self.assertIsInstance(reader, HDF5Reader)
+        self.assertIsInstance(reader, ImarisReader)
 
     def test_create_tiffreader(self):
         reader = DataReaderFactory().create(self._tiff_path)
