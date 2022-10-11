@@ -20,7 +20,7 @@ class EphysCompressors:
     class Compressors(Enum):
         """Enum for compression algorithms a user can select"""
 
-        blosc = "blosc"
+        blosc = Blosc.codec_id
         wavpack = "wavpack"
 
     compressors = [member.value for member in Compressors]
@@ -48,7 +48,6 @@ class EphysCompressors:
     @staticmethod
     def _get_median_and_lsb(
         recording,
-        num_random_chunks=10,
         disable_tqdm=False,
         **random_chunk_kwargs,
     ):
@@ -58,12 +57,10 @@ class EphysCompressors:
         ----------
         recording : si.BaseRecording
             The input recording object
-        num_random_chunks : int, optional
-            Number of random chunks to extract, by default 10
         disable_tqdm : bool, optional
             Disable progress bar, default is False
         **random_chunk_kwargs: keyword arguments for
-            si.get_random_data_chunks() (mainly chunk_size)
+            si.get_random_data_chunks() (chunk_size, num_chunks_per_segment)
         Returns
         -------
         int
@@ -71,21 +68,10 @@ class EphysCompressors:
         np.array
             median_values
         """
-        # compute lsb and median
         # gather chunks
-        chunks = None
-        for i in tqdm(
-            range(num_random_chunks),
-            desc="Extracting chunks",
-            disable=disable_tqdm,
-        ):
-            chunks_i2 = si.get_random_data_chunks(
-                recording, seed=i**2, **random_chunk_kwargs
-            )
-            if chunks is None:
-                chunks = chunks_i2
-            else:
-                chunks = np.vstack((chunks, chunks_i2))
+        chunks = si.get_random_data_chunks(
+            recording, seed=0, **random_chunk_kwargs
+        )
 
         lsb_value = 0
         num_channels = recording.get_num_channels()
@@ -101,7 +87,13 @@ class EphysCompressors:
         ):
             unique_vals = np.unique(chunks[:, ch])
             unique_vals_abs = np.abs(unique_vals)
-            lsb_val = np.min(np.diff(unique_vals))
+            # it might happen that there is a single unique value
+            # (e.g. a channel is broken)
+            if len(unique_vals) > 1:
+                lsb_val = np.min(np.diff(unique_vals))
+            else:
+                # in this case we can't estimate the LSB for the channel
+                lsb_val = 0
 
             min_values[ch] = np.min(unique_vals_abs)
             median_values[ch] = np.median(chunks[:, ch]).astype(dtype)
@@ -118,8 +110,7 @@ class EphysCompressors:
     @staticmethod
     def scale_read_blocks(
         read_blocks,
-        num_random_chunks=10,
-        num_chunks_per_segment=10,
+        num_chunks_per_segment=100,
         chunk_size=10000,
         disable_tqdm=False,
     ):
@@ -128,7 +119,6 @@ class EphysCompressors:
         {'recording', 'block_index', 'stream_name'}.
         Args:
             read_blocks (iterable): A generator of read_blocks
-            num_random_chunks (int):
             num_chunks_per_segment (int):
             chunk_size (int):
             disable_tqdm (boolean): Optionally disable a progress bar.
@@ -152,7 +142,6 @@ class EphysCompressors:
                     median_values,
                 ) = EphysCompressors._get_median_and_lsb(
                     read_block["recording"],
-                    num_random_chunks=num_random_chunks,
                     num_chunks_per_segment=num_chunks_per_segment,
                     chunk_size=chunk_size,
                     disable_tqdm=disable_tqdm,

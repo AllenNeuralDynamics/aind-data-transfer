@@ -1,91 +1,132 @@
 """Loads job configurations"""
 import argparse
-import json
+import os
+import re
+from enum import Enum
 from pathlib import Path
 
+import yaml
 from numcodecs import Blosc
 
 
 class EphysJobConfigurationLoader:
-    """Loads Ephys compression job configs"""
+    """Class to handle loading ephys job configs"""
 
-    # TODO: Add sanity checks, error handling, and better document what the
-    #  configs are
-    _parser = argparse.ArgumentParser()
-    _parser.add_argument(
-        "-r", "--reader-configs", required=True, type=json.loads
-    )
-    _parser.add_argument(
-        "-c", "--compressor-configs", required=True, type=json.loads
-    )
-    _parser.add_argument(
-        "-w", "--write-configs", required=True, type=json.loads
-    )
+    class RegexPatterns(Enum):
+        """Enum for regex patterns the source folder name should match"""
+
+        subject_datetime = r"\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+        ecephys_subject_datetime = (
+            r"ecephys_\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+        )
+
+    def __remove_none(self, data):
+        """Remove keys whose value is None."""
+        if isinstance(data, dict):
+            return {
+                k: self.__remove_none(v)
+                for k, v in data.items()
+                if v is not None
+            }
+        else:
+            return data
 
     @staticmethod
-    def _parse_compressor_configs(compressor_configs):
-        """
-        Parses compressor configs. If the compressor is blosc, and shuffle is
-        defined, it will convert the string to the appropriate enum value. So
-        if 'BITSHUFFLE' is defined, it will be mapped to Blosc.BITSHUFFLE
-        Args:
-            compressor_configs (dict): parameter settings for the compressor.
-            Will look like
-                '{"compressor_conf":{"compressor_name":"wavpack",
-                                     "kwargs":{"level":3}},
-                  "scale_read_block_conf":{"chunk_size":20}
-                }'
-            where the scale_read_block_conf is optional.
-
-        Returns: A tuple where the first part is a dictionary of compressor
-        configs, and the second part is the config dict of scale_read_block
-        options.
-        """
-        compressor_conf = {}
-        scale_read_block_conf = {}
-        if "compressor_conf" in compressor_configs:
-            compressor_conf = compressor_configs["compressor_conf"]
+    def __parse_compressor_configs(configs):
+        """Util method to map a string to class attribute"""
+        try:
+            compressor_name = configs["compress_data_job"]["compressor"][
+                "compressor_name"
+            ]
+        except KeyError:
+            compressor_name = None
+        try:
+            compressor_kwargs = configs["compress_data_job"]["compressor"][
+                "kwargs"
+            ]
+        except KeyError:
+            compressor_kwargs = None
         if (
-            compressor_conf
-            and "compressor_name" in compressor_conf
-            and compressor_conf["compressor_name"] == Blosc.codec_id
-            and "kwargs" in compressor_conf
-            and "shuffle" in compressor_conf["kwargs"]
-            and isinstance(compressor_conf["kwargs"]["shuffle"], str)
+            compressor_name
+            and compressor_name == Blosc.codec_id
+            and compressor_kwargs
+            and "shuffle" in compressor_kwargs
         ):
-            shuffle_setting = compressor_conf["kwargs"]["shuffle"]
-            # If "shuffle" is something like "1", convert it to an int
-            # Else, convert the string like "BITSHUFFLE" to Blosc attr
-            if shuffle_setting.isdigit():
-                compressor_conf["kwargs"]["shuffle"] = int(shuffle_setting)
-            else:
-                compressor_conf["kwargs"]["shuffle"] = getattr(
-                    Blosc, compressor_conf["kwargs"]["shuffle"]
-                )
-        if "scale_read_block_conf" in compressor_configs:
-            scale_read_block_conf = compressor_configs["scale_read_block_conf"]
+            shuffle_str = configs["compress_data_job"]["compressor"]["kwargs"][
+                "shuffle"
+            ]
+            shuffle_val = getattr(Blosc, shuffle_str)
+            configs["compress_data_job"]["compressor"]["kwargs"][
+                "shuffle"
+            ] = shuffle_val
 
-        return compressor_conf, scale_read_block_conf
-
-    def get_configs(self, args=None):
+    def __resolve_endpoints(self, configs):
         """
-        Parses command line arguments into configs.
+        Only the raw data source needs to be provided as long as the base dir
+        name is formatted correctly. If the dest_data_dir and cloud endpoints
+        are not set in the conf file, they will be created automatically based
+        on the name of the raw_data_source.
         Args:
-            args (List[str]): Command line arguments.
+            configs (dic): Configurations
 
         Returns:
-            A tuple of configs for an Ephys Job. scale_read_block_conf
-            may be an empty dict if the defaults are to be used.
-            (read_conf, comp_configs, scale_read_block_conf, write_conf)
+            None, modifies the base configs in place
         """
-        job_args = self._parser.parse_args(args=args)
+        raw_data_folder = Path(configs["endpoints"]["raw_data_dir"]).name
 
-        read_conf = job_args.reader_configs
-        read_conf["input_dir"] = Path(read_conf["input_dir"])
-        write_conf = job_args.write_configs
-        write_conf["output_dir"] = Path(write_conf["output_dir"])
-        compressor_configs = job_args.compressor_configs
-        comp_conf, scale_read_block_conf = self._parse_compressor_configs(
-            compressor_configs
+        dest_data_dir = configs["endpoints"]["dest_data_dir"]
+        if dest_data_dir is None and re.match(
+            self.RegexPatterns.subject_datetime.value, raw_data_folder
+        ):
+            configs["endpoints"]["dest_data_dir"] = (
+                "ecephys_" + raw_data_folder
+            )
+        if dest_data_dir is None and re.match(
+            self.RegexPatterns.ecephys_subject_datetime.value, raw_data_folder
+        ):
+            configs["endpoints"]["dest_data_dir"] = raw_data_folder
+
+        if configs["endpoints"]["s3_prefix"] is None:
+            dest_data_folder = Path(
+                configs["endpoints"]["dest_data_dir"]
+            ).name
+            configs["endpoints"]["s3_prefix"] = dest_data_folder
+
+        if configs["endpoints"]["gcp_prefix"] is None:
+            dest_data_folder = Path(
+                configs["endpoints"]["dest_data_dir"]
+            ).name
+            configs["endpoints"]["gcp_prefix"] = dest_data_folder
+
+        if configs["register_on_codeocean_job"]["asset_name"] is None:
+            configs["register_on_codeocean_job"]["asset_name"] = (
+                configs["endpoints"]["s3_prefix"])
+
+        if configs["register_on_codeocean_job"]["mount"] is None:
+            configs["register_on_codeocean_job"]["mount"] = (
+                configs["endpoints"]["s3_prefix"])
+
+        if (configs["jobs"]["register_to_codeocean"] and
+                configs["register_on_codeocean_job"]["api_token"] is None):
+            configs["register_on_codeocean_job"]["api_token"] = (
+                os.getenv('CODEOCEAN_API_TOKEN'))
+
+    def load_configs(self, sys_args):
+        """Load yaml config at conf_src Path as python dict"""
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "-c", "--conf-file-location", required=True, type=str
         )
-        return read_conf, comp_conf, scale_read_block_conf, write_conf
+        parser.add_argument(
+            "-r", "--raw-data-source", required=False, type=str
+        )
+        args = parser.parse_args(sys_args)
+        conf_src = args.conf_file_location
+        with open(conf_src) as f:
+            raw_config = yaml.load(f, Loader=yaml.SafeLoader)
+        if args.raw_data_source is not None:
+            raw_config["endpoints"]["raw_data_dir"] = args.raw_data_source
+        self.__resolve_endpoints(raw_config)
+        config_without_nones = self.__remove_none(raw_config)
+        self.__parse_compressor_configs(config_without_nones)
+        return config_without_nones

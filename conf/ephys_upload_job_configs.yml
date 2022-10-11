@@ -1,0 +1,38 @@
+# Leave values blank to use defaults
+endpoints:
+  raw_data_dir: # Set this to raw data location
+  dest_data_dir: # Defaults to the raw_data_dir folder name
+  s3_bucket: aind-ephys-data
+  s3_prefix: # Defaults to folder name in dest_data_dir
+  gcp_bucket:
+  gcp_prefix:
+  codeocean_domain: https://codeocean.allenneuraldynamics.org
+jobs: # Select which jobs to run
+  clip: true
+  compress: true
+  upload_to_s3: true
+  upload_to_gcp: false
+  register_to_codeocean: true
+data:
+  name: openephys
+clip_data_job:
+  clip_kwargs:
+    n_frames:
+compress_data_job:
+  write_kwargs: {"n_jobs": -1, "chunk_duration": "1s", "progress_bar": true}
+  format_kwargs:
+    output_format:
+  compressor:
+    compressor_name: wavpack
+    kwargs: {"level": 3}
+  scale_params:
+    num_chunks_per_segment:
+    chunk_size:
+    disable_tqdm:
+upload_data_job:
+  dryrun: false # Set this to true to perform a dryrun of the upload
+register_on_codeocean_job:
+  api_token: # Defaults to ENV Variable CODEOCEAN_API_TOKEN
+  tags: ['ecephys', 'raw'']
+  asset_name:  # Defaults to s3_prefix
+  mount:  # Defaults to s3_prefix
