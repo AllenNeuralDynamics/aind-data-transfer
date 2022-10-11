@@ -10,6 +10,8 @@ from transfer.compressors import EphysCompressors
 from transfer.configuration_loader import EphysJobConfigurationLoader
 from transfer.readers import EphysReaders
 from transfer.writers import EphysWriters
+from transfer.util.npopto_correction import correct_np_opto_electrode_locations
+
 
 if __name__ == "__main__":
     # Location of conf file passed in as command line arg
@@ -19,6 +21,10 @@ if __name__ == "__main__":
     data_name = job_configs["data"]["name"]
     data_src_dir = Path(job_configs["endpoints"]["raw_data_dir"])
     dest_data_dir = Path(job_configs["endpoints"]["dest_data_dir"])
+
+    # Correct NP-opto electrode positions
+    if job_configs["jobs"]["correct_opto"]:
+        correct_np_opto_electrode_locations(data_src_dir)
 
     # Clip data job
     if job_configs["jobs"]["clip"]:
