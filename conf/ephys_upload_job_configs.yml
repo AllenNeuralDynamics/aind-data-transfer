@@ -8,6 +8,7 @@ endpoints:
   gcp_prefix:
   codeocean_domain: https://codeocean.allenneuraldynamics.org
 jobs: # Select which jobs to run
+  correct_opto: true
   clip: true
   compress: true
   upload_to_s3: true
@@ -33,6 +34,6 @@ upload_data_job:
   dryrun: false # Set this to true to perform a dryrun of the upload
 register_on_codeocean_job:
   api_token: # Defaults to ENV Variable CODEOCEAN_API_TOKEN
-  tags: ['ecephys', 'raw'']
+  tags: ['ecephys', 'raw']
   asset_name:  # Defaults to s3_prefix
   mount:  # Defaults to s3_prefix
