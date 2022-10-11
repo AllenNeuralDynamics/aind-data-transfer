@@ -1,5 +1,9 @@
 """This module contains the api to write ephys data.
 """
+import shutil
+import os
+
+import numpy as np
 
 
 class EphysWriters:
@@ -23,6 +27,9 @@ class EphysWriters:
         Returns:
             Nothing. Writes data to a folder.
         """
+        if job_kwargs["n_jobs"] == -1:
+            job_kwargs["n_jobs"] = os.cpu_count()
+
         for read_block in read_blocks:
             if "recording" in read_block:
                 rec = read_block["recording"]
@@ -37,3 +44,43 @@ class EphysWriters:
                 compressor=compressor,
                 **job_kwargs,
             )
+
+    @staticmethod
+    def copy_and_clip_data(src_dir, dst_dir, stream_gen, n_frames=100):
+        """
+        Copies the raw data to a new directory with the .dat files clipped to
+        just a small number of frames. This allows someone to still use the
+        spikeinterface api on the clipped data set.
+        Args:
+            src_dir (Path): Location of raw data
+            dst_dir (Path): Desired location for clipped data set
+            stream_gen (dict): A dict with
+              'data': np.memmap(dat file),
+              'relative_path_name': path name of raw data so it can be copied
+                to new dir correctly
+              'n_chan': number of channels.
+            n_frames (int): Number of frames to clip data to
+        """
+        # first: copy everything except .dat files
+        shutil.copytree(
+            src_dir, dst_dir, ignore=shutil.ignore_patterns("*.dat")
+        )
+        # second: copy clipped dat files
+        for stream in stream_gen:
+            data = stream["data"]
+            rel_path_name = stream["relative_path_name"]
+            n_chan = stream["n_chan"]
+            dst_raw_file = dst_dir / rel_path_name
+            dst_data = np.memmap(
+                dst_raw_file,
+                dtype="int16",
+                shape=(n_frames, n_chan),
+                order="C",
+                mode="w+",
+            )
+            dst_data[:] = data[:n_frames]
+        # third: check if videos directory exists and copy it up one level
+        videos_path = dst_dir / "Videos"
+        if os.path.isdir(videos_path):
+            new_videos_path = dst_dir / ".." / "videos"
+            shutil.move(videos_path, new_videos_path)

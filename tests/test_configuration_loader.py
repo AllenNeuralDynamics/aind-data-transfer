@@ -1,3 +1,5 @@
+"""Tests configurations are set properly"""
+import os
 import unittest
 from pathlib import Path
 
@@ -5,94 +7,121 @@ from numcodecs import Blosc
 
 from transfer.configuration_loader import EphysJobConfigurationLoader
 
+TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
+CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
+
 
 class TestEphysJobConfigs(unittest.TestCase):
+    """Tests ephys job pipeline methods"""
 
-    reader_configs = (
-        '{"reader_name":"openephys",' '"input_dir":"some_dir/some_sub_dir"}'
-    )
+    def test_conf_loads(self):
+        """Basic config loads test"""
 
-    writer_configs = (
-        '{"output_dir":"another_dir/zarr_stuff",'
-        '"job_kwargs":{"n_jobs":20,"chunk_duration":"1s","progress_bar":true}}'
-    )
-
-    expected_read_configs = {
-        "reader_name": "openephys",
-        "input_dir": Path("some_dir/some_sub_dir"),
-    }
-
-    expected_write_configs = {
-        "output_dir": Path("another_dir/zarr_stuff"),
-        "job_kwargs": {
-            "n_jobs": 20,
-            "chunk_duration": "1s",
-            "progress_bar": True,
-        },
-    }
-
-    config_loader = EphysJobConfigurationLoader()
-
-    def test_ephys_job_configs_loader_wavpack(self):
-        wavpack_compressor_configs = (
-            '{"compressor_conf":{'
-            '"compressor_name":"wavpack",'
-            '"kwargs":{"level":3}}'
-            "}"
+        raw_data_dir = (
+            "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
         )
-        expected_wavpack_configs = {
-            "compressor_name": "wavpack",
-            "kwargs": {"level": 3},
+        dest_data_dir = (
+            "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream"
+        )
+        expected_configs = {
+            "jobs": {
+                "clip": True,
+                "compress": True,
+                "upload_to_s3": True,
+                "upload_to_gcp": True,
+                "register_to_codeocean": False,
+            },
+            "endpoints": {
+                "raw_data_dir": raw_data_dir,
+                "dest_data_dir": dest_data_dir,
+                "s3_bucket": "aind-transfer-test",
+                "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
+                "gcp_bucket": "aind-data-dev",
+                "gcp_prefix": "test_20221001",
+                "codeocean_domain": "https://acmecorp.codeocean.com",
+            },
+            "data": {"name": "openephys"},
+            "clip_data_job": {"clip_kwargs": {}},
+            "compress_data_job": {
+                "write_kwargs": {
+                    "n_jobs": -1,
+                    "chunk_duration": "1s",
+                    "progress_bar": True,
+                },
+                "format_kwargs": {},
+                "compressor": {
+                    "compressor_name": "blosc",
+                    "kwargs": {"shuffle": Blosc.BITSHUFFLE},
+                },
+                "scale_params": {"chunk_size": 20},
+            },
+            "upload_data_job": {"dryrun": True},
+            "register_on_codeocean_job": {
+                "tags": ["ecephys", "raw"],
+                "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
+                "mount": "v0.6.x_neuropixels_multiexp_multistream",
+            },
         }
-        (
-            actual_reader_conf,
-            actual_compressor_conf,
-            actual_scale_read_block_conf,
-            actual_write_conf,
-        ) = self.config_loader.get_configs(
-            args=[
-                "-r",
-                self.reader_configs,
-                "-c",
-                wavpack_compressor_configs,
-                "-w",
-                self.writer_configs,
-            ]
-        )
+        conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
 
-        self.assertEqual(actual_reader_conf, self.expected_read_configs)
-        self.assertEqual(actual_compressor_conf, expected_wavpack_configs)
-        self.assertEqual(actual_scale_read_block_conf, {})
-        self.assertEqual(actual_write_conf, self.expected_write_configs)
+        args = ["-c", str(conf_file_path)]
 
-    def test_ephys_job_configs_loader_blosc(self):
-        blosc_compressor_configs = (
-            '{"compressor_conf":{"compressor_name":"blosc",'
-            '"kwargs":{"shuffle":"BITSHUFFLE"}}, '
-            '"scale_read_block_conf": {"chunk_size":20}}'
-        )
-        expected_blosc_configs = {
-            "compressor_name": "blosc",
-            "kwargs": {"shuffle": Blosc.BITSHUFFLE},
+        loaded_configs = EphysJobConfigurationLoader().load_configs(args)
+        self.assertEqual(loaded_configs, expected_configs)
+
+    def test_endpoints_are_resolved(self):
+        """Tests default endpoints are resolved correctly"""
+
+        raw_data_dir = "/some/random/folder/625463_2022-10-06_10-14-25"
+        expected_configs = {
+            "jobs": {
+                "clip": True,
+                "compress": True,
+                "upload_to_s3": True,
+                "upload_to_gcp": True,
+                "register_to_codeocean": False,
+            },
+            "endpoints": {
+                "raw_data_dir": raw_data_dir,
+                "dest_data_dir": "ecephys_625463_2022-10-06_10-14-25",
+                "s3_bucket": "aind-ephys-data",
+                "s3_prefix": "ecephys_625463_2022-10-06_10-14-25",
+                "gcp_bucket": "aind-data-dev",
+                "gcp_prefix": "ecephys_625463_2022-10-06_10-14-25",
+                "codeocean_domain": "https://acmecorp.codeocean.com",
+            },
+            "data": {"name": "openephys"},
+            "clip_data_job": {"clip_kwargs": {}},
+            "compress_data_job": {
+                "write_kwargs": {
+                    "n_jobs": -1,
+                    "chunk_duration": "1s",
+                    "progress_bar": True,
+                },
+                "format_kwargs": {},
+                "compressor": {
+                    "compressor_name": "wavpack",
+                    "kwargs": {"level": 3},
+                },
+                "scale_params": {},
+            },
+            "upload_data_job": {"dryrun": True},
+            "register_on_codeocean_job": {
+                "tags": ["ecephys"],
+                "asset_name": "ecephys_625463_2022-10-06_10-14-25",
+                "mount": "ecephys_625463_2022-10-06_10-14-25",
+            },
         }
 
-        expected_scale_configs = {"chunk_size": 20}
-        (
-            _,
-            actual_compressor_conf,
-            actual_scale_read_block_conf,
-            _,
-        ) = self.config_loader.get_configs(
-            args=[
-                "-r",
-                self.reader_configs,
-                "-c",
-                blosc_compressor_configs,
-                "-w",
-                self.writer_configs,
-            ]
-        )
+        conf_file_path1 = CONFIGS_DIR / "example_configs_src_pattern1.yml"
+        conf_file_path2 = CONFIGS_DIR / "example_configs_src_pattern2.yml"
+        args1 = ["-c", str(conf_file_path1)]
+        args2 = ["-c", str(conf_file_path2)]
+        loaded_configs1 = EphysJobConfigurationLoader().load_configs(args1)
+        loaded_configs2 = EphysJobConfigurationLoader().load_configs(args2)
+        self.assertEqual(loaded_configs1, expected_configs)
+        self.assertEqual(loaded_configs2, expected_configs)
 
-        self.assertEqual(expected_blosc_configs, actual_compressor_conf)
 
-        self.assertEqual(expected_scale_configs, actual_scale_read_block_conf)
+if __name__ == "__main__":
+    unittest.main()
