@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "nd-data-transfer"
 description = "Services for compression and transfer of nd-data to the cloud"
 license = {text = "MIT"}
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3"
 ]
