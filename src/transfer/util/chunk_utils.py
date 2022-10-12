@@ -80,7 +80,7 @@ def guess_chunks(
             data_shape[2],
         )
     elif mode == "cycle":
-        current = np.array(data_shape)
+        current = np.array(data_shape, dtype=np.uint64)
         idx = 0
         ndims = len(current)
         while _get_size(current, itemsize) > target_size:
@@ -135,7 +135,7 @@ def expand_chunks(
         raise ValueError("itemsize must be > 0")
     if mode == "cycle":
         # get the spatial dimensions only
-        current = np.array(chunks)
+        current = np.array(chunks, dtype=np.uint64)
         prev = current.copy()
         idx = 0
         ndims = len(current)
@@ -150,7 +150,7 @@ def expand_chunks(
             min(data_shape[2], current[2]),
         )
     elif mode == "iso":
-        initial = np.array(chunks)
+        initial = np.array(chunks, dtype=np.uint64)
         current = initial
         prev = current
         i = 2
