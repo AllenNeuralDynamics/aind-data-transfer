@@ -22,9 +22,9 @@ if __name__ == "__main__":
     data_src_dir = Path(job_configs["endpoints"]["raw_data_dir"])
     dest_data_dir = Path(job_configs["endpoints"]["dest_data_dir"])
 
-    # Correct NP-opto electrode positions
-    if job_configs["jobs"]["correct_opto"]:
-        correct_np_opto_electrode_locations(data_src_dir)
+    # Correct NP-opto electrode positions:
+    # correction is skipped if Neuropix-PXI version > 0.4.0
+    correct_np_opto_electrode_locations(data_src_dir)
 
     # Clip data job
     if job_configs["jobs"]["clip"]:

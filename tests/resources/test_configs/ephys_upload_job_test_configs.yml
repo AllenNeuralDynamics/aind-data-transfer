@@ -1,6 +1,5 @@
 # Leave values blank to use defaults
 jobs: # Select which jobs to run
-  correct_opto: true
   clip: true
   compress: true
   upload_to_s3: true

@@ -8,7 +8,6 @@ endpoints:
   gcp_prefix:
   codeocean_domain: https://codeocean.allenneuraldynamics.org
 jobs: # Select which jobs to run
-  correct_opto: true
   clip: true
   compress: true
   upload_to_s3: true

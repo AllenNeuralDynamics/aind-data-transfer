@@ -1,5 +1,6 @@
 import numpy as np
 from pathlib import Path
+from packaging.version import parse
 import xml.etree.ElementTree as ET
 
 # geometry properties for NP-opto
@@ -42,13 +43,10 @@ def correct_np_opto_electrode_locations(
 
         if neuropix_pxi is None:
             return
-
-        if "NodeId" in neuropix_pxi.attrib:
-            node_id = neuropix_pxi.attrib["NodeId"]
-        elif "nodeId" in neuropix_pxi.attrib:
-            node_id = neuropix_pxi.attrib["nodeId"]
-        else:
-            node_id = None
+        neuropix_pxi_version = parse(neuropix_pxi.attrib["libraryVersion"])
+        if neuropix_pxi_version > parse("0.4.0"):
+            # no correction needed for this plugin version
+            return
 
         editor = neuropix_pxi.find("EDITOR")
         np_probes = editor.findall("NP_PROBE")
