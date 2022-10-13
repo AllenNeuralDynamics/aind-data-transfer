@@ -25,7 +25,6 @@ class TestEphysJobConfigs(unittest.TestCase):
         )
         expected_configs = {
             "jobs": {
-                "correct_opto": True,
                 "clip": True,
                 "compress": True,
                 "upload_to_s3": True,
