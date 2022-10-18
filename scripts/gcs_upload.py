@@ -14,7 +14,7 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client
 from google.cloud.storage import Blob
 from transfer.gcs import create_client, GCSUploader
-from transfer.util.fileutils import collect_filepaths, make_cloud_paths
+from transfer.util.file_utils import collect_filepaths, make_cloud_paths
 
 from cluster.config import load_jobqueue_config
 

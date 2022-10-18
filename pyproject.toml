@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "nd-data-transfer"
 description = "Services for compression and transfer of nd-data to the cloud"
 license = {text = "MIT"}
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3"
 ]
@@ -15,11 +15,18 @@ dynamic = ["version", "readme"]
 dependencies = [
     'pandas',
     's3transfer[crt]',
-    'numpy',
+    'numpy>=1.16',
     'dask-jobqueue',
+    'dask-image',
     'bokeh>=2.1.1',
     'pyyaml',
     'google-cloud-storage',
+    'ome-zarr@git+https://github.com/camilolaiton/ome-zarr-py.git@feature/delayed-dask-poc',
+    'aicsimageio@git+https://github.com/camilolaiton/aicsimageio.git@feature/zarrwriter-multiscales-daskjobs',
+    'hdf5plugin@https://github.com/silx-kit/hdf5plugin/archive/refs/tags/v3.3.1.tar.gz',
+    'gcsfs',
+    'xarray-multiscale',
+    'parameterized',
     'spikeinterface[full]',
     'probeinterface>=0.2.11',
     'zarr',

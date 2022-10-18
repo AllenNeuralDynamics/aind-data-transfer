@@ -5,7 +5,7 @@ import google.auth
 import google.auth.exceptions
 from google.cloud import storage
 from google.cloud.storage import Client
-from transfer.util.fileutils import make_cloud_paths, collect_filepaths
+from transfer.util.file_utils import make_cloud_paths, collect_filepaths
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -90,7 +90,9 @@ class GCSUploader:
                 _ = iter(gcs_path)
                 gcs_paths = gcs_path
             except TypeError:
-                logger.error(f"Expected either a str or iterable, got {type(gcs_path)}")
+                logger.error(
+                    f"Expected either a str or iterable, got {type(gcs_path)}"
+                )
                 raise
         failed_uploads = []
         for fpath, gpath in zip(filepaths, gcs_paths):
