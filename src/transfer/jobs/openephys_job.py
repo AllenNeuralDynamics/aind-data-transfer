@@ -89,6 +89,7 @@ if __name__ == "__main__":
                     "gsutil",
                     "-m",
                     "rsync",
+                    "-r",
                     "-n",
                     dest_data_dir,
                     gcp_dest,
@@ -96,7 +97,7 @@ if __name__ == "__main__":
             )
         else:
             subprocess.run(
-                ["gsutil", "-m", "rsync", dest_data_dir, gcp_dest]
+                ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest]
             )
 
     # Register Asset on CodeOcean
