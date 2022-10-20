@@ -2,23 +2,15 @@
 import argparse
 import os
 import re
-from enum import Enum
 from pathlib import Path
 
 import yaml
 from numcodecs import Blosc
+from transfer.readers import EphysReaders
 
 
 class EphysJobConfigurationLoader:
     """Class to handle loading ephys job configs"""
-
-    class RegexPatterns(Enum):
-        """Enum for regex patterns the source folder name should match"""
-
-        subject_datetime = r"\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
-        ecephys_subject_datetime = (
-            r"ecephys_\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
-        )
 
     def __remove_none(self, data):
         """Remove keys whose value is None."""
@@ -60,7 +52,8 @@ class EphysJobConfigurationLoader:
                 "shuffle"
             ] = shuffle_val
 
-    def __resolve_endpoints(self, configs):
+    @staticmethod
+    def __resolve_endpoints(configs):
         """
         Only the raw data source needs to be provided as long as the base dir
         name is formatted correctly. If the dest_data_dir and cloud endpoints
@@ -76,40 +69,43 @@ class EphysJobConfigurationLoader:
 
         dest_data_dir = configs["endpoints"]["dest_data_dir"]
         if dest_data_dir is None and re.match(
-            self.RegexPatterns.subject_datetime.value, raw_data_folder
+            EphysReaders.SourceRegexPatterns.subject_datetime.value,
+            raw_data_folder,
         ):
             configs["endpoints"]["dest_data_dir"] = (
                 "ecephys_" + raw_data_folder
             )
         if dest_data_dir is None and re.match(
-            self.RegexPatterns.ecephys_subject_datetime.value, raw_data_folder
+            EphysReaders.SourceRegexPatterns.ecephys_subject_datetime.value,
+            raw_data_folder,
         ):
             configs["endpoints"]["dest_data_dir"] = raw_data_folder
 
         if configs["endpoints"]["s3_prefix"] is None:
-            dest_data_folder = Path(
-                configs["endpoints"]["dest_data_dir"]
-            ).name
+            dest_data_folder = Path(configs["endpoints"]["dest_data_dir"]).name
             configs["endpoints"]["s3_prefix"] = dest_data_folder
 
         if configs["endpoints"]["gcp_prefix"] is None:
-            dest_data_folder = Path(
-                configs["endpoints"]["dest_data_dir"]
-            ).name
+            dest_data_folder = Path(configs["endpoints"]["dest_data_dir"]).name
             configs["endpoints"]["gcp_prefix"] = dest_data_folder
 
         if configs["register_on_codeocean_job"]["asset_name"] is None:
-            configs["register_on_codeocean_job"]["asset_name"] = (
-                configs["endpoints"]["s3_prefix"])
+            configs["register_on_codeocean_job"]["asset_name"] = configs[
+                "endpoints"
+            ]["s3_prefix"]
 
         if configs["register_on_codeocean_job"]["mount"] is None:
-            configs["register_on_codeocean_job"]["mount"] = (
-                configs["endpoints"]["s3_prefix"])
+            configs["register_on_codeocean_job"]["mount"] = configs[
+                "endpoints"
+            ]["s3_prefix"]
 
-        if (configs["jobs"]["register_to_codeocean"] and
-                configs["register_on_codeocean_job"]["api_token"] is None):
-            configs["register_on_codeocean_job"]["api_token"] = (
-                os.getenv('CODEOCEAN_API_TOKEN'))
+        if (
+            configs["jobs"]["register_to_codeocean"]
+            and configs["register_on_codeocean_job"]["api_token"] is None
+        ):
+            configs["register_on_codeocean_job"]["api_token"] = os.getenv(
+                "CODEOCEAN_API_TOKEN"
+            )
 
     def load_configs(self, sys_args):
         """Load yaml config at conf_src Path as python dict"""
