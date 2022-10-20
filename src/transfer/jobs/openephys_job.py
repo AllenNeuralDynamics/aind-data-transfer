@@ -5,14 +5,18 @@ from pathlib import Path
 
 from botocore.session import get_session
 
+from datetime import datetime
+
 from transfer.codeocean import CodeOceanDataAssetRequests
-from transfer.compressors import EphysCompressors
+from transfer.transformations.compressors import EphysCompressors
 from transfer.configuration_loader import EphysJobConfigurationLoader
 from transfer.readers import EphysReaders
 from transfer.writers import EphysWriters
+from transfer.transformations.metadata_creation import ProcessingMetadata
 
 if __name__ == "__main__":
     # Location of conf file passed in as command line arg
+    job_start_time = datetime.now()
     job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
 
     # Extract raw data name, (e.g., openephys) and raw data path
@@ -57,6 +61,35 @@ if __name__ == "__main__":
             job_kwargs=write_kwargs,
             **format_kwargs,
         )
+
+    job_end_time = datetime.now()
+    if job_configs["jobs"]["attach_metadata"]:
+        start_date_time = job_start_time
+        end_date_time = job_end_time
+        input_location = data_src_dir
+        if job_configs["jobs"]["upload_to_s3"]:
+            s3_bucket = job_configs["endpoints"]["s3_bucket"]
+            s3_prefix = job_configs["endpoints"]["s3_prefix"]
+            aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
+            output_location = aws_dest
+        elif job_configs["jobs"]["upload_to_gcp"]:
+            gcp_bucket = job_configs["endpoints"]["gcp_bucket"]
+            gcp_prefix = job_configs["endpoints"]["gcp_prefix"]
+            gcp_dest = f"gs://{gcp_bucket}/{gcp_prefix}"
+            output_location = gcp_dest
+        else:
+            output_location = dest_data_dir
+
+        code_url = job_configs["endpoints"]["code_url"]
+        parameters = job_configs
+        processing_schema = ProcessingMetadata.ephys_job_to_processing(
+            start_date_time=start_date_time,
+            end_date_time=end_date_time,
+            input_location=input_location,
+            output_location=output_location,
+            code_url=code_url,
+            parameters=parameters,
+            notes=None)
 
     # Upload to s3
     if job_configs["jobs"]["upload_to_s3"]:
