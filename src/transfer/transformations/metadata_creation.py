@@ -38,7 +38,7 @@ class MetadataSchemaClient:
         contents = {"name": name,
                     "version": version,
                     "start_date_time": start_date_time,
-                    "end_data_time": end_date_time,
+                    "end_date_time": end_date_time,
                     "input_location": input_location,
                     "output_location": output_location,
                     "code_url": code_url,
@@ -58,13 +58,8 @@ class ProcessingMetadata:
     """Class to handle the creation of the processing metadata file."""
 
     @staticmethod
-    def get_processing_metadata_schema():
-        processing_schema = MetadataSchemaClient.Schemas.processing
-        schema = MetadataSchemaClient.retrieve_schema(processing_schema)
-        return schema
-
-    @staticmethod
-    def ephys_job_to_processing(start_date_time,
+    def ephys_job_to_processing(schema_url,
+                                start_date_time,
                                 end_date_time,
                                 input_location,
                                 output_location,
@@ -73,12 +68,13 @@ class ProcessingMetadata:
                                 notes=None):
         name = "Ephys preprocessing"
         version = transfer.__version__
+        msc = MetadataSchemaClient(schema_url)
         data_processing_instance = (
-            MetadataSchemaClient.create_data_processing_instance(
+            msc.create_data_processing_instance(
                 name=name,
                 version=version,
-                start_date_time=start_date_time,
-                end_date_time=end_date_time,
+                start_date_time=start_date_time.isoformat(sep=' '),
+                end_date_time=end_date_time.isoformat(sep=' '),
                 input_location=input_location,
                 output_location=output_location,
                 code_url=code_url,
@@ -86,8 +82,8 @@ class ProcessingMetadata:
                 notes=notes
             ))
         processing_instance = (
-            MetadataSchemaClient.create_processing_instance(
-                [data_processing_instance]
+            msc.create_processing_instance(
+                data_processes=[data_processing_instance]
             )
         )
 
