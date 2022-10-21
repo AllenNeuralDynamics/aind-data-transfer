@@ -1,25 +1,21 @@
 """Job that reads open ephys data, compresses, and writes it."""
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from botocore.session import get_session
 
-from datetime import datetime
-from datetime import timezone
-
 from transfer.codeocean import CodeOceanDataAssetRequests
-from transfer.transformations.compressors import EphysCompressors
 from transfer.configuration_loader import EphysJobConfigurationLoader
 from transfer.readers import EphysReaders
+from transfer.transformations.compressors import EphysCompressors
+from transfer.transformations.metadata_creation import ProcessingMetadata
+from transfer.util.npopto_correction import correct_np_opto_electrode_locations
 from transfer.writers import EphysWriters
 
-from transfer.transformations.metadata_creation import ProcessingMetadata
-
-from transfer.util.npopto_correction import correct_np_opto_electrode_locations
-
-
-if __name__ == "__main__":
+# TODO: Break these up into importable jobs to fix the flake8 warning?
+if __name__ == "__main__":  # noqa: C901
     # Location of conf file passed in as command line arg
     job_start_time = datetime.now(timezone.utc)
     job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
@@ -98,7 +94,8 @@ if __name__ == "__main__":
             output_location=output_location,
             code_url=code_url,
             parameters=parameters,
-            notes=None)
+            notes=None,
+        )
 
     # Upload to s3
     if job_configs["jobs"]["upload_to_s3"]:
