@@ -1,10 +1,4 @@
 # Leave values blank to use defaults
-jobs: # Select which jobs to run
-  clip: true
-  compress: true
-  upload_to_s3: true
-  upload_to_gcp: true
-  register_to_codeocean: false
 endpoints:
   raw_data_dir: tests/resources/v0.6.x_neuropixels_multiexp_multistream
   dest_data_dir: tests/resources/new/v0.6.x_neuropixels_multiexp_multistream
@@ -13,6 +7,15 @@ endpoints:
   gcp_bucket: aind-data-dev
   gcp_prefix: test_20221001
   codeocean_domain: https://acmecorp.codeocean.com
+  metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas/
+  code_repo_location: https://github.com/AllenNeuralDynamics/nd-data-transfer
+jobs: # Select which jobs to run
+  clip: true
+  compress: true
+  attach_metadata: true
+  upload_to_s3: true
+  upload_to_gcp: true
+  register_to_codeocean: false
 data:
   name: openephys
 clip_data_job:

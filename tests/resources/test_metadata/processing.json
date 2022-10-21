@@ -12,6 +12,7 @@
             "code_url": "https://github.com/AllenNeuralDynamics/nd-data-transfer",
             "parameters": {
                 "jobs": {
+                    "attach_metadata": true,
                     "clip": true,
                     "compress": true,
                     "upload_to_s3": true,
@@ -25,7 +26,9 @@
                     "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
                     "gcp_bucket": "aind-data-dev",
                     "gcp_prefix": "test_20221001",
-                    "codeocean_domain": "https://acmecorp.codeocean.com"
+                    "codeocean_domain": "https://acmecorp.codeocean.com",
+                    "metadata_schemas": "https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas/",
+                    "code_repo_location": "https://github.com/AllenNeuralDynamics/nd-data-transfer"
                 },
                 "data": {
                     "name": "openephys"

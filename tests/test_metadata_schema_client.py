@@ -85,3 +85,7 @@ class TestProcessingMetadata(unittest.TestCase):
         self.assertEqual(
             expected_processing_instance, processing_metadata_instance
         )
+
+
+if __name__ == "__main__":
+    unittest.main()

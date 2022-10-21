@@ -12,10 +12,10 @@ endpoints:
 jobs: # Select which jobs to run
   clip: true
   compress: true
+  attach_metadata: true
   upload_to_s3: true
   upload_to_gcp: false
   register_to_codeocean: true
-  attach_metadata: true
 data:
   name: openephys
 clip_data_job:

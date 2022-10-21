@@ -1,5 +1,6 @@
 """This module will have classes that handle mapping to metadata files."""
 
+import json
 from datetime import datetime
 from enum import Enum
 
@@ -110,7 +111,29 @@ class MetadataSchemaClient:
         return contents
 
 
-class ProcessingMetadata:
+# TODO: Initialize with a Schema?
+class MetadataHandler:
+    """Base class for handling metadata."""
+
+    @staticmethod
+    def write_metadata(
+        processing_instance: dict, output_location: str
+    ) -> None:
+        """
+        Writes out a processing instance.
+        Args:
+            processing_instance (dict): Data to write out
+            output_location (str): location of where to write the data
+
+        Returns:
+
+        """
+        with open(output_location, "w") as f:
+            json_contents = json.dumps(processing_instance, indent=4)
+            f.write(json_contents)
+
+
+class ProcessingMetadata(MetadataHandler):
     """Class to handle the creation of the processing metadata file."""
 
     @staticmethod
