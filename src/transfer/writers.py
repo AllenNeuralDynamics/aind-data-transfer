@@ -80,7 +80,12 @@ class EphysWriters:
             )
             dst_data[:] = data[:n_frames]
         # third: check if videos directory exists and copy it up one level
+        # TODO: Is there a cleaner way to do this?
         videos_path = dst_dir / "Videos"
+        videos_path_l = dst_dir / "videos"
         if os.path.isdir(videos_path):
             new_videos_path = dst_dir / ".." / "videos"
             shutil.move(videos_path, new_videos_path)
+        elif os.path.isdir(videos_path_l):
+            new_videos_path = dst_dir / ".." / "videos"
+            shutil.move(videos_path_l, new_videos_path)
