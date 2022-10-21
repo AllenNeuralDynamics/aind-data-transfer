@@ -17,7 +17,7 @@ def get_standard_np_opto_electrode_positions():
     npopto_electrode_xpos = {}
     npopto_electrode_ypos = {}
     for ch, (xpos, ypos) in enumerate(zip(npopto_electrode_xpos_arr,
-                                        npopto_electrode_ypos_arr)):
+                                          npopto_electrode_ypos_arr)):
         npopto_electrode_xpos[f"CH{ch}"] = str(xpos)
         npopto_electrode_ypos[f"CH{ch}"] = str(ypos)
     return npopto_electrode_xpos, npopto_electrode_ypos
