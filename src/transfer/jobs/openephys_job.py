@@ -6,6 +6,7 @@ from pathlib import Path
 from botocore.session import get_session
 
 from datetime import datetime
+from datetime import timezone
 
 from transfer.codeocean import CodeOceanDataAssetRequests
 from transfer.transformations.compressors import EphysCompressors
@@ -20,7 +21,7 @@ from transfer.util.npopto_correction import correct_np_opto_electrode_locations
 
 if __name__ == "__main__":
     # Location of conf file passed in as command line arg
-    job_start_time = datetime.now()
+    job_start_time = datetime.now(timezone.utc)
     job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
 
     # Extract raw data name, (e.g., openephys) and raw data path
@@ -70,7 +71,7 @@ if __name__ == "__main__":
             **format_kwargs,
         )
 
-    job_end_time = datetime.now()
+    job_end_time = datetime.now(timezone.utc)
     if job_configs["jobs"]["attach_metadata"]:
         start_date_time = job_start_time
         end_date_time = job_end_time
