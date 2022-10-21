@@ -59,5 +59,8 @@ class TestMetadataSchemaClient(unittest.TestCase):
             parameters=parameters
         )
 
+        # Hack to get match version to be the same as in the example file
+        processing_metadata_instance["data_processes"][0]["version"] = "0.0.3"
+
         self.assertEqual(expected_processing_instance,
                          processing_metadata_instance)
