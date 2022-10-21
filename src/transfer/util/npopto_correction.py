@@ -9,15 +9,18 @@ X_OFFSET = 11
 Y_PITCH = 20
 NUMEL_IN_COL = 192
 
-npopto_electrode_xpos_arr = [X_OFFSET, X_OFFSET + X_PITCH] * NUMEL_IN_COL
-npopto_electrode_ypos_arr = np.concatenate([i * np.array([Y_PITCH, Y_PITCH])
-                                            for i in range(NUMEL_IN_COL)])
-npopto_electrode_xpos = {}
-npopto_electrode_ypos = {}
-for ch, (xpos, ypos) in enumerate(zip(npopto_electrode_xpos_arr,
+
+def get_standard_np_opto_electrode_positions():
+    npopto_electrode_xpos_arr = [X_OFFSET, X_OFFSET + X_PITCH] * NUMEL_IN_COL
+    npopto_electrode_ypos_arr = np.concatenate([i * np.array([Y_PITCH, Y_PITCH])
+                                                for i in range(NUMEL_IN_COL)])
+    npopto_electrode_xpos = {}
+    npopto_electrode_ypos = {}
+    for ch, (xpos, ypos) in enumerate(zip(npopto_electrode_xpos_arr,
                                         npopto_electrode_ypos_arr)):
-    npopto_electrode_xpos[f"CH{ch}"] = str(xpos)
-    npopto_electrode_ypos[f"CH{ch}"] = str(ypos)
+        npopto_electrode_xpos[f"CH{ch}"] = str(xpos)
+        npopto_electrode_ypos[f"CH{ch}"] = str(ypos)
+    return npopto_electrode_xpos, npopto_electrode_ypos
 
 
 def correct_np_opto_electrode_locations(
@@ -26,6 +29,8 @@ def correct_np_opto_electrode_locations(
     # find settings files
     input_dir = Path(input_dir)
     settings_files = list(input_dir.glob('**/*.xml'))
+
+    npopto_electrode_xpos, npopto_electrode_ypos = get_standard_np_opto_electrode_positions()
 
     for settings_file in settings_files:
         # parse xml
