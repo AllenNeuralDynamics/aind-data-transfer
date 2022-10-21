@@ -12,7 +12,11 @@ from transfer.transformations.compressors import EphysCompressors
 from transfer.configuration_loader import EphysJobConfigurationLoader
 from transfer.readers import EphysReaders
 from transfer.writers import EphysWriters
+
 from transfer.transformations.metadata_creation import ProcessingMetadata
+
+from transfer.util.npopto_correction import correct_np_opto_electrode_locations
+
 
 if __name__ == "__main__":
     # Location of conf file passed in as command line arg
@@ -23,6 +27,10 @@ if __name__ == "__main__":
     data_name = job_configs["data"]["name"]
     data_src_dir = Path(job_configs["endpoints"]["raw_data_dir"])
     dest_data_dir = Path(job_configs["endpoints"]["dest_data_dir"])
+
+    # Correct NP-opto electrode positions:
+    # correction is skipped if Neuropix-PXI version > 0.4.0
+    correct_np_opto_electrode_locations(data_src_dir)
 
     # Clip data job
     if job_configs["jobs"]["clip"]:
@@ -122,6 +130,7 @@ if __name__ == "__main__":
                     "gsutil",
                     "-m",
                     "rsync",
+                    "-r",
                     "-n",
                     dest_data_dir,
                     gcp_dest,
@@ -129,7 +138,7 @@ if __name__ == "__main__":
             )
         else:
             subprocess.run(
-                ["gsutil", "-m", "rsync", dest_data_dir, gcp_dest]
+                ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest]
             )
 
     # Register Asset on CodeOcean
