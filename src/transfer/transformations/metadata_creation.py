@@ -9,6 +9,9 @@ import requests
 import transfer
 
 
+from pathlib import Path
+
+
 class MetadataSchemaClient:
     """Class to retrieve metadata schemas. TODO: Move this into own project."""
 
@@ -112,34 +115,45 @@ class MetadataSchemaClient:
         return contents
 
 
-# TODO: Initialize with a Schema?
 class MetadataHandler:
     """Base class for handling metadata."""
 
-    @staticmethod
+    def __init__(self,
+                 schema_url: str,
+                 schema: MetadataSchemaClient.Schemas) -> None:
+        self.schema = schema
+        self.schema_url = schema_url
+
     def write_metadata(
-        processing_instance: dict, output_location: str
+            self,
+            schema_instance: dict,
+            output_dir: Path
     ) -> None:
         """
         Writes out a processing instance.
         Args:
-            processing_instance (dict): Data to write out
-            output_location (str): location of where to write the data
+            schema_instance (dict): Data to write out
+            output_dir (Path): location of where to write the data
 
         Returns:
 
         """
-        with open(output_location, "w") as f:
-            json_contents = json.dumps(processing_instance, indent=4)
+        file_path = output_dir / f"{str(self.schema.value)}.json"
+        with open(file_path, "w") as f:
+            json_contents = json.dumps(schema_instance, indent=4)
             f.write(json_contents)
 
 
 class ProcessingMetadata(MetadataHandler):
     """Class to handle the creation of the processing metadata file."""
 
-    @staticmethod
+    def __init__(self, schema_url):
+        processing_schema = MetadataSchemaClient.Schemas.processing
+        super(ProcessingMetadata, self).__init__(schema_url=schema_url,
+                                                 schema=processing_schema)
+
     def ephys_job_to_processing(
-        schema_url: str,
+        self,
         start_date_time: datetime,
         end_date_time: datetime,
         input_location: str,
@@ -165,7 +179,7 @@ class ProcessingMetadata(MetadataHandler):
         """
         name = "Ephys preprocessing"
         version = transfer.__version__
-        msc = MetadataSchemaClient(schema_url)
+        msc = MetadataSchemaClient(self.schema_url)
         data_processing_instance = msc.create_data_processing_instance(
             name=name,
             version=version,

@@ -88,8 +88,8 @@ if __name__ == "__main__":  # noqa: C901
         code_url = job_configs["endpoints"]["code_repo_location"]
         schema_url = job_configs["endpoints"]["metadata_schemas"]
         parameters = job_configs
-        processing_instance = ProcessingMetadata.ephys_job_to_processing(
-            schema_url=schema_url,
+        processing_metadata = ProcessingMetadata(schema_url=schema_url)
+        processing_instance = processing_metadata.ephys_job_to_processing(
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=str(input_location),
@@ -99,7 +99,8 @@ if __name__ == "__main__":  # noqa: C901
             notes=None,
         )
 
-        ProcessingMetadata.write_metadata(processing_instance)
+        processing_metadata.write_metadata(schema_instance=processing_instance,
+                                           output_dir=dest_data_dir)
 
     # Upload to s3
     if job_configs["jobs"]["upload_to_s3"]:
