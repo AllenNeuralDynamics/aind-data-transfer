@@ -88,9 +88,10 @@
         },
         "parameters": {
           "type ": "object",
-          "items": {
-            "type": "object"
-          }
+          "title": "Parameters",
+          "properties": {},
+          "additionalProperties": true,
+          "description": "Parameters or configs used for process"
         },
         "notes": {
           "type": "string"
