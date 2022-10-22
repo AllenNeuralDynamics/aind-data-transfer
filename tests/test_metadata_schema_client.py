@@ -65,11 +65,15 @@ class TestProcessingMetadata(unittest.TestCase):
         input_location = "some_input_location"
         output_location = "some_output_location"
         code_url = "https://github.com/AllenNeuralDynamics/nd-data-transfer"
+        schema_url = (
+            "https://raw.githubusercontent.com/AllenNeuralDynamics/"
+            "data_schema/main/schemas"
+        )
         parameters = self.loaded_configs
 
         processing_metadata_instance = (
             ProcessingMetadata.ephys_job_to_processing(
-                schema_url="some_schema_url",
+                schema_url=schema_url,
                 start_date_time=start_date_time,
                 end_date_time=end_date_time,
                 input_location=input_location,

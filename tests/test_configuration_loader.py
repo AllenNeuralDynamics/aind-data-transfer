@@ -16,7 +16,7 @@ class TestEphysJobConfigs(unittest.TestCase):
 
     metadata_schemas_url = (
         "https://raw.githubusercontent.com/AllenNeuralDynamics/"
-        "data_schema/main/schemas/"
+        "data_schema/main/schemas"
     )
     code_repo_url = "https://github.com/AllenNeuralDynamics/nd-data-transfer"
 

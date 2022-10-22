@@ -85,12 +85,14 @@ if __name__ == "__main__":  # noqa: C901
         else:
             output_location = dest_data_dir
 
-        code_url = job_configs["endpoints"]["code_url"]
+        code_url = job_configs["endpoints"]["code_repo_location"]
+        schema_url = job_configs["endpoints"]["metadata_schemas"]
         parameters = job_configs
         processing_instance = ProcessingMetadata.ephys_job_to_processing(
+            schema_url=schema_url,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
-            input_location=input_location,
+            input_location=str(input_location),
             output_location=output_location,
             code_url=code_url,
             parameters=parameters,
