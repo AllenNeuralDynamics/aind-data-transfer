@@ -71,9 +71,10 @@ class TestProcessingMetadata(unittest.TestCase):
         )
         parameters = self.loaded_configs
 
+        processing_metadata = ProcessingMetadata(schema_url=schema_url)
+
         processing_metadata_instance = (
-            ProcessingMetadata.ephys_job_to_processing(
-                schema_url=schema_url,
+            processing_metadata.ephys_job_to_processing(
                 start_date_time=start_date_time,
                 end_date_time=end_date_time,
                 input_location=input_location,
