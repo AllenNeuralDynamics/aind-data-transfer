@@ -3,13 +3,11 @@
 import json
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 
 import requests
 
 import transfer
-
-
-from pathlib import Path
 
 
 class MetadataSchemaClient:
@@ -118,17 +116,13 @@ class MetadataSchemaClient:
 class MetadataHandler:
     """Base class for handling metadata."""
 
-    def __init__(self,
-                 schema_url: str,
-                 schema: MetadataSchemaClient.Schemas) -> None:
+    def __init__(
+        self, schema_url: str, schema: MetadataSchemaClient.Schemas
+    ) -> None:
         self.schema = schema
         self.schema_url = schema_url
 
-    def write_metadata(
-            self,
-            schema_instance: dict,
-            output_dir: Path
-    ) -> None:
+    def write_metadata(self, schema_instance: dict, output_dir: Path) -> None:
         """
         Writes out a processing instance.
         Args:
@@ -149,8 +143,9 @@ class ProcessingMetadata(MetadataHandler):
 
     def __init__(self, schema_url):
         processing_schema = MetadataSchemaClient.Schemas.processing
-        super(ProcessingMetadata, self).__init__(schema_url=schema_url,
-                                                 schema=processing_schema)
+        super(ProcessingMetadata, self).__init__(
+            schema_url=schema_url, schema=processing_schema
+        )
 
     def ephys_job_to_processing(
         self,

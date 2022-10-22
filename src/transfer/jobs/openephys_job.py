@@ -99,8 +99,9 @@ if __name__ == "__main__":  # noqa: C901
             notes=None,
         )
 
-        processing_metadata.write_metadata(schema_instance=processing_instance,
-                                           output_dir=dest_data_dir)
+        processing_metadata.write_metadata(
+            schema_instance=processing_instance, output_dir=dest_data_dir
+        )
 
     # Upload to s3
     if job_configs["jobs"]["upload_to_s3"]:
