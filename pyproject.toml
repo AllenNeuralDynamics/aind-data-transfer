@@ -22,6 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    'nd-data-transfer[full]',
     'black',
     'coverage',
     'flake8',
