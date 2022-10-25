@@ -22,7 +22,7 @@ dependencies = [
     'pyyaml',
     'google-cloud-storage',
     'ome-zarr@git+https://github.com/camilolaiton/ome-zarr-py.git@feature/delayed-dask-poc',
-    'aicsimageio@git+https://github.com/camilolaiton/aicsimageio.git@feature/zarrwriter-multiscales-daskjobs',
+    'aicsimageio@git+https://github.com/carshadi/aicsimageio.git@zarrwriter-translation-metadata',
     'hdf5plugin@https://github.com/silx-kit/hdf5plugin/archive/refs/tags/v3.3.1.tar.gz',
     'gcsfs',
     'xarray-multiscale',
