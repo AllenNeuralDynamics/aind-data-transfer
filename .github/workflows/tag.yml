@@ -20,3 +20,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           custom_tag: ${{ steps.getversion.outputs.version }}
+      - name: Publish a Python distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.AIND_PYPI_TOKEN }}
