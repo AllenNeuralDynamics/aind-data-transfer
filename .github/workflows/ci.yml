@@ -28,7 +28,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
-      run: python -m pip install -e .[dev,full]
+      run: python -m pip install -e .[dev]
     - name: Run linters
       run: black . && interrogate . && isort .
     - name: Run tests and coverage
