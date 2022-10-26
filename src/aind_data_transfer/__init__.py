@@ -1,4 +1,4 @@
-"""package for s3 transfer functionality.
+"""Package to compress and upload data to the cloud
 """
 
 import logging

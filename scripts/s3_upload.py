@@ -11,8 +11,8 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client
 from s3transfer.constants import GB, MB
 
-from transfer.s3 import S3Uploader
-from transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.s3 import S3Uploader
+from aind_data_transfer.util.file_utils import collect_filepaths
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"

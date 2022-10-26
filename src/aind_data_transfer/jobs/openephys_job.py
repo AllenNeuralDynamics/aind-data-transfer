@@ -1,20 +1,23 @@
 """Job that reads open ephys data, compresses, and writes it."""
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from botocore.session import get_session
 
-from transfer.codeocean import CodeOceanDataAssetRequests
-from transfer.compressors import EphysCompressors
-from transfer.configuration_loader import EphysJobConfigurationLoader
-from transfer.readers import EphysReaders
-from transfer.writers import EphysWriters
-from transfer.util.npopto_correction import correct_np_opto_electrode_locations
+from aind_data_transfer.codeocean import CodeOceanDataAssetRequests
+from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
+from aind_data_transfer.readers import EphysReaders
+from aind_data_transfer.transformations.compressors import EphysCompressors
+from aind_data_transfer.transformations.metadata_creation import ProcessingMetadata
+from aind_data_transfer.util.npopto_correction import correct_np_opto_electrode_locations
+from aind_data_transfer.writers import EphysWriters
 
-
-if __name__ == "__main__":
+# TODO: Break these up into importable jobs to fix the flake8 warning?
+if __name__ == "__main__":  # noqa: C901
     # Location of conf file passed in as command line arg
+    job_start_time = datetime.now(timezone.utc)
     job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
 
     # Extract raw data name, (e.g., openephys) and raw data path
@@ -62,6 +65,42 @@ if __name__ == "__main__":
             output_dir=compressed_data_path,
             job_kwargs=write_kwargs,
             **format_kwargs,
+        )
+
+    job_end_time = datetime.now(timezone.utc)
+    if job_configs["jobs"]["attach_metadata"]:
+        start_date_time = job_start_time
+        end_date_time = job_end_time
+        input_location = data_src_dir
+        if job_configs["jobs"]["upload_to_s3"]:
+            s3_bucket = job_configs["endpoints"]["s3_bucket"]
+            s3_prefix = job_configs["endpoints"]["s3_prefix"]
+            aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
+            output_location = aws_dest
+        elif job_configs["jobs"]["upload_to_gcp"]:
+            gcp_bucket = job_configs["endpoints"]["gcp_bucket"]
+            gcp_prefix = job_configs["endpoints"]["gcp_prefix"]
+            gcp_dest = f"gs://{gcp_bucket}/{gcp_prefix}"
+            output_location = gcp_dest
+        else:
+            output_location = dest_data_dir
+
+        code_url = job_configs["endpoints"]["code_repo_location"]
+        schema_url = job_configs["endpoints"]["metadata_schemas"]
+        parameters = job_configs
+        processing_metadata = ProcessingMetadata(schema_url=schema_url)
+        processing_instance = processing_metadata.ephys_job_to_processing(
+            start_date_time=start_date_time,
+            end_date_time=end_date_time,
+            input_location=str(input_location),
+            output_location=output_location,
+            code_url=code_url,
+            parameters=parameters,
+            notes=None,
+        )
+
+        processing_metadata.write_metadata(
+            schema_instance=processing_instance, output_dir=dest_data_dir
         )
 
     # Upload to s3

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from numcodecs import Blosc
 
-from transfer.configuration_loader import EphysJobConfigurationLoader
+from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
@@ -13,6 +13,12 @@ CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
 
 class TestEphysJobConfigs(unittest.TestCase):
     """Tests ephys job pipeline methods"""
+
+    metadata_schemas_url = (
+        "https://raw.githubusercontent.com/AllenNeuralDynamics/"
+        "data_schema/main/schemas"
+    )
+    code_repo_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
     def test_conf_loads(self):
         """Basic config loads test"""
@@ -23,10 +29,12 @@ class TestEphysJobConfigs(unittest.TestCase):
         dest_data_dir = (
             "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream"
         )
+
         expected_configs = {
             "jobs": {
                 "clip": True,
                 "compress": True,
+                "attach_metadata": True,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
                 "register_to_codeocean": False,
@@ -39,6 +47,8 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "gcp_bucket": "aind-data-dev",
                 "gcp_prefix": "test_20221001",
                 "codeocean_domain": "https://acmecorp.codeocean.com",
+                "metadata_schemas": self.metadata_schemas_url,
+                "code_repo_location": self.code_repo_url,
             },
             "data": {"name": "openephys"},
             "clip_data_job": {"clip_kwargs": {}},
@@ -77,6 +87,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             "jobs": {
                 "clip": True,
                 "compress": True,
+                "attach_metadata": True,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
                 "register_to_codeocean": False,
@@ -89,6 +100,8 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "gcp_bucket": "aind-data-dev",
                 "gcp_prefix": "ecephys_625463_2022-10-06_10-14-25",
                 "codeocean_domain": "https://acmecorp.codeocean.com",
+                "metadata_schemas": self.metadata_schemas_url,
+                "code_repo_location": self.code_repo_url,
             },
             "data": {"name": "openephys"},
             "clip_data_job": {"clip_kwargs": {}},

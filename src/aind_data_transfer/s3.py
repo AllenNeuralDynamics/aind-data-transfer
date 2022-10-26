@@ -16,7 +16,7 @@ from s3transfer.crt import (
     create_s3_crt_client,
 )
 
-from transfer.util.file_utils import collect_filepaths, make_cloud_paths
+from aind_data_transfer.util.file_utils import collect_filepaths, make_cloud_paths
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
