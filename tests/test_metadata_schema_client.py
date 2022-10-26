@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from transfer.configuration_loader import EphysJobConfigurationLoader
-from transfer.transformations.metadata_creation import ProcessingMetadata
+from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
+from aind_data_transfer.transformations.metadata_creation import ProcessingMetadata
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
@@ -64,7 +64,7 @@ class TestProcessingMetadata(unittest.TestCase):
         )
         input_location = "some_input_location"
         output_location = "some_output_location"
-        code_url = "https://github.com/AllenNeuralDynamics/nd-data-transfer"
+        code_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
         schema_url = (
             "https://raw.githubusercontent.com/AllenNeuralDynamics/"
             "data_schema/main/schemas"

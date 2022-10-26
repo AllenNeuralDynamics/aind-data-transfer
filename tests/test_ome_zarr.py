@@ -9,7 +9,7 @@ import numpy as np
 import tifffile
 import zarr
 from distributed import Client
-from transfer.transcode.ome_zarr import write_files, write_folder
+from aind_data_transfer.transcode.ome_zarr import write_files, write_folder
 from parameterized import parameterized
 
 
@@ -28,7 +28,7 @@ def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
 
 
 class TestOmeZarr(unittest.TestCase):
-    """Tests methods defined in transfer.transcode.ome_zarr class"""
+    """Tests methods defined in aind_data_transfer.transcode.ome_zarr class"""
 
     def setUp(self):
         self._temp_dir = tempfile.TemporaryDirectory()

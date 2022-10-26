@@ -10,7 +10,7 @@ import zarr.core
 from distributed import Client
 from tifffile import tifffile
 
-from transfer.util.io_utils import TiffReader, ImarisReader, DataReaderFactory
+from aind_data_transfer.util.io_utils import TiffReader, ImarisReader, DataReaderFactory
 
 # TODO: make test fixtures instead of constants?
 IM_SHAPE = (64, 128, 128)

@@ -9,7 +9,7 @@
             "end_date_time": "2020-10-20 01:00:00+00:00",
             "input_location": "some_input_location",
             "output_location": "some_output_location",
-            "code_url": "https://github.com/AllenNeuralDynamics/nd-data-transfer",
+            "code_url": "https://github.com/AllenNeuralDynamics/aind-data-transfer",
             "parameters": {
                 "jobs": {
                     "attach_metadata": true,
@@ -28,7 +28,7 @@
                     "gcp_prefix": "test_20221001",
                     "codeocean_domain": "https://acmecorp.codeocean.com",
                     "metadata_schemas": "https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas",
-                    "code_repo_location": "https://github.com/AllenNeuralDynamics/nd-data-transfer"
+                    "code_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer"
                 },
                 "data": {
                     "name": "openephys"

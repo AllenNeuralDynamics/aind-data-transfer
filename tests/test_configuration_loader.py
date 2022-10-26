@@ -5,7 +5,7 @@ from pathlib import Path
 
 from numcodecs import Blosc
 
-from transfer.configuration_loader import EphysJobConfigurationLoader
+from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
@@ -18,7 +18,7 @@ class TestEphysJobConfigs(unittest.TestCase):
         "https://raw.githubusercontent.com/AllenNeuralDynamics/"
         "data_schema/main/schemas"
     )
-    code_repo_url = "https://github.com/AllenNeuralDynamics/nd-data-transfer"
+    code_repo_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
     def test_conf_loads(self):
         """Basic config loads test"""

@@ -3,8 +3,8 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nd-data-transfer"
-description = "Services for compression and transfer of nd-data to the cloud"
+name = "aind-data-transfer"
+description = "Services for compression and transfer of aind-data to the cloud"
 license = {text = "MIT"}
 requires-python = ">=3.8"
 classifiers = [
@@ -22,7 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    'nd-data-transfer[full]',
+    'aind-data-transfer[full]',
     'black',
     'coverage',
     'flake8',
@@ -48,15 +48,15 @@ imaging = [
     'parameterized'
 ]
 full = [
-    'nd-data-transfer[ephys]',
-    'nd-data-transfer[imaging]'
+    'aind-data-transfer[ephys]',
+    'aind-data-transfer[imaging]'
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.dynamic]
-version = {attr = "transfer.__version__"}
+version = {attr = "aind_data_transfer.__version__"}
 readme = {file = ["README.md"]}
 
 [tool.black]
