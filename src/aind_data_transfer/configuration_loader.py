@@ -9,7 +9,18 @@ from numcodecs import Blosc
 from aind_data_transfer.readers import EphysReaders
 
 
-class EphysJobConfigurationLoader:
+class JobConfigurationLoader:
+
+    @staticmethod
+    def load_configs(self, sys_args):
+        raise NotImplementedError
+
+    @staticmethod
+    def _resolve_endpoints(self):
+        raise NotImplementedError
+
+
+class EphysJobConfigurationLoader(JobConfigurationLoader):
     """Class to handle loading ephys job configs"""
 
     def __remove_none(self, data):
@@ -126,3 +137,78 @@ class EphysJobConfigurationLoader:
         config_without_nones = self.__remove_none(raw_config)
         self.__parse_compressor_configs(config_without_nones)
         return config_without_nones
+
+
+class ImagingJobConfigurationLoader(JobConfigurationLoader):
+
+    def load_configs(self, sys_args):
+        """Load yaml config at conf_src Path as python dict"""
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "-c", "--conf-file-location", required=True, type=str
+        )
+        parser.add_argument(
+            "-r", "--raw-data-source", required=False, type=str
+        )
+        args = parser.parse_args(sys_args)
+        conf_src = args.conf_file_location
+        with open(conf_src) as f:
+            config = yaml.load(f, Loader=yaml.SafeLoader)
+        if args.raw_data_source is not None:
+            config["endpoints"]["raw_data_dir"] = args.raw_data_source
+        self.__resolve_endpoints(config)
+        self.__parse_compressor_configs(config)
+        return config
+
+    @staticmethod
+    def __resolve_endpoints(configs):
+        """
+        If the dest_data_dir is provided, the data will be transfered to a filesystem. Otherwise,
+         data will be uploaded to cloud storage. In this case, the cloud provider and bucket must be specified.
+         The cloud prefix will be parsed from the acquisition directory name.
+        Args:
+            configs (dic): Configurations
+
+        Returns:
+            None, modifies the base configs in place
+        """
+
+        dest_data_dir = configs["endpoints"]["dest_data_dir"]
+        if dest_data_dir is None:
+            # assume we only want to upload to cloud storage
+            if configs["endpoints"]["cloud_provider"] is None:
+                raise Exception(f"dest_data_dir is unspecified, but no cloud storage provider was given.")
+            if configs["endpoints"]["cloud_bucket"] is None:
+                raise Exception(f"dest_data_dir is unspecified, but no cloud bucket was given.")
+            if configs["endpoints"]["cloud_prefix"] is None:
+                raw_data_folder = Path(configs["endpoints"]["raw_data_dir"]).name
+                configs["endpoints"]["cloud_prefix"] = raw_data_folder
+
+    @staticmethod
+    def __parse_compressor_configs(configs):
+        """Util method to map a string to class attribute"""
+        try:
+            compressor_name = configs["transcode_job"]["compressor"][
+                "compressor_name"
+            ]
+        except KeyError:
+            compressor_name = None
+        try:
+            compressor_kwargs = configs["transcode_job"]["compressor"][
+                "kwargs"
+            ]
+        except KeyError:
+            compressor_kwargs = None
+        if (
+            compressor_name
+            and compressor_name == Blosc.codec_id
+            and compressor_kwargs
+            and "shuffle" in compressor_kwargs
+        ):
+            shuffle_str = configs["transcode_job"]["compressor"]["kwargs"][
+                "shuffle"
+            ]
+            shuffle_val = getattr(Blosc, shuffle_str)
+            configs["transcode_job"]["compressor"]["kwargs"][
+                "shuffle"
+            ] = shuffle_val
