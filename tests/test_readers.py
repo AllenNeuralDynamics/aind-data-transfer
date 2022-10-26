@@ -2,7 +2,7 @@ import os
 import unittest
 from pathlib import Path
 
-from transfer.readers import EphysReaders
+from aind_data_transfer.readers import EphysReaders
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 RESOURCES_DIR = TEST_DIR / "resources"

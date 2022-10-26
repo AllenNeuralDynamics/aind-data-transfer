@@ -3,7 +3,7 @@ import os
 from pathlib import PurePath, PurePosixPath, Path
 from typing import List, Optional, Tuple, Union
 
-from transfer.util.io_utils import DataReaderFactory
+from aind_data_transfer.util.io_utils import DataReaderFactory
 
 
 def collect_filepaths(

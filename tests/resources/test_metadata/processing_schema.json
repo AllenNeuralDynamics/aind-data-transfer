@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "describedBy": {
+      "type": "string",
+      "const": "https://github.com/AllenNeuralDynamics/data_schema/blob/main/schemas/processing.json",
+      "description": "The URL reference to the schema.",
+      "title": "Described by"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "0.0.1",
+      "description": "Schema version",
+      "title": "Schema version"
+    },
+    "pipeline_version": {
+      "type": "string",
+      "title": "Pipeline version",
+      "description": "Version of the pipeline"
+    },
+    "pipeline_url": {
+      "type": "string",
+      "title": "Pipeline URL",
+      "description": "URL to the pipeline code"
+    },
+    "data_processes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/data_process" },
+      "uniqueItems": true,
+      "title": "Data processing"
+    }
+  },
+  "required": [
+    "describedBy",
+    "version",
+    "data_processes"
+  ],
+  "$defs": {
+    "data_process":{
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Name",
+          "enum": [
+            "Ephys preprocessing",
+            "Spike sorting",
+            "Ephys postprocessing",
+            "Image import",
+            "Image align",
+            "Merge volume",
+            "OME zarr",
+            "Pystripe",
+            "Displthresh",
+            "Other"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "title": "Version",
+          "description": "Version of the software used"
+        },
+        "start_date_time": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Start date time"
+        },
+        "end_date_time": {
+          "type": "string",
+          "format": "date-time",
+          "title": "End date time"
+        },
+        "input_location": {
+          "type": "string",
+          "title": "Input location",
+          "description": "Path to data inputs"
+        },
+        "output_location": {
+          "type": "string",
+          "title": "Output location",
+          "description": "Path to data outputs"
+        },
+        "code_url": {
+          "type": "string",
+          "title": "Code URL",
+          "description": "Path to code respository"
+        },
+        "parameters": {
+          "type ": "object",
+          "title": "Parameters",
+          "properties": {},
+          "additionalProperties": true,
+          "description": "Parameters or configs used for process"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "start_date_time",
+        "end_date_time",
+        "input_location",
+        "output_location",
+        "code_url",
+        "parameters"
+      ]
+    }
+  }
+}

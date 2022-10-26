@@ -12,14 +12,14 @@ from aicsimageio.writers import OmeZarrWriter
 from distributed import wait
 from numpy.typing import NDArray
 
-from transfer.util.chunk_utils import (
+from aind_data_transfer.util.chunk_utils import (
     guess_chunks,
     expand_chunks,
     ensure_shape_5d,
     ensure_array_5d,
 )
-from transfer.util.file_utils import collect_filepaths
-from transfer.util.io_utils import (
+from aind_data_transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.util.io_utils import (
     DataReaderFactory,
     ImarisReader,
     MissingDatasetError,

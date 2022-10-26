@@ -1,10 +1,4 @@
 # Leave values blank to use defaults
-jobs: # Select which jobs to run
-  clip: true
-  compress: true
-  upload_to_s3: true
-  upload_to_gcp: true
-  register_to_codeocean: false
 endpoints:
   raw_data_dir: /some/random/folder/625463_2022-10-06_10-14-25
   dest_data_dir:
@@ -13,6 +7,15 @@ endpoints:
   gcp_bucket: aind-data-dev
   gcp_prefix:
   codeocean_domain: https://acmecorp.codeocean.com
+  metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas
+  code_repo_location: https://github.com/AllenNeuralDynamics/aind-data-transfer
+jobs: # Select which jobs to run
+  clip: true
+  compress: true
+  attach_metadata: true
+  upload_to_s3: true
+  upload_to_gcp: true
+  register_to_codeocean: false
 data:
   name: openephys
 clip_data_job:

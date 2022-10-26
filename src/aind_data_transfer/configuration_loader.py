@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 from numcodecs import Blosc
-from transfer.readers import EphysReaders
+from aind_data_transfer.readers import EphysReaders
 
 
 class EphysJobConfigurationLoader:
