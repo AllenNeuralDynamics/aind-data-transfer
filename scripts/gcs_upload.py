@@ -13,8 +13,8 @@ import numpy as np
 from dask_jobqueue import SLURMCluster
 from distributed import Client
 from google.cloud.storage import Blob
-from transfer.gcs import create_client, GCSUploader
-from transfer.util.file_utils import collect_filepaths, make_cloud_paths
+from aind_data_transfer.gcs import create_client, GCSUploader
+from aind_data_transfer.util.file_utils import collect_filepaths, make_cloud_paths
 
 from cluster.config import load_jobqueue_config
 
@@ -164,7 +164,7 @@ def _parse_cp_failures(log_path):
         log_path (str): path to the log file created by gsutil,
                         e.g., gsutil cp -L log_path.log ...
     Returns:
-        a list of filepaths that resulted in an error during transfer
+        a list of filepaths that resulted in an error during aind_data_transfer
     """
     failures = []
     with open(log_path, "r") as f:

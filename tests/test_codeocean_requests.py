@@ -2,7 +2,7 @@
 import unittest
 from unittest import mock
 
-from transfer.codeocean import CodeOceanDataAssetRequests
+from aind_data_transfer.codeocean import CodeOceanDataAssetRequests
 
 
 class TestCodeOceanDataAssetRequests(unittest.TestCase):
@@ -90,7 +90,7 @@ class TestCodeOceanDataAssetRequests(unittest.TestCase):
         self.assertEqual(self.expected_json_data, created_json_data)
 
     @mock.patch(
-        "transfer.codeocean.CodeOceanDataAssetRequests.register_data_asset"
+        "aind_data_transfer.codeocean.CodeOceanDataAssetRequests.register_data_asset"
     )
     def test_register_data_asset(self, mock_api_call):
         """Tests the response of registering a data asset"""

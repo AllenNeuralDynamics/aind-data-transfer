@@ -7,7 +7,7 @@ from pathlib import Path
 
 import requests
 
-import transfer
+import aind_data_transfer
 
 
 class MetadataSchemaClient:
@@ -173,7 +173,7 @@ class ProcessingMetadata(MetadataHandler):
 
         """
         name = "Ephys preprocessing"
-        version = transfer.__version__
+        version = aind_data_transfer.__version__
         msc = MetadataSchemaClient(self.schema_url)
         data_processing_instance = msc.create_data_processing_instance(
             name=name,
