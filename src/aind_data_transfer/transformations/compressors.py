@@ -9,7 +9,7 @@ from numcodecs import Blosc
 from tqdm import tqdm
 from wavpack_numcodecs import WavPack
 
-from transfer.readers import EphysReaders
+from aind_data_transfer.readers import EphysReaders
 
 
 class EphysCompressors:

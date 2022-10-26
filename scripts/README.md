@@ -6,7 +6,7 @@ python cluster/submit.py generate-and-launch-run \
 --job_cmd="python s3_upload.py --input=my-data/ --bucket=my-bucket --s3_path=data_folder/my-data --recursive --cluster" \
 --run_parent_dir="/home/user/.slurm"
 --conda_activate="/path/to/conda/bin/activate" \
---conda_env="nd-data-transfer" \
+--conda_env="aind-data-transfer" \
 --queue="aind" \
 --mail_user="cameron.arshadi@alleninstitute.org" \
 --ntasks_per_node=4 \

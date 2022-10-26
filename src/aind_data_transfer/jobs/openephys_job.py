@@ -6,13 +6,13 @@ from pathlib import Path
 
 from botocore.session import get_session
 
-from transfer.codeocean import CodeOceanDataAssetRequests
-from transfer.configuration_loader import EphysJobConfigurationLoader
-from transfer.readers import EphysReaders
-from transfer.transformations.compressors import EphysCompressors
-from transfer.transformations.metadata_creation import ProcessingMetadata
-from transfer.util.npopto_correction import correct_np_opto_electrode_locations
-from transfer.writers import EphysWriters
+from aind_data_transfer.codeocean import CodeOceanDataAssetRequests
+from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
+from aind_data_transfer.readers import EphysReaders
+from aind_data_transfer.transformations.compressors import EphysCompressors
+from aind_data_transfer.transformations.metadata_creation import ProcessingMetadata
+from aind_data_transfer.util.npopto_correction import correct_np_opto_electrode_locations
+from aind_data_transfer.writers import EphysWriters
 
 # TODO: Break these up into importable jobs to fix the flake8 warning?
 if __name__ == "__main__":  # noqa: C901
