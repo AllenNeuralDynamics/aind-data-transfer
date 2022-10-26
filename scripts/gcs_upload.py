@@ -164,7 +164,7 @@ def _parse_cp_failures(log_path):
         log_path (str): path to the log file created by gsutil,
                         e.g., gsutil cp -L log_path.log ...
     Returns:
-        a list of filepaths that resulted in an error during aind_data_transfer
+        a list of filepaths that resulted in an error during transfer
     """
     failures = []
     with open(log_path, "r") as f:
