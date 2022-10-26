@@ -7,9 +7,12 @@ endpoints:
   gcp_bucket:
   gcp_prefix:
   codeocean_domain: https://codeocean.allenneuraldynamics.org
+  metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas
+  code_repo_location: https://github.com/AllenNeuralDynamics/nd-data-transfer
 jobs: # Select which jobs to run
   clip: true
   compress: true
+  attach_metadata: true
   upload_to_s3: true
   upload_to_gcp: false
   register_to_codeocean: true
