@@ -5,7 +5,7 @@ from pathlib import Path
 
 from numcodecs import Blosc
 
-from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
+from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader, ImagingJobConfigurationLoader
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
@@ -134,6 +134,58 @@ class TestEphysJobConfigs(unittest.TestCase):
         loaded_configs2 = EphysJobConfigurationLoader().load_configs(args2)
         self.assertEqual(loaded_configs1, expected_configs)
         self.assertEqual(loaded_configs2, expected_configs)
+
+
+class TestImagingJobConfigs(unittest.TestCase):
+    metadata_schemas_url = (
+        "https://raw.githubusercontent.com/AllenNeuralDynamics/"
+        "data_schema/main/schemas"
+    )
+    code_repo_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
+
+    """Basic config loads test"""
+
+    def test_conf_loads(self):
+        """Basic config loads test"""
+
+        raw_data_dir = (
+            "tests/resources/imaging/exaSPIM_125L_2022-08-05_17-25-36"
+        )
+
+        expected_configs = {
+            "jobs": {
+                "upload_aux_files": True,
+                "transcode": True,
+            },
+            "endpoints": {
+                "raw_data_dir": raw_data_dir,
+                "dest_data_dir": None,
+                "cloud_provider": "S3",
+                "cloud_bucket": "aind-transfer-test",
+                "cloud_prefix": "exaSPIM_125L_2022-08-05_17-25-36",
+                "metadata_schemas": self.metadata_schemas_url,
+                "code_repo_location": self.code_repo_url,
+            },
+            "data": {"name": "imaging"},
+            "transcode_job": {
+                "write_kwargs": {
+                    "n_jobs": 64,
+                },
+                "compressor": {
+                    "compressor_name": "blosc",
+                    "compressor_level": 1,
+                    "kwargs": {"shuffle": Blosc.SHUFFLE},
+                },
+                "chunk_size": 64,
+            },
+            "upload_aux_files_job": {"dryrun": True},
+        }
+        conf_file_path = CONFIGS_DIR / "imaging" / "imaging_transcode_job_test_config.yml"
+
+        args = ["-c", str(conf_file_path)]
+
+        loaded_configs = ImagingJobConfigurationLoader().load_configs(args)
+        self.assertEqual(loaded_configs, expected_configs)
 
 
 if __name__ == "__main__":
