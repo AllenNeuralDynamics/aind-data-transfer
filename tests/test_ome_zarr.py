@@ -9,8 +9,9 @@ import numpy as np
 import tifffile
 import zarr
 from distributed import Client
-from aind_data_transfer.transcode.ome_zarr import write_files, write_folder
 from parameterized import parameterized
+
+from aind_data_transfer.transcode.ome_zarr import write_files, write_folder
 
 
 def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
