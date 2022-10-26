@@ -2,7 +2,7 @@ import os
 import unittest
 
 from unittest import mock
-from transfer.gcs import GCSUploader
+from aind_data_transfer.gcs import GCSUploader
 from google.auth.exceptions import DefaultCredentialsError
 
 

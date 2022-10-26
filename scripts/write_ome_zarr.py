@@ -8,9 +8,9 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
 from numcodecs import blosc
 
-from transfer.gcs import create_client
-from transfer.transcode.ome_zarr import write_files
-from transfer.util.file_utils import *
+from aind_data_transfer.gcs import create_client
+from aind_data_transfer.transcode.ome_zarr import write_files
+from aind_data_transfer.util.file_utils import *
 
 from cluster.config import load_jobqueue_config
 

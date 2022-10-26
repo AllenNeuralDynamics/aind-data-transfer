@@ -6,8 +6,8 @@ import numpy as np
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
 
-from transfer.compressors import EphysCompressors
-from transfer.readers import EphysReaders
+from aind_data_transfer.transformations.compressors import EphysCompressors
+from aind_data_transfer.readers import EphysReaders
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 RESOURCES_DIR = TEST_DIR / "resources"

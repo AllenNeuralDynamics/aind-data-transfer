@@ -13,8 +13,8 @@ import numpy as np
 from dask_jobqueue import SLURMCluster
 from distributed import Client
 from google.cloud.storage import Blob
-from transfer.gcs import create_client, GCSUploader
-from transfer.util.file_utils import collect_filepaths, make_cloud_paths
+from aind_data_transfer.gcs import create_client, GCSUploader
+from aind_data_transfer.util.file_utils import collect_filepaths, make_cloud_paths
 
 from cluster.config import load_jobqueue_config
 

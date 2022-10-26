@@ -1,8 +1,8 @@
 import unittest
 
 import numpy as np
-from transfer.util import chunk_utils
-from transfer.util.chunk_utils import DimensionsError
+from aind_data_transfer.util import chunk_utils
+from aind_data_transfer.util.chunk_utils import DimensionsError
 
 
 class TestChunkUtils(unittest.TestCase):
