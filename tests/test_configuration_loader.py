@@ -159,10 +159,7 @@ class TestImagingJobConfigs(unittest.TestCase):
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
-                "dest_data_dir": None,
-                "cloud_provider": "S3",
-                "cloud_bucket": "aind-transfer-test",
-                "cloud_prefix": "exaSPIM_125L_2022-08-05_17-25-36",
+                "dest_data_dir": "s3://aind-transfer-test/exaSPIM_125L_2022-08-05_17-25-36",
                 "metadata_schemas": self.metadata_schemas_url,
                 "code_repo_location": self.code_repo_url,
             },
