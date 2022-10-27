@@ -170,8 +170,7 @@ class TestImagingJobConfigs(unittest.TestCase):
                 },
                 "compressor": {
                     "compressor_name": "blosc",
-                    "compressor_level": 1,
-                    "kwargs": {"shuffle": Blosc.SHUFFLE},
+                    "kwargs": {"cname": "zstd", "clevel": 1, "shuffle": Blosc.SHUFFLE},
                 },
                 "chunk_size": 64,
             },

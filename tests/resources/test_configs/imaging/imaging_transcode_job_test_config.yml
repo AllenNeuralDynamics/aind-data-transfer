@@ -13,8 +13,7 @@ transcode_job:
   write_kwargs: {"n_jobs": 64}
   compressor:
     compressor_name: blosc
-    compressor_level: 1
-    kwargs: {"shuffle": "SHUFFLE"}
+    kwargs: {"cname": "zstd", "clevel": 1, "shuffle": "SHUFFLE"}
   chunk_size: 64
 upload_aux_files_job:
   dryrun: true # Set this to true to perform a dryrun of the upload
