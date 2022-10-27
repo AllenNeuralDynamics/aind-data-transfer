@@ -35,16 +35,19 @@ interrogate .
 ```
 
 - Use **flake8** to check that code is up to standards (no unused imports, etc.):
+
 ```
 flake8 .
 ```
 
 - Use **black** to automatically format the code into PEP standards:
+
 ```
 black .
 ```
 
 - Use **isort** to automatically sort import statements:
+
 ```
 isort .
 ```
