@@ -63,7 +63,8 @@
                     ],
                     "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
                     "mount": "v0.6.x_neuropixels_multiexp_multistream"
-                }
+                },
+                "logging": {"level": "INFO"}
             }
         }
     ]
