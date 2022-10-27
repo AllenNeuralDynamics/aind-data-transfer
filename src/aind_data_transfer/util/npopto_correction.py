@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 from pathlib import Path
 from packaging.version import parse
 import xml.etree.ElementTree as ET
@@ -59,7 +60,7 @@ def correct_np_opto_electrode_locations(
         needs_correction = False
         for np_probe in np_probes:
             if "OPTO" in np_probe.attrib["headstage_part_number"]:
-                print("Found NP-OPTO!")
+                logging.info("Found NP-OPTO!")
                 needs_correction = True
 
                 # update channel locations                
@@ -71,9 +72,11 @@ def correct_np_opto_electrode_locations(
         settings_file_path = str(settings_file)
         if needs_correction:
             wrong_settings_file = settings_file.parent / "settings.xml.wrong"
-            print(f"Renaming wrong NP-OPTO settings file as {wrong_settings_file}")
+            logging.info(f"Renaming wrong NP-OPTO settings file as "
+                         f"{wrong_settings_file}")
             settings_file.rename(wrong_settings_file)
-            print(f"Saving correct NP-OPTO settings file as {settings_file_path}")
+            logging.info(f"Saving correct NP-OPTO settings file as "
+                         f"{settings_file_path}")
             tree.write(settings_file_path)
         else:
-            print(f"No NP-OPTO probes found in {settings_file_path}")
+            logging.info(f"No NP-OPTO probes found in {settings_file_path}")

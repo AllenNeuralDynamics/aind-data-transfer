@@ -39,3 +39,6 @@ register_on_codeocean_job:
   tags: ['ecephys', 'raw']
   asset_name:  # Defaults to s3_prefix
   mount:  # Defaults to s3_prefix
+logging:
+  level: "INFO" # Will override with env variable LOG_LEVEL
+  file:  # If blank, will log to stdout.

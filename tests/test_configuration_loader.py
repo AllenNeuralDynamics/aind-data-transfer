@@ -71,6 +71,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
                 "mount": "v0.6.x_neuropixels_multiexp_multistream",
             },
+            "logging": {"level": "INFO"}
         }
         conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
 
@@ -124,6 +125,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "asset_name": "ecephys_625463_2022-10-06_10-14-25",
                 "mount": "ecephys_625463_2022-10-06_10-14-25",
             },
+            "logging": {"level": "INFO"}
         }
 
         conf_file_path1 = CONFIGS_DIR / "example_configs_src_pattern1.yml"

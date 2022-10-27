@@ -1,8 +1,10 @@
 """Job that reads open ephys data, compresses, and writes it."""
+import logging
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import warnings
 
 from botocore.session import get_session
 
@@ -14,11 +16,26 @@ from aind_data_transfer.transformations.metadata_creation import ProcessingMetad
 from aind_data_transfer.util.npopto_correction import correct_np_opto_electrode_locations
 from aind_data_transfer.writers import EphysWriters
 
+root_logger = logging.getLogger()
+
+# Suppress a warning from one of the third-party libraries
+deprecation_msg = ("Creating a LegacyVersion has been deprecated and will be "
+                   "removed in the next major release")
+warnings.filterwarnings("ignore",
+                        category=DeprecationWarning,
+                        message=deprecation_msg)
+
 # TODO: Break these up into importable jobs to fix the flake8 warning?
 if __name__ == "__main__":  # noqa: C901
     # Location of conf file passed in as command line arg
     job_start_time = datetime.now(timezone.utc)
     job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
+
+    root_logger.setLevel(job_configs["logging"]["level"])
+    if job_configs["logging"].get("file") is not None:
+        fh = logging.FileHandler(job_configs["logging"]["file"])
+        fh.setLevel(job_configs["logging"]["level"])
+        root_logger.addHandler(fh)
 
     # Extract raw data name, (e.g., openephys) and raw data path
     data_name = job_configs["data"]["name"]
@@ -29,8 +46,11 @@ if __name__ == "__main__":  # noqa: C901
     # correction is skipped if Neuropix-PXI version > 0.4.0
     correct_np_opto_electrode_locations(data_src_dir)
 
+    logging.info("Finished loading configs.")
+
     # Clip data job
     if job_configs["jobs"]["clip"]:
+        logging.info("Clipping source data. This may take a minute.")
         clipped_data_path = dest_data_dir / "ecephys_clipped"
         clip_kwargs = job_configs["clip_data_job"]["clip_kwargs"]
         streams_to_clip = EphysReaders.get_streams_to_clip(
@@ -39,9 +59,11 @@ if __name__ == "__main__":  # noqa: C901
         EphysWriters.copy_and_clip_data(
             data_src_dir, clipped_data_path, streams_to_clip, **clip_kwargs
         )
+        logging.info("Finished clipping source data.")
 
     # Compress data job
     if job_configs["jobs"]["compress"]:
+        logging.info("Compressing source data.")
         compressed_data_path = dest_data_dir / "ecephys_compressed"
         compressor_name = job_configs["compress_data_job"]["compressor"][
             "compressor_name"
@@ -66,9 +88,11 @@ if __name__ == "__main__":  # noqa: C901
             job_kwargs=write_kwargs,
             **format_kwargs,
         )
+        logging.info("Finished compressing source data.")
 
     job_end_time = datetime.now(timezone.utc)
     if job_configs["jobs"]["attach_metadata"]:
+        logging.info("Creating processing.json file.")
         start_date_time = job_start_time
         end_date_time = job_end_time
         input_location = data_src_dir
@@ -102,10 +126,12 @@ if __name__ == "__main__":  # noqa: C901
         processing_metadata.write_metadata(
             schema_instance=processing_instance, output_dir=dest_data_dir
         )
+        logging.info("Finished creating processing.json file.")
 
     # Upload to s3
     if job_configs["jobs"]["upload_to_s3"]:
         # TODO: Use s3transfer library instead of subprocess?
+        logging.info("Uploading to s3.")
         s3_bucket = job_configs["endpoints"]["s3_bucket"]
         s3_prefix = job_configs["endpoints"]["s3_prefix"]
         aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
@@ -122,9 +148,11 @@ if __name__ == "__main__":  # noqa: C901
             )
         else:
             subprocess.run(["aws", "s3", "sync", dest_data_dir, aws_dest])
+        logging.info("Finished uploading to s3.")
 
     # Upload to gcp
     if job_configs["jobs"]["upload_to_gcp"]:
+        logging.info("Uploading to gcp.")
         gcp_bucket = job_configs["endpoints"]["gcp_bucket"]
         gcp_prefix = job_configs["endpoints"]["gcp_prefix"]
         gcp_dest = f"gs://{gcp_bucket}/{gcp_prefix}"
@@ -144,10 +172,12 @@ if __name__ == "__main__":  # noqa: C901
             subprocess.run(
                 ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest]
             )
+        logging.info("Finished uploading to gcp.")
 
     # Register Asset on CodeOcean
     if job_configs["jobs"]["register_to_codeocean"]:
         # Use botocore to retrieve aws access tokens
+        logging.info("Registering data asset to code ocean.")
         aws_session = get_session()
         aws_credentials = aws_session.get_credentials()
         aws_key = aws_credentials.access_key
@@ -178,3 +208,5 @@ if __name__ == "__main__":  # noqa: C901
         )
 
         co_client.register_data_asset(json_data=json_data)
+
+        logging.info("Finished registering data asset to code ocean.")

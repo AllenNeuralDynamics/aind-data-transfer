@@ -1,5 +1,6 @@
 """Loads job configurations"""
 import argparse
+import logging
 import os
 import re
 from pathlib import Path
@@ -107,6 +108,25 @@ class EphysJobConfigurationLoader:
                 "CODEOCEAN_API_TOKEN"
             )
 
+    @staticmethod
+    def __resolve_logging(configs: dict) -> None:
+        """
+        Resolves logging config in place
+        Parameters
+        ----------
+        configs : dict
+          Configurations
+
+        Returns
+        -------
+        None
+        """
+
+        if configs["logging"]["level"] is None:
+            configs["logging"]["level"] = "INFO"
+        if os.getenv("LOG_LEVEL"):
+            configs["logging"]["level"] = os.getenv("LOG_LEVEL")
+
     def load_configs(self, sys_args):
         """Load yaml config at conf_src Path as python dict"""
         parser = argparse.ArgumentParser()
@@ -123,6 +143,7 @@ class EphysJobConfigurationLoader:
         if args.raw_data_source is not None:
             raw_config["endpoints"]["raw_data_dir"] = args.raw_data_source
         self.__resolve_endpoints(raw_config)
+        self.__resolve_logging(raw_config)
         config_without_nones = self.__remove_none(raw_config)
         self.__parse_compressor_configs(config_without_nones)
         return config_without_nones
