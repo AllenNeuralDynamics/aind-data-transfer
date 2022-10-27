@@ -49,7 +49,6 @@ class MetadataSchemaClient:
 
         """
         schema_location = f"{self.base_url}/{schema.value}.json"
-        print(schema_location)
         response = requests.get(schema_location)
         return response.json()
 
