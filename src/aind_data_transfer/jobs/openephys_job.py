@@ -31,14 +31,11 @@ if __name__ == "__main__":  # noqa: C901
     job_start_time = datetime.now(timezone.utc)
     job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
 
-    # Set up logger
-    # root_logger = logging.getLogger()
     root_logger.setLevel(job_configs["logging"]["level"])
-    # handler = logging.StreamHandler(sys.stdout)
-    # handler.setLevel(job_configs["logging"]["level"])
-    # root.addHandler(handler)
     if job_configs["logging"].get("file") is not None:
-        logging.basicConfig(filename=job_configs["logging"]["file"])
+        fh = logging.FileHandler(job_configs["logging"]["file"])
+        fh.setLevel(job_configs["logging"]["level"])
+        root_logger.addHandler(fh)
 
     # Extract raw data name, (e.g., openephys) and raw data path
     data_name = job_configs["data"]["name"]
