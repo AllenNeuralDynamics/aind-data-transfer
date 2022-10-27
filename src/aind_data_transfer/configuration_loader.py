@@ -179,7 +179,8 @@ class ImagingJobConfigurationLoader(JobConfigurationLoader):
             provider, bucket, prefix = parse_cloud_url(dest_data_dir)
             if prefix == "":
                 prefix = Path(configs["endpoints"]["raw_data_dir"]).name
-                configs["endpoints"]["dest_data_dir"] += "/" + prefix
+                dest_data_dir = dest_data_dir.strip("/") + '/' + prefix
+                configs["endpoints"]["dest_data_dir"] = dest_data_dir
 
     @staticmethod
     def __parse_compressor_configs(configs):
