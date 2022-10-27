@@ -111,6 +111,9 @@ def write_files(
             Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
         )
 
+        # Attempt to parse tile origin
+        origin = _parse_origin(reader)
+
         # We determine the chunk size before creating the dask array since
         # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
         # causes memory use to grow (unbounded?) during the zarr write step.
@@ -142,6 +145,7 @@ def write_files(
             pyramid=pyramid,
             image_name=tile_name,
             physical_pixel_sizes=physical_pixel_sizes,
+            translation=origin,
             channel_names=None,
             channel_colors=None,
             scale_factor=(scale_factor,) * 3,
@@ -239,6 +243,18 @@ def write_folder(
         voxel_size,
         storage_options,
     )
+
+
+def _parse_origin(reader):
+    origin = None
+    try:
+        origin = reader.get_origin()
+        while len(origin) < 5:
+            origin = (0, *origin)
+    except AttributeError:
+        LOGGER.warning("Origin metadata could not be parsed from image")
+    LOGGER.info(f"Using origin: {origin}")
+    return origin
 
 
 def _tile_exists(zarr_path, tile_name, n_levels):
