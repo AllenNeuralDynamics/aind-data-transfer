@@ -6,7 +6,9 @@ from pathlib import Path
 
 import yaml
 from numcodecs import Blosc
+
 from aind_data_transfer.readers import EphysReaders
+from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
 
 
 class JobConfigurationLoader:
@@ -163,9 +165,8 @@ class ImagingJobConfigurationLoader(JobConfigurationLoader):
     @staticmethod
     def __resolve_endpoints(configs):
         """
-        If the dest_data_dir is provided, the data will be transfered to a filesystem. Otherwise,
-         data will be uploaded to cloud storage. In this case, the cloud provider and bucket must be specified.
-         The cloud prefix will be parsed from the acquisition directory name.
+        If the destination folder is a cloud bucket without prefix, a prefix will be
+        created using the acquisition directory name.
         Args:
             configs (dic): Configurations
 
@@ -174,15 +175,11 @@ class ImagingJobConfigurationLoader(JobConfigurationLoader):
         """
 
         dest_data_dir = configs["endpoints"]["dest_data_dir"]
-        if dest_data_dir is None:
-            # assume we only want to upload to cloud storage
-            if configs["endpoints"]["cloud_provider"] is None:
-                raise Exception(f"dest_data_dir is unspecified, but no cloud storage provider was given.")
-            if configs["endpoints"]["cloud_bucket"] is None:
-                raise Exception(f"dest_data_dir is unspecified, but no cloud bucket was given.")
-            if configs["endpoints"]["cloud_prefix"] is None:
-                raw_data_folder = Path(configs["endpoints"]["raw_data_dir"]).name
-                configs["endpoints"]["cloud_prefix"] = raw_data_folder
+        if is_cloud_url(dest_data_dir):
+            provider, bucket, prefix = parse_cloud_url(dest_data_dir)
+            if prefix == "":
+                prefix = Path(configs["endpoints"]["raw_data_dir"]).name
+                configs["endpoints"]["dest_data_dir"] += "/" + prefix
 
     @staticmethod
     def __parse_compressor_configs(configs):
