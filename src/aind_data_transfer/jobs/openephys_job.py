@@ -6,7 +6,7 @@ from pathlib import Path
 
 from botocore.session import get_session
 
-from aind_data_transfer.codeocean import CodeOceanDataAssetRequests
+from aind_data_transfer.codeocean import CodeOceanDataAssetRequests, CodeOceanCapsuleRequests
 from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
 from aind_data_transfer.readers import EphysReaders
 from aind_data_transfer.transformations.compressors import EphysCompressors
@@ -145,7 +145,9 @@ if __name__ == "__main__":  # noqa: C901
                 ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest]
             )
 
+    # TODO: Do these next steps on a cloud service?
     # Register Asset on CodeOcean
+    data_asset_response = None
     if job_configs["jobs"]["register_to_codeocean"]:
         # Use botocore to retrieve aws access tokens
         aws_session = get_session()
@@ -167,7 +169,7 @@ if __name__ == "__main__":  # noqa: C901
         bucket = job_configs["endpoints"]["s3_bucket"]
         prefix = job_configs["endpoints"]["s3_prefix"]
 
-        json_data = CodeOceanDataAssetRequests.create_post_json_data(
+        data_asset_response = co_client.register_data_asset(
             asset_name=asset_name,
             mount=mount,
             bucket=bucket,
@@ -177,4 +179,26 @@ if __name__ == "__main__":  # noqa: C901
             tags=co_tags,
         )
 
-        co_client.register_data_asset(json_data=json_data)
+    # Automatically trigger capsule run
+    if job_configs["jobs"]["trigger_codeocean_spike_sorting"]:
+
+        if (job_configs["jobs"]["register_to_codeocean"] and
+                data_asset_response):
+            data_asset_id = data_asset_response["id"]
+        else:
+            data_asset_id = (
+                job_configs["trigger_codeocean_spike_sorting_job"]["asset_id"])
+        capsule_id = (
+            job_configs["trigger_codeocean_spike_sorting_job"]["capsule_id"])
+        co_api_token = (
+            job_configs["trigger_codeocean_spike_sorting_job"]["api_token"])
+        co_domain = job_configs["endpoints"]["codeocean_domain"]
+        co_client = CodeOceanCapsuleRequests(
+            domain=co_domain, token=co_api_token
+        )
+        mount = (
+            job_configs["trigger_codeocean_spike_sorting_job"]["mount"])
+        # [{"id": "'"$DATA_ASSET_ID"'", "mount": "'"$MOUNT_POINT"'"}]
+        data_assets = [{"id": data_asset_id, "mount": mount}]
+        capsule_rune_response = co_client.run_capsule(capsule_id=capsule_id,
+                                                      data_assets=data_assets)
