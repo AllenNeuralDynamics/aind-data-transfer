@@ -22,6 +22,8 @@ def collect_filepaths(
     Returns:
         list of filepaths
     """
+    if exclude_dirs is None:
+        exclude_dirs = []
     filepaths = []
     for root, _, files in os.walk(folder):
         root_name = Path(root).name
