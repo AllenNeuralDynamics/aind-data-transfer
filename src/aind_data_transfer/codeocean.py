@@ -31,12 +31,6 @@ class CodeOceanClient:
         self.computation_url = (
             f"{self.domain}/api/v{self.api_version}/computations")
 
-
-class CodeOceanDataAssetRequests(CodeOceanClient):
-    """This class will handle the methods needed to manage data assets stored
-    on Code Ocean's platform.
-    """
-
     def register_data_asset(self,
                             asset_name: str,
                             mount: str,
@@ -48,7 +42,7 @@ class CodeOceanDataAssetRequests(CodeOceanClient):
                             asset_description: Optional[str] = "",
                             keep_on_external_storage: Optional[bool] = True,
                             index_data: Optional[bool] = True
-                            ) -> dict:
+                            ) -> requests.models.Response:
         """
         Parameters
         ---------------
@@ -77,7 +71,7 @@ class CodeOceanDataAssetRequests(CodeOceanClient):
             Whether to index the data asset. Defaults to True.
         Returns
         ---------------
-        A json object as documented by CodeOcean's v1 api docs.
+        requests.models.Response
         """
 
         tags_to_attach = [] if tags is None else tags
@@ -103,20 +97,14 @@ class CodeOceanDataAssetRequests(CodeOceanClient):
         response = requests.post(self.asset_url,
                                  json=json_data,
                                  auth=(self.token, ""))
-        return response.json()
-
-
-class CodeOceanCapsuleRequests(CodeOceanClient):
-    """This class will handle the methods needed to manage capsules stored
-    on Code Ocean's platform.
-    """
+        return response
 
     def run_capsule(
             self,
             capsule_id: str,
             data_assets: List[Dict],
             parameters: Optional[List] = None,
-    ) -> dict:
+    ) -> requests.models.Response:
         """
         This will run a capsule/pipeline using a POST request to code ocean
         API.
@@ -148,7 +136,7 @@ class CodeOceanCapsuleRequests(CodeOceanClient):
 
         Returns
         ---------------
-        A json object as documented by CodeOcean's v1 api docs.
+        requests.models.Response
         """
 
         data = {
@@ -165,4 +153,4 @@ class CodeOceanCapsuleRequests(CodeOceanClient):
             auth=(self.token, "")
         )
 
-        return response.json()
+        return response
