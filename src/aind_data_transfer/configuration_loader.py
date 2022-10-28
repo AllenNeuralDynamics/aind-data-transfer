@@ -12,18 +12,7 @@ from aind_data_transfer.readers import EphysReaders
 from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
 
 
-class JobConfigurationLoader:
-
-    @staticmethod
-    def load_configs(self, sys_args):
-        raise NotImplementedError
-
-    @staticmethod
-    def _resolve_endpoints(self):
-        raise NotImplementedError
-
-
-class EphysJobConfigurationLoader(JobConfigurationLoader):
+class EphysJobConfigurationLoader:
     """Class to handle loading ephys job configs"""
 
     def __remove_none(self, data):
@@ -162,7 +151,7 @@ class EphysJobConfigurationLoader(JobConfigurationLoader):
         return config_without_nones
 
 
-class ImagingJobConfigurationLoader(JobConfigurationLoader):
+class ImagingJobConfigurationLoader:
 
     def load_configs(self, sys_args):
         """Load yaml config at conf_src Path as python dict"""
