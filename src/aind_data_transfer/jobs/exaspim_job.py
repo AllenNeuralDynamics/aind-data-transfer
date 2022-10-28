@@ -92,7 +92,7 @@ def main():
                 cmd = _build_gcs_cmd(data_src_dir, bucket, prefix, raw_image_dir_name)
             else:
                 raise Exception(f"Unsupported cloud storage: {provider}")
-            ret = subprocess.run(cmd)
+            ret = subprocess.run(cmd, shell=True)
         else:
             copytree(data_src_dir, dest_data_dir, ignore=ignore_patterns(raw_image_dir_name))
 
