@@ -156,7 +156,7 @@ class TestImagingJobConfigs(unittest.TestCase):
 
         expected_configs = {
             "jobs": {
-                "upload_aux_files": True,
+                "upload_aux_files": False,
                 "transcode": True,
             },
             "endpoints": {
@@ -167,18 +167,29 @@ class TestImagingJobConfigs(unittest.TestCase):
             },
             "data": {"name": "imaging"},
             "transcode_job": {
-                "write_kwargs": {
-                    "n_jobs": 64,
-                },
                 "compressor": {
                     "compressor_name": "blosc",
                     "kwargs": {"cname": "zstd", "clevel": 1, "shuffle": Blosc.SHUFFLE},
                 },
                 "chunk_size": 64,
-            },
-            "upload_aux_files_job": {"dryrun": True},
+                "resume": False,
+                "n_levels": 8,
+                'submit_args': {
+                    'conda_activate': '/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/bin/activate',
+                    'conda_env': 'aind-data-transfer',
+                    'cpus_per_task': 1,
+                    'mail_user': 'cameron.arshadi@alleninstitute.org',
+                    'mem_per_cpu': 3000,
+                    'nodes': 8,
+                    'ntasks_per_node': 8,
+                    'run_parent_dir': '/home/cameron.arshadi/exaSPIM-transcode-jobs/exaSPIM_125L_2022-08-05_17-25-36',
+                    'tmp_space': '8GB',
+                    'walltime': '72:00:00',
+                    "queue": "aind"
+                }
+            }
         }
-        conf_file_path = CONFIGS_DIR / "imaging" / "imaging_transcode_job_test_config.yml"
+        conf_file_path = CONFIGS_DIR / "imaging" / "transcode_job_test_config.yml"
 
         args = ["-c", str(conf_file_path)]
 
