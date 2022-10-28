@@ -20,6 +20,18 @@ def main():
 
     dimensions = {
         # check the order
+        "x": {
+            "voxel_size": 0.75,
+            "unit": 'microns'
+        },
+        "y": {
+            "voxel_size": 0.75,
+            "unit": 'microns'
+        },
+        "z": {
+            "voxel_size": 1.0,
+            "unit": 'microns'
+        },
         "t": {
             "voxel_size": 0.001,
             "unit": 'seconds'
@@ -27,19 +39,7 @@ def main():
         'c': {
             "voxel_size": 1.0,
             "unit": "microns"
-        },
-        "z": {
-            "voxel_size": 1.0,
-            "unit": 'microns'
-        },
-        "y": {
-            "voxel_size": 0.75,
-            "unit": 'microns'
-        },
-        "x": {
-            "voxel_size": 0.75,
-            "unit": 'microns'
-        },
+        }
     }
 
     fs = s3fs.S3FileSystem()
