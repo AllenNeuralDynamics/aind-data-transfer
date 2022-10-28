@@ -1,5 +1,6 @@
 """This module contains the api to retrieve a reader for ephys data.
 """
+import re
 from enum import Enum
 from pathlib import Path
 
@@ -119,8 +120,8 @@ class ImagingReaders:
     class SourceRegexPatterns(Enum):
         """Enum for regex patterns the source folder name should match"""
 
-        exaspim_aquisition = r"exaSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
-        mesospim_aquisition = r"mesoSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+        exaspim_acquisition = r"exaSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+        mesospim_acquisition = r"mesoSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
 
     @staticmethod
     def get_raw_data_dir(reader_name, input_dir):
@@ -133,3 +134,15 @@ class ImagingReaders:
         if not raw_data_dir.is_dir():
             raise FileNotFoundError(f"Raw data directory not found: {raw_data_dir}")
         return raw_data_dir
+
+    @staticmethod
+    def get_reader_name(input_dir):
+        # re.search does not work with Path objects
+        input_dir = str(input_dir)
+        if re.search(ImagingReaders.Readers.exaspim.value, input_dir) is not None:
+            return ImagingReaders.Readers.exaspim.value
+        elif re.search(ImagingReaders.Readers.mesospim.value, input_dir) is not None:
+            return ImagingReaders.Readers.mesospim.value
+        else:
+            raise Exception(f"An appropriate reader could not be created for {input_dir}")
+
