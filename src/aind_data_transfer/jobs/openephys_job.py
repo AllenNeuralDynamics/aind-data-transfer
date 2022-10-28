@@ -175,7 +175,7 @@ if __name__ == "__main__":  # noqa: C901
             )
         logging.info("Finished uploading to gcp.")
 
-    # TODO: Do these next steps on a cloud service?
+    # TODO: Combine these steps into a capsule?
     # Register Asset on CodeOcean
     if (job_configs["jobs"]["register_to_codeocean"] or
             job_configs["jobs"]["trigger_codeocean_spike_sorting"]):
@@ -205,23 +205,28 @@ if __name__ == "__main__":  # noqa: C901
                 secret_access_key=aws_secret,
                 tags=co_tags,
             )
-            logging.info("Finished registering data asset to code ocean.")
+            logging.info(f"Finished registering data asset to code ocean. "
+                         f"{data_asset_response.json()}")
 
         # Automatically trigger capsule run
         if job_configs["jobs"]["trigger_codeocean_spike_sorting"]:
             logging.info("Triggering a capsule run.")
+            conf_name = "trigger_codeocean_spike_sorting_job"
             if data_asset_response is not None:
-                data_asset_id = data_asset_response["id"]
+                response_contents = data_asset_response.json()
+                data_asset_id = response_contents["id"]
             else:
                 data_asset_id = (
-                    job_configs["trigger_codeocean_spike_sorting_job"]["asset_id"])
+                    job_configs[conf_name]["asset_id"])
             capsule_id = (
-                job_configs["trigger_codeocean_spike_sorting_job"]["capsule_id"])
+                job_configs[conf_name]["capsule_id"])
             mount = (
-                job_configs["trigger_codeocean_spike_sorting_job"]["mount"])
+                job_configs[conf_name]["mount"])
             data_assets = [{"id": data_asset_id, "mount": mount}]
-            capsule_run_response = co_client.run_capsule(capsule_id=capsule_id,
-                                                         data_assets=data_assets)
+            capsule_run_response = (
+                co_client.run_capsule(capsule_id=capsule_id,
+                                      data_assets=data_assets))
 
-            logging.info("Finished triggering a capsule run. Please check "
-                         "CodeOcean for status of capsule")
+            logging.info(f"Finished triggering a capsule run. Please check "
+                         f"CodeOcean for status of capsule. "
+                         f"{capsule_run_response}")
