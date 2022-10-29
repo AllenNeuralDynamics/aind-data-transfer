@@ -6,7 +6,9 @@ import platform
 
 import numpy as np
 
-WARN_WINDOWS_FILENAME_LEN = 200
+# Zarr adds many characters for groups, datasets,
+# file names and temporary files. 
+MAX_WINDOWS_FILENAME_LEN = 100
 
 
 class EphysWriters:
@@ -41,8 +43,9 @@ class EphysWriters:
             experiment_name = read_block["experiment_name"]
             stream_name = read_block["stream_name"]
             zarr_path = output_dir / f"{experiment_name}_{stream_name}.zarr"
+            print(len(str(zarr_path)))
             if platform.system() == "Windows" and \
-                len(str(zarr_path)) > WARN_WINDOWS_FILENAME_LEN:
+                len(str(zarr_path)) > MAX_WINDOWS_FILENAME_LEN:
                 raise Exception(
                     f"File name for zarr path is too long ({len(str(zarr_path))})"
                     f" and might lead to errors. Use a shorter destination path."
