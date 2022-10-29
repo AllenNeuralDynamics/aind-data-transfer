@@ -1,6 +1,5 @@
 """Loads job configurations"""
 import argparse
-import logging
 import os
 import re
 from pathlib import Path
@@ -93,22 +92,16 @@ class EphysJobConfigurationLoader:
             configs["endpoints"]["gcp_prefix"] = dest_data_folder
 
         if configs["register_on_codeocean_job"]["asset_name"] is None:
-            configs["register_on_codeocean_job"]["asset_name"] = configs[
-                "endpoints"
-            ]["s3_prefix"]
+            configs["register_on_codeocean_job"]["asset_name"] = (
+                configs["endpoints"]["s3_prefix"])
 
         if configs["register_on_codeocean_job"]["mount"] is None:
-            configs["register_on_codeocean_job"]["mount"] = configs[
-                "endpoints"
-            ]["s3_prefix"]
+            configs["register_on_codeocean_job"]["mount"] = (
+                configs["endpoints"]["s3_prefix"])
 
-        if (
-            configs["jobs"]["register_to_codeocean"]
-            and configs["register_on_codeocean_job"]["api_token"] is None
-        ):
-            configs["register_on_codeocean_job"]["api_token"] = os.getenv(
-                "CODEOCEAN_API_TOKEN"
-            )
+        if configs["trigger_codeocean_spike_sorting_job"]["mount"] is None:
+            configs["trigger_codeocean_spike_sorting_job"]["mount"] = (
+                configs["endpoints"]["s3_prefix"])
 
     @staticmethod
     def __resolve_logging(configs: dict) -> None:

@@ -17,7 +17,8 @@
                     "compress": true,
                     "upload_to_s3": true,
                     "upload_to_gcp": true,
-                    "register_to_codeocean": false
+                    "register_to_codeocean": false,
+                    "trigger_codeocean_spike_sorting": false
                 },
                 "endpoints": {
                     "raw_data_dir": "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
@@ -64,6 +65,7 @@
                     "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
                     "mount": "v0.6.x_neuropixels_multiexp_multistream"
                 },
+                "trigger_codeocean_spike_sorting_job": {"mount": "v0.6.x_neuropixels_multiexp_multistream"},
                 "logging": {"level": "INFO"}
             }
         }
