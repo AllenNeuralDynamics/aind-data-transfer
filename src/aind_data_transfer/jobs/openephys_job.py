@@ -1,5 +1,6 @@
 """Job that reads open ephys data, compresses, and writes it."""
 import logging
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -8,7 +9,7 @@ import warnings
 
 from botocore.session import get_session
 
-from aind_data_transfer.codeocean import CodeOceanDataAssetRequests
+from aind_data_transfer.codeocean import CodeOceanClient
 from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
 from aind_data_transfer.readers import EphysReaders
 from aind_data_transfer.transformations.compressors import EphysCompressors
@@ -174,39 +175,58 @@ if __name__ == "__main__":  # noqa: C901
             )
         logging.info("Finished uploading to gcp.")
 
+    # TODO: Combine these steps into a capsule?
     # Register Asset on CodeOcean
-    if job_configs["jobs"]["register_to_codeocean"]:
-        # Use botocore to retrieve aws access tokens
-        logging.info("Registering data asset to code ocean.")
-        aws_session = get_session()
-        aws_credentials = aws_session.get_credentials()
-        aws_key = aws_credentials.access_key
-        aws_secret = aws_credentials.secret_key
-
-        co_api_token = job_configs["register_on_codeocean_job"]["api_token"]
+    if (job_configs["jobs"]["register_to_codeocean"] or
+            job_configs["jobs"]["trigger_codeocean_spike_sorting"]):
+        data_asset_response = None
+        co_api_token = os.getenv("CODEOCEAN_API_TOKEN")
         co_domain = job_configs["endpoints"]["codeocean_domain"]
-        co_client = CodeOceanDataAssetRequests(
-            domain=co_domain, token=co_api_token
-        )
+        co_client = CodeOceanClient(domain=co_domain,
+                                    token=co_api_token)
+        if job_configs["jobs"]["register_to_codeocean"]:
+            # Use botocore to retrieve aws access tokens
+            logging.info("Registering data asset to code ocean.")
+            aws_session = get_session()
+            aws_credentials = aws_session.get_credentials()
+            aws_key = aws_credentials.access_key
+            aws_secret = aws_credentials.secret_key
+            co_tags = job_configs["register_on_codeocean_job"]["tags"]
+            asset_name = job_configs["register_on_codeocean_job"]["asset_name"]
+            mount = job_configs["register_on_codeocean_job"]["mount"]
+            bucket = job_configs["endpoints"]["s3_bucket"]
+            prefix = job_configs["endpoints"]["s3_prefix"]
+            data_asset_response = co_client.register_data_asset(
+                asset_name=asset_name,
+                mount=mount,
+                bucket=bucket,
+                prefix=prefix,
+                access_key_id=aws_key,
+                secret_access_key=aws_secret,
+                tags=co_tags,
+            )
+            logging.info(f"Finished registering data asset to code ocean. "
+                         f"{data_asset_response.json()}")
 
-        co_tags = job_configs["register_on_codeocean_job"]["tags"]
+        # Automatically trigger capsule run
+        if job_configs["jobs"]["trigger_codeocean_spike_sorting"]:
+            logging.info("Triggering a capsule run.")
+            conf_name = "trigger_codeocean_spike_sorting_job"
+            if data_asset_response is not None:
+                response_contents = data_asset_response.json()
+                data_asset_id = response_contents["id"]
+            else:
+                data_asset_id = (
+                    job_configs[conf_name]["asset_id"])
+            capsule_id = (
+                job_configs[conf_name]["capsule_id"])
+            mount = (
+                job_configs[conf_name]["mount"])
+            data_assets = [{"id": data_asset_id, "mount": mount}]
+            capsule_run_response = (
+                co_client.run_capsule(capsule_id=capsule_id,
+                                      data_assets=data_assets))
 
-        asset_name = job_configs["register_on_codeocean_job"]["asset_name"]
-        mount = job_configs["register_on_codeocean_job"]["mount"]
-
-        bucket = job_configs["endpoints"]["s3_bucket"]
-        prefix = job_configs["endpoints"]["s3_prefix"]
-
-        json_data = CodeOceanDataAssetRequests.create_post_json_data(
-            asset_name=asset_name,
-            mount=mount,
-            bucket=bucket,
-            prefix=prefix,
-            access_key_id=aws_key,
-            secret_access_key=aws_secret,
-            tags=co_tags,
-        )
-
-        co_client.register_data_asset(json_data=json_data)
-
-        logging.info("Finished registering data asset to code ocean.")
+            logging.info(f"Finished triggering a capsule run. Please check "
+                         f"CodeOcean for status of capsule. "
+                         f"{capsule_run_response}")
