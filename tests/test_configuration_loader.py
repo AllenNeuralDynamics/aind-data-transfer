@@ -38,6 +38,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
                 "register_to_codeocean": False,
+                "trigger_codeocean_spike_sorting": False
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
@@ -71,6 +72,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
                 "mount": "v0.6.x_neuropixels_multiexp_multistream",
             },
+            "trigger_codeocean_spike_sorting_job": {"mount": "v0.6.x_neuropixels_multiexp_multistream"},
             "logging": {"level": "INFO"}
         }
         conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
@@ -92,6 +94,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
                 "register_to_codeocean": False,
+                "trigger_codeocean_spike_sorting": False
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
@@ -125,6 +128,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "asset_name": "ecephys_625463_2022-10-06_10-14-25",
                 "mount": "ecephys_625463_2022-10-06_10-14-25",
             },
+            "trigger_codeocean_spike_sorting_job": {"mount": "ecephys_625463_2022-10-06_10-14-25"},
             "logging": {"level": "INFO"}
         }
 
