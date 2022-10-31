@@ -26,7 +26,7 @@ class EphysCompressors:
     compressors = [member.value for member in Compressors]
 
     @staticmethod
-    def get_compressor(compressor_name, kwargs):
+    def get_compressor(compressor_name, **kwargs):
         """
         Retrieve a compressor for a given name and optional kwargs.
         Args:
@@ -178,7 +178,7 @@ class ImagingCompressors:
     compressors = [member.value for member in Compressors]
 
     @staticmethod
-    def get_compressor(compressor_name, kwargs):
+    def get_compressor(compressor_name, **kwargs):
         """
         Retrieve a compressor for a given name and optional kwargs.
         Args:
