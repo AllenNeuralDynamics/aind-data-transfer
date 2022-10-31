@@ -22,10 +22,10 @@ class TestEphysCompressors(unittest.TestCase):
         }
         wavpack_configs = {"level": 3}
         blosc = EphysCompressors.get_compressor(
-            EphysCompressors.Compressors.blosc.name, blosc_configs
+            EphysCompressors.Compressors.blosc.name, **blosc_configs
         )
         wavpack = EphysCompressors.get_compressor(
-            EphysCompressors.Compressors.wavpack.name, wavpack_configs
+            EphysCompressors.Compressors.wavpack.name, **wavpack_configs
         )
         expected_blosc = Blosc(
             cname="zstd", clevel=9, shuffle=Blosc.BITSHUFFLE
@@ -103,7 +103,7 @@ class TestImagingCompressors(unittest.TestCase):
             "shuffle": Blosc.SHUFFLE
         }
         blosc = ImagingCompressors.get_compressor(
-            ImagingCompressors.Compressors.blosc.name, blosc_configs
+            ImagingCompressors.Compressors.blosc.name, **blosc_configs
         )
         expected_blosc = Blosc(
             cname="zstd", clevel=1, shuffle=Blosc.SHUFFLE
