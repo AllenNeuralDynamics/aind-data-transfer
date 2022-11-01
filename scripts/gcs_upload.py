@@ -129,7 +129,7 @@ def run_cluster_job(
 
 
 def run_python_local_job(
-    input_dir, bucket, gcs_path, n_workers=4, chunk_size=256 * 1024 * 1024
+    input_dir, bucket, gcs_path, n_workers=4, chunk_size=256 * 1024 * 1024, exclude_dirs=None
 ):
     """
     Upload a directory using the google-cloud-storage Python API and multiprocessing
@@ -140,8 +140,9 @@ def run_python_local_job(
         n_workers (int): number of workers
         chunk_size (int): set the blob chunk size (bytes).
                           Increasing this can speed up transfers.
+        exclude_dirs (list): list of directory names to exclude, e.g., ["dir1", "dir2"]
     """
-    files = collect_filepaths(input_dir, recursive=True)
+    files = collect_filepaths(input_dir, recursive=True, exclude_dirs=exclude_dirs)
     chunked_files = _chunk_files(files, n_workers, tasks_per_worker=1)
     args = zip(
         itertools.repeat(bucket),
@@ -328,6 +329,13 @@ def parse_args():
         help="Validate that all uploads were successful. This can take a while if there are many files."
         "This is an additional billed API request for each uploaded object.",
     )
+    parser.add_argument(
+        "--exclude_dirs",
+        type=str,
+        nargs="+",
+        default=None,
+        help="directories to exclude from upload"
+    )
     args = parser.parse_args()
     return args
 
@@ -343,7 +351,7 @@ def main():
     gcs_path = gcs_path.strip("/")
     logger.info(f"Will upload to {args.bucket}/{gcs_path}")
 
-    filepaths = collect_filepaths(args.input, recursive=args.recursive)
+    filepaths = collect_filepaths(args.input, recursive=args.recursive, exclude_dirs=args.exclude_dirs)
     cloud_paths = make_cloud_paths(filepaths, args.gcs_path, args.input)
 
     t0 = time.time()
@@ -361,12 +369,13 @@ def main():
         # replace CLI friendly string (no spaces) with actual gcloud command string
         norm_method = args.method.replace("_", " ")
         if norm_method in GCLOUD_TOOLS:
+            # TODO: add exclusions
             run_gcloud_local_job(
                 norm_method, args.input, args.bucket, args.gcs_path, args.nthreads
             )
         elif norm_method == "python":
             run_python_local_job(
-                args.input, args.bucket, args.gcs_path, args.nthreads
+                args.input, args.bucket, args.gcs_path, args.nthreads, exclude_dirs=args.exclude_dirs
             )
         else:
             raise ValueError(f"Unsupported method {norm_method}")

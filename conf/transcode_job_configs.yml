@@ -1,0 +1,31 @@
+# Leave values blank to use defaults
+endpoints:
+  raw_data_dir: "/net/172.20.102.30/aind/exaSPIM/exaSPIM_614978_stitching_test_2022-10-25_12-49-57"
+  dest_data_dir: "s3://aind-open-data"
+  metadata_schemas: "https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas"
+  code_repo_location: "https://github.com/AllenNeuralDynamics/aind-data-transfer"
+jobs: # Select which jobs to run
+  upload_aux_files: true
+  transcode: true
+data:
+  name: exaspim
+transcode_job:
+  compressor:
+    compressor_name: blosc
+    kwargs: {cname: "zstd", clevel: 1, shuffle: "SHUFFLE"}
+  chunk_size: 64
+  resume: false  # resume processing if previous job failed
+  n_levels: 8
+  submit_args: {
+    nodes: 8,
+    ntasks_per_node: 8,
+    cpus_per_task: 1,
+    mem_per_cpu: 3000,  # MB
+    conda_activate: "/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/bin/activate",
+    conda_env: "aind-data-transfer",
+    run_parent_dir: "/home/cameron.arshadi/exaSPIM-transcode-jobs/exaSPIM_614978_stitching_test_2022-10-25_12-49-57",
+    walltime: "72:00:00",
+    tmp_space: "8GB",  # this is per node
+    mail_user: "cameron.arshadi@alleninstitute.org",
+    queue: "aind"
+  }
