@@ -10,6 +10,7 @@ def collect_filepaths(
     folder: Union[str, os.PathLike],
     recursive: bool = True,
     include_exts: Optional[List[str]] = None,
+    exclude_dirs: Optional[List[str]] = None,
 ) -> List[str]:
     """Get the absolute paths for all files in folder
     Args:
@@ -17,11 +18,17 @@ def collect_filepaths(
         recursive (bool): whether to traverse all sub-folders
         include_exts (optional): list of valid file extensions to include.
                                  e.g., ['.tiff', '.h5', '.ims']
+        exclude_dirs (optional): list of directories to exclude from the search
     Returns:
         list of filepaths
     """
+    if exclude_dirs is None:
+        exclude_dirs = []
     filepaths = []
     for root, _, files in os.walk(folder):
+        root_name = Path(root).name
+        if root_name in exclude_dirs:
+            continue
         for f in files:
             path = os.path.join(root, f)
             _, ext = os.path.splitext(path)
@@ -131,6 +138,7 @@ def is_cloud_url(url: str):
     Returns:
         True if url is a cloud url
     """
+    url = str(url)
     if url.startswith("s3://"):
         return True
     if url.startswith("gs://"):

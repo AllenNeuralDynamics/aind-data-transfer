@@ -1,6 +1,8 @@
 """This module contains the api to retrieve a reader for ephys data.
 """
+import re
 from enum import Enum
+from pathlib import Path
 
 import numpy as np
 import spikeinterface.extractors as se
@@ -102,3 +104,45 @@ class EphysReaders:
                 "relative_path_name": str(dat_file.relative_to(input_dir)),
                 "n_chan": n_chan,
             }
+
+
+class ImagingReaders:
+    """This class contains the methods to retrieve a reader for aind imaging data."""
+
+    class Readers(Enum):
+        """Enum for readers."""
+
+        exaspim = "exaSPIM"
+        mesospim = "mesoSPIM"
+
+    readers = [member.value for member in Readers]
+
+    class SourceRegexPatterns(Enum):
+        """Enum for regex patterns the source folder name should match"""
+
+        exaspim_acquisition = r"exaSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+        mesospim_acquisition = r"mesoSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+
+    @staticmethod
+    def get_raw_data_dir(reader_name, input_dir):
+        if reader_name not in ImagingReaders.readers:
+            raise Exception(
+                f"Unknown reader: {reader_name}. "
+                f"Please select one of {ImagingReaders.readers}"
+            )
+        raw_data_dir = Path(input_dir) / reader_name
+        if not raw_data_dir.is_dir():
+            raise FileNotFoundError(f"Raw data directory not found: {raw_data_dir}")
+        return raw_data_dir
+
+    @staticmethod
+    def get_reader_name(input_dir):
+        # re.search does not work with Path objects
+        input_dir = str(input_dir)
+        if re.search(ImagingReaders.Readers.exaspim.value, input_dir) is not None:
+            return ImagingReaders.Readers.exaspim.value
+        elif re.search(ImagingReaders.Readers.mesospim.value, input_dir) is not None:
+            return ImagingReaders.Readers.mesospim.value
+        else:
+            raise Exception(f"An appropriate reader could not be created for {input_dir}")
+

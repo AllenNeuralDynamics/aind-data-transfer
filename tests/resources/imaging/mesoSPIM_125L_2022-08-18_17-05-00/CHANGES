@@ -1,0 +1,21 @@
+0.0.7 2022 -07-25 (cameron arshadi)
+  - move micr/ and derivatives/ to sub-01/ per BIDS spec
+
+0.0.6 2022-07-25 (cameron arshadi)
+  - rename data_description.json to dataset_description.json per BIDS standard
+
+0.0.5 2022-07-25
+  - rig -> instrument, dataset -> data
+  - procedures.json
+
+0.0.4 2022-07-21
+  - institution, group
+
+0.0.3 2022-07-19
+  - Mouse metadata update
+
+0.0.2 2022-07-13
+  - Light reorganization
+
+0.0.1 2022-07-08
+  - Initial acquisition

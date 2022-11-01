@@ -6,7 +6,7 @@ import numpy as np
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
 
-from aind_data_transfer.transformations.compressors import EphysCompressors
+from aind_data_transfer.transformations.compressors import EphysCompressors, ImagingCompressors
 from aind_data_transfer.readers import EphysReaders
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -22,10 +22,10 @@ class TestEphysCompressors(unittest.TestCase):
         }
         wavpack_configs = {"level": 3}
         blosc = EphysCompressors.get_compressor(
-            EphysCompressors.Compressors.blosc.name, blosc_configs
+            EphysCompressors.Compressors.blosc.name, **blosc_configs
         )
         wavpack = EphysCompressors.get_compressor(
-            EphysCompressors.Compressors.wavpack.name, wavpack_configs
+            EphysCompressors.Compressors.wavpack.name, **wavpack_configs
         )
         expected_blosc = Blosc(
             cname="zstd", clevel=9, shuffle=Blosc.BITSHUFFLE
@@ -93,6 +93,27 @@ class TestEphysCompressors(unittest.TestCase):
 
         self.assertEqual(lsb_value, 1)
         self.assertTrue(np.array_equal(expected_median_values, median_values))
+
+
+class TestImagingCompressors(unittest.TestCase):
+    def test_get_compressor(self):
+        blosc_configs = {
+            "cname": "zstd",
+            "clevel": 1,
+            "shuffle": Blosc.SHUFFLE
+        }
+        blosc = ImagingCompressors.get_compressor(
+            ImagingCompressors.Compressors.blosc.name, **blosc_configs
+        )
+        expected_blosc = Blosc(
+            cname="zstd", clevel=1, shuffle=Blosc.SHUFFLE
+        )
+        self.assertEqual(blosc, expected_blosc)
+
+    def test_get_compressor_fails(self):
+        with self.assertRaises(Exception):
+            ImagingCompressors.get_compressor("Made up name")
+
 
 
 if __name__ == "__main__":
