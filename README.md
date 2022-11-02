@@ -6,15 +6,25 @@
 Tools for transferring large data to and between cloud storage providers.
 
 ## Installation
-To use the software, in the root directory, run
-```
-pip install -e .
-```
 
-To develop the code, run
-```
-pip install -e .[dev]
-```
+### Imaging
+
+- Run `pip install -e .[imaging]`
+- Run `./postinstall.sh`
+
+### Ephys
+
+- Run `pip install -e .[ephys]`
+
+### Full
+
+- Run `pip install -e .[full]`
+- Run `./postinstall.sh`
+
+#### Development
+
+- Run `pip install -e .[dev]`
+- Run `./postinstall.sh`
 
 ## Contributing
 
