@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import sys
+import platform
 from datetime import datetime, timezone
 from pathlib import Path
 import warnings
@@ -130,6 +131,10 @@ if __name__ == "__main__":  # noqa: C901
         logging.info("Finished creating processing.json file.")
 
     # Upload to s3
+    if platform.system() == "Windows":
+        shell = True
+    else:
+        shell = False
     if job_configs["jobs"]["upload_to_s3"]:
         # TODO: Use s3transfer library instead of subprocess?
         logging.info("Uploading to s3.")
@@ -145,11 +150,11 @@ if __name__ == "__main__":  # noqa: C901
                     dest_data_dir,
                     aws_dest,
                     "--dryrun",
-                ], shell=True
+                ], shell=shell
             )
         else:
             subprocess.run(["aws", "s3", "sync", dest_data_dir, aws_dest],
-                           shell=True)
+                           shell=shell)
         logging.info("Finished uploading to s3.")
 
     # Upload to gcp
@@ -168,12 +173,12 @@ if __name__ == "__main__":  # noqa: C901
                     "-n",
                     dest_data_dir,
                     gcp_dest,
-                ], shell=True
+                ], shell=shell
             )
         else:
             subprocess.run(
                 ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest],
-                shell=True
+                shell=shell
             )
         logging.info("Finished uploading to gcp.")
 
