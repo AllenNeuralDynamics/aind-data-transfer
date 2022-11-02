@@ -77,7 +77,7 @@ if __name__ == "__main__":  # noqa: C901
         write_kwargs = job_configs["compress_data_job"]["write_kwargs"]
         read_blocks = EphysReaders.get_read_blocks(data_name, data_src_dir)
         compressor = EphysCompressors.get_compressor(
-            compressor_name, compressor_kwargs
+            compressor_name, **compressor_kwargs
         )
         scaled_read_blocks = EphysCompressors.scale_read_blocks(
             read_blocks, **scale_kwargs
@@ -145,10 +145,11 @@ if __name__ == "__main__":  # noqa: C901
                     dest_data_dir,
                     aws_dest,
                     "--dryrun",
-                ]
+                ], shell=True
             )
         else:
-            subprocess.run(["aws", "s3", "sync", dest_data_dir, aws_dest])
+            subprocess.run(["aws", "s3", "sync", dest_data_dir, aws_dest],
+                           shell=True)
         logging.info("Finished uploading to s3.")
 
     # Upload to gcp
@@ -167,11 +168,12 @@ if __name__ == "__main__":  # noqa: C901
                     "-n",
                     dest_data_dir,
                     gcp_dest,
-                ]
+                ], shell=True
             )
         else:
             subprocess.run(
-                ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest]
+                ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest],
+                shell=True
             )
         logging.info("Finished uploading to gcp.")
 
