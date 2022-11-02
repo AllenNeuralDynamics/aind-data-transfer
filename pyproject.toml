@@ -10,7 +10,8 @@ requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3"
 ]
-dynamic = ["version", "readme"]
+readme = "README.md"
+dynamic = ["version"]
 
 dependencies = [
     'pandas',
@@ -40,9 +41,6 @@ imaging = [
     'dask-jobqueue',
     'dask-image',
     'bokeh>=2.1.1',
-    'ome-zarr@git+https://github.com/camilolaiton/ome-zarr-py.git@feature/delayed-dask-poc',
-    'aicsimageio@git+https://github.com/carshadi/aicsimageio.git@zarrwriter-translation-metadata',
-    'hdf5plugin@https://github.com/silx-kit/hdf5plugin/archive/refs/tags/v3.3.1.tar.gz',
     'gcsfs',
     'xarray-multiscale',
     'parameterized'
