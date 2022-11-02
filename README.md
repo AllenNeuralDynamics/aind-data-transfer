@@ -10,7 +10,7 @@ Tools for transferring large data to and between cloud storage providers.
 ### Imaging
 
 - Run `pip install -e .[imaging]`
-- Run `./postinstall.sh`
+- Run `./post_install.sh`
 
 ### Ephys
 
@@ -19,12 +19,12 @@ Tools for transferring large data to and between cloud storage providers.
 ### Full
 
 - Run `pip install -e .[full]`
-- Run `./postinstall.sh`
+- Run `./post_install.sh`
 
 #### Development
 
 - Run `pip install -e .[dev]`
-- Run `./postinstall.sh`
+- Run `./post_install.sh`
 
 ## Contributing
 
