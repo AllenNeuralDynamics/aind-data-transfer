@@ -17,8 +17,7 @@ dependencies = [
     's3transfer[crt]',
     'numpy>=1.16',
     'pyyaml',
-    'google-cloud-storage',
-    'awscli'
+    'google-cloud-storage'
 ]
 
 [project.optional-dependencies]
