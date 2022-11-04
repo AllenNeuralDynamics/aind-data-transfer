@@ -7,6 +7,8 @@ Tools for transferring large data to and between cloud storage providers.
 
 ## Installation
 
+To upload data to aws s3, you may need to install and configure `awscli`. To upload data to gcp, you may need to install and configure `gsutil`.
+
 ### Imaging
 
 - Run `pip install -e .[imaging]`
