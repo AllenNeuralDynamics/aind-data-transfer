@@ -1,6 +1,7 @@
 """This module contains the api to write ephys data.
 """
 import shutil
+import pyminizip
 import os
 import platform
 
@@ -95,8 +96,22 @@ class EphysWriters:
         videos_path = dst_dir / "Videos"
         videos_path_l = dst_dir / "videos"
         if os.path.isdir(videos_path):
-            new_videos_path = dst_dir / ".." / "videos"
-            shutil.move(videos_path, new_videos_path)
+            new_videos_path = dst_dir / ".." / "videos.zip"
+            files_to_zip = []
+            for root, dirs, files in os.walk(videos_path):
+                for file in files:
+                    files_to_zip.append(str(os.path.join(root, file)))
+            pyminizip.compress_multiple(files_to_zip, [],
+                                        str(new_videos_path),
+                                        "password",
+                                        5)
         elif os.path.isdir(videos_path_l):
-            new_videos_path = dst_dir / ".." / "videos"
-            shutil.move(videos_path_l, new_videos_path)
+            new_videos_path = dst_dir / ".." / "videos.zip"
+            files_to_zip = []
+            for root, dirs, files in os.walk(videos_path_l):
+                for file in files:
+                    files_to_zip.append(str(os.path.join(root, file)))
+            pyminizip.compress_multiple(files_to_zip, [],
+                                        str(new_videos_path),
+                                        "password",
+                                        5)
