@@ -18,7 +18,8 @@ dependencies = [
     's3transfer[crt]',
     'numpy>=1.16',
     'pyyaml',
-    'google-cloud-storage'
+    'google-cloud-storage',
+    'pyminizip'
 ]
 
 [project.optional-dependencies]
