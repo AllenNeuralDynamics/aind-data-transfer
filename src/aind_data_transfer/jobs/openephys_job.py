@@ -182,11 +182,15 @@ if __name__ == "__main__":  # noqa: C901
         logging.info("Finished uploading to gcp.")
 
     if job_configs["jobs"]["trigger_codeocean_job"]:
+        logging.info("Triggering capsule run.")
         capsule_id = job_configs["trigger_codeocean_job"]["capsule_id"]
         co_api_token = os.getenv("CODEOCEAN_API_TOKEN")
         co_domain = job_configs["endpoints"]["codeocean_domain"]
         co_client = CodeOceanClient(domain=co_domain,
                                     token=co_api_token)
-        co_client.run_capsule(capsule_id=capsule_id,
-                              data_assets=[],
-                              parameters=[json.dumps(job_configs)])
+        run_response = co_client.run_capsule(
+            capsule_id=capsule_id,
+            data_assets=[],
+            parameters=[json.dumps(job_configs)]
+        )
+        logging.debug(f"Run response: {run_response.json()}")
