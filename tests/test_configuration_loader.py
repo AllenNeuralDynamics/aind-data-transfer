@@ -37,8 +37,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "attach_metadata": True,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
-                "register_to_codeocean": False,
-                "trigger_codeocean_spike_sorting": False
+                "trigger_codeocean_job": False
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
@@ -67,12 +66,11 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "scale_params": {"chunk_size": 20},
             },
             "upload_data_job": {"dryrun": True},
-            "register_on_codeocean_job": {
-                "tags": ["ecephys", "raw"],
-                "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
-                "mount": "v0.6.x_neuropixels_multiexp_multistream",
+            "trigger_codeocean_job": {
+                "job_type": "openephys",
+                "bucket": "aind-transfer-test",
+                "prefix": "v0.6.x_neuropixels_multiexp_multistream",
             },
-            "trigger_codeocean_spike_sorting_job": {"mount": "v0.6.x_neuropixels_multiexp_multistream"},
             "logging": {"level": "INFO"}
         }
         conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
@@ -93,8 +91,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "attach_metadata": True,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
-                "register_to_codeocean": False,
-                "trigger_codeocean_spike_sorting": False
+                "trigger_codeocean_job": False
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
@@ -123,12 +120,11 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "scale_params": {},
             },
             "upload_data_job": {"dryrun": True},
-            "register_on_codeocean_job": {
-                "tags": ["ecephys"],
-                "asset_name": "ecephys_625463_2022-10-06_10-14-25",
-                "mount": "ecephys_625463_2022-10-06_10-14-25",
+            "trigger_codeocean_job": {
+                "job_type": "openephys",
+                "bucket": "aind-ephys-data",
+                "prefix": "ecephys_625463_2022-10-06_10-14-25",
             },
-            "trigger_codeocean_spike_sorting_job": {"mount": "ecephys_625463_2022-10-06_10-14-25"},
             "logging": {"level": "INFO"}
         }
 
