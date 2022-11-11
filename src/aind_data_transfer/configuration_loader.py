@@ -91,16 +91,16 @@ class EphysJobConfigurationLoader:
             dest_data_folder = Path(configs["endpoints"]["dest_data_dir"]).name
             configs["endpoints"]["gcp_prefix"] = dest_data_folder
 
-        if configs["register_on_codeocean_job"]["asset_name"] is None:
-            configs["register_on_codeocean_job"]["asset_name"] = (
-                configs["endpoints"]["s3_prefix"])
+        if configs["trigger_codeocean_job"]["job_type"] is None:
+            configs["trigger_codeocean_job"]["job_type"] = (
+                configs["data"]["name"])
 
-        if configs["register_on_codeocean_job"]["mount"] is None:
-            configs["register_on_codeocean_job"]["mount"] = (
-                configs["endpoints"]["s3_prefix"])
+        if configs["trigger_codeocean_job"]["bucket"] is None:
+            configs["trigger_codeocean_job"]["bucket"] = (
+                configs["endpoints"]["s3_bucket"])
 
-        if configs["trigger_codeocean_spike_sorting_job"]["mount"] is None:
-            configs["trigger_codeocean_spike_sorting_job"]["mount"] = (
+        if configs["trigger_codeocean_job"]["prefix"] is None:
+            configs["trigger_codeocean_job"]["prefix"] = (
                 configs["endpoints"]["s3_prefix"])
 
     @staticmethod

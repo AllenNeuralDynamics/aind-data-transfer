@@ -15,8 +15,7 @@ jobs: # Select which jobs to run
   attach_metadata: true
   upload_to_s3: true
   upload_to_gcp: true
-  register_to_codeocean: false
-  trigger_codeocean_spike_sorting: false
+  trigger_codeocean_job: false
 data:
   name: openephys
 clip_data_job:
@@ -35,14 +34,11 @@ compress_data_job:
     disable_tqdm:
 upload_data_job:
   dryrun: true # Set this to true to perform a dryrun of the upload
-register_on_codeocean_job:
-  tags: ['ecephys']
-  asset_name:  # Defaults to s3_prefix
-  mount:  # Defaults to s3_prefix
-trigger_codeocean_spike_sorting_job:
-  asset_id: # Will try to resolve it if the register_on_codeocean_job is run
-  mount:  # Defaults to s3_prefix
+trigger_codeocean_job:
   capsule_id:
+  job_type: # Defaults to data.name
+  bucket: # Defaults to endpoints.s3_bucket
+  prefix: # Defaults to endpoints.s3_prefix
 logging:
   level: "INFO" # Will override with env variable LOG_LEVEL
   file: # If blank, will log to stdout.
