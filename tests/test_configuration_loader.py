@@ -17,12 +17,6 @@ CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
 class TestEphysJobConfigs(unittest.TestCase):
     """Tests ephys job pipeline methods"""
 
-    metadata_schemas_url = (
-        "https://raw.githubusercontent.com/AllenNeuralDynamics/"
-        "data_schema/main/schemas"
-    )
-    code_repo_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
-
     def test_conf_loads(self):
         """Basic config loads test"""
 
@@ -45,21 +39,22 @@ class TestEphysJobConfigs(unittest.TestCase):
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
                 "dest_data_dir": dest_data_dir,
-                "s3_bucket": "aind-transfer-test",
+                "s3_bucket": "some-s3-bucket",
                 "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
-                "gcp_bucket": "aind-data-dev",
+                "gcp_bucket": "some-gcp-bucket",
                 "gcp_prefix": "test_20221001",
                 "codeocean_domain": "https://acmecorp.codeocean.com",
-                "metadata_schemas": self.metadata_schemas_url,
-                "code_repo_location": self.code_repo_url,
+                "metadata_schemas": "https://location_of_metadata_schemas",
+                "code_repo_location": "https://location_of_code_repo",
+            },
+            "aws_secret_names": {
+                "code_ocean_api_token_name": "secret_name_for_api_token",
+                "region": "us-west-2",
+                "video_encryption_password": "secret_name_for_vid_password",
             },
             "data": {"name": "openephys"},
             "clip_data_job": {
                 "clip_kwargs": {},
-                "video_encryption": {
-                    "secret_name": "video_encryption_password",
-                    "region": "us-west-2",
-                },
             },
             "compress_data_job": {
                 "write_kwargs": {
@@ -77,7 +72,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             "upload_data_job": {"dryrun": True},
             "trigger_codeocean_job": {
                 "job_type": "openephys",
-                "bucket": "aind-transfer-test",
+                "bucket": "some-s3-bucket",
                 "prefix": "v0.6.x_neuropixels_multiexp_multistream",
             },
             "logging": {"level": "INFO"},
@@ -105,16 +100,21 @@ class TestEphysJobConfigs(unittest.TestCase):
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
                 "dest_data_dir": "ecephys_625463_2022-10-06_10-14-25",
-                "s3_bucket": "aind-ephys-data",
+                "s3_bucket": "some-s3-bucket",
                 "s3_prefix": "ecephys_625463_2022-10-06_10-14-25",
-                "gcp_bucket": "aind-data-dev",
+                "gcp_bucket": "some-gcp-bucket",
                 "gcp_prefix": "ecephys_625463_2022-10-06_10-14-25",
                 "codeocean_domain": "https://acmecorp.codeocean.com",
-                "metadata_schemas": self.metadata_schemas_url,
-                "code_repo_location": self.code_repo_url,
+                "metadata_schemas": "https://location_of_metadata_schemas",
+                "code_repo_location": "https://location_of_code_repo",
+            },
+            "aws_secret_names": {
+                "code_ocean_api_token_name": "secret_name_for_api_token",
+                "region": "us-west-2",
+                "video_encryption_password": "secret_name_for_vid_password",
             },
             "data": {"name": "openephys"},
-            "clip_data_job": {"clip_kwargs": {}, "video_encryption": {}},
+            "clip_data_job": {"clip_kwargs": {}},
             "compress_data_job": {
                 "write_kwargs": {
                     "n_jobs": -1,
@@ -131,7 +131,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             "upload_data_job": {"dryrun": True},
             "trigger_codeocean_job": {
                 "job_type": "openephys",
-                "bucket": "aind-ephys-data",
+                "bucket": "some-s3-bucket",
                 "prefix": "ecephys_625463_2022-10-06_10-14-25",
             },
             "logging": {"level": "INFO"},
@@ -170,7 +170,10 @@ class TestImagingJobConfigs(unittest.TestCase):
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
-                "dest_data_dir": "s3://aind-transfer-test/exaSPIM_125L_2022-08-05_17-25-36",
+                "dest_data_dir": (
+                    "s3://aind-transfer-test/"
+                    "exaSPIM_125L_2022-08-05_17-25-36"
+                ),
                 "metadata_schemas": self.metadata_schemas_url,
                 "code_repo_location": self.code_repo_url,
             },
@@ -188,14 +191,22 @@ class TestImagingJobConfigs(unittest.TestCase):
                 "resume": False,
                 "n_levels": 8,
                 "submit_args": {
-                    "conda_activate": "/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/bin/activate",
+                    "conda_activate": (
+                        "/allen/programs/aind/workgroups/msma/"
+                        "cameron.arshadi/miniconda3/bin/"
+                        "activate"
+                    ),
                     "conda_env": "aind-data-transfer",
                     "cpus_per_task": 1,
                     "mail_user": "cameron.arshadi@alleninstitute.org",
                     "mem_per_cpu": 3000,
                     "nodes": 8,
                     "ntasks_per_node": 8,
-                    "run_parent_dir": "/home/cameron.arshadi/exaSPIM-transcode-jobs/exaSPIM_125L_2022-08-05_17-25-36",
+                    "run_parent_dir": (
+                        "/home/cameron.arshadi/"
+                        "exaSPIM-transcode-jobs/"
+                        "exaSPIM_125L_2022-08-05_17-25-36"
+                    ),
                     "tmp_space": "8GB",
                     "walltime": "72:00:00",
                     "queue": "aind",

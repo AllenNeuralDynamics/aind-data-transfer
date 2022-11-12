@@ -20,9 +20,7 @@ from aind_data_transfer.transformations.metadata_creation import (
 from aind_data_transfer.util.npopto_correction import (
     correct_np_opto_electrode_locations,
 )
-
 from aind_data_transfer.util.s3_utils import get_secret
-
 from aind_data_transfer.writers import EphysWriters
 
 root_logger = logging.getLogger()
