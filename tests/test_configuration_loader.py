@@ -5,7 +5,10 @@ from pathlib import Path
 
 from numcodecs import Blosc
 
-from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader, ImagingJobConfigurationLoader
+from aind_data_transfer.configuration_loader import (
+    EphysJobConfigurationLoader,
+    ImagingJobConfigurationLoader,
+)
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
@@ -37,7 +40,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "attach_metadata": True,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
-                "trigger_codeocean_job": False
+                "trigger_codeocean_job": False,
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
@@ -51,7 +54,13 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "code_repo_location": self.code_repo_url,
             },
             "data": {"name": "openephys"},
-            "clip_data_job": {"clip_kwargs": {}},
+            "clip_data_job": {
+                "clip_kwargs": {},
+                "video_encryption": {
+                    "secret_name": "video_encryption_password",
+                    "region": "us-west-2",
+                },
+            },
             "compress_data_job": {
                 "write_kwargs": {
                     "n_jobs": -1,
@@ -71,7 +80,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "bucket": "aind-transfer-test",
                 "prefix": "v0.6.x_neuropixels_multiexp_multistream",
             },
-            "logging": {"level": "INFO"}
+            "logging": {"level": "INFO"},
         }
         conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
 
@@ -91,7 +100,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "attach_metadata": True,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
-                "trigger_codeocean_job": False
+                "trigger_codeocean_job": False,
             },
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
@@ -105,7 +114,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "code_repo_location": self.code_repo_url,
             },
             "data": {"name": "openephys"},
-            "clip_data_job": {"clip_kwargs": {}},
+            "clip_data_job": {"clip_kwargs": {}, "video_encryption": {}},
             "compress_data_job": {
                 "write_kwargs": {
                     "n_jobs": -1,
@@ -125,7 +134,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "bucket": "aind-ephys-data",
                 "prefix": "ecephys_625463_2022-10-06_10-14-25",
             },
-            "logging": {"level": "INFO"}
+            "logging": {"level": "INFO"},
         }
 
         conf_file_path1 = CONFIGS_DIR / "example_configs_src_pattern1.yml"
@@ -169,27 +178,33 @@ class TestImagingJobConfigs(unittest.TestCase):
             "transcode_job": {
                 "compressor": {
                     "compressor_name": "blosc",
-                    "kwargs": {"cname": "zstd", "clevel": 1, "shuffle": Blosc.SHUFFLE},
+                    "kwargs": {
+                        "cname": "zstd",
+                        "clevel": 1,
+                        "shuffle": Blosc.SHUFFLE,
+                    },
                 },
                 "chunk_size": 64,
                 "resume": False,
                 "n_levels": 8,
-                'submit_args': {
-                    'conda_activate': '/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/bin/activate',
-                    'conda_env': 'aind-data-transfer',
-                    'cpus_per_task': 1,
-                    'mail_user': 'cameron.arshadi@alleninstitute.org',
-                    'mem_per_cpu': 3000,
-                    'nodes': 8,
-                    'ntasks_per_node': 8,
-                    'run_parent_dir': '/home/cameron.arshadi/exaSPIM-transcode-jobs/exaSPIM_125L_2022-08-05_17-25-36',
-                    'tmp_space': '8GB',
-                    'walltime': '72:00:00',
-                    "queue": "aind"
-                }
-            }
+                "submit_args": {
+                    "conda_activate": "/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/bin/activate",
+                    "conda_env": "aind-data-transfer",
+                    "cpus_per_task": 1,
+                    "mail_user": "cameron.arshadi@alleninstitute.org",
+                    "mem_per_cpu": 3000,
+                    "nodes": 8,
+                    "ntasks_per_node": 8,
+                    "run_parent_dir": "/home/cameron.arshadi/exaSPIM-transcode-jobs/exaSPIM_125L_2022-08-05_17-25-36",
+                    "tmp_space": "8GB",
+                    "walltime": "72:00:00",
+                    "queue": "aind",
+                },
+            },
         }
-        conf_file_path = CONFIGS_DIR / "imaging" / "transcode_job_test_config.yml"
+        conf_file_path = (
+            CONFIGS_DIR / "imaging" / "transcode_job_test_config.yml"
+        )
 
         args = ["-c", str(conf_file_path)]
 

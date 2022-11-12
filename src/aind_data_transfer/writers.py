@@ -4,6 +4,7 @@ import shutil
 import pyminizip
 import os
 import platform
+from aind_data_transfer.util.s3_utils import get_secret
 
 import numpy as np
 
@@ -58,20 +59,38 @@ class EphysWriters:
             )
 
     @staticmethod
-    def copy_and_clip_data(src_dir, dst_dir, stream_gen, n_frames=100):
+    def copy_and_clip_data(src_dir,
+                           dst_dir,
+                           stream_gen,
+                           video_encryption_key=None,
+                           n_frames=100):
         """
         Copies the raw data to a new directory with the .dat files clipped to
         just a small number of frames. This allows someone to still use the
-        spikeinterface api on the clipped data set.
-        Args:
-            src_dir (Path): Location of raw data
-            dst_dir (Path): Desired location for clipped data set
-            stream_gen (dict): A dict with
-              'data': np.memmap(dat file),
+        spikeinterface api on the clipped data set. Also zips and encrypts
+        video folder.
+        Parameters
+        ----------
+        src_dir : Path
+          Location of raw data
+        dst_dir : Path
+          Desired location for clipped data set
+        stream_gen : dict
+          A dict with
+            'data': np.memmap(dat file),
               'relative_path_name': path name of raw data so it can be copied
                 to new dir correctly
               'n_chan': number of channels.
-            n_frames (int): Number of frames to clip data to
+        video_encryption_key : Optional[str]
+          Password to use to encrypt video files. Default is None.
+        n_frames : int
+          Number of frames to clip data to. Default is 100.
+
+        Returns
+        -------
+        None
+          Moves some directories around.
+
         """
         # first: copy everything except .dat files
         shutil.copytree(
@@ -103,7 +122,7 @@ class EphysWriters:
                     files_to_zip.append(str(os.path.join(root, file)))
             pyminizip.compress_multiple(files_to_zip, [],
                                         str(new_videos_path),
-                                        "password",
+                                        video_encryption_key,
                                         5)
         elif os.path.isdir(videos_path_l):
             new_videos_path = dst_dir / ".." / "videos.zip"
@@ -113,5 +132,5 @@ class EphysWriters:
                     files_to_zip.append(str(os.path.join(root, file)))
             pyminizip.compress_multiple(files_to_zip, [],
                                         str(new_videos_path),
-                                        "password",
+                                        video_encryption_key,
                                         5)

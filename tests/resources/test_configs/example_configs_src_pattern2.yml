@@ -19,6 +19,9 @@ jobs: # Select which jobs to run
 data:
   name: openephys
 clip_data_job:
+  video_encryption:
+    secret_name:
+    region:
   clip_kwargs:
     n_frames:
 compress_data_job:
