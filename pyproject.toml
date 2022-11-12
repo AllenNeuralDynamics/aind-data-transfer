@@ -16,6 +16,8 @@ dynamic = ["version"]
 dependencies = [
     'pandas',
     's3transfer[crt]',
+    'boto3',
+    'botocore==1.29.0',
     'numpy>=1.16',
     'pyyaml',
     'google-cloud-storage',
@@ -89,6 +91,7 @@ fail_under = 0
 
 [tool.isort]
 line_length = 79
+profile = "black"
 
 [tool.interrogate]
 exclude = ["setup.py", "docs", "build"]

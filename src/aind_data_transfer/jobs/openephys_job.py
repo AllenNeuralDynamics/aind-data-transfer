@@ -1,30 +1,37 @@
 """Job that reads open ephys data, compresses, and writes it."""
+import json
 import logging
 import os
+import platform
 import subprocess
 import sys
-import platform
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-import warnings
-import json
 
 from aind_data_transfer.codeocean import CodeOceanClient
 from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
 from aind_data_transfer.readers import EphysReaders
 from aind_data_transfer.transformations.compressors import EphysCompressors
-from aind_data_transfer.transformations.metadata_creation import ProcessingMetadata
-from aind_data_transfer.util.npopto_correction import correct_np_opto_electrode_locations
+from aind_data_transfer.transformations.metadata_creation import (
+    ProcessingMetadata,
+)
+from aind_data_transfer.util.npopto_correction import (
+    correct_np_opto_electrode_locations,
+)
+from aind_data_transfer.util.s3_utils import get_secret
 from aind_data_transfer.writers import EphysWriters
 
 root_logger = logging.getLogger()
 
 # Suppress a warning from one of the third-party libraries
-deprecation_msg = ("Creating a LegacyVersion has been deprecated and will be "
-                   "removed in the next major release")
-warnings.filterwarnings("ignore",
-                        category=DeprecationWarning,
-                        message=deprecation_msg)
+deprecation_msg = (
+    "Creating a LegacyVersion has been deprecated and will be "
+    "removed in the next major release"
+)
+warnings.filterwarnings(
+    "ignore", category=DeprecationWarning, message=deprecation_msg
+)
 
 # TODO: Break these up into importable jobs to fix the flake8 warning?
 if __name__ == "__main__":  # noqa: C901
@@ -57,8 +64,23 @@ if __name__ == "__main__":  # noqa: C901
         streams_to_clip = EphysReaders.get_streams_to_clip(
             data_name, data_src_dir
         )
+        video_encrypt_configs = job_configs["clip_data_job"][
+            "video_encryption"
+        ]
+        secret_name = video_encrypt_configs.get("secret_name")
+        secret_region = video_encrypt_configs.get("region")
+        video_encryption_key_val = None
+        if secret_name:
+            video_encryption_key_val = json.loads(
+                get_secret(secret_name, secret_region)
+            )
+
         EphysWriters.copy_and_clip_data(
-            data_src_dir, clipped_data_path, streams_to_clip, **clip_kwargs
+            data_src_dir,
+            clipped_data_path,
+            streams_to_clip,
+            video_encryption_key_val["password"],
+            **clip_kwargs,
         )
         logging.info("Finished clipping source data.")
 
@@ -149,11 +171,13 @@ if __name__ == "__main__":  # noqa: C901
                     dest_data_dir,
                     aws_dest,
                     "--dryrun",
-                ], shell=shell
+                ],
+                shell=shell,
             )
         else:
-            subprocess.run(["aws", "s3", "sync", dest_data_dir, aws_dest],
-                           shell=shell)
+            subprocess.run(
+                ["aws", "s3", "sync", dest_data_dir, aws_dest], shell=shell
+            )
         logging.info("Finished uploading to s3.")
 
     # Upload to gcp
@@ -172,12 +196,13 @@ if __name__ == "__main__":  # noqa: C901
                     "-n",
                     dest_data_dir,
                     gcp_dest,
-                ], shell=shell
+                ],
+                shell=shell,
             )
         else:
             subprocess.run(
                 ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest],
-                shell=shell
+                shell=shell,
             )
         logging.info("Finished uploading to gcp.")
 
@@ -186,11 +211,10 @@ if __name__ == "__main__":  # noqa: C901
         capsule_id = job_configs["trigger_codeocean_job"]["capsule_id"]
         co_api_token = os.getenv("CODEOCEAN_API_TOKEN")
         co_domain = job_configs["endpoints"]["codeocean_domain"]
-        co_client = CodeOceanClient(domain=co_domain,
-                                    token=co_api_token)
+        co_client = CodeOceanClient(domain=co_domain, token=co_api_token)
         run_response = co_client.run_capsule(
             capsule_id=capsule_id,
             data_assets=[],
-            parameters=[json.dumps(job_configs)]
+            parameters=[json.dumps(job_configs)],
         )
         logging.debug(f"Run response: {run_response.json()}")
