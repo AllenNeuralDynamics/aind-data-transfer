@@ -34,7 +34,9 @@
                     "name": "openephys"
                 },
                 "clip_data_job": {
-                    "video_encryption": {},
+                    "video_encryption": {
+                        "region": "us-west-2",
+                        "secret_name": "video_encryption_password"},
                     "clip_kwargs": {}
                 },
                 "compress_data_job": {
