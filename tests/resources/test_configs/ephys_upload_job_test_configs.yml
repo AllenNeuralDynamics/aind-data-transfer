@@ -9,6 +9,10 @@ endpoints:
   codeocean_domain: https://acmecorp.codeocean.com
   metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas
   code_repo_location: https://github.com/AllenNeuralDynamics/aind-data-transfer
+aws_secret_names:
+  region: us-west-2
+  video_encryption_password: "video_encryption_password"
+  code_ocean_api_token_name: "codeocean-api-token"  # Can be overriden by env variable CODEOCEAN_API_TOKEN
 jobs: # Select which jobs to run
   clip: true
   compress: true
@@ -19,9 +23,6 @@ jobs: # Select which jobs to run
 data:
   name: openephys
 clip_data_job:
-  video_encryption:
-    secret_name: "video_encryption_password"
-    region: "us-west-2"
   clip_kwargs:
     n_frames:
 compress_data_job:

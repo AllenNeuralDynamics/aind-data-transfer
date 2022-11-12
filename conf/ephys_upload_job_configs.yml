@@ -2,13 +2,17 @@
 endpoints:
   raw_data_dir: # Set this to raw data location
   dest_data_dir: # Defaults to the raw_data_dir folder name
-  s3_bucket: aind-ephys-data
+  s3_bucket:
   s3_prefix: # Defaults to folder name in dest_data_dir
   gcp_bucket:
   gcp_prefix:
-  codeocean_domain: https://codeocean.allenneuraldynamics.org
-  metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas
-  code_repo_location: https://github.com/AllenNeuralDynamics/aind-data-transfer
+  codeocean_domain:
+  metadata_schemas:
+  code_repo_location:
+aws_secret_names:
+  region:
+  video_encryption_password: # If blank or not able to access AWS, will NOT encrypt
+  code_ocean_api_token_name: # Can be overriden by env variable CODEOCEAN_API_TOKEN
 jobs: # Select which jobs to run
   clip: true
   compress: true
@@ -19,9 +23,6 @@ jobs: # Select which jobs to run
 data:
   name: openephys
 clip_data_job:
-  video_encryption:
-    secret_name: "video_encryption_password"
-    region: "us-west-2"
   clip_kwargs:
     n_frames:
 compress_data_job:
