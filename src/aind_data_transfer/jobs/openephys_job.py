@@ -118,10 +118,8 @@ if __name__ == "__main__":  # noqa: C901
             output_location = dest_data_dir
 
         code_url = job_configs["endpoints"]["code_repo_location"]
-        schema_url = job_configs["endpoints"]["metadata_schemas"]
         parameters = job_configs
-        processing_metadata = ProcessingMetadata(schema_url=schema_url)
-        processing_instance = processing_metadata.ephys_job_to_processing(
+        processing_instance = ProcessingMetadata.ephys_job_to_processing(
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=str(input_location),
@@ -131,9 +129,10 @@ if __name__ == "__main__":  # noqa: C901
             notes=None,
         )
 
-        processing_metadata.write_metadata(
-            schema_instance=processing_instance, output_dir=dest_data_dir
-        )
+        file_path = dest_data_dir / ProcessingMetadata.output_file_name
+        with open(file_path, "w") as f:
+            contents = processing_instance.json(dumps_kwargs={"indent: 4"})
+            f.write(contents)
         logging.info("Finished creating processing.json file.")
 
     # Upload to s3
