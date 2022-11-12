@@ -9,7 +9,8 @@ import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
-from aind_data_transfer.codeocean import CodeOceanClient
+from aind_codeocean_api.codeocean import CodeOceanClient
+
 from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
 from aind_data_transfer.readers import EphysReaders
 from aind_data_transfer.transformations.compressors import EphysCompressors
@@ -19,7 +20,9 @@ from aind_data_transfer.transformations.metadata_creation import (
 from aind_data_transfer.util.npopto_correction import (
     correct_np_opto_electrode_locations,
 )
+
 from aind_data_transfer.util.s3_utils import get_secret
+
 from aind_data_transfer.writers import EphysWriters
 
 root_logger = logging.getLogger()
