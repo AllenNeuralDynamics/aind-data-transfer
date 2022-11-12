@@ -17,8 +17,7 @@
                     "compress": true,
                     "upload_to_s3": true,
                     "upload_to_gcp": true,
-                    "register_to_codeocean": false,
-                    "trigger_codeocean_spike_sorting": false
+                    "trigger_codeocean_job": false
                 },
                 "endpoints": {
                     "raw_data_dir": "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
@@ -57,15 +56,11 @@
                 "upload_data_job": {
                     "dryrun": true
                 },
-                "register_on_codeocean_job": {
-                    "tags": [
-                        "ecephys",
-                        "raw"
-                    ],
-                    "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
-                    "mount": "v0.6.x_neuropixels_multiexp_multistream"
+                "trigger_codeocean_job": {
+                    "job_type": "openephys",
+                    "bucket": "aind-transfer-test",
+                    "prefix": "v0.6.x_neuropixels_multiexp_multistream"
                 },
-                "trigger_codeocean_spike_sorting_job": {"mount": "v0.6.x_neuropixels_multiexp_multistream"},
                 "logging": {"level": "INFO"}
             }
         }
