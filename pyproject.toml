@@ -18,7 +18,8 @@ dependencies = [
     's3transfer[crt]',
     'numpy>=1.16',
     'pyyaml',
-    'google-cloud-storage'
+    'google-cloud-storage',
+    'aind-codeocean-api'
 ]
 
 [project.optional-dependencies]
@@ -88,6 +89,7 @@ fail_under = 0
 
 [tool.isort]
 line_length = 79
+profile = "black"
 
 [tool.interrogate]
 exclude = ["setup.py", "docs", "build"]
