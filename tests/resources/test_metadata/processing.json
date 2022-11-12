@@ -22,21 +22,22 @@
                 "endpoints": {
                     "raw_data_dir": "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
                     "dest_data_dir": "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream",
-                    "s3_bucket": "aind-transfer-test",
+                    "s3_bucket": "some-s3-bucket",
                     "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
-                    "gcp_bucket": "aind-data-dev",
+                    "gcp_bucket": "some-gcp-bucket",
                     "gcp_prefix": "test_20221001",
                     "codeocean_domain": "https://acmecorp.codeocean.com",
-                    "metadata_schemas": "https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas",
-                    "code_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer"
+                    "metadata_schemas": "https://location_of_metadata_schemas",
+                    "code_repo_location": "https://location_of_code_repo"
                 },
+                "aws_secret_names": {
+                    "code_ocean_api_token_name": "secret_name_for_api_token",
+                    "region": "us-west-2",
+                    "video_encryption_password": "secret_name_for_vid_password"},
                 "data": {
                     "name": "openephys"
                 },
                 "clip_data_job": {
-                    "video_encryption": {
-                        "region": "us-west-2",
-                        "secret_name": "video_encryption_password"},
                     "clip_kwargs": {}
                 },
                 "compress_data_job": {
@@ -61,7 +62,7 @@
                 },
                 "trigger_codeocean_job": {
                     "job_type": "openephys",
-                    "bucket": "aind-transfer-test",
+                    "bucket": "some-s3-bucket",
                     "prefix": "v0.6.x_neuropixels_multiexp_multistream"
                 },
                 "logging": {"level": "INFO"}

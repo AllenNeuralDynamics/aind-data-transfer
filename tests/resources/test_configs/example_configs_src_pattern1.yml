@@ -2,13 +2,17 @@
 endpoints:
   raw_data_dir: /some/random/folder/625463_2022-10-06_10-14-25
   dest_data_dir:
-  s3_bucket: aind-ephys-data
+  s3_bucket: some-s3-bucket
   s3_prefix: # Defaults to folder in temp_data_dir name
-  gcp_bucket: aind-data-dev
+  gcp_bucket: some-gcp-bucket
   gcp_prefix:
   codeocean_domain: https://acmecorp.codeocean.com
-  metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas
-  code_repo_location: https://github.com/AllenNeuralDynamics/aind-data-transfer
+  metadata_schemas: https://location_of_metadata_schemas
+  code_repo_location: https://location_of_code_repo
+aws_secret_names:
+  region: us-west-2
+  video_encryption_password: "secret_name_for_vid_password"
+  code_ocean_api_token_name: "secret_name_for_api_token"
 jobs: # Select which jobs to run
   clip: true
   compress: true
@@ -19,9 +23,6 @@ jobs: # Select which jobs to run
 data:
   name: openephys
 clip_data_job:
-  video_encryption:
-    secret_name:
-    region:
   clip_kwargs:
     n_frames:
 compress_data_job:
