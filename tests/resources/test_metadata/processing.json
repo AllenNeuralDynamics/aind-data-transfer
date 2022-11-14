@@ -1,5 +1,5 @@
 {
-    "describedBy": "https://github.com/AllenNeuralDynamics/data_schema/blob/main/schemas/processing.json",
+    "describedBy": "https://github.com/AllenNeuralDynamics/data_schema/blob/main/schemas/processing.py",
     "schema_version": "0.0.1",
     "data_processes": [
         {
@@ -27,7 +27,6 @@
                     "gcp_bucket": "aind-data-dev",
                     "gcp_prefix": "test_20221001",
                     "codeocean_domain": "https://acmecorp.codeocean.com",
-                    "metadata_schemas": "https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas",
                     "code_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer"
                 },
                 "data": {

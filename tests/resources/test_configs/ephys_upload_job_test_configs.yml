@@ -7,7 +7,6 @@ endpoints:
   gcp_bucket: aind-data-dev
   gcp_prefix: test_20221001
   codeocean_domain: https://acmecorp.codeocean.com
-  metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas
   code_repo_location: https://github.com/AllenNeuralDynamics/aind-data-transfer
 jobs: # Select which jobs to run
   clip: true
