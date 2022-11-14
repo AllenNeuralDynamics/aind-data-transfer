@@ -7,7 +7,6 @@ endpoints:
   gcp_bucket: some-gcp-bucket
   gcp_prefix: test_20221001
   codeocean_domain: https://acmecorp.codeocean.com
-  metadata_schemas: https://location_of_metadata_schemas
   code_repo_location: https://location_of_code_repo
 aws_secret_names:
   region: us-west-2
