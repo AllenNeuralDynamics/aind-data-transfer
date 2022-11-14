@@ -29,11 +29,18 @@ class ProcessingMetadata:
         Parameters
         ----------
         start_date_time : datetime
+          Time the processing job started
         end_date_time : datetime
+          Time the processing job ended
         input_location : str
+          Location of the raw data source
         output_location : str
+          Location of the processed data
         code_url : str
+          Location of where the code is maintained.
+          TODO: Extract this from pyproject.toml file.
         parameters : dict
+          Parameters of the processing job
         notes : Optional[str]
             Optional notes to attach
         Returns
