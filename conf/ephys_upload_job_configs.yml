@@ -6,6 +6,7 @@ endpoints:
   s3_prefix: # Defaults to folder name in dest_data_dir
   gcp_bucket:
   gcp_prefix:
+<<<<<<< HEAD
   codeocean_domain:
   metadata_schemas:
   code_repo_location:
@@ -13,6 +14,10 @@ aws_secret_names:
   region:
   video_encryption_password: # If blank or not able to access AWS, will NOT encrypt
   code_ocean_api_token_name: # Can be overriden by env variable CODEOCEAN_API_TOKEN
+=======
+  codeocean_domain: https://codeocean.allenneuraldynamics.org
+  code_repo_location: https://github.com/AllenNeuralDynamics/aind-data-transfer
+>>>>>>> main
 jobs: # Select which jobs to run
   clip: true
   compress: true

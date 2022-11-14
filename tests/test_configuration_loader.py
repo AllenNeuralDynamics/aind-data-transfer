@@ -44,7 +44,6 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "gcp_bucket": "some-gcp-bucket",
                 "gcp_prefix": "test_20221001",
                 "codeocean_domain": "https://acmecorp.codeocean.com",
-                "metadata_schemas": "https://location_of_metadata_schemas",
                 "code_repo_location": "https://location_of_code_repo",
             },
             "aws_secret_names": {
@@ -105,7 +104,6 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "gcp_bucket": "some-gcp-bucket",
                 "gcp_prefix": "ecephys_625463_2022-10-06_10-14-25",
                 "codeocean_domain": "https://acmecorp.codeocean.com",
-                "metadata_schemas": "https://location_of_metadata_schemas",
                 "code_repo_location": "https://location_of_code_repo",
             },
             "aws_secret_names": {
@@ -148,10 +146,7 @@ class TestEphysJobConfigs(unittest.TestCase):
 
 
 class TestImagingJobConfigs(unittest.TestCase):
-    metadata_schemas_url = (
-        "https://raw.githubusercontent.com/AllenNeuralDynamics/"
-        "data_schema/main/schemas"
-    )
+
     code_repo_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
     """Basic config loads test"""
@@ -174,7 +169,6 @@ class TestImagingJobConfigs(unittest.TestCase):
                     "s3://aind-transfer-test/"
                     "exaSPIM_125L_2022-08-05_17-25-36"
                 ),
-                "metadata_schemas": self.metadata_schemas_url,
                 "code_repo_location": self.code_repo_url,
             },
             "data": {"name": "imaging"},
