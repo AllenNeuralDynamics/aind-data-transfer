@@ -1,15 +1,15 @@
 """This module contains the api to write ephys data.
 """
-import shutil
-import pyminizip
 import os
 import platform
-from aind_data_transfer.util.s3_utils import get_secret
+import shutil
 
 import numpy as np
 
+from aind_data_transfer.transformations.compressors import VideoCompressor
+
 # Zarr adds many characters for groups, datasets,
-# file names and temporary files. 
+# file names and temporary files.
 MAX_WINDOWS_FILENAME_LEN = 100
 
 
@@ -45,8 +45,10 @@ class EphysWriters:
             experiment_name = read_block["experiment_name"]
             stream_name = read_block["stream_name"]
             zarr_path = output_dir / f"{experiment_name}_{stream_name}.zarr"
-            if platform.system() == "Windows" and \
-                len(str(zarr_path)) > MAX_WINDOWS_FILENAME_LEN:
+            if (
+                platform.system() == "Windows"
+                and len(str(zarr_path)) > MAX_WINDOWS_FILENAME_LEN
+            ):
                 raise Exception(
                     f"File name for zarr path is too long ({len(str(zarr_path))})"
                     f" and might lead to errors. Use a shorter destination path."
@@ -59,11 +61,9 @@ class EphysWriters:
             )
 
     @staticmethod
-    def copy_and_clip_data(src_dir,
-                           dst_dir,
-                           stream_gen,
-                           video_encryption_key=None,
-                           n_frames=100):
+    def copy_and_clip_data(
+        src_dir, dst_dir, stream_gen, video_encryption_key=None, n_frames=100
+    ):
         """
         Copies the raw data to a new directory with the .dat files clipped to
         just a small number of frames. This allows someone to still use the
@@ -115,22 +115,17 @@ class EphysWriters:
         videos_path = dst_dir / "Videos"
         videos_path_l = dst_dir / "videos"
         if os.path.isdir(videos_path):
-            new_videos_path = dst_dir / ".." / "videos.zip"
-            files_to_zip = []
-            for root, dirs, files in os.walk(videos_path):
-                for file in files:
-                    files_to_zip.append(str(os.path.join(root, file)))
-            pyminizip.compress_multiple(files_to_zip, [],
-                                        str(new_videos_path),
-                                        video_encryption_key,
-                                        5)
+            new_videos_path = dst_dir / ".." / "videos"
+            shutil.move(videos_path, new_videos_path)
+            video_compressor = VideoCompressor(
+                encryption_key=video_encryption_key
+            )
+            video_compressor.compress_all_videos_in_dir(new_videos_path)
+
         elif os.path.isdir(videos_path_l):
-            new_videos_path = dst_dir / ".." / "videos.zip"
-            files_to_zip = []
-            for root, dirs, files in os.walk(videos_path_l):
-                for file in files:
-                    files_to_zip.append(str(os.path.join(root, file)))
-            pyminizip.compress_multiple(files_to_zip, [],
-                                        str(new_videos_path),
-                                        video_encryption_key,
-                                        5)
+            new_videos_path = dst_dir / ".." / "videos"
+            shutil.move(videos_path_l, new_videos_path)
+            video_compressor = VideoCompressor(
+                encryption_key=video_encryption_key
+            )
+            video_compressor.compress_all_videos_in_dir(new_videos_path)
