@@ -145,7 +145,7 @@ if __name__ == "__main__":  # noqa: C901
 
         file_path = dest_data_dir / ProcessingMetadata.output_file_name
         with open(file_path, "w") as f:
-            contents = processing_instance.json(dumps_kwargs={"indent: 4"})
+            contents = processing_instance.json(**{"indent": 4})
             f.write(contents)
         logging.info("Finished creating processing.json file.")
 
