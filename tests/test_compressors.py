@@ -6,8 +6,12 @@ import numpy as np
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
 
-from aind_data_transfer.transformations.compressors import EphysCompressors, ImagingCompressors
 from aind_data_transfer.readers import EphysReaders
+from aind_data_transfer.transformations.compressors import (
+    EphysCompressors,
+    ImagingCompressors,
+    VideoCompressor,
+)
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 RESOURCES_DIR = TEST_DIR / "resources"
@@ -18,7 +22,7 @@ class TestEphysCompressors(unittest.TestCase):
         blosc_configs = {
             "cname": "zstd",
             "clevel": 9,
-            "shuffle": Blosc.BITSHUFFLE
+            "shuffle": Blosc.BITSHUFFLE,
         }
         wavpack_configs = {"level": 3}
         blosc = EphysCompressors.get_compressor(
@@ -100,20 +104,26 @@ class TestImagingCompressors(unittest.TestCase):
         blosc_configs = {
             "cname": "zstd",
             "clevel": 1,
-            "shuffle": Blosc.SHUFFLE
+            "shuffle": Blosc.SHUFFLE,
         }
         blosc = ImagingCompressors.get_compressor(
             ImagingCompressors.Compressors.blosc.name, **blosc_configs
         )
-        expected_blosc = Blosc(
-            cname="zstd", clevel=1, shuffle=Blosc.SHUFFLE
-        )
+        expected_blosc = Blosc(cname="zstd", clevel=1, shuffle=Blosc.SHUFFLE)
         self.assertEqual(blosc, expected_blosc)
 
     def test_get_compressor_fails(self):
         with self.assertRaises(Exception):
             ImagingCompressors.get_compressor("Made up name")
 
+
+class TestVideoCompressor(unittest.TestCase):
+    """Tests VideoCompressor class methods"""
+
+    def test_video_compressor_creation(self):
+        """Tests VideoCompressor default is set correctly"""
+        video_compressor = VideoCompressor()
+        self.assertEqual(video_compressor.compression_level, 5)
 
 
 if __name__ == "__main__":
