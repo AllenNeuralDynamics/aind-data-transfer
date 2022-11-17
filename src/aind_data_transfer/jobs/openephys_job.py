@@ -20,6 +20,7 @@ from aind_data_transfer.transformations.metadata_creation import (
 from aind_data_transfer.util.npopto_correction import (
     correct_np_opto_electrode_locations,
 )
+from aind_data_transfer.util.s3_utils import get_secret
 from aind_data_transfer.writers import EphysWriters
 
 root_logger = logging.getLogger()
@@ -64,8 +65,21 @@ if __name__ == "__main__":  # noqa: C901
         streams_to_clip = EphysReaders.get_streams_to_clip(
             data_name, data_src_dir
         )
+        aws_secret_names = job_configs["aws_secret_names"]
+        secret_name = aws_secret_names.get("video_encryption_password")
+        secret_region = aws_secret_names.get("region")
+        video_encryption_key_val = None
+        if secret_name:
+            video_encryption_key_val = json.loads(
+                get_secret(secret_name, secret_region)
+            )
+
         EphysWriters.copy_and_clip_data(
-            data_src_dir, clipped_data_path, streams_to_clip, **clip_kwargs
+            data_src_dir,
+            clipped_data_path,
+            streams_to_clip,
+            video_encryption_key_val["password"],
+            **clip_kwargs,
         )
         logging.info("Finished clipping source data.")
 
@@ -131,7 +145,7 @@ if __name__ == "__main__":  # noqa: C901
 
         file_path = dest_data_dir / ProcessingMetadata.output_file_name
         with open(file_path, "w") as f:
-            contents = processing_instance.json(dumps_kwargs={"indent: 4"})
+            contents = processing_instance.json(**{"indent": 4})
             f.write(contents)
         logging.info("Finished creating processing.json file.")
 
@@ -194,6 +208,12 @@ if __name__ == "__main__":  # noqa: C901
         logging.info("Triggering capsule run.")
         capsule_id = job_configs["trigger_codeocean_job"]["capsule_id"]
         co_api_token = os.getenv("CODEOCEAN_API_TOKEN")
+        if co_api_token is None:
+            aws_secret_names = job_configs["aws_secret_names"]
+            secret_name = aws_secret_names.get("code_ocean_api_token_name")
+            secret_region = aws_secret_names.get("region")
+            token_key_val = json.loads(get_secret(secret_name, secret_region))
+            co_api_token = token_key_val["CODEOCEAN_READWRITE_TOKEN"]
         co_domain = job_configs["endpoints"]["codeocean_domain"]
         co_client = CodeOceanClient(domain=co_domain, token=co_api_token)
         run_response = co_client.run_capsule(

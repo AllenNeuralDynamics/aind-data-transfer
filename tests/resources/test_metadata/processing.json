@@ -1,5 +1,5 @@
 {
-    "describedBy": "https://github.com/AllenNeuralDynamics/data_schema/blob/main/schemas/processing.py",
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/site-packages/aind_data_schema/processing.py",
     "schema_version": "0.0.1",
     "data_processes": [
         {
@@ -22,13 +22,17 @@
                 "endpoints": {
                     "raw_data_dir": "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
                     "dest_data_dir": "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream",
-                    "s3_bucket": "aind-transfer-test",
+                    "s3_bucket": "some-s3-bucket",
                     "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
-                    "gcp_bucket": "aind-data-dev",
+                    "gcp_bucket": "some-gcp-bucket",
                     "gcp_prefix": "test_20221001",
                     "codeocean_domain": "https://acmecorp.codeocean.com",
-                    "code_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer"
+                    "code_repo_location": "https://location_of_code_repo"
                 },
+                "aws_secret_names": {
+                    "code_ocean_api_token_name": "secret_name_for_api_token",
+                    "region": "us-west-2",
+                    "video_encryption_password": "secret_name_for_vid_password"},
                 "data": {
                     "name": "openephys"
                 },
@@ -57,7 +61,7 @@
                 },
                 "trigger_codeocean_job": {
                     "job_type": "openephys",
-                    "bucket": "aind-transfer-test",
+                    "bucket": "some-s3-bucket",
                     "prefix": "v0.6.x_neuropixels_multiexp_multistream"
                 },
                 "logging": {"level": "INFO"}
