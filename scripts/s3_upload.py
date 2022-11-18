@@ -11,8 +11,8 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client
 from s3transfer.constants import GB, MB
 
-from transfer.s3 import S3Uploader
-from transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.s3 import S3Uploader
+from aind_data_transfer.util.file_utils import collect_filepaths
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"
@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def chunk_files(input_dir, ntasks, recursive=True):
-    filepaths = collect_filepaths(input_dir, recursive)
+def chunk_files(input_dir, ntasks, recursive=True, exclude_dirs=None):
+    filepaths = collect_filepaths(input_dir, recursive, exclude_dirs)
     logger.info(f"Collected {len(filepaths)} files")
     return np.array_split(filepaths, ntasks)
 
@@ -61,12 +61,13 @@ def run_cluster_job(
     timeout,
     parallelism,
     recursive,
+    exclude_dirs=None
 ):
     client, config = get_client()
     ntasks = config["n_workers"]
     cores = config["cores"]
 
-    chunked_files = chunk_files(input_dir, ntasks * parallelism, recursive)
+    chunked_files = chunk_files(input_dir, ntasks * parallelism, recursive, exclude_dirs)
     logger.info(
         f"Split files into {len(chunked_files)} chunks with "
         f"{len(chunked_files[0])} files each"
@@ -101,6 +102,7 @@ def run_local_job(
     part_size,
     timeout,
     recursive,
+    exclude_dirs=None
 ):
     uploader = S3Uploader(
         num_threads=nthreads,
@@ -110,7 +112,7 @@ def run_local_job(
     )
     if os.path.isdir(input_dir):
         failed_uploads = uploader.upload_folder(
-            input_dir, bucket, s3_path, recursive
+            input_dir, bucket, s3_path, recursive, exclude_dirs
         )
     elif os.path.isfile(input_dir):
         failed_uploads = uploader.upload_file(input_dir, bucket, s3_path)
@@ -184,6 +186,13 @@ def main():
         action="store_true",
         help="upload a directory recursively",
     )
+    parser.add_argument(
+        "--exclude_dirs",
+        type=str,
+        nargs='+',
+        default=None,
+        help="directories to exclude from upload"
+    )
 
     args = parser.parse_args()
 
@@ -209,6 +218,7 @@ def main():
             timeout=args.timeout,
             parallelism=args.batch_num,
             recursive=args.recursive,
+            exclude_dirs=args.exclude_dirs
         )
     else:
         run_local_job(
@@ -220,6 +230,7 @@ def main():
             part_size=args.part_size,
             timeout=args.timeout,
             recursive=args.recursive,
+            exclude_dirs=args.exclude_dirs
         )
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")

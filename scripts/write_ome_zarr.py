@@ -1,12 +1,5 @@
 import argparse
-import fnmatch
 import logging
-import os
-import shutil
-import time
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
-from typing import Union
 
 import google.cloud.exceptions
 import pandas as pd
@@ -14,11 +7,10 @@ from botocore.session import get_session
 from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
 from numcodecs import blosc
-from transfer.gcs import GCSUploader, create_client
-from transfer.s3 import S3Uploader
-from transfer.transcode.ome_zarr import write_files_to_zarr
-from transfer.util.file_utils import *
-from transfer.util.io_utils import DataReaderFactory
+
+from aind_data_transfer.gcs import create_client
+from aind_data_transfer.transcode.ome_zarr import write_files
+from aind_data_transfer.util.file_utils import *
 
 from cluster.config import load_jobqueue_config
 
@@ -170,14 +162,13 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        help="top-level directory to upload to --output."
-             "If a micr/ directory is present, only images within that directory are transcoded, "
-             "the rest are transferred as-is."
+        help="directory of images to transcode to OME-Zarr. Each image"
+             " is written to a separate group in the top-level zarr folder."
     )
     parser.add_argument(
         "--output",
         type=str,
-        help="where to store the data",
+        help="output location of the OME-Zarr dataset, either a path or url (e.g., s3://my-bucket/my-zarr)",
     )
     parser.add_argument("--codec", type=str, default="zstd")
     parser.add_argument("--clevel", type=int, default=1)
@@ -242,40 +233,6 @@ def parse_args():
     return args
 
 
-def copy_files(filepaths, output, root_folder, n_workers=4):
-    if not filepaths:
-        LOGGER.info("No files to upload. Returning.")
-        return
-    dst_list = []
-    for f in filepaths:
-        dst = os.path.join(output, os.path.relpath(f, root_folder))
-        dst_list.append(dst)
-        Path(dst).parent.mkdir(parents=True, exist_ok=True)
-    t0 = time.time()
-    with ThreadPoolExecutor(n_workers) as executor:
-        executor.map(shutil.copyfile, filepaths, dst_list)
-    LOGGER.info(f"Copy took {time.time() - t0}s")
-
-
-def copy_files_to_cloud(filepaths, provider, bucket, cloud_dst, root_folder):
-    if not filepaths:
-        LOGGER.info("No files to upload. Returning.")
-        return
-    if provider == "gs://":
-        LOGGER.info("Uploading files to GCS")
-        uploader = GCSUploader(bucket)
-        uploader.upload_files(filepaths, cloud_dst, root_folder)
-    elif provider == "s3://":
-        LOGGER.info("Uploading files to s3")
-        uploader = S3Uploader(
-            target_throughput=1000 * (1024**2) ** 2,
-            part_size=128 * (1024**2),
-        )
-        uploader.upload_files(filepaths, bucket, cloud_dst, root_folder)
-    else:
-        raise ValueError("Invalid cloud storage provider: {provider}")
-
-
 def parse_voxel_size(voxsize_str):
     vsstr = voxsize_str.split(",")
     vs = []
@@ -294,14 +251,6 @@ def parse_voxel_size(voxsize_str):
     return vs
 
 
-def find_image_dir(directory):
-    RAW_IMAGE_DIR = "micr"
-    for root, dirs, files in os.walk(directory):
-        if RAW_IMAGE_DIR in dirs:
-            return Path(os.path.join(root, RAW_IMAGE_DIR))
-    return None
-
-
 def main():
     args = parse_args()
 
@@ -313,13 +262,14 @@ def main():
 
     ensure_metrics_file(args.metrics_file)
 
-    input_dir = Path(args.input)
-    image_dir = find_image_dir(input_dir)
-    if image_dir is None:
-        LOGGER.warning(f'"micr/" not found, converting all images in {input_dir}')
-        image_dir = input_dir
+    image_dir = Path(args.input)
+
     images = set(get_images(image_dir, exclude=args.exclude))
     LOGGER.info(f"Found {len(images)} images in {image_dir}")
+
+    if not images:
+        LOGGER.info(f"No images found, exiting.")
+        return
 
     my_dask_kwargs = {}
     if check_any_hdf5(images):
@@ -333,33 +283,17 @@ def main():
 
     client, _ = get_client(args.deployment, **my_dask_kwargs)
 
-    filepaths = collect_filepaths(input_dir, recursive=True)
-    # Filter out the images we're transcoding, we won't upload the raw data
-    filepaths = [p for p in filepaths if p not in images]
-    LOGGER.info(f"Found {len(filepaths)} other files")
-
     # Upload all the files that we're not converting to Zarr
     if is_cloud_url(args.output):
         provider, bucket, cloud_dst = parse_cloud_url(args.output)
-        copy_files_to_cloud(
-            filepaths, provider, bucket, cloud_dst, input_dir
-        )
 
         # We will place the Zarr in the cloud folder corresponding to image_dir
-        zarr_dst = make_cloud_paths([image_dir], cloud_dst, input_dir)[0]
+        zarr_dst = make_cloud_paths([image_dir], cloud_dst)[0]
         zarr_dst = f"{provider}{bucket}/{zarr_dst}"
     else:
-        LOGGER.info("Uploading to filesystem")
-        copy_files(filepaths, args.output, input_dir)
         # We will place the Zarr in the output folder corresponding to image_dir
-        zarr_dst = os.path.join(
-            args.output, os.path.relpath(image_dir, input_dir)
-        )
-        Path(zarr_dst).mkdir(parents=True, exist_ok=True)
-
-    if not images:
-        LOGGER.info(f"No images found, exiting.")
-        return
+        zarr_dst = Path(args.output)
+        zarr_dst.mkdir(parents=True, exist_ok=True)
 
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
     LOGGER.info(f"Writing OME-Zarr to {zarr_dst}")
@@ -374,7 +308,7 @@ def main():
 
     opts = get_blosc_codec(args.codec, args.clevel)
 
-    all_metrics = write_files_to_zarr(
+    all_metrics = write_files(
         images,
         zarr_dst,
         args.n_levels,

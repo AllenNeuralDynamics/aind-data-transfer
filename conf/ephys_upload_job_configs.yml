@@ -1,0 +1,48 @@
+# Leave values blank to use defaults
+endpoints:
+  raw_data_dir: # Set this to raw data location
+  dest_data_dir: # Defaults to the raw_data_dir folder name
+  s3_bucket: aind-ephys-data
+  s3_prefix: # Defaults to folder name in dest_data_dir
+  gcp_bucket:
+  gcp_prefix:
+  codeocean_domain: https://codeocean.allenneuraldynamics.org
+  metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas
+  code_repo_location: https://github.com/AllenNeuralDynamics/aind-data-transfer
+jobs: # Select which jobs to run
+  clip: true
+  compress: true
+  attach_metadata: true
+  upload_to_s3: true
+  upload_to_gcp: false
+  register_to_codeocean: true
+  trigger_codeocean_spike_sorting: true
+data:
+  name: openephys
+clip_data_job:
+  clip_kwargs:
+    n_frames:
+compress_data_job:
+  write_kwargs: {"n_jobs": -1, "chunk_duration": "1s", "progress_bar": true}
+  format_kwargs:
+    output_format:
+  compressor:
+    compressor_name: wavpack
+    kwargs: {"level": 3}
+  scale_params:
+    num_chunks_per_segment:
+    chunk_size:
+    disable_tqdm:
+upload_data_job:
+  dryrun: false # Set this to true to perform a dryrun of the upload
+register_on_codeocean_job:
+  tags: ['ecephys', 'raw']
+  asset_name:  # Defaults to s3_prefix
+  mount:  # Defaults to s3_prefix
+trigger_codeocean_spike_sorting_job:
+  asset_id: # Will try to resolve it if the register_on_codeocean_job is run
+  mount:  # Defaults to s3_prefix
+  capsule_id:
+logging:
+  level: "INFO" # Env variable LOG_LEVEL will override this value
+  file: # If blank, will log to stdout.
