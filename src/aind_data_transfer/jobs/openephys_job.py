@@ -1,31 +1,38 @@
 """Job that reads open ephys data, compresses, and writes it."""
+import json
 import logging
 import os
+import platform
 import subprocess
 import sys
-import platform
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-import warnings
 
-from botocore.session import get_session
+from aind_codeocean_api.codeocean import CodeOceanClient
 
-from aind_data_transfer.codeocean import CodeOceanClient
 from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
 from aind_data_transfer.readers import EphysReaders
 from aind_data_transfer.transformations.compressors import EphysCompressors
-from aind_data_transfer.transformations.metadata_creation import ProcessingMetadata
-from aind_data_transfer.util.npopto_correction import correct_np_opto_electrode_locations
+from aind_data_transfer.transformations.metadata_creation import (
+    ProcessingMetadata,
+)
+from aind_data_transfer.util.npopto_correction import (
+    correct_np_opto_electrode_locations,
+)
+from aind_data_transfer.util.s3_utils import get_secret
 from aind_data_transfer.writers import EphysWriters
 
 root_logger = logging.getLogger()
 
 # Suppress a warning from one of the third-party libraries
-deprecation_msg = ("Creating a LegacyVersion has been deprecated and will be "
-                   "removed in the next major release")
-warnings.filterwarnings("ignore",
-                        category=DeprecationWarning,
-                        message=deprecation_msg)
+deprecation_msg = (
+    "Creating a LegacyVersion has been deprecated and will be "
+    "removed in the next major release"
+)
+warnings.filterwarnings(
+    "ignore", category=DeprecationWarning, message=deprecation_msg
+)
 
 # TODO: Break these up into importable jobs to fix the flake8 warning?
 if __name__ == "__main__":  # noqa: C901
@@ -58,8 +65,21 @@ if __name__ == "__main__":  # noqa: C901
         streams_to_clip = EphysReaders.get_streams_to_clip(
             data_name, data_src_dir
         )
+        aws_secret_names = job_configs["aws_secret_names"]
+        secret_name = aws_secret_names.get("video_encryption_password")
+        secret_region = aws_secret_names.get("region")
+        video_encryption_key_val = None
+        if secret_name:
+            video_encryption_key_val = json.loads(
+                get_secret(secret_name, secret_region)
+            )
+
         EphysWriters.copy_and_clip_data(
-            data_src_dir, clipped_data_path, streams_to_clip, **clip_kwargs
+            data_src_dir,
+            clipped_data_path,
+            streams_to_clip,
+            video_encryption_key_val["password"],
+            **clip_kwargs,
         )
         logging.info("Finished clipping source data.")
 
@@ -112,10 +132,8 @@ if __name__ == "__main__":  # noqa: C901
             output_location = dest_data_dir
 
         code_url = job_configs["endpoints"]["code_repo_location"]
-        schema_url = job_configs["endpoints"]["metadata_schemas"]
         parameters = job_configs
-        processing_metadata = ProcessingMetadata(schema_url=schema_url)
-        processing_instance = processing_metadata.ephys_job_to_processing(
+        processing_instance = ProcessingMetadata.ephys_job_to_processing(
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=str(input_location),
@@ -125,9 +143,10 @@ if __name__ == "__main__":  # noqa: C901
             notes=None,
         )
 
-        processing_metadata.write_metadata(
-            schema_instance=processing_instance, output_dir=dest_data_dir
-        )
+        file_path = dest_data_dir / ProcessingMetadata.output_file_name
+        with open(file_path, "w") as f:
+            contents = processing_instance.json(**{"indent": 4})
+            f.write(contents)
         logging.info("Finished creating processing.json file.")
 
     # Upload to s3
@@ -150,11 +169,13 @@ if __name__ == "__main__":  # noqa: C901
                     dest_data_dir,
                     aws_dest,
                     "--dryrun",
-                ], shell=shell
+                ],
+                shell=shell,
             )
         else:
-            subprocess.run(["aws", "s3", "sync", dest_data_dir, aws_dest],
-                           shell=shell)
+            subprocess.run(
+                ["aws", "s3", "sync", dest_data_dir, aws_dest], shell=shell
+            )
         logging.info("Finished uploading to s3.")
 
     # Upload to gcp
@@ -173,67 +194,31 @@ if __name__ == "__main__":  # noqa: C901
                     "-n",
                     dest_data_dir,
                     gcp_dest,
-                ], shell=shell
+                ],
+                shell=shell,
             )
         else:
             subprocess.run(
                 ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest],
-                shell=shell
+                shell=shell,
             )
         logging.info("Finished uploading to gcp.")
 
-    # TODO: Combine these steps into a capsule?
-    # Register Asset on CodeOcean
-    if (job_configs["jobs"]["register_to_codeocean"] or
-            job_configs["jobs"]["trigger_codeocean_spike_sorting"]):
-        data_asset_response = None
+    if job_configs["jobs"]["trigger_codeocean_job"]:
+        logging.info("Triggering capsule run.")
+        capsule_id = job_configs["trigger_codeocean_job"]["capsule_id"]
         co_api_token = os.getenv("CODEOCEAN_API_TOKEN")
+        if co_api_token is None:
+            aws_secret_names = job_configs["aws_secret_names"]
+            secret_name = aws_secret_names.get("code_ocean_api_token_name")
+            secret_region = aws_secret_names.get("region")
+            token_key_val = json.loads(get_secret(secret_name, secret_region))
+            co_api_token = token_key_val["CODEOCEAN_READWRITE_TOKEN"]
         co_domain = job_configs["endpoints"]["codeocean_domain"]
-        co_client = CodeOceanClient(domain=co_domain,
-                                    token=co_api_token)
-        if job_configs["jobs"]["register_to_codeocean"]:
-            # Use botocore to retrieve aws access tokens
-            logging.info("Registering data asset to code ocean.")
-            aws_session = get_session()
-            aws_credentials = aws_session.get_credentials()
-            aws_key = aws_credentials.access_key
-            aws_secret = aws_credentials.secret_key
-            co_tags = job_configs["register_on_codeocean_job"]["tags"]
-            asset_name = job_configs["register_on_codeocean_job"]["asset_name"]
-            mount = job_configs["register_on_codeocean_job"]["mount"]
-            bucket = job_configs["endpoints"]["s3_bucket"]
-            prefix = job_configs["endpoints"]["s3_prefix"]
-            data_asset_response = co_client.register_data_asset(
-                asset_name=asset_name,
-                mount=mount,
-                bucket=bucket,
-                prefix=prefix,
-                access_key_id=aws_key,
-                secret_access_key=aws_secret,
-                tags=co_tags,
-            )
-            logging.info(f"Finished registering data asset to code ocean. "
-                         f"{data_asset_response.json()}")
-
-        # Automatically trigger capsule run
-        if job_configs["jobs"]["trigger_codeocean_spike_sorting"]:
-            logging.info("Triggering a capsule run.")
-            conf_name = "trigger_codeocean_spike_sorting_job"
-            if data_asset_response is not None:
-                response_contents = data_asset_response.json()
-                data_asset_id = response_contents["id"]
-            else:
-                data_asset_id = (
-                    job_configs[conf_name]["asset_id"])
-            capsule_id = (
-                job_configs[conf_name]["capsule_id"])
-            mount = (
-                job_configs[conf_name]["mount"])
-            data_assets = [{"id": data_asset_id, "mount": mount}]
-            capsule_run_response = (
-                co_client.run_capsule(capsule_id=capsule_id,
-                                      data_assets=data_assets))
-
-            logging.info(f"Finished triggering a capsule run. Please check "
-                         f"CodeOcean for status of capsule. "
-                         f"{capsule_run_response}")
+        co_client = CodeOceanClient(domain=co_domain, token=co_api_token)
+        run_response = co_client.run_capsule(
+            capsule_id=capsule_id,
+            data_assets=[],
+            parameters=[json.dumps(job_configs)],
+        )
+        logging.debug(f"Run response: {run_response.json()}")

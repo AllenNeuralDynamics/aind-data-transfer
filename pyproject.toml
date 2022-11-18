@@ -16,9 +16,14 @@ dynamic = ["version"]
 dependencies = [
     'pandas',
     's3transfer[crt]',
+    'boto3',
+    'botocore==1.29.0',
     'numpy>=1.16',
     'pyyaml',
-    'google-cloud-storage'
+    'google-cloud-storage',
+    'pyminizip',
+    'aind-codeocean-api',
+    'aind-data-schema'
 ]
 
 [project.optional-dependencies]
@@ -55,7 +60,6 @@ where = ["src"]
 
 [tool.setuptools.dynamic]
 version = {attr = "aind_data_transfer.__version__"}
-readme = {file = ["README.md"]}
 
 [tool.black]
 line-length = 79
@@ -88,6 +92,7 @@ fail_under = 0
 
 [tool.isort]
 line_length = 79
+profile = "black"
 
 [tool.interrogate]
 exclude = ["setup.py", "docs", "build"]

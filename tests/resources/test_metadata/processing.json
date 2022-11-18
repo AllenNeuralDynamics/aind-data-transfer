@@ -1,5 +1,5 @@
 {
-    "describedBy": "https://github.com/AllenNeuralDynamics/data_schema/blob/main/schemas/processing.json",
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/site-packages/aind_data_schema/processing.py",
     "schema_version": "0.0.1",
     "data_processes": [
         {
@@ -17,20 +17,22 @@
                     "compress": true,
                     "upload_to_s3": true,
                     "upload_to_gcp": true,
-                    "register_to_codeocean": false,
-                    "trigger_codeocean_spike_sorting": false
+                    "trigger_codeocean_job": false
                 },
                 "endpoints": {
                     "raw_data_dir": "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
                     "dest_data_dir": "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream",
-                    "s3_bucket": "aind-transfer-test",
+                    "s3_bucket": "some-s3-bucket",
                     "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
-                    "gcp_bucket": "aind-data-dev",
+                    "gcp_bucket": "some-gcp-bucket",
                     "gcp_prefix": "test_20221001",
                     "codeocean_domain": "https://acmecorp.codeocean.com",
-                    "metadata_schemas": "https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas",
-                    "code_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer"
+                    "code_repo_location": "https://location_of_code_repo"
                 },
+                "aws_secret_names": {
+                    "code_ocean_api_token_name": "secret_name_for_api_token",
+                    "region": "us-west-2",
+                    "video_encryption_password": "secret_name_for_vid_password"},
                 "data": {
                     "name": "openephys"
                 },
@@ -57,15 +59,11 @@
                 "upload_data_job": {
                     "dryrun": true
                 },
-                "register_on_codeocean_job": {
-                    "tags": [
-                        "ecephys",
-                        "raw"
-                    ],
-                    "asset_name": "v0.6.x_neuropixels_multiexp_multistream",
-                    "mount": "v0.6.x_neuropixels_multiexp_multistream"
+                "trigger_codeocean_job": {
+                    "job_type": "openephys",
+                    "bucket": "some-s3-bucket",
+                    "prefix": "v0.6.x_neuropixels_multiexp_multistream"
                 },
-                "trigger_codeocean_spike_sorting_job": {"mount": "v0.6.x_neuropixels_multiexp_multistream"},
                 "logging": {"level": "INFO"}
             }
         }
