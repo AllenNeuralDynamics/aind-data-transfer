@@ -13,8 +13,8 @@ transcode_job:
   compressor:
     compressor_name: blosc
     kwargs: {cname: "zstd", clevel: 1, shuffle: "SHUFFLE"}
-  chunk_size: 64
-  chunk_shape: [1, 1, 512, 256, 256]
+  chunk_size: 64  # MB
+  chunk_shape: [1, 1, 512, 256, 256]  # remove this field if you want automatic chunking
   resume: false  # resume processing if previous job failed
   n_levels: 8
   exclude: ["*.tif", "*.db"]
