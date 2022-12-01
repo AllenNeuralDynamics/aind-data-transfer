@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import os
 
 import dask.array
 import numpy as np
@@ -9,9 +10,9 @@ from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster, wait
 from numcodecs import GZip
 
-from transfer.transcode.ome_zarr import _get_or_create_pyramid
-from transfer.util.file_utils import *
-from transfer.util.io_utils import DataReaderFactory, ImarisReader
+from aind_data_transfer.transcode.ome_zarr import _get_or_create_pyramid
+from aind_data_transfer.util.file_utils import *
+from aind_data_transfer.util.io_utils import DataReaderFactory, ImarisReader
 
 from cluster.config import load_jobqueue_config
 
