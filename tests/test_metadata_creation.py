@@ -8,7 +8,8 @@ from pathlib import Path
 
 from aind_data_schema import Processing
 
-from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
+from aind_data_transfer.config_loader.ephys_configuration_loader import \
+    EphysJobConfigurationLoader
 from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
 )

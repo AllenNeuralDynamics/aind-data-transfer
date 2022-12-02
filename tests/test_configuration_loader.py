@@ -5,10 +5,11 @@ from pathlib import Path
 
 from numcodecs import Blosc
 
-from aind_data_transfer.configuration_loader import (
-    EphysJobConfigurationLoader,
+from aind_data_transfer.config_loader.configuration_loader import (
     ImagingJobConfigurationLoader,
 )
+from aind_data_transfer.config_loader.ephys_configuration_loader import \
+    EphysJobConfigurationLoader
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"

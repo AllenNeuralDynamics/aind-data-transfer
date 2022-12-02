@@ -8,8 +8,9 @@ from shutil import copytree, ignore_patterns
 
 from numcodecs import Blosc
 
-from aind_data_transfer.configuration_loader import \
-    ImagingJobConfigurationLoader
+from aind_data_transfer.config_loader.configuration_loader import (
+    ImagingJobConfigurationLoader,
+)
 from aind_data_transfer.readers import ImagingReaders
 from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
 
