@@ -35,6 +35,7 @@ compress_data_job:
     num_chunks_per_segment:
     chunk_size: 20
     disable_tqdm:
+  max_windows_filename_len:
 upload_data_job:
   dryrun: true # Set this to true to perform a dryrun of the upload
 trigger_codeocean_job:
