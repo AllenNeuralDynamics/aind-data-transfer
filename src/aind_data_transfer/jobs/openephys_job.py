@@ -66,7 +66,7 @@ if __name__ == "__main__":  # noqa: C901
         aws_secret_names = job_configs["aws_secret_names"]
         secret_name = aws_secret_names.get("video_encryption_password")
         secret_region = aws_secret_names.get("region")
-        video_encryption_key_val = None
+        video_encryption_key_val = {"password": None}
         if secret_name:
             video_encryption_key_val = json.loads(
                 get_secret(secret_name, secret_region)
