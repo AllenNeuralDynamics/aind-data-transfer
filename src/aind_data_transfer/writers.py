@@ -10,7 +10,7 @@ from aind_data_transfer.transformations.compressors import VideoCompressor
 
 # Zarr adds many characters for groups, datasets,
 # file names and temporary files.
-MAX_WINDOWS_FILENAME_LEN = 100
+DEFAULT_MAX_WINDOWS_FILENAME_LEN = 150
 
 
 class EphysWriters:
@@ -18,7 +18,12 @@ class EphysWriters:
 
     @staticmethod
     def compress_and_write_block(
-        read_blocks, compressor, output_dir, job_kwargs, output_format="zarr"
+            read_blocks,
+            compressor,
+            output_dir,
+            job_kwargs,
+            output_format="zarr",
+            max_windows_filename_len=DEFAULT_MAX_WINDOWS_FILENAME_LEN
     ):
         """
         Compress and write read_blocks.
@@ -30,12 +35,17 @@ class EphysWriters:
             output_dir (Path): Output directory to write compressed data
             job_kwargs (dict): Recording save job kwargs.
             output_format (str): Defaults to zarr
+            max_windows_filename_len (int): Warn if base file names are larger
+              than this.
 
         Returns:
             Nothing. Writes data to a folder.
         """
         if job_kwargs["n_jobs"] == -1:
             job_kwargs["n_jobs"] = os.cpu_count()
+
+        if max_windows_filename_len is None:
+            max_windows_filename_len = DEFAULT_MAX_WINDOWS_FILENAME_LEN
 
         for read_block in read_blocks:
             if "recording" in read_block:
@@ -47,11 +57,13 @@ class EphysWriters:
             zarr_path = output_dir / f"{experiment_name}_{stream_name}.zarr"
             if (
                 platform.system() == "Windows"
-                and len(str(zarr_path)) > MAX_WINDOWS_FILENAME_LEN
+                and len(str(zarr_path)) > max_windows_filename_len
             ):
                 raise Exception(
-                    f"File name for zarr path is too long ({len(str(zarr_path))})"
-                    f" and might lead to errors. Use a shorter destination path."
+                    f"File name for zarr path is too long "
+                    f"({len(str(zarr_path))})"
+                    f" and might lead to errors. Use a shorter destination "
+                    f"path."
                 )
             _ = rec.save(
                 format=output_format,
@@ -78,7 +90,7 @@ class EphysWriters:
         stream_gen : dict
           A dict with
             'data': np.memmap(dat file),
-              'relative_path_name': path name of raw data so it can be copied
+              'relative_path_name': path name of raw data
                 to new dir correctly
               'n_chan': number of channels.
         video_encryption_key : Optional[str]
