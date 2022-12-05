@@ -35,6 +35,7 @@ compress_data_job:
     num_chunks_per_segment:
     chunk_size:
     disable_tqdm:
+  max_windows_filename_len: # Windows OS has max filename length of 256, which can mess up zarr writer
 upload_data_job:
   dryrun: false # Set this to true to perform a dryrun of the upload
 trigger_codeocean_job:

@@ -50,8 +50,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             },
             "aws_secret_names": {
                 "code_ocean_api_token_name": "secret_name_for_api_token",
-                "region": "us-west-2",
-                "video_encryption_password": "secret_name_for_vid_password",
+                "region": "us-west-2"
             },
             "data": {"name": "openephys"},
             "clip_data_job": {

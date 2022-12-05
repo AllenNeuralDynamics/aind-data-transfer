@@ -53,10 +53,6 @@ if __name__ == "__main__":  # noqa: C901
     data_src_dir = Path(job_configs["endpoints"]["raw_data_dir"])
     dest_data_dir = Path(job_configs["endpoints"]["dest_data_dir"])
 
-    # Correct NP-opto electrode positions:
-    # correction is skipped if Neuropix-PXI version > 0.4.0
-    correct_np_opto_electrode_locations(data_src_dir)
-
     logging.info("Finished loading configs.")
 
     # Clip data job
@@ -70,7 +66,7 @@ if __name__ == "__main__":  # noqa: C901
         aws_secret_names = job_configs["aws_secret_names"]
         secret_name = aws_secret_names.get("video_encryption_password")
         secret_region = aws_secret_names.get("region")
-        video_encryption_key_val = None
+        video_encryption_key_val = {"password": None}
         if secret_name:
             video_encryption_key_val = json.loads(
                 get_secret(secret_name, secret_region)
@@ -83,6 +79,11 @@ if __name__ == "__main__":  # noqa: C901
             video_encryption_key_val["password"],
             **clip_kwargs,
         )
+
+        # Correct NP-opto electrode positions:
+        # correction is skipped if Neuropix-PXI version > 0.4.0
+        correct_np_opto_electrode_locations(clipped_data_path)
+
         logging.info("Finished clipping source data.")
 
     # Compress data job
@@ -98,6 +99,9 @@ if __name__ == "__main__":  # noqa: C901
         format_kwargs = job_configs["compress_data_job"]["format_kwargs"]
         scale_kwargs = job_configs["compress_data_job"]["scale_params"]
         write_kwargs = job_configs["compress_data_job"]["write_kwargs"]
+        max_filename_length = (
+            job_configs["compress_data_job"].get("max_windows_filename_len")
+        )
         read_blocks = EphysReaders.get_read_blocks(data_name, data_src_dir)
         compressor = EphysCompressors.get_compressor(
             compressor_name, **compressor_kwargs
@@ -109,6 +113,7 @@ if __name__ == "__main__":  # noqa: C901
             read_blocks=scaled_read_blocks,
             compressor=compressor,
             output_dir=compressed_data_path,
+            max_windows_filename_len=max_filename_length,
             job_kwargs=write_kwargs,
             **format_kwargs,
         )
