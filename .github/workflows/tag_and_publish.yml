@@ -12,6 +12,7 @@ jobs:
       with:
         ref: ${{ env.DEFAULT_BRANCH }}
         fetch-depth: 0
+        token: ${{ secrets.SERVICE_TOKEN }}
 
     - name: Bump version and push tag
       id: tag_version
