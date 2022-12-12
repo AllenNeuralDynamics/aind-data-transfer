@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Extract version from file
         id: getversion
         run: |
@@ -16,7 +16,7 @@ jobs:
           new_tag=$(grep -Po '__version__ = "\K.*?(?=")' $init_file)
           echo "::set-output name=version::$new_tag"
       - name: Bump tag
-        uses: mathieudutour/github-tag-action@v6.0
+        uses: mathieudutour/github-tag-action@v6.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           custom_tag: ${{ steps.getversion.outputs.version }}
