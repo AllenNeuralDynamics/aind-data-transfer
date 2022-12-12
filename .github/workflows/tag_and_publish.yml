@@ -1,4 +1,4 @@
-name: Bump version
+name: Tag and publish
 on:
   push:
     branches:
