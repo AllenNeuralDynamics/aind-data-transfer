@@ -1,5 +1,5 @@
 {
-    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/site-packages/aind_data_schema/processing.py",
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/processing.py",
     "schema_version": "0.0.1",
     "data_processes": [
         {
