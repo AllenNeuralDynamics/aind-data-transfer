@@ -16,7 +16,7 @@
                     "clip": true,
                     "compress": true,
                     "upload_to_s3": true,
-                    "upload_to_gcp": true,
+                    "upload_to_gcp": false,
                     "trigger_codeocean_job": false
                 },
                 "endpoints": {
