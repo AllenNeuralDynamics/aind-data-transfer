@@ -99,13 +99,13 @@ def _build_ome_zar_cmd(
         f"--scale_factor=2 "
         f"--deployment=slurm"
     )
-    if job_opts['chunk_shape']:
+    if "chunk_shape" in job_opts:
         chunks = " ".join(str(el) for el in job_opts['chunk_shape'])
         job_cmd += f" --chunk_shape {chunks}"
-    if job_opts['exclude']:
+    if "exclude" in job_opts:
         exclusions = " ".join(job_opts['exclude'])
         job_cmd += f" --exclude {exclusions}"
-    if job_opts["resume"]:
+    if "resume" in job_opts and job_opts["resume"]:
         job_cmd += " --resume"
     return job_cmd
 
