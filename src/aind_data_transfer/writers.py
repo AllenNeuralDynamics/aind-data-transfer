@@ -1,5 +1,6 @@
 """This module contains the api to write ephys data.
 """
+import logging
 import os
 import platform
 import shutil
@@ -18,12 +19,12 @@ class EphysWriters:
 
     @staticmethod
     def compress_and_write_block(
-            read_blocks,
-            compressor,
-            output_dir,
-            job_kwargs,
-            output_format="zarr",
-            max_windows_filename_len=DEFAULT_MAX_WINDOWS_FILENAME_LEN
+        read_blocks,
+        compressor,
+        output_dir,
+        job_kwargs,
+        output_format="zarr",
+        max_windows_filename_len=DEFAULT_MAX_WINDOWS_FILENAME_LEN,
     ):
         """
         Compress and write read_blocks.
@@ -74,7 +75,12 @@ class EphysWriters:
 
     @staticmethod
     def copy_and_clip_data(
-        src_dir, dst_dir, stream_gen, video_encryption_key=None, n_frames=100
+        src_dir,
+        dst_dir,
+        stream_gen,
+        video_dir=None,
+        video_encryption_key=None,
+        n_frames=100,
     ):
         """
         Copies the raw data to a new directory with the .dat files clipped to
@@ -93,6 +99,9 @@ class EphysWriters:
               'relative_path_name': path name of raw data
                 to new dir correctly
               'n_chan': number of channels.
+        video_dir: Path
+          Location of videos files to compress. If None, will check if src_dir
+          contains a Video or video folder in its root.
         video_encryption_key : Optional[str]
           Password to use to encrypt video files. Default is None.
         n_frames : int
@@ -122,21 +131,26 @@ class EphysWriters:
                 mode="w+",
             )
             dst_data[:] = data[:n_frames]
-        # third: check if videos directory exists and copy it up one level
-        # TODO: Is there a cleaner way to do this?
-        videos_path = dst_dir / "Videos"
-        videos_path_l = dst_dir / "videos"
-        if os.path.isdir(videos_path):
-            new_videos_path = dst_dir / ".." / "videos"
-            shutil.move(videos_path, new_videos_path)
-            video_compressor = VideoCompressor(
-                encryption_key=video_encryption_key
-            )
-            video_compressor.compress_all_videos_in_dir(new_videos_path)
 
-        elif os.path.isdir(videos_path_l):
-            new_videos_path = dst_dir / ".." / "videos"
-            shutil.move(videos_path_l, new_videos_path)
+        # third: check if videos directory exists
+        new_videos_path = dst_dir / ".." / "videos"
+        if video_dir is not None:
+            videos_path = video_dir
+            shutil.copytree(videos_path, new_videos_path)
+        elif os.path.isdir(dst_dir / "Videos"):
+            videos_path = dst_dir / "Videos"
+            shutil.move(videos_path, new_videos_path)
+        elif os.path.isdir(dst_dir / "videos"):
+            videos_path = dst_dir / "videos"
+            shutil.move(videos_path, new_videos_path)
+        else:
+            videos_path = None
+
+        # Log a warning if no videos path found
+        if videos_path is None:
+            logging.warning("No videos found!")
+        else:
+            # Compress and optionally encrypt
             video_compressor = VideoCompressor(
                 encryption_key=video_encryption_key
             )

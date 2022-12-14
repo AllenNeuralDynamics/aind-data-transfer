@@ -35,7 +35,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "compress": True,
                 "attach_metadata": True,
                 "upload_to_s3": True,
-                "upload_to_gcp": True,
+                "upload_to_gcp": False,
                 "trigger_codeocean_job": False,
             },
             "endpoints": {

@@ -72,11 +72,13 @@ if __name__ == "__main__":  # noqa: C901
                 get_secret(secret_name, secret_region)
             )
 
+        videos_directory = job_configs["endpoints"].get("video_directory")
         EphysWriters.copy_and_clip_data(
-            data_src_dir,
-            clipped_data_path,
-            streams_to_clip,
-            video_encryption_key_val["password"],
+            src_dir=data_src_dir,
+            dst_dir=clipped_data_path,
+            stream_gen=streams_to_clip,
+            video_dir=videos_directory,
+            video_encryption_key=video_encryption_key_val["password"],
             **clip_kwargs,
         )
 
@@ -99,8 +101,8 @@ if __name__ == "__main__":  # noqa: C901
         format_kwargs = job_configs["compress_data_job"]["format_kwargs"]
         scale_kwargs = job_configs["compress_data_job"]["scale_params"]
         write_kwargs = job_configs["compress_data_job"]["write_kwargs"]
-        max_filename_length = (
-            job_configs["compress_data_job"].get("max_windows_filename_len")
+        max_filename_length = job_configs["compress_data_job"].get(
+            "max_windows_filename_len"
         )
         read_blocks = EphysReaders.get_read_blocks(data_name, data_src_dir)
         compressor = EphysCompressors.get_compressor(

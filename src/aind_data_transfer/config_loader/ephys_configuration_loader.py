@@ -91,16 +91,19 @@ class EphysJobConfigurationLoader:
             configs["endpoints"]["gcp_prefix"] = dest_data_folder
 
         if configs["trigger_codeocean_job"]["job_type"] is None:
-            configs["trigger_codeocean_job"]["job_type"] = (
-                configs["data"]["name"])
+            configs["trigger_codeocean_job"]["job_type"] = configs["data"][
+                "name"
+            ]
 
         if configs["trigger_codeocean_job"]["bucket"] is None:
-            configs["trigger_codeocean_job"]["bucket"] = (
-                configs["endpoints"]["s3_bucket"])
+            configs["trigger_codeocean_job"]["bucket"] = configs["endpoints"][
+                "s3_bucket"
+            ]
 
         if configs["trigger_codeocean_job"]["prefix"] is None:
-            configs["trigger_codeocean_job"]["prefix"] = (
-                configs["endpoints"]["s3_prefix"])
+            configs["trigger_codeocean_job"]["prefix"] = configs["endpoints"][
+                "s3_prefix"
+            ]
 
     @staticmethod
     def __resolve_logging(configs: dict) -> None:
@@ -130,12 +133,17 @@ class EphysJobConfigurationLoader:
         parser.add_argument(
             "-r", "--raw-data-source", required=False, type=str
         )
+        parser.add_argument(
+            "-v", "--video-directory", required=False, type=str
+        )
         args = parser.parse_args(sys_args)
         conf_src = args.conf_file_location
         with open(conf_src) as f:
             raw_config = yaml.load(f, Loader=yaml.SafeLoader)
         if args.raw_data_source is not None:
             raw_config["endpoints"]["raw_data_dir"] = args.raw_data_source
+        if args.video_directory is not None:
+            raw_config["endpoints"]["video_directory"] = args.video_directory
         self.__resolve_endpoints(raw_config)
         self.__resolve_logging(raw_config)
         config_without_nones = self.__remove_none(raw_config)
