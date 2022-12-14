@@ -8,6 +8,7 @@ endpoints:
   gcp_prefix:
   codeocean_domain:
   code_repo_location:
+  video_directory: # Leaving blank will have job check for a video folder in raw_data_dir
 aws_secret_names:
   region:
   video_encryption_password: # If blank or not able to access AWS, will NOT encrypt

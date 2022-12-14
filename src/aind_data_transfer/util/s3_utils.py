@@ -5,9 +5,6 @@ from botocore.exceptions import ClientError
 def get_secret(secret_name, region_name):
     """Retrieves a secret"""
 
-    # secret_name = "video_encryption_password"
-    # region_name = "us-west-2"
-
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(
