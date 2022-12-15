@@ -1,5 +1,7 @@
 # Alternative to the bash script to run the main openephys job
 import os
+
+# import shutil
 from pathlib import Path
 
 from aind_data_transfer.jobs.openephys_job import run_job
@@ -35,3 +37,5 @@ else:
     run_job(["-c", CONFIG_LOCATION, "-r", RAW_DATA_SOURCE])
 
 # Add a cleanup script to remove the local compressed data folder if desired.
+# PATH_TO_DEST_FOLDER = Path("")
+# shutil.rmtree(PATH_TO_DEST_FOLDER)
