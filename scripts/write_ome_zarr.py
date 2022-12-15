@@ -281,22 +281,10 @@ def main():
         my_dask_kwargs.update(get_dask_kwargs(hdf5_plugin_path))
     LOGGER.info(f"dask kwargs: {my_dask_kwargs}")
 
-    client, _ = get_client(args.deployment, **my_dask_kwargs)
-
-    # Upload all the files that we're not converting to Zarr
-    if is_cloud_url(args.output):
-        provider, bucket, cloud_dst = parse_cloud_url(args.output)
-
-        # We will place the Zarr in the cloud folder corresponding to image_dir
-        zarr_dst = make_cloud_paths([image_dir], cloud_dst)[0]
-        zarr_dst = f"{provider}{bucket}/{zarr_dst}"
-    else:
-        # We will place the Zarr in the output folder corresponding to image_dir
-        zarr_dst = Path(args.output)
-        zarr_dst.mkdir(parents=True, exist_ok=True)
+    client = get_client(args.deployment, **my_dask_kwargs)
 
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
-    LOGGER.info(f"Writing OME-Zarr to {zarr_dst}")
+    LOGGER.info(f"Writing OME-Zarr to {args.output}")
 
     # If voxsize is None, we will
     # attempt to parse it from the image metadata
@@ -310,7 +298,7 @@ def main():
 
     all_metrics = write_files(
         images,
-        zarr_dst,
+        args.output,
         args.n_levels,
         args.scale_factor,
         overwrite,
