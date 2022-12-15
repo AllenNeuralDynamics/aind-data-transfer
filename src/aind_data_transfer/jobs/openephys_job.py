@@ -36,11 +36,12 @@ warnings.filterwarnings(
     "ignore", category=DeprecationWarning, message=deprecation_msg
 )
 
+
 # TODO: Break these up into importable jobs to fix the flake8 warning?
-if __name__ == "__main__":  # noqa: C901
+def run_job(args):  # noqa: C901
     # Location of conf file passed in as command line arg
     job_start_time = datetime.now(timezone.utc)
-    job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
+    job_configs = EphysJobConfigurationLoader().load_configs(args)
 
     root_logger.setLevel(job_configs["logging"]["level"])
     if job_configs["logging"].get("file") is not None:
@@ -247,3 +248,8 @@ if __name__ == "__main__":  # noqa: C901
             parameters=[json.dumps(job_configs)],
         )
         logging.debug(f"Run response: {run_response.json()}")
+
+
+if __name__ == "__main__":
+    sys_args = sys.argv[1:]
+    run_job(sys_args)
