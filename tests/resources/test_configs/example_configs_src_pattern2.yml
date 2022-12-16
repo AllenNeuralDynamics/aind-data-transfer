@@ -2,13 +2,14 @@
 endpoints:
   raw_data_dir: /some/random/folder/625463_2022-10-06_10-14-25
   dest_data_dir:
+  video_directory:
   s3_bucket: some-s3-bucket
   s3_prefix: # Defaults to folder in temp_data_dir name
   gcp_bucket: some-gcp-bucket
   gcp_prefix:
   codeocean_domain: https://acmecorp.codeocean.com
   code_repo_location: https://location_of_code_repo
-  video_directory:
+  metadata_service_url: http://some-url
 aws_secret_names:
   region: us-west-2
   video_encryption_password: "secret_name_for_vid_password"
@@ -16,12 +17,13 @@ aws_secret_names:
 jobs: # Select which jobs to run
   clip: true
   compress: true
-  attach_metadata: true
+  attach_metadata: false
   upload_to_s3: true
   upload_to_gcp: true
   trigger_codeocean_job: false
 data:
   name: openephys
+  subject_id:
 clip_data_job:
   clip_kwargs:
     n_frames:
