@@ -2,13 +2,13 @@
 endpoints:
   raw_data_dir: # Set this to raw data location
   dest_data_dir: # Defaults to the raw_data_dir folder name
+  video_directory: # Leaving blank will have job check for a video folder in raw_data_dir
   s3_bucket:
   s3_prefix: # Defaults to folder name in dest_data_dir
   gcp_bucket:
   gcp_prefix:
   codeocean_domain:
   code_repo_location:
-  video_directory: # Leaving blank will have job check for a video folder in raw_data_dir
   metadata_service_url:
 aws_secret_names:
   region:

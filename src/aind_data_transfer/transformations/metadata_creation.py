@@ -1,15 +1,15 @@
 """This module will have classes that handle mapping to metadata files."""
 import logging
-from datetime import datetime
 import re
+from datetime import datetime
+from typing import Optional
 
-from aind_data_schema.processing import Processing, ProcessName, DataProcess
-from aind_data_schema.subject import Subject
 import requests
+from aind_data_schema.processing import DataProcess, Processing, ProcessName
+from aind_data_schema.subject import Subject
 from pydantic import ValidationError
 
 import aind_data_transfer
-from typing import Optional
 
 
 class ProcessingMetadata:
@@ -72,39 +72,68 @@ class ProcessingMetadata:
 
 
 class SubjectMetadata:
+    """Class to handle the creation of the subject metadata file."""
 
     output_file_name = "subject.json"
 
     @staticmethod
-    def ephys_job_to_subject(metadata_service_url: str,
-                             subject_id: Optional[str] = None,
-                             filepath: Optional[str] = None,
-                             file_subject_regex: Optional[str] = (
-                          "(ecephys|ephys)*_*(\\d+)_\\d{4}")
-                             ) -> Subject:
+    def ephys_job_to_subject(
+        metadata_service_url: str,
+        subject_id: Optional[str] = None,
+        filepath: Optional[str] = None,
+        file_subject_regex: Optional[str] = (
+            "(ecephys|ephys)*_*(\\d+)_\\d{4}"
+        ),
+    ) -> Subject:
+        """
+
+        Parameters
+        ----------
+        metadata_service_url : str
+        subject_id : Optional[str]
+          The subject id. If not provided, this method will try to parse it
+          from the filepath. Default is None
+        filepath : Optional[str]
+          If the subject_id is None, then this method will try to parse the
+          subject id from the filepath. Default is None.
+        file_subject_regex : Optional[str]
+          Regex pattern that will be used if the subject_id is None and the
+          filepath is not None.
+
+        Returns
+        -------
+        Subject
+          The subject information retrieved from aind-metadata-service.
+
+        """
+
+        def try_parse_data(d) -> Subject:
+            try:
+                try_parsed_s = Subject.parse_obj(d)
+                return try_parsed_s
+            except ValidationError:
+                logging.warning("Validation error parsing subject!")
+                try_parsed_s = Subject.construct()
+                fields = try_parsed_s.__fields__
+                for k, v in d.items():
+                    if k in fields:
+                        setattr(try_parsed_s, k, v)
+                return try_parsed_s
 
         # TODO: Import aind_metadata_service.client once it's written
         if subject_id is None:
             parsed_filepath = re.findall(file_subject_regex, filepath)
             subject_id = parsed_filepath[0][1]
 
+        # TODO: construct this from aind_metadata_service.client
         subject_url = metadata_service_url + f"/subject/{subject_id}"
         response = requests.get(subject_url)
 
         if response.status_code == 200:
             response_json = response.json()
             response_data = response_json["data"]
-            try:
-                s = Subject.parse_obj(response_data)
-                return s
-            except ValidationError:
-                logging.warning("Validation error parsing subject!")
-                s = Subject.construct()
-                for key, value in response_data.items():
-                    if hasattr(s, key):
-                        setattr(s, key, value)
-                return s
-
+            s = try_parse_data(response_data)
+            return s
         elif response.status_code == 418:
             response_json = response.json()
             logging.warning(response_json["message"])
@@ -113,12 +142,9 @@ class SubjectMetadata:
                 response_data = response_data_original[0]
             else:
                 response_data = response_data_original
-            s = Subject.construct()
-            for key, value in response_data.items():
-                if hasattr(s, key):
-                    setattr(s, key, value)
+            s = try_parse_data(response_data)
             return s
         else:
             logging.warning("Data not retrieved!")
-            s = Subject.construct(subject_id=subject_id)
+            s = try_parse_data({"subject_id": subject_id})
             return s

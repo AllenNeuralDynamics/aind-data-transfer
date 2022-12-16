@@ -33,7 +33,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             "jobs": {
                 "clip": True,
                 "compress": True,
-                "attach_metadata": True,
+                "attach_metadata": False,
                 "upload_to_s3": True,
                 "upload_to_gcp": False,
                 "trigger_codeocean_job": False,
@@ -47,10 +47,11 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "gcp_prefix": "test_20221001",
                 "codeocean_domain": "https://acmecorp.codeocean.com",
                 "code_repo_location": "https://location_of_code_repo",
+                "metadata_service_url": "http://some-url",
             },
             "aws_secret_names": {
                 "code_ocean_api_token_name": "secret_name_for_api_token",
-                "region": "us-west-2"
+                "region": "us-west-2",
             },
             "data": {"name": "openephys"},
             "clip_data_job": {
@@ -92,7 +93,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             "jobs": {
                 "clip": True,
                 "compress": True,
-                "attach_metadata": True,
+                "attach_metadata": False,
                 "upload_to_s3": True,
                 "upload_to_gcp": True,
                 "trigger_codeocean_job": False,
@@ -106,6 +107,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "gcp_prefix": "ecephys_625463_2022-10-06_10-14-25",
                 "codeocean_domain": "https://acmecorp.codeocean.com",
                 "code_repo_location": "https://location_of_code_repo",
+                "metadata_service_url": "http://some-url",
             },
             "aws_secret_names": {
                 "code_ocean_api_token_name": "secret_name_for_api_token",
