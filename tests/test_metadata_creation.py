@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 import requests
-from aind_data_schema import Processing, Subject
+from aind_data_schema import Processing
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
@@ -135,9 +135,7 @@ class TestSubjectMetadata(unittest.TestCase):
             filepath="ecephys_632269_2022-10-10_16-13-22",
         )
 
-        expected_subject = Subject.parse_obj(
-            self.successful_response_message["data"]
-        )
+        expected_subject = self.successful_response_message["data"]
 
         self.assertEqual(expected_subject, actual_subject)
 
@@ -163,9 +161,7 @@ class TestSubjectMetadata(unittest.TestCase):
             filepath="ecephys_632269_2022-10-10_16-13-22",
         )
 
-        expected_subject = Subject.parse_obj(
-            self.successful_response_message["data"]
-        )
+        expected_subject = self.successful_response_message["data"]
         mock_log_warn.assert_called_once_with("Multiple Items Found.")
         self.assertEqual(expected_subject, actual_subject)
 
@@ -193,9 +189,7 @@ class TestSubjectMetadata(unittest.TestCase):
             filepath="ecephys_632269_2022-10-10_16-13-22",
         )
 
-        expected_subject = Subject.parse_obj(
-            self.successful_response_message["data"]
-        )
+        expected_subject = self.successful_response_message["data"]
         mock_log_warn.assert_called_once_with(
             "Validation Errors: Errors here!"
         )
