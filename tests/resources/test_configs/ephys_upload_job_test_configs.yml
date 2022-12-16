@@ -23,6 +23,7 @@ jobs: # Select which jobs to run
   trigger_codeocean_job: false
 data:
   name: openephys
+  subject_id:
 clip_data_job:
   clip_kwargs:
     n_frames:
