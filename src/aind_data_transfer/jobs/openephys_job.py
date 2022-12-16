@@ -18,6 +18,7 @@ from aind_data_transfer.readers import EphysReaders
 from aind_data_transfer.transformations.compressors import EphysCompressors
 from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
+    SubjectMetadata,
 )
 from aind_data_transfer.util.npopto_correction import (
     correct_np_opto_electrode_locations,
@@ -124,6 +125,7 @@ def run_job(args):  # noqa: C901
 
     job_end_time = datetime.now(timezone.utc)
     if job_configs["jobs"]["attach_metadata"]:
+        # Processing metadata
         logging.info("Creating processing.json file.")
         start_date_time = job_start_time
         end_date_time = job_end_time
@@ -158,6 +160,21 @@ def run_job(args):  # noqa: C901
             contents = processing_instance.json(**{"indent": 4})
             f.write(contents)
         logging.info("Finished creating processing.json file.")
+
+        # Subject metadata
+        logging.info("Creating subject.json file.")
+        metadata_url = job_configs["endpoints"]["metadata_service_url"]
+        subject_id = job_configs["data"].get("subject_id")
+        subject_instance = SubjectMetadata.ephys_job_to_subject(
+            metadata_url, subject_id, dest_data_dir.name
+        )
+        s_file_path = dest_data_dir / SubjectMetadata.output_file_name
+        if subject_instance is not None:
+            with open(s_file_path, "w") as f:
+                f.write(json.dumps(subject_instance, indent=4))
+            logging.info("Finished creating subject.json file.")
+        else:
+            logging.warning("No subject.json file created!")
 
     # Upload to s3
     if platform.system() == "Windows":
