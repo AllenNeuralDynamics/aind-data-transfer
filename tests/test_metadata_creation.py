@@ -201,12 +201,12 @@ class TestSubjectMetadata(unittest.TestCase):
         )
         self.assertEqual(expected_subject, actual_subject)
 
-    @mock.patch("logging.warning")
+    @mock.patch("logging.error")
     @mock.patch("requests.get")
     def test_no_response_warning(
         self,
         mock_api_get: unittest.mock.MagicMock,
-        mock_log_warn: unittest.mock.MagicMock,
+        mock_log_err: unittest.mock.MagicMock,
     ) -> None:
         """Tests parsing no response from metadata service."""
 
@@ -220,15 +220,8 @@ class TestSubjectMetadata(unittest.TestCase):
             filepath="ecephys_632269_2022-10-10_16-13-22",
         )
 
-        expected_subject = Subject.construct(subject_id="632269")
-
-        mock_log_warn.assert_has_calls(
-            [
-                mock.call("Data not retrieved!"),
-                mock.call("Validation error parsing subject!"),
-            ]
-        )
-        self.assertEqual(expected_subject, actual_subject)
+        mock_log_err.assert_called_once_with("No data retrieved!")
+        self.assertIsNone(actual_subject)
 
 
 if __name__ == "__main__":

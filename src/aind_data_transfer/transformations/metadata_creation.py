@@ -6,8 +6,6 @@ from typing import Optional
 
 import requests
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
-from aind_data_schema.subject import Subject
-from pydantic import ValidationError
 
 import aind_data_transfer
 
@@ -84,7 +82,7 @@ class SubjectMetadata:
         file_subject_regex: Optional[str] = (
             "(ecephys|ephys)*_*(\\d+)_\\d{4}"
         ),
-    ) -> Subject:
+    ) -> dict:
         """
 
         Parameters
@@ -102,23 +100,10 @@ class SubjectMetadata:
 
         Returns
         -------
-        Subject
+        dict
           The subject information retrieved from aind-metadata-service.
 
         """
-
-        def try_parse_data(d) -> Subject:
-            try:
-                try_parsed_s = Subject.parse_obj(d)
-                return try_parsed_s
-            except ValidationError:
-                logging.warning("Validation error parsing subject!")
-                try_parsed_s = Subject.construct()
-                fields = try_parsed_s.__fields__
-                for k, v in d.items():
-                    if k in fields:
-                        setattr(try_parsed_s, k, v)
-                return try_parsed_s
 
         # TODO: Import aind_metadata_service.client once it's written
         if subject_id is None:
@@ -132,8 +117,7 @@ class SubjectMetadata:
         if response.status_code == 200:
             response_json = response.json()
             response_data = response_json["data"]
-            s = try_parse_data(response_data)
-            return s
+            return response_data
         elif response.status_code == 418:
             response_json = response.json()
             logging.warning(response_json["message"])
@@ -142,9 +126,7 @@ class SubjectMetadata:
                 response_data = response_data_original[0]
             else:
                 response_data = response_data_original
-            s = try_parse_data(response_data)
-            return s
+            return response_data
         else:
-            logging.warning("Data not retrieved!")
-            s = try_parse_data({"subject_id": subject_id})
-            return s
+            logging.error("No data retrieved!")
+            return None
