@@ -1,10 +1,20 @@
 # Alternative to the bash script to run the main openephys job
 import os
 
-# import shutil
+import shutil
 from pathlib import Path
 
 from aind_data_transfer.jobs.openephys_job import run_job
+
+# ADD TUPLES OF PATH STRINGS TO RAW DATA DIRECTORY AND BEHAVIOR DIRECTORY
+# SET BEHAVIOR DIR TO NONE IF INCLUDED IN RAW DATA DIRECTORY (LEGACY)
+LIST_OF_DIRECTORIES_TO_PROCESS = (
+    [(f"${str(Path(os.getcwd()))}/tests/resources/"
+      f"v0.6.x_neuropixels_multiexp_multistream", None)]
+)
+
+# DELETE TEMP COMPRESSED DATA FOLDER AFTER UPLOAD? SET TO FALSE FOR TESTING.
+DELETE_TEMP_COMPRESSED_DATA_FOLDER = True
 
 # Path to the default configs. Change it to point to your config file.
 # The contents of config file are not expected to change too often.
@@ -16,31 +26,22 @@ CONFIG_LOCATION = str(
     / "ephys_upload_job_test_configs.yml"
 )
 
-# Paths to the raw data source and video directory. You can wrap things in a
-# for loop if multiple data sets need to be processed.
-
-# You can replace the right-hand side with a hard-coded string of the absolute
-# path to the raw data.
-RAW_DATA_SOURCE = str(
-    Path(os.getcwd())
-    / "tests"
-    / "resources"
-    / "v0.6.x_neuropixels_multiexp_multistream"
-)
-
-# Optionally point to a video directory if it's not bundled with the raw data.
-BEHAVIOR_DIR = None
 
 if __name__ == "__main__":
-    if BEHAVIOR_DIR is not None:
-        run_job(
-            ["-c", CONFIG_LOCATION, "-r", RAW_DATA_SOURCE, "-b", BEHAVIOR_DIR]
-        )
-    else:
-        run_job(
-            ["-c", CONFIG_LOCATION, "-r", RAW_DATA_SOURCE]
-        )
-
-    # Remove the local compressed data folder if desired.
-    # PATH_TO_DEST_FOLDER = Path("")
-    # shutil.rmtree(PATH_TO_DEST_FOLDER)
+    for list_item in LIST_OF_DIRECTORIES_TO_PROCESS:
+        raw_data_source = list_item[0]
+        behavior_dir = list_item[1]
+        if behavior_dir is not None:
+            dest_data_dir = run_job(["-c",
+                                     CONFIG_LOCATION,
+                                     "-r",
+                                     raw_data_source,
+                                     "-b",
+                                     behavior_dir])
+        else:
+            dest_data_dir = run_job(["-c",
+                                     CONFIG_LOCATION,
+                                     "-r",
+                                     raw_data_source])
+        if DELETE_TEMP_COMPRESSED_DATA_FOLDER:
+            shutil.rmtree(dest_data_dir)

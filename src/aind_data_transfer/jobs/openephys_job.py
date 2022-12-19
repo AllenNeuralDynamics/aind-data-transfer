@@ -250,6 +250,8 @@ def run_job(args):  # noqa: C901
         )
         logging.debug(f"Run response: {run_response.json()}")
 
+    return dest_data_dir
+
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
