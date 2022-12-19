@@ -1,8 +1,8 @@
-from typing import Union, Tuple
-
 import math
-import numpy as np
+from typing import Tuple, Union
+
 import dask.array as da
+import numpy as np
 
 
 class DimensionsError(Exception):
