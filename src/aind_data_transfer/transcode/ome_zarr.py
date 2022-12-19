@@ -2,7 +2,7 @@ import fnmatch
 import logging
 import time
 from pathlib import Path
-from typing import Union, List
+from typing import List, Union
 
 import dask
 import numpy as np
@@ -13,10 +13,10 @@ from distributed import wait
 from numpy.typing import NDArray
 
 from aind_data_transfer.util.chunk_utils import (
-    guess_chunks,
-    expand_chunks,
-    ensure_shape_5d,
     ensure_array_5d,
+    ensure_shape_5d,
+    expand_chunks,
+    guess_chunks,
 )
 from aind_data_transfer.util.file_utils import collect_filepaths
 from aind_data_transfer.util.io_utils import (

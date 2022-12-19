@@ -2,8 +2,14 @@ import argparse
 import logging
 
 import google.cloud.exceptions
+
+# Importing this alone doesn't work on HPC
+# Must manually override HDF5_PLUGIN_PATH environment variable
+# in each Dask worker
+import hdf5plugin
 import pandas as pd
 from botocore.session import get_session
+from cluster.config import load_jobqueue_config
 from dask_jobqueue import SLURMCluster
 from distributed import Client, LocalCluster
 from numcodecs import blosc
@@ -11,13 +17,6 @@ from numcodecs import blosc
 from aind_data_transfer.gcs import create_client
 from aind_data_transfer.transcode.ome_zarr import write_files
 from aind_data_transfer.util.file_utils import *
-
-from cluster.config import load_jobqueue_config
-
-# Importing this alone doesn't work on HPC
-# Must manually override HDF5_PLUGIN_PATH environment variable
-# in each Dask worker
-import hdf5plugin
 
 blosc.use_threads = False
 
@@ -40,6 +39,7 @@ def find_hdf5plugin_path():
     # this should work with both conda environments and virtualenv
     # see https://stackoverflow.com/a/46071447
     import sysconfig
+
     site_packages = sysconfig.get_paths()["purelib"]
     plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
     if not os.path.isdir(plugin_path):
@@ -135,7 +135,7 @@ def output_valid(output: Union[str, os.PathLike]) -> bool:
         except Exception as e:
             LOGGER.error(f"Error connecting to bucket {bucket_name}: {e}")
             return False
-        status = response['ResponseMetadata']['HTTPStatusCode']
+        status = response["ResponseMetadata"]["HTTPStatusCode"]
         if status == 200:
             return True
         else:
@@ -163,7 +163,7 @@ def parse_args():
         "--input",
         type=str,
         help="directory of images to transcode to OME-Zarr. Each image"
-             " is written to a separate group in the top-level zarr folder."
+        " is written to a separate group in the top-level zarr folder.",
     )
     parser.add_argument(
         "--output",
@@ -227,7 +227,7 @@ def parse_args():
         "--voxsize",
         type=str,
         default=None,
-        help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"'
+        help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"',
     )
     args = parser.parse_args()
     return args

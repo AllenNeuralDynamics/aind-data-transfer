@@ -1,18 +1,18 @@
-from typing import Any
-
 import os
-import zarr
 from abc import ABC, abstractmethod
+from typing import Any
 
 import dask.array as da
 import dask_image.imread
 import h5py
+
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
 import hdf5plugin
 import numpy as np
 import tifffile
+import zarr
 
 
 class DataReader(ABC):
