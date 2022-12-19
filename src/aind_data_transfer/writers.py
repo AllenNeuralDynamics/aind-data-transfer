@@ -78,7 +78,7 @@ class EphysWriters:
         src_dir,
         dst_dir,
         stream_gen,
-        video_dir=None,
+        behavior_dir=None,
         video_encryption_key=None,
         n_frames=100,
     ):
@@ -99,7 +99,7 @@ class EphysWriters:
               'relative_path_name': path name of raw data
                 to new dir correctly
               'n_chan': number of channels.
-        video_dir: Path
+        behavior_dir: Path
           Location of videos files to compress. If None, will check if src_dir
           contains a Video or video folder in its root.
         video_encryption_key : Optional[str]
@@ -133,9 +133,9 @@ class EphysWriters:
             dst_data[:] = data[:n_frames]
 
         # third: check if videos directory exists
-        new_videos_path = dst_dir / ".." / "videos"
-        if video_dir is not None:
-            videos_path = video_dir
+        new_videos_path = dst_dir / ".." / "behavior"
+        if behavior_dir is not None:
+            videos_path = behavior_dir
             shutil.copytree(videos_path, new_videos_path)
         elif os.path.isdir(dst_dir / "Videos"):
             videos_path = dst_dir / "Videos"

@@ -134,7 +134,7 @@ class EphysJobConfigurationLoader:
             "-r", "--raw-data-source", required=False, type=str
         )
         parser.add_argument(
-            "-v", "--video-directory", required=False, type=str
+            "-b", "--behavior-directory", required=False, type=str
         )
         args = parser.parse_args(sys_args)
         conf_src = args.conf_file_location
@@ -142,8 +142,10 @@ class EphysJobConfigurationLoader:
             raw_config = yaml.load(f, Loader=yaml.SafeLoader)
         if args.raw_data_source is not None:
             raw_config["endpoints"]["raw_data_dir"] = args.raw_data_source
-        if args.video_directory is not None:
-            raw_config["endpoints"]["video_directory"] = args.video_directory
+        if args.behavior_directory is not None:
+            raw_config["endpoints"]["behavior_directory"] = (
+                args.behavior_directory
+            )
         self.__resolve_endpoints(raw_config)
         self.__resolve_logging(raw_config)
         config_without_nones = self.__remove_none(raw_config)

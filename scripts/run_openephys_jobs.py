@@ -29,13 +29,18 @@ RAW_DATA_SOURCE = str(
 )
 
 # Optionally point to a video directory if it's not bundled with the raw data.
-VIDEO_DIR = None
+BEHAVIOR_DIR = None
 
-if VIDEO_DIR is not None:
-    run_job(["-c", CONFIG_LOCATION, "-r", RAW_DATA_SOURCE, "-v", VIDEO_DIR])
-else:
-    run_job(["-c", CONFIG_LOCATION, "-r", RAW_DATA_SOURCE])
+if __name__ == "__main__":
+    if BEHAVIOR_DIR is not None:
+        run_job(
+            ["-c", CONFIG_LOCATION, "-r", RAW_DATA_SOURCE, "-b", BEHAVIOR_DIR]
+        )
+    else:
+        run_job(
+            ["-c", CONFIG_LOCATION, "-r", RAW_DATA_SOURCE]
+        )
 
-# Add a cleanup script to remove the local compressed data folder if desired.
-# PATH_TO_DEST_FOLDER = Path("")
-# shutil.rmtree(PATH_TO_DEST_FOLDER)
+    # Remove the local compressed data folder if desired.
+    # PATH_TO_DEST_FOLDER = Path("")
+    # shutil.rmtree(PATH_TO_DEST_FOLDER)
