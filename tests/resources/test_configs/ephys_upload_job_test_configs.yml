@@ -2,7 +2,7 @@
 endpoints:
   raw_data_dir: tests/resources/v0.6.x_neuropixels_multiexp_multistream
   dest_data_dir: tests/resources/new/v0.6.x_neuropixels_multiexp_multistream
-  video_directory:
+  behavior_directory:
   s3_bucket: some-s3-bucket
   s3_prefix: # Defaults to folder in temp_data_dir name
   gcp_bucket: some-gcp-bucket
