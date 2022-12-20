@@ -74,12 +74,12 @@ def run_job(args):  # noqa: C901
                 get_secret(secret_name, secret_region)
             )
 
-        videos_directory = job_configs["endpoints"].get("video_directory")
+        behavior_directory = job_configs["endpoints"].get("behavior_directory")
         EphysWriters.copy_and_clip_data(
             src_dir=data_src_dir,
             dst_dir=clipped_data_path,
             stream_gen=streams_to_clip,
-            video_dir=videos_directory,
+            behavior_dir=behavior_directory,
             video_encryption_key=video_encryption_key_val["password"],
             **clip_kwargs,
         )
@@ -249,6 +249,8 @@ def run_job(args):  # noqa: C901
             parameters=[json.dumps(job_configs)],
         )
         logging.debug(f"Run response: {run_response.json()}")
+
+    return dest_data_dir
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 endpoints:
   raw_data_dir: /some/random/folder/625463_2022-10-06_10-14-25
   dest_data_dir:
-  video_directory:
+  behavior_directory:
   s3_bucket: some-s3-bucket
   s3_prefix: # Defaults to folder in temp_data_dir name
   gcp_bucket: some-gcp-bucket
