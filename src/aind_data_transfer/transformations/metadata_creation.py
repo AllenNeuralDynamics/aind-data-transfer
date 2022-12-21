@@ -6,6 +6,8 @@ from typing import Optional
 
 import requests
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
+from aind_data_schema.data_description import RawDataDescription, Funding, Modality, Institution
+
 
 import aind_data_transfer
 
@@ -130,3 +132,41 @@ class SubjectMetadata:
         else:
             logging.error("No data retrieved!")
             return None
+
+class DataDescriptionMetadata:
+    """Class to handle the creation of the processing metadata file."""
+  
+    output_file_name = "data_description.json"
+
+    @staticmethod
+    def ephys_job_to_data_description(
+        subject_id: str,
+        creation_date: datetime.date,
+        creation_time: datetime.time,
+    ) -> RawDataDescription:
+        """
+        Creates a data description instance based on the openephys_job settings
+        Parameters
+        ----------
+        subject_id : str
+          The mouse subject id that data collection describes
+        creation_date : datetime.date
+          The data collection date of creation
+        creation_time : datetime.time
+          The data collection time of creation
+        Returns
+        -------
+        aind_data_schema.RawDataDescription
+          A RawDataDescription instance to annotate a dataset with.
+
+        """
+        data_description_instance = RawDataDescription(
+            modality=Modality.ECEPHYS.value,
+            subject_id=subject_id,
+            creation_date=creation_date,
+            creation_time=creation_time,
+            institution=Institution.AIND.value,
+            funding_source=[Funding(funder=Institution.AIND.value)],
+        )
+
+        return data_description_instance
