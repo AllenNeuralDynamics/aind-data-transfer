@@ -4,19 +4,16 @@ import sys
 import time
 import warnings
 from datetime import datetime
-from fileinput import filename
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import s3_upload
 import yaml
 from argschema import ArgSchema, ArgSchemaParser
-from argschema.fields import Dict, Float, InputFile, Int, List, Nested, Str
-from argschema.schemas import DefaultSchema
-from transfer.readers import SmartSPIMReader
-from transfer.util import fileutils
-from transfer.writers import SmartSPIMWriter
-
+from argschema.fields import Dict, InputFile, Int, List, Str
+from aind_data_transfer.readers import SmartSPIMReader
+from aind_data_transfer.util import file_utils
+from aind_data_transfer.writers import SmartSPIMWriter
 warnings.filterwarnings("ignore")
 
 logging.basicConfig(
@@ -202,7 +199,7 @@ def get_upload_datasets(dataset_folder: PathLike) -> list:
     for dataset in smartspim_datasets:
         dataset_path = dataset_folder.joinpath(dataset)
 
-        file_content = fileutils.get_status_filename_data(dataset_path)
+        file_content = file_utils.get_status_filename_data(dataset_path)
         dataset_path = str(dataset_path)
 
         if not len(file_content):
@@ -308,7 +305,7 @@ def main():
                 cmd = f'python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd="python {S3_UPLOAD_PATH} --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} --recursive --cluster --trigger_code_ocean --capsule_id={co_capsule_id}" --run_parent_dir="/home/camilo.laiton/.slurm" --conda_activate="/home/camilo.laiton/anaconda3/bin/activate" --conda_env="data_transfer" --queue="aind" --ntasks_per_node=4 --nodes=4 --cpus_per_task=2 --mem_per_cpu=4000 --walltime="05:00:00" --mail_user="camilo.laiton@alleninstitute.org"'
                 # HPC run
                 logger.info(f"Uploading dataset: {dataset_name}")
-                for out in fileutils.execute_command(cmd):
+                for out in file_utils.execute_command(cmd):
                     logger.info(out)
 
                 # Error with slurm logs directory
@@ -328,7 +325,7 @@ def main():
                 s3_upload.main()
 
                 now_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                fileutils.write_list_to_txt(
+                file_utils.write_list_to_txt(
                     str(dataset_path.joinpath(STATUS_FILENAME)),
                     [
                         "UPLOADED",

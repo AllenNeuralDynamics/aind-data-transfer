@@ -8,13 +8,13 @@ from datetime import datetime
 from pathlib import PurePath
 
 import numpy as np
-from aind_codeocean_api.code_ocean import CodeOceanClient
+from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.credentials import CodeOceanCredentials
 from cluster.config import load_jobqueue_config
 from dask_jobqueue import SLURMCluster
 from distributed import Client
 from s3transfer.constants import GB, MB
-from transfer.s3 import S3Uploader
+from aind_data_transfer.s3 import S3Uploader
 
 from aind_data_transfer.util import file_utils
 from aind_data_transfer.util.file_utils import collect_filepaths
