@@ -6,7 +6,7 @@ from typing import Optional
 
 import requests
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
-from aind_data_schema.data_description import RawDataDescription, Funding, Modality, Institution
+from aind_data_schema.data_description import RawDataDescription, Funding, Institution
 
 
 import aind_data_transfer
@@ -140,29 +140,19 @@ class DataDescriptionMetadata:
 
     @staticmethod
     def ephys_job_to_data_description(
-        subject_id: str,
-        creation_date: datetime.date,
-        creation_time: datetime.time,
-        modality = Modality.ECEPHYS.value,
-        institution=Institution.AIND.value,
-        funding_source=[Funding(funder=Institution.AIND.value)],
-
+      name: str,
+      institution=Institution.AIND.value,
+      funding_source=[Funding(funder=Institution.AIND.value)],
     ) -> RawDataDescription:
         """
         Creates a data description instance based on the openephys_job settings
         Parameters
         ----------
-        subject_id : str
-          The mouse subject id that data collection describes
-        creation_date : datetime.date
-          The data collection date of creation
-        creation_time : datetime.time
-          The data collection time of creation
-        modality : str 
-          The name for manner of application, or formal procedure to generate data
+        name : str
+          Name of data, conventionally also the name of the directory containing all data and metadata
         institution : str
           The name of the organization that collected this data, defaults to AIND
-        funding_source : list
+        funding_source : str
           Funding sources. If internal label as Institution
         Returns
         -------
@@ -170,13 +160,9 @@ class DataDescriptionMetadata:
           A RawDataDescription instance to annotate a dataset with.
 
         """
-        data_description_instance = RawDataDescription(
-            modality=modality,
-            subject_id=subject_id,
-            creation_date=creation_date,
-            creation_time=creation_time,
-            institution=institution,
-            funding_source=funding_source,
+        data_description_instance = RawDataDescription.from_name(
+          name,
+          institution=institution,
+          funding_source=funding_source,
         )
-
         return data_description_instance

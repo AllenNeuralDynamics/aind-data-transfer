@@ -7,8 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 import requests
-from aind_data_schema import Processing, RawDataDescription
-from aind_data_schema.data_description import datetime_from_name_string
+from aind_data_schema import Processing, RawDataDescription, Funding
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
@@ -236,14 +235,8 @@ class TestDataDescriptionMetadata(unittest.TestCase):
 
         """
 
-        subject_id = "0000"
-        creation_date = datetime.date(2022,10,20)
-        creation_time = datetime.time(16,30,1)
-
         data_description_instance = DataDescriptionMetadata.ephys_job_to_data_description(
-            subject_id=subject_id,
-            creation_date=creation_date,
-            creation_time=creation_time,
+            name="ecephys_0000_2022-10-20_16-30-01"
         )
 
         # Hack to convert creation date and time to datetime objects 
