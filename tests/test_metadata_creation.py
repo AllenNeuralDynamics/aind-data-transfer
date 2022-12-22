@@ -16,6 +16,7 @@ from aind_data_transfer.config_loader.ephys_configuration_loader import (
 from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     SubjectMetadata,
+    DataDescriptionMetadata,
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -25,6 +26,8 @@ METADATA_DIR = TEST_DIR / "resources" / "test_metadata"
 with open(METADATA_DIR / "processing.json", "r") as f:
     expected_processing_instance_json = json.load(f)
 
+with open(METADATA_DIR / "data_description.json", "r") as f:
+    expected_data_description_instance_json = json.load(f)
 
 class TestProcessingMetadata(unittest.TestCase):
     """Tests methods in ProcessingMetadata class"""
@@ -216,6 +219,38 @@ class TestSubjectMetadata(unittest.TestCase):
 
         mock_log_err.assert_called_once_with("No data retrieved!")
         self.assertIsNone(actual_subject)
+
+
+class TestDataDescriptionMetadata(unittest.TestCase):
+    """Tests methods in DataDescriptionMetadata class"""
+
+    conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
+    args = ["-c", str(conf_file_path)]
+    loaded_configs = EphysJobConfigurationLoader().load_configs(args)
+
+    def test_create_data_description_metadata(self) -> None:
+        """
+        Tests that the data description metadata is created correctly.
+
+        Returns:
+
+        """
+
+        subject_id = "0000"
+        creation_date = datetime.date.fromisoformat("2020-10-20")
+        creation_time = datetime.time(16,30,1)
+
+        data_description_instance = DataDescriptionMetadata.ephys_job_to_data_description(
+            subject_id=subject_id,
+            creation_date=creation_date,
+            creation_time=creation_time,
+        )
+
+        expected_data_description_instance = Processing.parse_obj(
+            expected_data_description_instance_json
+        )
+
+        self.assertEqual(expected_data_description_instance, data_description_instance)
 
 
 if __name__ == "__main__":
