@@ -1,5 +1,4 @@
 """Module to test that Processing metadata is processed correctly."""
-
 import datetime
 import json
 import os
@@ -9,6 +8,7 @@ from unittest import mock
 
 import requests
 from aind_data_schema import Processing, RawDataDescription
+from aind_data_schema.data_description import datetime_from_name_string
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
@@ -246,9 +246,16 @@ class TestDataDescriptionMetadata(unittest.TestCase):
             creation_time=creation_time,
         )
 
-        #TODO: fix AttributeError: 'str' object has no attribute 'strftime'
-        # when parsing rawdatadescription obj, it ends up calling build_data_name -> datetime_to_name_string (except the d,t are strings not datetime objects)
-        # we'd want to convert it so that its str -> datetime for comparison (?)
+        # Hack to convert creation date and time to datetime objects 
+        ds = expected_data_description_instance_json["creation_date"]
+        ts = expected_data_description_instance_json["creation_time"]
+
+        expected_data_description_instance_json["creation_date"] = datetime.datetime.strptime(ds, "%Y-%m-%d").date()
+        expected_data_description_instance_json["creation_time"] = datetime.datetime.strptime(ts, "%H:%M:%S").time()
+
+        # Hack to deal with multiple values for keyword argument 'name'
+        expected_data_description_instance_json.pop("name",None)
+
         expected_data_description_instance = RawDataDescription.parse_obj(
             expected_data_description_instance_json
         )

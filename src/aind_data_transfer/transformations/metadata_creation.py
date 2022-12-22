@@ -143,6 +143,10 @@ class DataDescriptionMetadata:
         subject_id: str,
         creation_date: datetime.date,
         creation_time: datetime.time,
+        modality = Modality.ECEPHYS.value,
+        institution=Institution.AIND.value,
+        funding_source=[Funding(funder=Institution.AIND.value)],
+
     ) -> RawDataDescription:
         """
         Creates a data description instance based on the openephys_job settings
@@ -154,6 +158,12 @@ class DataDescriptionMetadata:
           The data collection date of creation
         creation_time : datetime.time
           The data collection time of creation
+        modality : str 
+          The name for manner of application, or formal procedure to generate data
+        institution : str
+          The name of the organization that collected this data, defaults to AIND
+        funding_source : list
+          Funding sources. If internal label as Institution
         Returns
         -------
         aind_data_schema.RawDataDescription
@@ -161,12 +171,12 @@ class DataDescriptionMetadata:
 
         """
         data_description_instance = RawDataDescription(
-            modality=Modality.ECEPHYS.value,
+            modality=modality,
             subject_id=subject_id,
             creation_date=creation_date,
             creation_time=creation_time,
-            institution=Institution.AIND.value,
-            funding_source=[Funding(funder=Institution.AIND.value)],
+            institution=institution,
+            funding_source=funding_source,
         )
 
         return data_description_instance
