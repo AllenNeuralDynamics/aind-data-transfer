@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 import requests
-from aind_data_schema import Processing
+from aind_data_schema import Processing, RawDataDescription
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
@@ -237,7 +237,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         """
 
         subject_id = "0000"
-        creation_date = datetime.date.fromisoformat("2020-10-20")
+        creation_date = datetime.date(2022,10,20)
         creation_time = datetime.time(16,30,1)
 
         data_description_instance = DataDescriptionMetadata.ephys_job_to_data_description(
@@ -246,9 +246,13 @@ class TestDataDescriptionMetadata(unittest.TestCase):
             creation_time=creation_time,
         )
 
-        expected_data_description_instance = Processing.parse_obj(
+        #TODO: fix AttributeError: 'str' object has no attribute 'strftime'
+        # when parsing rawdatadescription obj, it ends up calling build_data_name -> datetime_to_name_string (except the d,t are strings not datetime objects)
+        # we'd want to convert it so that its str -> datetime for comparison (?)
+        expected_data_description_instance = RawDataDescription.parse_obj(
             expected_data_description_instance_json
         )
+
 
         self.assertEqual(expected_data_description_instance, data_description_instance)
 
