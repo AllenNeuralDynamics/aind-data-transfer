@@ -234,7 +234,8 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         data_description_instance = (
             DataDescriptionMetadata.ephys_job_to_data_description(
                 name="ecephys_0000_2022-10-20_16-30-01"
-            ))
+            )
+        )
 
         expected_data_description_instance = RawDataDescription.parse_obj(
             expected_data_description_instance_json

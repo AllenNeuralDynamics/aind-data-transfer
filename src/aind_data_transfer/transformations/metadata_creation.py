@@ -162,8 +162,14 @@ class DataDescriptionMetadata:
           A RawDataDescription instance to annotate a dataset with.
 
         """
-        funding_source_list = list(funding_source) if isinstance(funding_source, tuple) else funding_source
+        funding_source_list = (
+            list(funding_source)
+            if isinstance(funding_source, tuple)
+            else funding_source
+        )
         data_description_instance = RawDataDescription.from_name(
-              name, institution=institution, funding_source=funding_source_list,
-          )
+            name,
+            institution=institution,
+            funding_source=funding_source_list,
+        )
         return data_description_instance
