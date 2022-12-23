@@ -224,10 +224,6 @@ class TestSubjectMetadata(unittest.TestCase):
 class TestDataDescriptionMetadata(unittest.TestCase):
     """Tests methods in DataDescriptionMetadata class"""
 
-    conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
-    args = ["-c", str(conf_file_path)]
-    loaded_configs = EphysJobConfigurationLoader().load_configs(args)
-
     def test_create_data_description_metadata(self) -> None:
         """
         Tests that the data description metadata is created correctly.
@@ -235,25 +231,10 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         Returns:
 
         """
-
         data_description_instance = (
             DataDescriptionMetadata.ephys_job_to_data_description(
                 name="ecephys_0000_2022-10-20_16-30-01"
             ))
-
-        # Hack to convert creation date and time to datetime objects
-        ds = expected_data_description_instance_json["creation_date"]
-        ts = expected_data_description_instance_json["creation_time"]
-
-        expected_data_description_instance_json[
-            "creation_date"
-        ] = datetime.datetime.strptime(ds, "%Y-%m-%d").date()
-        expected_data_description_instance_json[
-            "creation_time"
-        ] = datetime.datetime.strptime(ts, "%H:%M:%S").time()
-
-        # Hack to deal with multiple values for keyword argument 'name'
-        expected_data_description_instance_json.pop("name", None)
 
         expected_data_description_instance = RawDataDescription.parse_obj(
             expected_data_description_instance_json
