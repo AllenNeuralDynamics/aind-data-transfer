@@ -130,3 +130,4 @@ class SubjectMetadata:
         else:
             logging.error("No data retrieved!")
             return None
+
