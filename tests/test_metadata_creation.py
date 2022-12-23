@@ -7,15 +7,15 @@ from pathlib import Path
 from unittest import mock
 
 import requests
-from aind_data_schema import Processing, RawDataDescription, Funding
+from aind_data_schema import Processing, RawDataDescription
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
 )
 from aind_data_transfer.transformations.metadata_creation import (
+    DataDescriptionMetadata,
     ProcessingMetadata,
     SubjectMetadata,
-    DataDescriptionMetadata,
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -27,6 +27,7 @@ with open(METADATA_DIR / "processing.json", "r") as f:
 
 with open(METADATA_DIR / "data_description.json", "r") as f:
     expected_data_description_instance_json = json.load(f)
+
 
 class TestProcessingMetadata(unittest.TestCase):
     """Tests methods in ProcessingMetadata class"""
@@ -235,26 +236,32 @@ class TestDataDescriptionMetadata(unittest.TestCase):
 
         """
 
-        data_description_instance = DataDescriptionMetadata.ephys_job_to_data_description(
-            name="ecephys_0000_2022-10-20_16-30-01"
-        )
+        data_description_instance = (
+            DataDescriptionMetadata.ephys_job_to_data_description(
+                name="ecephys_0000_2022-10-20_16-30-01"
+            ))
 
-        # Hack to convert creation date and time to datetime objects 
+        # Hack to convert creation date and time to datetime objects
         ds = expected_data_description_instance_json["creation_date"]
         ts = expected_data_description_instance_json["creation_time"]
 
-        expected_data_description_instance_json["creation_date"] = datetime.datetime.strptime(ds, "%Y-%m-%d").date()
-        expected_data_description_instance_json["creation_time"] = datetime.datetime.strptime(ts, "%H:%M:%S").time()
+        expected_data_description_instance_json[
+            "creation_date"
+        ] = datetime.datetime.strptime(ds, "%Y-%m-%d").date()
+        expected_data_description_instance_json[
+            "creation_time"
+        ] = datetime.datetime.strptime(ts, "%H:%M:%S").time()
 
         # Hack to deal with multiple values for keyword argument 'name'
-        expected_data_description_instance_json.pop("name",None)
+        expected_data_description_instance_json.pop("name", None)
 
         expected_data_description_instance = RawDataDescription.parse_obj(
             expected_data_description_instance_json
         )
 
-
-        self.assertEqual(expected_data_description_instance, data_description_instance)
+        self.assertEqual(
+            expected_data_description_instance, data_description_instance
+        )
 
 
 if __name__ == "__main__":
