@@ -140,13 +140,11 @@ class SubjectMetadata:
 class DataDescriptionMetadata:
     """Class to handle the creation of the processing metadata file."""
 
-    output_file_name = "data_description.json"
-
     @staticmethod
     def ephys_job_to_data_description(
         name: str,
-        institution=Institution.AIND.value,
-        funding_source=[Funding(funder=Institution.AIND.value)],
+        institution=Institution.AIND,
+        funding_source=(Funding(funder=Institution.AIND.value),),
     ) -> RawDataDescription:
         """
         Creates a data description instance based on the openephys_job settings
@@ -156,7 +154,7 @@ class DataDescriptionMetadata:
           Name of data, also the name of the directory containing all metadata
         institution : str
           The name of the organization that collected this data
-        funding_source : str
+        funding_source : tuple
           Funding sources. If internal label as Institution
         Returns
         -------
@@ -164,7 +162,12 @@ class DataDescriptionMetadata:
           A RawDataDescription instance to annotate a dataset with.
 
         """
-        data_description_instance = RawDataDescription.from_name(
-            name, institution=institution, funding_source=funding_source,
-        )
+        if funding_source is tuple:
+          data_description_instance = RawDataDescription.from_name(
+            name, institution=institution, funding_source=list(funding_source),
+          )
+        else: 
+          data_description_instance = RawDataDescription.from_name(
+              name, institution=institution, funding_source=funding_source,
+          )
         return data_description_instance
