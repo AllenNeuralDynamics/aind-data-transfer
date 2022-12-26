@@ -11,7 +11,7 @@ from aind_data_schema.data_description import (
     RawDataDescription,
 )
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
-
+from aind_data_schema.subject import Subject
 import aind_data_transfer
 
 
@@ -77,7 +77,31 @@ class ProcessingMetadata:
 class SubjectMetadata:
     """Class to handle the creation of the subject metadata file."""
 
-    output_file_name = "subject.json"
+    output_file_name = Subject._get_default_filename()
+
+    @staticmethod
+    def get_subject_metadata(metadata_service_url: str,
+                             subject_id: str) -> Optional[dict]:
+        # TODO: construct this from aind_metadata_service.client
+        subject_url = metadata_service_url + f"/subject/{subject_id}"
+        response = requests.get(subject_url)
+
+        if response.status_code == 200:
+            response_json = response.json()
+            response_data = response_json["data"]
+            return response_data
+        elif response.status_code == 418:
+            response_json = response.json()
+            logging.warning(response_json["message"])
+            response_data_original = response_json["data"]
+            if type(response_data_original) == list:
+                response_data = response_data_original[0]
+            else:
+                response_data = response_data_original
+            return response_data
+        else:
+            logging.error("No data retrieved!")
+            return None
 
     @staticmethod
     def ephys_job_to_subject(
@@ -87,7 +111,7 @@ class SubjectMetadata:
         file_subject_regex: Optional[str] = (
             "(ecephys|ephys)*_*(\\d+)_\\d{4}"
         ),
-    ) -> dict:
+    ) -> Optional[dict]:
         """
 
         Parameters
@@ -136,17 +160,20 @@ class SubjectMetadata:
             logging.error("No data retrieved!")
             return None
 
+
 class DataDescriptionMetadata:
     """Class to handle the creation of the processing metadata file."""
 
+    output_file_name = RawDataDescription._get_default_filename()
+
     @staticmethod
-    def ephys_job_to_data_description(
+    def get_data_description(
         name: str,
         institution=Institution.AIND,
         funding_source=(Funding(funder=Institution.AIND.value),),
     ) -> RawDataDescription:
         """
-        Creates a data description instance based on the openephys_job settings
+        Creates a data description instance
         Parameters
         ----------
         name : str
