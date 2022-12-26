@@ -1,5 +1,4 @@
 """Module to test that Processing metadata is processed correctly."""
-
 import datetime
 import json
 import os
@@ -8,12 +7,13 @@ from pathlib import Path
 from unittest import mock
 
 import requests
-from aind_data_schema import Processing
+from aind_data_schema import Processing, RawDataDescription
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
 )
 from aind_data_transfer.transformations.metadata_creation import (
+    DataDescriptionMetadata,
     ProcessingMetadata,
     SubjectMetadata,
 )
@@ -24,6 +24,9 @@ METADATA_DIR = TEST_DIR / "resources" / "test_metadata"
 
 with open(METADATA_DIR / "processing.json", "r") as f:
     expected_processing_instance_json = json.load(f)
+
+with open(METADATA_DIR / "data_description.json", "r") as f:
+    expected_data_description_instance_json = json.load(f)
 
 
 class TestProcessingMetadata(unittest.TestCase):
@@ -216,6 +219,31 @@ class TestSubjectMetadata(unittest.TestCase):
 
         mock_log_err.assert_called_once_with("No data retrieved!")
         self.assertIsNone(actual_subject)
+
+
+class TestDataDescriptionMetadata(unittest.TestCase):
+    """Tests methods in DataDescriptionMetadata class"""
+
+    def test_create_data_description_metadata(self) -> None:
+        """
+        Tests that the data description metadata is created correctly.
+
+        Returns:
+
+        """
+        data_description_instance = (
+            DataDescriptionMetadata.ephys_job_to_data_description(
+                name="ecephys_0000_2022-10-20_16-30-01"
+            )
+        )
+
+        expected_data_description_instance = RawDataDescription.parse_obj(
+            expected_data_description_instance_json
+        )
+
+        self.assertEqual(
+            expected_data_description_instance, data_description_instance
+        )
 
 
 if __name__ == "__main__":

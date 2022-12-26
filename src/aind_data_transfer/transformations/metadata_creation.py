@@ -5,6 +5,11 @@ from datetime import datetime
 from typing import Optional
 
 import requests
+from aind_data_schema.data_description import (
+    Funding,
+    Institution,
+    RawDataDescription,
+)
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
 
 import aind_data_transfer
@@ -131,3 +136,39 @@ class SubjectMetadata:
             logging.error("No data retrieved!")
             return None
 
+class DataDescriptionMetadata:
+    """Class to handle the creation of the processing metadata file."""
+
+    @staticmethod
+    def ephys_job_to_data_description(
+        name: str,
+        institution=Institution.AIND,
+        funding_source=(Funding(funder=Institution.AIND.value),),
+    ) -> RawDataDescription:
+        """
+        Creates a data description instance based on the openephys_job settings
+        Parameters
+        ----------
+        name : str
+          Name of data, also the name of the directory containing all metadata
+        institution : str
+          The name of the organization that collected this data
+        funding_source : tuple
+          Funding sources. If internal label as Institution
+        Returns
+        -------
+        aind_data_schema.RawDataDescription
+          A RawDataDescription instance to annotate a dataset with.
+
+        """
+        funding_source_list = (
+            list(funding_source)
+            if isinstance(funding_source, tuple)
+            else funding_source
+        )
+        data_description_instance = RawDataDescription.from_name(
+            name,
+            institution=institution,
+            funding_source=funding_source_list,
+        )
+        return data_description_instance
