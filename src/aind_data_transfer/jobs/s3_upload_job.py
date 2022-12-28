@@ -23,7 +23,7 @@ from aind_data_transfer.util.s3_utils import (
 
 class GenericS3UploadJob:
 
-    UPLOAD_ENDPOINT_KEY = "upload_endpoints"
+    SERVICE_ENDPOINT_KEY = "service_endpoints"
     METADATA_SERVICE_URL_KEY = "metadata_service_url"
     CODEOCEAN_DOMAIN_KEY = "codeocean_domain"
     CODEOCEAN_CAPSULE_KEY = "codeocean_trigger_capsule"
@@ -36,16 +36,16 @@ class GenericS3UploadJob:
         self.configs = self._load_configs(args)
 
     def _get_endpoints(self, job_args, s3_region) -> Optional[dict]:
-        endpoints = getattr(job_args, self.UPLOAD_ENDPOINT_KEY)
+        endpoints = getattr(job_args, self.SERVICE_ENDPOINT_KEY)
         if not endpoints:
             try:
-                s3_secret_name = self.UPLOAD_ENDPOINT_KEY
+                s3_secret_name = self.SERVICE_ENDPOINT_KEY
                 get_secret(s3_secret_name, s3_region)
                 endpoints = json.loads(get_secret(s3_secret_name, s3_region))
             except ClientError as e:
                 logging.warning(
                     f"Unable to retrieve aws secret: "
-                    f"{self.UPLOAD_ENDPOINT_KEY}"
+                    f"{self.SERVICE_ENDPOINT_KEY}"
                 )
                 logging.debug(e.response)
                 endpoints = {}
@@ -170,9 +170,9 @@ class GenericS3UploadJob:
         parser.add_argument("-m", "--modality", required=True, type=str)
         parser.add_argument("-a", "--acq-date", required=True, type=str)
         parser.add_argument("-t", "--acq-time", required=True, type=str)
-        upload_endpoints_name = self.UPLOAD_ENDPOINT_KEY.replace("_", "-")
+        service_endpoints_name = self.SERVICE_ENDPOINT_KEY.replace("_", "-")
         parser.add_argument(
-            "-e", f"--{upload_endpoints_name}", required=False, type=str
+            "-e", f"--{service_endpoints_name}", required=False, type=str
         )
         parser.add_argument("-r", "--s3-region", required=False, type=str)
         parser.add_argument("--dry-run", action="store_true")
@@ -232,11 +232,6 @@ class GenericS3UploadJob:
             capsule_id=endpoints.get(self.CODEOCEAN_CAPSULE_KEY),
             dry_run=job_args.dry_run,
         )
-
-
-# python -m aind_data_transfer.upload --subject 12345 --modality ecephys
-# --acq-date YYYY-MM-DD --acq-time HH-MM-SS <data_folder> <bucket>
-# <modality>_<subject_id>_<acq-date>_<acq-time>
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
