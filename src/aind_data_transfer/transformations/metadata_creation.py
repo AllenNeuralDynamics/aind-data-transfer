@@ -77,7 +77,7 @@ class ProcessingMetadata:
 class SubjectMetadata:
     """Class to handle the creation of the subject metadata file."""
 
-    output_file_name = Subject._get_default_filename()
+    output_file_name = Subject.construct()._get_default_filename()
 
     @staticmethod
     def get_subject_metadata(metadata_service_url: str,
@@ -164,7 +164,7 @@ class SubjectMetadata:
 class DataDescriptionMetadata:
     """Class to handle the creation of the processing metadata file."""
 
-    output_file_name = RawDataDescription._get_default_filename()
+    output_file_name = RawDataDescription.construct()._get_default_filename()
 
     @staticmethod
     def get_data_description(
