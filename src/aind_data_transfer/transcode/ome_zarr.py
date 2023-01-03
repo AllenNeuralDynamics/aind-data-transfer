@@ -2,22 +2,18 @@ import fnmatch
 import logging
 import time
 from pathlib import Path
-from typing import Union, List
+from typing import List
 
-import dask
-import numpy as np
 import zarr
-from aicsimageio.types import PhysicalPixelSizes
-from aicsimageio.writers import OmeZarrWriter
+import dask
 from distributed import wait
 from numpy.typing import NDArray
+from aicsimageio.types import PhysicalPixelSizes
+from aicsimageio.writers import OmeZarrWriter
+from xarray_multiscale import multiscale
+from xarray_multiscale.reducers import windowed_mean
 
-from aind_data_transfer.util.chunk_utils import (
-    guess_chunks,
-    expand_chunks,
-    ensure_shape_5d,
-    ensure_array_5d,
-)
+from aind_data_transfer.util.chunk_utils import *
 from aind_data_transfer.util.file_utils import collect_filepaths
 from aind_data_transfer.util.io_utils import (
     DataReaderFactory,
@@ -295,16 +291,12 @@ def _compute_chunks(reader, target_size_mb):
 
 
 def _create_pyramid(data, n_lvls):
-    from xarray_multiscale import multiscale
-    from xarray_multiscale.reducers import windowed_mean
-
     pyramid = multiscale(
         data,
         windowed_mean,  # func
         (2,) * data.ndim,  # scale factors
-        depth=n_lvls - 1,
         preserve_dtype=True,
-    )
+    )[:n_lvls]
     return [arr.data for arr in pyramid]
 
 
