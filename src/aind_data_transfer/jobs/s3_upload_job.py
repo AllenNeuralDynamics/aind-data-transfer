@@ -1,3 +1,5 @@
+"""Basic job to upload a data directory to s3 with some metadata attached."""
+
 import argparse
 import datetime
 import json
@@ -21,39 +23,57 @@ from aind_data_transfer.util.s3_utils import (
 
 
 class GenericS3UploadJob:
+    """Class for basic job construction."""
 
     SERVICE_ENDPOINT_KEY = "service_endpoints"
     METADATA_SERVICE_URL_KEY = "metadata_service_url"
     CODEOCEAN_DOMAIN_KEY = "codeocean_domain"
     CODEOCEAN_CAPSULE_KEY = "codeocean_trigger_capsule"
     CODEOCEAN_TOKEN_KEY = "codeocean-api-token"
+    CODEOCEAN_TOKEN_KEY_ENV = CODEOCEAN_TOKEN_KEY.replace("-", "_").upper()
     CODEOCEAN_READ_WRITE_KEY = "CODEOCEAN_READWRITE_TOKEN"
     S3_DEFAULT_REGION = "us-west-2"
 
-    def __init__(self, args: list):
+    def __init__(self, args: list) -> None:
+        """Initializes class with sys args. Convert the sys args to configs."""
         self.args = args
         self.configs = self._load_configs(args)
 
     @staticmethod
-    def _get_endpoints(service_endpoint_key, s3_region) -> dict:
+    def _get_endpoints(s3_region: str) -> dict:
+        """
+        If the service endpoints aren't set in the sys args, then this method
+        will try to pull them from aws secrets manager. It's static since it's
+        being called before the job is created.
+        Parameters
+        ----------
+        s3_region : str
+
+        Returns
+        -------
+        dict
+          Will return an empty dictionary if the service endpoints are not set
+          in sys args, or if they can't be pulled from aws secrets manager.
+
+        """
         try:
-            s3_secret_name = service_endpoint_key
+            s3_secret_name = GenericS3UploadJob.SERVICE_ENDPOINT_KEY
             get_secret(s3_secret_name, s3_region)
-            endpoints = json.loads(
-                get_secret(s3_secret_name, s3_region)
-            )
+            endpoints = json.loads(get_secret(s3_secret_name, s3_region))
         except ClientError as e:
             logging.warning(
                 f"Unable to retrieve aws secret: "
-                f"{service_endpoint_key}"
+                f"{GenericS3UploadJob.SERVICE_ENDPOINT_KEY}"
             )
             logging.debug(e.response)
             endpoints = {}
         return endpoints
 
-    def _upload_subject_metadata(self) -> None:
-        metadata_service_url = (
-            self.configs.service_endpoints.get("metadata_service_url")
+    def upload_subject_metadata(self) -> None:
+        """Retrieves subject metadata from metadata service and copies it to
+        s3. Logs warning if unable to retrieve metadata from service."""
+        metadata_service_url = self.configs.service_endpoints.get(
+            "metadata_service_url"
         )
         if metadata_service_url:
             subject_metadata = SubjectMetadata.ephys_job_to_subject(
@@ -76,41 +96,42 @@ class GenericS3UploadJob:
                 "Not able to get subject metadata."
             )
 
-    @staticmethod
-    def _upload_data_description_metadata(
-            s3_bucket,
-            s3_prefix,
-            dry_run
-    ) -> None:
+    def upload_data_description_metadata(self) -> None:
+        """Builds basic data description and copies it to s3."""
+
         data_description_metadata = (
-            DataDescriptionMetadata.get_data_description(name=s3_prefix)
+            DataDescriptionMetadata.get_data_description(name=self.s3_prefix)
         )
         file_name = DataDescriptionMetadata.output_file_name
-        final_s3_prefix = "/".join([s3_prefix, file_name])
+        final_s3_prefix = "/".join([self.s3_prefix, file_name])
         with tempfile.NamedTemporaryFile(mode="w") as tmp:
             json_contents = data_description_metadata.json(indent=4)
             tmp.write(json_contents)
             copy_to_s3(
                 file_to_upload=tmp.name,
-                s3_bucket=s3_bucket,
+                s3_bucket=self.configs.s3_bucket,
                 s3_prefix=final_s3_prefix,
-                dryrun=dry_run,
+                dryrun=self.configs.dry_run,
             )
 
-    def _get_codeocean_client(self,
-                              s3_region,
-                              codeocean_domain):
-        # Try to see if it's been set by an env var
-        co_api_token = os.getenv(
-            f"{self.CODEOCEAN_TOKEN_KEY.replace('_', '-').upper()}"
+    def _get_codeocean_client(self):
+        """Constructs a codeocean client. Will try to check if the api token
+        is set as an environment variable. If not set, then tries to retrieve
+        it from aws secrets manager. Otherwise, logs a warning and returns
+        None."""
+
+        codeocean_domain = self.configs.service_endpoints.get(
+            self.CODEOCEAN_DOMAIN_KEY
         )
+        # Try to see if api token is set by an env var
+        co_api_token = os.getenv(self.CODEOCEAN_TOKEN_KEY_ENV)
         # If not set by an env var, check if it's stored in aws secrets
         if co_api_token is None:
             try:
                 s3_secret_name = self.CODEOCEAN_TOKEN_KEY
-                get_secret(s3_secret_name, s3_region)
+                get_secret(s3_secret_name, self.configs.s3_region)
                 token_key_val = json.loads(
-                    get_secret(s3_secret_name, s3_region)
+                    get_secret(s3_secret_name, self.configs.s3_region)
                 )
                 co_api_token = token_key_val.get(self.CODEOCEAN_READ_WRITE_KEY)
             except ClientError as e:
@@ -127,13 +148,17 @@ class GenericS3UploadJob:
             codeocean_client = None
         return codeocean_client
 
-    @staticmethod
-    def _trigger_codeocean_capsule(codeocean_client,
-                                   capsule_id,
-                                   dry_run):
+    def trigger_codeocean_capsule(self):
+        """Triggers the codeocean capsule. Logs a warning if the endpoints
+        are not configured."""
+
+        capsule_id = self.configs.service_endpoints.get(
+            self.CODEOCEAN_CAPSULE_KEY
+        )
+        codeocean_client = self._get_codeocean_client()
         if codeocean_client and capsule_id:
             logging.info("Triggering capsule run.")
-            if not dry_run:
+            if not self.configs.dry_run:
                 run_response = codeocean_client.run_capsule(
                     capsule_id=capsule_id,
                     data_assets=[],
@@ -153,11 +178,13 @@ class GenericS3UploadJob:
 
     @property
     def s3_prefix(self):
+        """Constructs the s3_prefix from configs."""
+
         # Validate date and time strings
         try:
             datetime.datetime.strptime(
                 self.configs.acq_date + " " + self.configs.acq_time,
-                "%Y-%m-%d %H-%M-%S"
+                "%Y-%m-%d %H-%M-%S",
             )
         except ValueError:
             raise ValueError(
@@ -166,11 +193,18 @@ class GenericS3UploadJob:
             )
 
         return "_".join(
-            [self.configs.modality, self.configs.subject_id,
-             self.configs.acq_date, self.configs.acq_time]
+            [
+                self.configs.modality,
+                self.configs.subject_id,
+                self.configs.acq_date,
+                self.configs.acq_time,
+            ]
         )
 
     def _load_configs(self, args: list) -> argparse.Namespace:
+        """Parses sys args using argparse and resolves the service
+        endpoints."""
+
         parser = argparse.ArgumentParser()
         parser.add_argument("-d", "--data-source", required=True, type=str)
         parser.add_argument("-b", "--s3-bucket", required=True, type=str)
@@ -187,16 +221,14 @@ class GenericS3UploadJob:
         parser.set_defaults(s3_region=self.S3_DEFAULT_REGION)
         job_args = parser.parse_args(args)
         if not job_args.service_endpoints:
-            job_args.service_endpoints = (
-                self._get_endpoints(self.SERVICE_ENDPOINT_KEY,
-                                    job_args.s3_region
-                                    )
+            job_args.service_endpoints = self._get_endpoints(
+                job_args.s3_region
             )
         return job_args
 
     def run_job(self) -> None:
-
-        s3_region = self.configs.s3_region
+        """Uploads data folder to s3, then attempts to upload metadata to s3
+        and trigger the codeocean capsule."""
 
         data_prefix = "/".join([self.s3_prefix, self.configs.modality])
 
@@ -208,29 +240,13 @@ class GenericS3UploadJob:
         )
 
         # Create subject.json file if metadata service url is provided
-        self._upload_subject_metadata()
+        self.upload_subject_metadata()
 
         # Create data description file
-        self._upload_data_description_metadata(
-            s3_bucket=self.configs.s3_bucket,
-            s3_prefix=self.s3_prefix,
-            dry_run=self.configs.dry_run,
-        )
+        self.upload_data_description_metadata()
 
         # Register to code ocean if url is provided
-        codeocean_client = self._get_codeocean_client(
-            s3_region=s3_region,
-            codeocean_domain=self.configs.service_endpoints.get(
-                "codeocean_domain"
-            ),
-        )
-        self._trigger_codeocean_capsule(
-            codeocean_client=codeocean_client,
-            capsule_id=self.configs.service_endpoints.get(
-                self.CODEOCEAN_CAPSULE_KEY
-            ),
-            dry_run=self.configs.dry_run,
-        )
+        self.trigger_codeocean_capsule()
 
 
 if __name__ == "__main__":
