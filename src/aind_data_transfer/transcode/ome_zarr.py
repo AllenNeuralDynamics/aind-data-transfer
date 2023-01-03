@@ -6,13 +6,13 @@ from typing import List
 
 import zarr
 import dask
+import dask.array
 from distributed import wait
 from numpy.typing import NDArray
 from aicsimageio.types import PhysicalPixelSizes
 from aicsimageio.writers import OmeZarrWriter
 from xarray_multiscale import multiscale
 from xarray_multiscale.reducers import windowed_mean
-
 from aind_data_transfer.util.chunk_utils import *
 from aind_data_transfer.util.file_utils import collect_filepaths
 from aind_data_transfer.util.io_utils import (
@@ -290,7 +290,21 @@ def _compute_chunks(reader, target_size_mb):
     return chunks
 
 
-def _create_pyramid(data, n_lvls):
+def _create_pyramid(
+        data: Union[NDArray, dask.array.Array],
+        n_lvls: int
+) -> List[Union[NDArray, dask.array.Array]]:
+    """
+    Create a lazy multiscale image pyramid using data as the full-resolution layer.
+    To evaluate the result, call dask.compute(*pyramid)
+
+    Args:
+        data: the numpy or dask array to create a pyramid from.
+        This will be used as the highest resolution layer.
+        n_lvls: the number of pyramid levels to produce
+    Returns:
+        A list of dask or numpy arrays, ordered from highest resolution to lowest
+    """
     pyramid = multiscale(
         data,
         windowed_mean,  # func
