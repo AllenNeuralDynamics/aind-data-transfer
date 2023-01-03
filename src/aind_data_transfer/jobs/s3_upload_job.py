@@ -220,7 +220,7 @@ class GenericS3UploadJob:
         parser.set_defaults(dry_run=False)
         parser.set_defaults(s3_region=self.S3_DEFAULT_REGION)
         job_args = parser.parse_args(args)
-        if not job_args.service_endpoints:
+        if job_args.service_endpoints is None:
             job_args.service_endpoints = self._get_endpoints(
                 job_args.s3_region
             )

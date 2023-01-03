@@ -228,7 +228,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         mock_copy_to_s3.assert_called_once_with(
             file_to_upload=tmp_file_handle.name,
             s3_bucket="some_s3_bucket",
-            s3_prefix=("ecephys_12345_2022-10-10_13-24-01/subject.json"),
+            s3_prefix="ecephys_12345_2022-10-10_13-24-01/subject.json",
             dryrun=True,
         )
 
@@ -237,28 +237,18 @@ class TestGenericS3UploadJob(unittest.TestCase):
         empty_args[13] = "{}"
         job2 = GenericS3UploadJob(empty_args)
         job2.upload_subject_metadata()
-        mock_log.assert_has_calls(
-            [
-                call(
-                    f"Unable to retrieve aws secret: "
-                    f"{job2.SERVICE_ENDPOINT_KEY}"
-                ),
-                call(
-                    "No metadata service url given. "
-                    "Not able to get subject metadata."
-                ),
-            ]
+        mock_log.assert_called_once_with(
+            "No metadata service url given. "
+            "Not able to get subject metadata."
         )
 
     @patch("aind_data_transfer.jobs.s3_upload_job.copy_to_s3")
-    @patch("logging.Logger.warning")
     @patch("tempfile.NamedTemporaryFile", new_callable=mock_open())
     @patch("boto3.session.Session")
     def test_upload_data_description_metadata(
         self,
         mock_session: MagicMock,
         mocked_tempfile: MagicMock,
-        mock_log: MagicMock,
         mock_copy_to_s3: MagicMock,
     ) -> None:
         """Tests data description is uploaded correctly."""
@@ -277,15 +267,6 @@ class TestGenericS3UploadJob(unittest.TestCase):
             dryrun=True,
         )
         tmp_file_handle.write.assert_called_once()
-
-        # Check warning message if not metadata url is found
-        empty_args = self.args1.copy()
-        empty_args[13] = "{}"
-        job2 = GenericS3UploadJob(empty_args)
-        job2.upload_data_description_metadata()
-        mock_log.assert_called_with(
-            f"Unable to retrieve aws secret: {job.SERVICE_ENDPOINT_KEY}"
-        )
 
     @patch.dict(
         os.environ,
@@ -374,14 +355,8 @@ class TestGenericS3UploadJob(unittest.TestCase):
         empty_args[13] = "{}"
         job2 = GenericS3UploadJob(empty_args)
         job2.trigger_codeocean_capsule()
-        mock_log_warning.assert_has_calls(
-            [
-                call(
-                    f"Unable to retrieve aws secret: "
-                    f"{job2.SERVICE_ENDPOINT_KEY}"
-                ),
-                call("CodeOcean endpoints are required to trigger capsule."),
-            ]
+        mock_log_warning.assert_called_once_with(
+            "CodeOcean endpoints are required to trigger capsule."
         )
 
     @patch.dict(
