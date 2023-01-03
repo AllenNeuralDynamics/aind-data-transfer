@@ -135,6 +135,9 @@ class TestGenericS3UploadJob(unittest.TestCase):
             "acq_time": "13-24-01",
             "s3_region": "us-west-2",
             "service_endpoints": json.loads(self.fake_endpoints_str),
+            "capsule_parameters": {
+                "trigger_codeocean_job": {"job_type": "register_data"}
+            },
             "dry_run": True,
         }
         self.assertEqual(expected_configs_vars, vars(job.configs))
@@ -338,8 +341,10 @@ class TestGenericS3UploadJob(unittest.TestCase):
             [
                 call("Triggering capsule run."),
                 call(
-                    "Would have ran capsule: abc-123 at "
-                    "https://codeocean.acme.org"
+                    f"Would have ran capsule abc-123 at "
+                    f"https://codeocean.acme.org with parameters: "
+                    f"{[json.dumps(job.DEFAULT_CODEOCEAN_CAPSULE_PARAMETERS)]}"
+                    f"."
                 ),
             ]
         )

@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 import tempfile
+from typing import Optional
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
@@ -27,12 +28,17 @@ class GenericS3UploadJob:
 
     SERVICE_ENDPOINT_KEY = "service_endpoints"
     METADATA_SERVICE_URL_KEY = "metadata_service_url"
+    S3_DEFAULT_REGION = "us-west-2"
+
+    # TODO: Move the code ocean configs into own class? Or import them?
     CODEOCEAN_DOMAIN_KEY = "codeocean_domain"
     CODEOCEAN_CAPSULE_KEY = "codeocean_trigger_capsule"
     CODEOCEAN_TOKEN_KEY = "codeocean-api-token"
     CODEOCEAN_TOKEN_KEY_ENV = CODEOCEAN_TOKEN_KEY.replace("-", "_").upper()
     CODEOCEAN_READ_WRITE_KEY = "CODEOCEAN_READWRITE_TOKEN"
-    S3_DEFAULT_REGION = "us-west-2"
+    DEFAULT_CODEOCEAN_CAPSULE_PARAMETERS = {
+        "trigger_codeocean_job": {"job_type": "register_data"}
+    }
 
     def __init__(self, args: list) -> None:
         """Initializes class with sys args. Convert the sys args to configs."""
@@ -114,7 +120,7 @@ class GenericS3UploadJob:
                 dryrun=self.configs.dry_run,
             )
 
-    def _get_codeocean_client(self):
+    def _get_codeocean_client(self) -> Optional[CodeOceanClient]:
         """Constructs a codeocean client. Will try to check if the api token
         is set as an environment variable. If not set, then tries to retrieve
         it from aws secrets manager. Otherwise, logs a warning and returns
@@ -148,10 +154,12 @@ class GenericS3UploadJob:
             codeocean_client = None
         return codeocean_client
 
-    def trigger_codeocean_capsule(self):
+    def trigger_codeocean_capsule(self) -> None:
         """Triggers the codeocean capsule. Logs a warning if the endpoints
         are not configured."""
 
+        parameters = self.configs.capsule_parameters
+        parameter_list = [json.dumps(parameters)] if parameters else []
         capsule_id = self.configs.service_endpoints.get(
             self.CODEOCEAN_CAPSULE_KEY
         )
@@ -162,14 +170,15 @@ class GenericS3UploadJob:
                 run_response = codeocean_client.run_capsule(
                     capsule_id=capsule_id,
                     data_assets=[],
-                    parameters=[],
+                    parameters=parameter_list,
                 )
                 logging.debug(f"Run response: {run_response.json()}")
             else:
                 codeocean_client.get_capsule(capsule_id=capsule_id)
                 logging.info(
-                    f"Would have ran capsule: {capsule_id} "
-                    f"at {codeocean_client.domain}"
+                    f"Would have ran capsule {capsule_id} "
+                    f"at {codeocean_client.domain} with parameters: "
+                    f"{parameter_list}."
                 )
         else:
             logging.warning(
@@ -215,10 +224,16 @@ class GenericS3UploadJob:
         parser.add_argument(
             "-e", "--service-endpoints", required=False, type=json.loads
         )
+        parser.add_argument(
+            "-p", "--capsule-parameters", required=False, type=json.loads
+        )
         parser.add_argument("-r", "--s3-region", required=False, type=str)
         parser.add_argument("--dry-run", action="store_true")
         parser.set_defaults(dry_run=False)
         parser.set_defaults(s3_region=self.S3_DEFAULT_REGION)
+        parser.set_defaults(
+            capsule_parameters=self.DEFAULT_CODEOCEAN_CAPSULE_PARAMETERS
+        )
         job_args = parser.parse_args(args)
         if job_args.service_endpoints is None:
             job_args.service_endpoints = self._get_endpoints(
