@@ -1,17 +1,22 @@
 import argparse
 import itertools
+import json
 import logging
 import os
 import time
+from datetime import datetime
 from pathlib import PurePath
 
 import numpy as np
+from aind_codeocean_api.codeocean import CodeOceanClient
+from aind_codeocean_api.credentials import CodeOceanCredentials
 from cluster.config import load_jobqueue_config
 from dask_jobqueue import SLURMCluster
 from distributed import Client
 from s3transfer.constants import GB, MB
-
 from aind_data_transfer.s3 import S3Uploader
+
+from aind_data_transfer.util import file_utils
 from aind_data_transfer.util.file_utils import collect_filepaths
 
 LOG_FMT = "%(asctime)s %(message)s"
@@ -29,7 +34,14 @@ def chunk_files(input_dir, ntasks, recursive=True, exclude_dirs=None):
 
 
 def upload_files_job(
-    input_dir, files, bucket, s3_path, n_threads, target_throughput, part_size, timeout
+    input_dir,
+    files,
+    bucket,
+    s3_path,
+    n_threads,
+    target_throughput,
+    part_size,
+    timeout,
 ):
     uploader = S3Uploader(
         num_threads=n_threads,
@@ -61,13 +73,15 @@ def run_cluster_job(
     timeout,
     parallelism,
     recursive,
-    exclude_dirs=None
+    exclude_dirs=None,
 ):
     client, config = get_client()
     ntasks = config["n_workers"]
     cores = config["cores"]
 
-    chunked_files = chunk_files(input_dir, ntasks * parallelism, recursive, exclude_dirs)
+    chunked_files = chunk_files(
+        input_dir, ntasks * parallelism, recursive, exclude_dirs
+    )
     logger.info(
         f"Split files into {len(chunked_files)} chunks with "
         f"{len(chunked_files[0])} files each"
@@ -89,8 +103,11 @@ def run_cluster_job(
             )
         )
     failed_uploads = list(itertools.chain(*client.gather(futures)))
-    logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
+    n_failed_uploads = len(failed_uploads)
+    logger.info(f"{n_failed_uploads} failed uploads:\n{failed_uploads}")
     client.close()
+
+    return n_failed_uploads
 
 
 def run_local_job(
@@ -102,7 +119,7 @@ def run_local_job(
     part_size,
     timeout,
     recursive,
-    exclude_dirs=None
+    exclude_dirs=None,
 ):
     uploader = S3Uploader(
         num_threads=nthreads,
@@ -120,7 +137,16 @@ def run_local_job(
         raise ValueError(
             f"Invalid value for --input: {input_dir} does not exist"
         )
-    logger.info(f"{len(failed_uploads)} failed uploads:\n{failed_uploads}")
+
+    n_failed_uploads = len(failed_uploads)
+    logger.info(f"{n_failed_uploads} failed uploads:\n{failed_uploads}")
+
+    return n_failed_uploads
+
+
+# Check dataset status
+STATUS = ["PENDING", "UPLOADED"]
+STATUS_FILENAME = "DATASET_STATUS.txt"
 
 
 def main():
@@ -189,15 +215,30 @@ def main():
     parser.add_argument(
         "--exclude_dirs",
         type=str,
-        nargs='+',
+        nargs="+",
         default=None,
-        help="directories to exclude from upload"
+        help="directories to exclude from upload",
+    )
+    parser.add_argument(
+        "--trigger_code_ocean",
+        default=False,
+        action="store_true",
+        help="upload a directory recursively",
+    )
+    parser.add_argument(
+        "--capsule_id",
+        type=str,
+        default="",
+        help="Capsule ID to execute dataset once is uploaded",
     )
 
     args = parser.parse_args()
 
     input_path = args.input
     bucket = args.bucket
+    n_failed_uploads = -1
+    trigger_code_ocean = args.trigger_code_ocean
+    capsule_id = args.capsule_id
 
     s3_path = args.s3_path
     if s3_path is None:
@@ -209,7 +250,7 @@ def main():
 
     t0 = time.time()
     if args.cluster:
-        run_cluster_job(
+        n_failed_uploads = run_cluster_job(
             input_dir=input_path,
             bucket=bucket,
             s3_path=s3_path,
@@ -218,10 +259,10 @@ def main():
             timeout=args.timeout,
             parallelism=args.batch_num,
             recursive=args.recursive,
-            exclude_dirs=args.exclude_dirs
+            exclude_dirs=args.exclude_dirs,
         )
     else:
-        run_local_job(
+        n_failed_uploads = run_local_job(
             input_dir=input_path,
             bucket=bucket,
             s3_path=s3_path,
@@ -230,10 +271,50 @@ def main():
             part_size=args.part_size,
             timeout=args.timeout,
             recursive=args.recursive,
-            exclude_dirs=args.exclude_dirs
+            exclude_dirs=args.exclude_dirs,
         )
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")
+
+    if not n_failed_uploads:
+        now_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        file_utils.write_list_to_txt(
+            str(PurePath(input_path).joinpath(STATUS_FILENAME)),
+            ["UPLOADED", f"Upload time: {now_datetime}", f"Bucket: {bucket}"],
+        )
+
+    if trigger_code_ocean and not n_failed_uploads and len(capsule_id):
+
+        asset_name = PurePath(s3_path).stem
+
+        job_configs = {
+            "trigger_codeocean_job": {
+                "job_type": "smartspim",
+                "bucket": bucket,
+                "prefix": asset_name,
+                "registration": {
+                    "channel": "Ex_488_Em_525.zarr",
+                    "input_scale": "3",
+                },
+            }
+        }
+
+        try:
+            co_cred = CodeOceanCredentials().credentials
+
+            co_api = CodeOceanClient(
+                domain=co_cred["domain"], token=co_cred["token"]
+            )
+
+            run_response = co_api.run_capsule(
+                capsule_id=capsule_id,
+                data_assets=[],
+                parameters=[json.dumps(job_configs)],
+            )
+            logger.info(f"Run response: {run_response.json()}")
+
+        except ValueError as err:
+            logger.error(f"Error communicating with Code Ocean API {err}")
 
 
 if __name__ == "__main__":
