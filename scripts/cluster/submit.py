@@ -220,22 +220,26 @@ def parse_args():
     parser.add_argument(
         "--worker_memory_target",
         type=float,
-        default=0.6
+        default=0.6,
+        help="fraction of managed memory where Dask workers start spilling to disk"
     )
     parser.add_argument(
         "--worker_memory_spill",
         type=float,
-        default=0.7
+        default=0.7,
+        help="fraction of process memory where Dask workers start spilling to disk"
     )
     parser.add_argument(
         "--worker_memory_pause",
         type=float,
-        default=0.8
+        default=0.8,
+        help="fraction of process memory at which we pause Dask worker threads"
     )
     parser.add_argument(
         "--worker_memory_terminate",
         type=float,
-        default=0.95
+        default=0.95,
+        help="fraction of process memory at which we terminate the Dask worker"
     )
 
     args = parser.parse_args()
