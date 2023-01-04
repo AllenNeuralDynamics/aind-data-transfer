@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 import yaml
+
 from config import DASK_CONF_FILE
 
 
@@ -58,30 +59,26 @@ def write_slurm_scripts(args, run_info):
 
 
 def write_dask_config(args, run_info, deployment="slurm"):
-    config = {"jobqueue": {}}
+    config = {}
     if deployment == "slurm":
-        config["jobqueue"]["slurm"] = {
-            "queue": args.queue,
-            "cores": args.cpus_per_task,
-            "processes": args.processes,
-            "memory": f"{args.mem_per_cpu * args.cpus_per_task}MB",
-            "walltime": args.walltime,
-            "n_workers": args.ntasks_per_node * args.nodes,
-            "death_timeout": 600,
-            "job_extra": [f"--tmp {args.tmp_space}"],
-            "local_directory": args.local_dir,
-            "log_directory": os.path.join(
-                run_info.logs_dir, "dask-worker-logs"
-            ),
+        config['distributed'] = {
+            'worker': {
+                'memory': {
+                    "target": args.worker_memory_target,
+                    "spill": args.worker_memory_spill,
+                    "pause": args.worker_memory_pause,
+                    "terminate": args.worker_memory_terminate
+                }
+            }
         }
     else:
         raise ValueError("Only Slurm is currently supported")
     # Save a carbon copy to the run directory
     with open(run_info.dask_conf_file, "w") as f:
-        yaml.dump(config, f, default_flow_style=None)
+        yaml.dump(config, f, default_flow_style=False)
     # Now save the file actually used by Dask
     with open(DASK_CONF_FILE, "w") as f:
-        yaml.dump(config, f, default_flow_style=None)
+        yaml.dump(config, f, default_flow_style=False)
 
 
 RunInfo = collections.namedtuple(
@@ -108,7 +105,7 @@ def create_run(args):
     run_conf_dir = f"{run_dir}/conf"
     launch_script = f"{run_scripts_dir}/queue-slurm-jobs.sh"
 
-    dask_conf_file = f"{run_conf_dir}/jobqueue.yaml"
+    dask_conf_file = f"{run_conf_dir}/dask-config.yaml"
 
     user_name = os.getenv("USER")
     job_name_prefix = f"slurm_{user_name}_{timestamp}"
@@ -220,10 +217,55 @@ def parse_args():
         help="local directory for dask worker file spilling. "
         "This should be fast, node-local storage.",
     )
+    parser.add_argument(
+        "--worker_memory_target",
+        type=float,
+        default=0.6
+    )
+    parser.add_argument(
+        "--worker_memory_spill",
+        type=float,
+        default=0.7
+    )
+    parser.add_argument(
+        "--worker_memory_pause",
+        type=float,
+        default=0.8
+    )
+    parser.add_argument(
+        "--worker_memory_terminate",
+        type=float,
+        default=0.95
+    )
 
     args = parser.parse_args()
 
     return args
+
+
+def find_hdf5plugin_path():
+    # this should work with both conda environments and virtualenv
+    # see https://stackoverflow.com/a/46071447
+    import sysconfig
+    site_packages = sysconfig.get_paths()["purelib"]
+    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
+    if not os.path.isdir(plugin_path):
+        raise HDF5PluginError(
+            f"Could not find hdf5plugin in site-packages, "
+            f"{plugin_path} does not exist. "
+            f"Try setting --hdf5_plugin_path manually."
+        )
+    return plugin_path
+
+
+class HDF5PluginError(Exception):
+    pass
+
+
+def set_hdf5_env_vars(hdf5_plugin_path=None):
+    if hdf5_plugin_path is not None:
+        os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 
 def main():
@@ -240,6 +282,7 @@ def main():
 
     if args.task == "generate-and-launch-run":
         print(f"Running:\n  {run_info.launch_script}\n")
+        set_hdf5_env_vars(find_hdf5plugin_path())
         os.system(f"sbatch {run_info.launch_script}")
     else:
         print(f"To launch jobs, run:\n  {run_info.launch_script}\n")

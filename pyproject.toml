@@ -43,7 +43,8 @@ ephys = [
     'wavpack-numcodecs>=0.1.3'
 ]
 imaging = [
-    'dask-jobqueue',
+    'dask',
+    'distributed',
     'dask-image',
     'bokeh>=2.1.1, <3.0.0',
     'gcsfs',
