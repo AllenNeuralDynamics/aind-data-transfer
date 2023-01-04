@@ -1,3 +1,7 @@
+import logging
+import platform
+import subprocess
+
 import boto3
 from botocore.exceptions import ClientError
 
@@ -26,3 +30,61 @@ def get_secret(secret_name, region_name):
     secret = get_secret_value_response["SecretString"]
 
     return secret
+
+
+def upload_to_s3(directory_to_upload, s3_bucket, s3_prefix, dryrun):
+    # Upload to s3
+    if platform.system() == "Windows":
+        shell = True
+    else:
+        shell = False
+
+    # TODO: Use s3transfer library instead of subprocess?
+    logging.info("Uploading to s3.")
+    aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
+    if dryrun:
+        subprocess.run(
+            [
+                "aws",
+                "s3",
+                "sync",
+                directory_to_upload,
+                aws_dest,
+                "--dryrun",
+            ],
+            shell=shell,
+        )
+    else:
+        subprocess.run(
+            ["aws", "s3", "sync", directory_to_upload, aws_dest], shell=shell
+        )
+    logging.info("Finished uploading to s3.")
+
+
+def copy_to_s3(file_to_upload, s3_bucket, s3_prefix, dryrun):
+    # Upload to s3
+    if platform.system() == "Windows":
+        shell = True
+    else:
+        shell = False
+
+    # TODO: Use s3transfer library instead of subprocess?
+    logging.info("Copying file to s3.")
+    aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
+    if dryrun:
+        subprocess.run(
+            [
+                "aws",
+                "s3",
+                "cp",
+                file_to_upload,
+                aws_dest,
+                "--dryrun",
+            ],
+            shell=shell,
+        )
+    else:
+        subprocess.run(
+            ["aws", "s3", "cp", file_to_upload, aws_dest], shell=shell
+        )
+    logging.info("Finished copying file to s3.")
