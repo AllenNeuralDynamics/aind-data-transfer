@@ -36,9 +36,7 @@ class GenericS3UploadJob:
     CODEOCEAN_TOKEN_KEY = "codeocean-api-token"
     CODEOCEAN_TOKEN_KEY_ENV = CODEOCEAN_TOKEN_KEY.replace("-", "_").upper()
     CODEOCEAN_READ_WRITE_KEY = "CODEOCEAN_READWRITE_TOKEN"
-    DEFAULT_CODEOCEAN_CAPSULE_PARAMETERS = {
-        "trigger_codeocean_job": {"job_type": "register_data"}
-    }
+    CODEOCEAN_JOB_TYPE = "register_data"
 
     def __init__(self, args: list) -> None:
         """Initializes class with sys args. Convert the sys args to configs."""
@@ -156,17 +154,32 @@ class GenericS3UploadJob:
             codeocean_client = None
         return codeocean_client
 
+    def _codeocean_trigger_capsule_parameters(self):
+        """Generate parameters to run code ocean capsule."""
+
+        return {
+            "trigger_codeocean_job": {
+                "job_type": self.CODEOCEAN_JOB_TYPE,
+                "capsule_id": self.configs.service_endpoints.get(
+                    self.CODEOCEAN_CAPSULE_KEY
+                ),
+                "bucket": self.configs.s3_bucket,
+                "prefix": self.s3_prefix,
+            }
+        }
+
     def trigger_codeocean_capsule(self) -> None:
         """Triggers the codeocean capsule. Logs a warning if the endpoints
         are not configured."""
 
-        parameters = self.configs.capsule_parameters
-        parameter_list = [json.dumps(parameters)] if parameters else []
         capsule_id = self.configs.service_endpoints.get(
             self.CODEOCEAN_CAPSULE_KEY
         )
+
         codeocean_client = self._get_codeocean_client()
         if codeocean_client and capsule_id:
+            parameters = self._codeocean_trigger_capsule_parameters()
+            parameter_list = [json.dumps(parameters)]
             logging.info("Triggering capsule run.")
             if not self.configs.dry_run:
                 run_response = codeocean_client.run_capsule(
@@ -226,16 +239,10 @@ class GenericS3UploadJob:
         parser.add_argument(
             "-e", "--service-endpoints", required=False, type=json.loads
         )
-        parser.add_argument(
-            "-p", "--capsule-parameters", required=False, type=json.loads
-        )
         parser.add_argument("-r", "--s3-region", required=False, type=str)
         parser.add_argument("--dry-run", action="store_true")
         parser.set_defaults(dry_run=False)
         parser.set_defaults(s3_region=self.S3_DEFAULT_REGION)
-        parser.set_defaults(
-            capsule_parameters=self.DEFAULT_CODEOCEAN_CAPSULE_PARAMETERS
-        )
         job_args = parser.parse_args(args)
         if job_args.service_endpoints is None:
             job_args.service_endpoints = self._get_endpoints(

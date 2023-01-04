@@ -135,9 +135,6 @@ class TestGenericS3UploadJob(unittest.TestCase):
             "acq_time": "13-24-01",
             "s3_region": "us-west-2",
             "service_endpoints": json.loads(self.fake_endpoints_str),
-            "capsule_parameters": {
-                "trigger_codeocean_job": {"job_type": "register_data"}
-            },
             "dry_run": True,
         }
         self.assertEqual(expected_configs_vars, vars(job.configs))
@@ -313,6 +310,21 @@ class TestGenericS3UploadJob(unittest.TestCase):
         )
         self.assertIsNone(co_client3)
 
+    def test_codeocean_trigger_capsule_parameters(self):
+        """Tests capsule parameters are created correctly."""
+
+        job = GenericS3UploadJob(self.args1)
+        expected_capsule_parameters = {
+            "trigger_codeocean_job": {
+                "job_type": job.CODEOCEAN_JOB_TYPE,
+                "capsule_id": "abc-123",
+                "bucket": job.configs.s3_bucket,
+                "prefix": job.s3_prefix,
+            }
+        }
+        capsule_parameters = job._codeocean_trigger_capsule_parameters()
+        self.assertEqual(expected_capsule_parameters, capsule_parameters)
+
     @patch.dict(
         os.environ,
         ({f"{GenericS3UploadJob.CODEOCEAN_TOKEN_KEY_ENV}": "abc-12345"}),
@@ -335,6 +347,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         # Test dry-run
         mock_get_capsule.return_value = "Ran a capsule!"
         job = GenericS3UploadJob(self.args1)
+        capsule_parameters = job._codeocean_trigger_capsule_parameters()
         job.trigger_codeocean_capsule()
         mock_get_capsule.assert_called_once()
         mock_log_info.assert_has_calls(
@@ -343,7 +356,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
                 call(
                     f"Would have ran capsule abc-123 at "
                     f"https://codeocean.acme.org with parameters: "
-                    f"{[json.dumps(job.DEFAULT_CODEOCEAN_CAPSULE_PARAMETERS)]}"
+                    f"{[json.dumps(capsule_parameters)]}"
                     f"."
                 ),
             ]
