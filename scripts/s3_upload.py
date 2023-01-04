@@ -6,8 +6,6 @@ import time
 from pathlib import PurePath
 
 import numpy as np
-from cluster.config import load_jobqueue_config
-from dask_jobqueue import SLURMCluster
 from distributed import Client
 from s3transfer.constants import GB, MB
 
@@ -40,16 +38,13 @@ def upload_files_job(
     return uploader.upload_files(files, bucket, s3_path, root=input_dir)
 
 
-def get_client():
-    config = load_jobqueue_config()
-    slurm_config = config["jobqueue"]["slurm"]
-    # cluster config is automatically populated from
-    # ~/.config/dask/jobqueue.yaml
-    cluster = SLURMCluster()
-    cluster.scale(slurm_config["n_workers"])
-    logger.info(cluster.job_script())
-    client = Client(cluster)
-    return client, slurm_config
+def get_client(deployment="slurm"):
+    if deployment == "slurm":
+        client = Client(scheduler_file=os.getenv("SCHED_FILE"))
+        n_workers = int(os.getenv("SLURM_NTASKS", 1))
+    else:
+        raise NotImplementedError
+    return client, n_workers
 
 
 def run_cluster_job(
@@ -59,15 +54,14 @@ def run_cluster_job(
     target_throughput,
     part_size,
     timeout,
-    parallelism,
+    chunks_per_worker,
     recursive,
     exclude_dirs=None
 ):
-    client, config = get_client()
-    ntasks = config["n_workers"]
-    cores = config["cores"]
+    client, ntasks = get_client()
+    logger.info(f"Client has {ntasks} registered workers")
 
-    chunked_files = chunk_files(input_dir, ntasks * parallelism, recursive, exclude_dirs)
+    chunked_files = chunk_files(input_dir, ntasks * chunks_per_worker, recursive, exclude_dirs)
     logger.info(
         f"Split files into {len(chunked_files)} chunks with "
         f"{len(chunked_files[0])} files each"
@@ -82,7 +76,7 @@ def run_cluster_job(
                 files=chunk,
                 bucket=bucket,
                 s3_path=s3_path,
-                n_threads=cores,
+                n_threads=1,
                 target_throughput=target_throughput,
                 part_size=part_size,
                 timeout=timeout,
@@ -216,7 +210,7 @@ def main():
             target_throughput=args.target_throughput,
             part_size=args.part_size,
             timeout=args.timeout,
-            parallelism=args.batch_num,
+            chunks_per_worker=args.batch_num,
             recursive=args.recursive,
             exclude_dirs=args.exclude_dirs
         )

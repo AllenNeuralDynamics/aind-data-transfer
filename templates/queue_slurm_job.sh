@@ -40,8 +40,28 @@ echo "Access the dashboard with \"ssh -L 8787:${HOSTNAME}:8787 ${USER}@@hpc-logi
 
 echo "Running \"@{job_cmd}\""
 
+# Memory per worker
+export MEM=$((${SLURM_CPUS_PER_TASK}*${SLURM_MEM_PER_CPU}))
+
+# Scheduler file - the Python code will need to refer to this
+export SCHED_FILE="dask-scheduler-${SLURM_JOBID}.sched"
+
+# Launch the scheduler
+dask scheduler --scheduler-file=$SCHED_FILE  &
+
+# Launch the worker processes using the SLURM-allocated resources
+srun  dask worker --local-directory="/scratch/fast/${SLURM_JOBID}" --nthreads=${SLURM_CPUS_PER_TASK} \
+--scheduler-file=$SCHED_FILE  --memory-limit=${MEM}M --memory-spill-fraction=0.7 &
+
 @{job_cmd}
 
 echo "Done"
+
+# stop the workers
+scancel ${SLURM_JOBID}.0
+
+if [ -f $SCHED_FILE ]; then
+   rm -v $SCHED_FILE
+fi
 
 date
