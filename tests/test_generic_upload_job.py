@@ -265,7 +265,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
             file_to_upload=tmp_file_handle.name,
             s3_bucket="some_s3_bucket",
             s3_prefix=(
-                "ecephys_12345_2022-10-10_13-24-01/rawdatadescription.json"
+                "ecephys_12345_2022-10-10_13-24-01/data_description.json"
             ),
             dryrun=True,
         )

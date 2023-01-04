@@ -13,7 +13,7 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
 
 from aind_data_transfer.transformations.metadata_creation import (
-    DataDescriptionMetadata,
+    RawDataDescriptionMetadata,
     SubjectMetadata,
 )
 from aind_data_transfer.util.s3_utils import (
@@ -106,9 +106,11 @@ class GenericS3UploadJob:
         """Builds basic data description and copies it to s3."""
 
         data_description_metadata = (
-            DataDescriptionMetadata.get_data_description(name=self.s3_prefix)
+            RawDataDescriptionMetadata.get_data_description(
+                name=self.s3_prefix
+            )
         )
-        file_name = DataDescriptionMetadata.output_file_name
+        file_name = RawDataDescriptionMetadata.output_file_name
         final_s3_prefix = "/".join([self.s3_prefix, file_name])
         with tempfile.NamedTemporaryFile(mode="w") as tmp:
             json_contents = data_description_metadata.json(indent=4)

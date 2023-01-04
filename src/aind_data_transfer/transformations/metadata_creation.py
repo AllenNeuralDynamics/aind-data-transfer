@@ -12,6 +12,7 @@ from aind_data_schema.data_description import (
 )
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
 from aind_data_schema.subject import Subject
+
 import aind_data_transfer
 
 
@@ -19,7 +20,7 @@ class ProcessingMetadata:
     """Class to handle the creation of the processing metadata file."""
 
     # TODO: import this from aind_data_schema.Processing class
-    output_file_name = "processing.json"
+    output_file_name = Processing.construct().default_filename()
 
     @staticmethod
     def ephys_job_to_processing(
@@ -77,11 +78,12 @@ class ProcessingMetadata:
 class SubjectMetadata:
     """Class to handle the creation of the subject metadata file."""
 
-    output_file_name = Subject.construct()._get_default_filename()
+    output_file_name = Subject.construct().default_filename()
 
     @staticmethod
-    def get_subject_metadata(metadata_service_url: str,
-                             subject_id: str) -> Optional[dict]:
+    def get_subject_metadata(
+        metadata_service_url: str, subject_id: str
+    ) -> Optional[dict]:
         # TODO: construct this from aind_metadata_service.client
         subject_url = metadata_service_url + f"/subject/{subject_id}"
         response = requests.get(subject_url)
@@ -161,10 +163,10 @@ class SubjectMetadata:
             return None
 
 
-class DataDescriptionMetadata:
+class RawDataDescriptionMetadata:
     """Class to handle the creation of the processing metadata file."""
 
-    output_file_name = RawDataDescription.construct()._get_default_filename()
+    output_file_name = RawDataDescription.construct().default_filename()
 
     @staticmethod
     def get_data_description(
