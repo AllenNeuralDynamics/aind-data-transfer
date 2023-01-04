@@ -51,7 +51,7 @@ dask scheduler --scheduler-file=$SCHED_FILE  &
 
 # Launch the worker processes using the SLURM-allocated resources
 srun  dask worker --local-directory="/scratch/fast/${SLURM_JOBID}" --nthreads=${SLURM_CPUS_PER_TASK} \
---scheduler-file=$SCHED_FILE  --memory-limit=${MEM}M --memory-spill-fraction=0.7 &
+--scheduler-file=$SCHED_FILE  --memory-limit=${MEM}M &
 
 @{job_cmd}
 
