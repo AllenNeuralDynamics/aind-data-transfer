@@ -4,12 +4,12 @@ import logging
 import google.cloud.exceptions
 import pandas as pd
 from botocore.session import get_session
-from distributed import Client, LocalCluster
 from numcodecs import blosc
 
 from aind_data_transfer.gcs import create_client
 from aind_data_transfer.transcode.ome_zarr import write_files
 from aind_data_transfer.util.file_utils import *
+from aind_data_transfer.util.dask_utils import log_dashboard_address, get_client
 
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
@@ -37,17 +37,23 @@ def get_blosc_codec(cname, clevel):
     return opts
 
 
-def get_client(deployment="slurm"):
-    if deployment == "slurm":
-        client = Client(scheduler_file=os.getenv("SCHED_FILE"))
-    elif deployment == "local":
-        import platform
-        use_procs = False if platform.system() == "Windows" else True
-        cluster = LocalCluster(processes=use_procs, threads_per_worker=1)
-        client = Client(cluster)
-    else:
-        raise NotImplementedError
-    return client
+class HDF5PluginError(Exception):
+    pass
+
+
+def find_hdf5plugin_path():
+    # this should work with both conda environments and virtualenv
+    # see https://stackoverflow.com/a/46071447
+    import sysconfig
+    site_packages = sysconfig.get_paths()["purelib"]
+    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
+    if not os.path.isdir(plugin_path):
+        raise HDF5PluginError(
+            f"Could not find hdf5plugin in site-packages, "
+            f"{plugin_path} does not exist. "
+            f"Try setting --hdf5_plugin_path manually."
+        )
+    return plugin_path
 
 
 def output_valid(output: Union[str, os.PathLike]) -> bool:
@@ -141,7 +147,7 @@ def parse_args():
     parser.add_argument(
         "--deployment",
         type=str,
-        default="local",
+        default="slurm",
         help="cluster deployment type",
     )
     parser.add_argument("--log_level", type=int, default=logging.INFO)
@@ -212,7 +218,13 @@ def main():
         LOGGER.info(f"No images found, exiting.")
         return
 
-    client = get_client(args.deployment)
+    worker_options = {
+        "env": {
+            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
+            "HDF5_USE_FILE_LOCKING": "FALSE"
+        }
+    }
+    client, _ = get_client(args.deployment, worker_options=worker_options)
 
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
     LOGGER.info(f"Writing OME-Zarr to {args.output}")

@@ -6,11 +6,11 @@ import time
 from pathlib import PurePath
 
 import numpy as np
-from distributed import Client
 from s3transfer.constants import GB, MB
 
 from aind_data_transfer.s3 import S3Uploader
 from aind_data_transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.util.dask_utils import log_dashboard_address, get_client
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"
@@ -38,15 +38,6 @@ def upload_files_job(
     return uploader.upload_files(files, bucket, s3_path, root=input_dir)
 
 
-def get_client(deployment="slurm"):
-    if deployment == "slurm":
-        client = Client(scheduler_file=os.getenv("SCHED_FILE"))
-        n_workers = int(os.getenv("SLURM_NTASKS", 1))
-    else:
-        raise NotImplementedError
-    return client, n_workers
-
-
 def run_cluster_job(
     input_dir,
     bucket,
@@ -58,7 +49,7 @@ def run_cluster_job(
     recursive,
     exclude_dirs=None
 ):
-    client, ntasks = get_client()
+    client, ntasks = get_client(deployment="slurm")
     logger.info(f"Client has {ntasks} registered workers")
 
     chunked_files = chunk_files(input_dir, ntasks * chunks_per_worker, recursive, exclude_dirs)

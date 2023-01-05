@@ -247,31 +247,6 @@ def parse_args():
     return args
 
 
-def find_hdf5plugin_path():
-    # this should work with both conda environments and virtualenv
-    # see https://stackoverflow.com/a/46071447
-    import sysconfig
-    site_packages = sysconfig.get_paths()["purelib"]
-    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
-    if not os.path.isdir(plugin_path):
-        raise HDF5PluginError(
-            f"Could not find hdf5plugin in site-packages, "
-            f"{plugin_path} does not exist. "
-            f"Try setting --hdf5_plugin_path manually."
-        )
-    return plugin_path
-
-
-class HDF5PluginError(Exception):
-    pass
-
-
-def set_hdf5_env_vars(hdf5_plugin_path=None):
-    if hdf5_plugin_path is not None:
-        os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path
-    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-
-
 def main():
     args = parse_args()
 
@@ -286,7 +261,6 @@ def main():
 
     if args.task == "generate-and-launch-run":
         print(f"Running:\n  {run_info.launch_script}\n")
-        set_hdf5_env_vars(find_hdf5plugin_path())
         os.system(f"sbatch {run_info.launch_script}")
     else:
         print(f"To launch jobs, run:\n  {run_info.launch_script}\n")
