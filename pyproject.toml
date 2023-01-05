@@ -45,7 +45,7 @@ ephys = [
 imaging = [
     'dask-jobqueue',
     'dask-image',
-    'bokeh>=2.1.1',
+    'bokeh>=2.1.1, <3.0.0',
     'gcsfs',
     'xarray-multiscale',
     'parameterized'
