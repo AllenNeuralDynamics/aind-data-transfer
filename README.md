@@ -28,6 +28,33 @@ To upload data to aws s3, you may need to install and configure `awscli`. To upl
 - Run `pip install -e .[dev]`
 - Run `./post_install.sh`
 
+### MPI
+To run scripts on a cluster, you need to install [dask-mpi](http://mpi.dask.org/en/latest/)
+This requires compiling `mpi4py` with the MPI implementation used by your cluster (Open MPI, MPICH, etc).
+The following example is for the Allen institute HPC, but should be applicable to other HPC systems.
+
+SSH into your cluster login node
+
+```ssh user.name@hpc-login```
+
+On the Allen cluster, the MPI modules are only avaiable on compute nodes, so SSH into a compute node (n256 chosen arbitrarily).
+
+```ssh user.name@n256```
+
+Now load the MPI module and compiler. It is important that you use the latest MPI version and compiler, or else 
+`dask-mpi` may not function properly.
+
+```module load gcc/10.1.0-centos7 mpi/mpich-3.2-x86_64```
+
+Install mpi4py
+
+```python -m pip install --no-cache-dir mpi4py```
+
+Now install dask-mpi
+
+```python -m pip install dask_mpi --upgrade```
+
+
 ## Contributing
 
 ### Linters and testing
