@@ -33,35 +33,15 @@ set -e
 
 pwd; date
 
-echo "Starting the dask scheduler on node ${HOSTNAME}"
-echo "Access the dashboard with \"ssh -L 8787:${HOSTNAME}:8787 ${USER}@@hpc-login\""
-
 [[ -f "@{conda_activate}" ]] && source "@{conda_activate}" @{conda_env}
+
+module purge
+module load mpi/mpich-3.2-x86_64
 
 echo "Running \"@{job_cmd}\""
 
-# Memory per worker
-export MEM=$((${SLURM_CPUS_PER_TASK}*${SLURM_MEM_PER_CPU}))
-
-# Scheduler file - the Python code will need to refer to this
-export SCHED_FILE="dask-scheduler-${SLURM_JOBID}.sched"
-
-# Launch the scheduler
-dask scheduler --scheduler-file=$SCHED_FILE  &
-
-# Launch the worker processes using the SLURM-allocated resources
-srun  dask worker --local-directory="/scratch/fast/${SLURM_JOBID}" --nthreads=${SLURM_CPUS_PER_TASK} \
---scheduler-file=$SCHED_FILE  --memory-limit=${MEM}M &
-
-@{job_cmd}
+mpirun @{job_cmd}
 
 echo "Done"
-
-# stop the workers
-scancel ${SLURM_JOBID}.0
-
-if [ -f $SCHED_FILE ]; then
-   rm -v $SCHED_FILE
-fi
 
 date
