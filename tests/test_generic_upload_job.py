@@ -206,12 +206,14 @@ class TestGenericS3UploadJob(unittest.TestCase):
         "aind_data_transfer.transformations.metadata_creation.SubjectMetadata."
         "ephys_job_to_subject"
     )
-    @patch("tempfile.NamedTemporaryFile", new_callable=mock_open())
+    @patch("tempfile.TemporaryDirectory")
     @patch("boto3.session.Session")
+    @patch("builtins.open", new_callable=mock_open())
     def test_upload_subject_metadata(
         self,
+        mock_open_file: MagicMock,
         mock_session: MagicMock,
-        mocked_tempfile: MagicMock,
+        mocked_tempdir: MagicMock,
         mocked_ephys_job_to_subject: MagicMock,
         mock_log: MagicMock,
         mock_copy_to_s3: MagicMock,
@@ -221,12 +223,14 @@ class TestGenericS3UploadJob(unittest.TestCase):
         # Check that tempfile is called and copy to s3 is called
         mock_session.return_value = self._mock_boto_get_secret_session_error()
         mocked_ephys_job_to_subject.return_value = {}
+        mocked_tempdir.return_value.__enter__ = lambda _: "tmp_dir"
+        tmp_file_name = os.path.join("tmp_dir", "subject.json")
         job = GenericS3UploadJob(self.args1)
         job.upload_subject_metadata()
-        tmp_file_handle = mocked_tempfile.return_value.__enter__()
-        tmp_file_handle.write.assert_called_once()
+        mock_open_file.assert_called_once_with(tmp_file_name, "w")
+        mocked_tempdir.assert_called_once()
         mock_copy_to_s3.assert_called_once_with(
-            file_to_upload=tmp_file_handle.name,
+            file_to_upload=tmp_file_name,
             s3_bucket="some_s3_bucket",
             s3_prefix="ecephys_12345_2022-10-10_13-24-01/subject.json",
             dryrun=True,
@@ -243,30 +247,34 @@ class TestGenericS3UploadJob(unittest.TestCase):
         )
 
     @patch("aind_data_transfer.jobs.s3_upload_job.copy_to_s3")
-    @patch("tempfile.NamedTemporaryFile", new_callable=mock_open())
+    @patch("tempfile.TemporaryDirectory")
     @patch("boto3.session.Session")
+    @patch("builtins.open", new_callable=mock_open())
     def test_upload_data_description_metadata(
         self,
+        mock_open_file: MagicMock,
         mock_session: MagicMock,
-        mocked_tempfile: MagicMock,
+        mocked_tempdir: MagicMock,
         mock_copy_to_s3: MagicMock,
     ) -> None:
         """Tests data description is uploaded correctly."""
 
         # Check that tempfile is called and copy to s3 is called
         mock_session.return_value = self._mock_boto_get_secret_session_error()
+        mocked_tempdir.return_value.__enter__ = lambda _: "tmp_dir"
+        tmp_file_name = os.path.join("tmp_dir", "data_description.json")
         job = GenericS3UploadJob(self.args1)
         job.upload_data_description_metadata()
-        tmp_file_handle = mocked_tempfile.return_value.__enter__()
+        mock_open_file.assert_called_once_with(tmp_file_name, "w")
+        mocked_tempdir.assert_called_once()
         mock_copy_to_s3.assert_called_once_with(
-            file_to_upload=tmp_file_handle.name,
+            file_to_upload=tmp_file_name,
             s3_bucket="some_s3_bucket",
             s3_prefix=(
                 "ecephys_12345_2022-10-10_13-24-01/data_description.json"
             ),
             dryrun=True,
         )
-        tmp_file_handle.write.assert_called_once()
 
     @patch.dict(
         os.environ,

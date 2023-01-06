@@ -86,10 +86,12 @@ class GenericS3UploadJob:
             )
             file_name = SubjectMetadata.output_file_name
             final_s3_prefix = "/".join([self.s3_prefix, file_name])
-            with tempfile.NamedTemporaryFile(mode="w") as tmp:
-                tmp.write(json.dumps(subject_metadata, indent=4))
+            with tempfile.TemporaryDirectory() as td:
+                tmp_file_name = os.path.join(td, file_name)
+                with open(tmp_file_name, "w") as fh:
+                    fh.write(json.dumps(subject_metadata, indent=4))
                 copy_to_s3(
-                    file_to_upload=tmp.name,
+                    file_to_upload=tmp_file_name,
                     s3_bucket=self.configs.s3_bucket,
                     s3_prefix=final_s3_prefix,
                     dryrun=self.configs.dry_run,
@@ -110,11 +112,12 @@ class GenericS3UploadJob:
         )
         file_name = RawDataDescriptionMetadata.output_file_name
         final_s3_prefix = "/".join([self.s3_prefix, file_name])
-        with tempfile.NamedTemporaryFile(mode="w") as tmp:
-            json_contents = data_description_metadata.json(indent=4)
-            tmp.write(json_contents)
+        with tempfile.TemporaryDirectory() as td:
+            tmp_file_name = os.path.join(td, file_name)
+            with open(tmp_file_name, "w") as fh:
+                fh.write(data_description_metadata.json(**{"indent": 4}))
             copy_to_s3(
-                file_to_upload=tmp.name,
+                file_to_upload=tmp_file_name,
                 s3_bucket=self.configs.s3_bucket,
                 s3_prefix=final_s3_prefix,
                 dryrun=self.configs.dry_run,
