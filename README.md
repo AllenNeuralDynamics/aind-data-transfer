@@ -79,7 +79,7 @@ python -m aind_data_transfer.jobs.s3_upload_job ... --dryrun
 
 The csv file should look something like:
 
-````
+```
 data-source, s3-bucket, subject-id, modality, acq-date, acq-time
 dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10, 14-10-10
 dir/data_set_2, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10
