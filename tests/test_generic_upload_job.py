@@ -4,12 +4,16 @@ import json
 import os
 import unittest
 from io import StringIO
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
 
-from aind_data_transfer.jobs.s3_upload_job import GenericS3UploadJob
+from aind_data_transfer.jobs.s3_upload_job import (
+    GenericS3UploadJob,
+    GenericS3UploadJobList,
+)
 
 
 class TestGenericS3UploadJob(unittest.TestCase):
@@ -166,6 +170,8 @@ class TestGenericS3UploadJob(unittest.TestCase):
     ) -> None:
         """Tests that the service endpoints are loaded correctly either from
         being set in the sys args or pulled from aws Secrets Manager"""
+
+        # Job where endpoints are defined in args
         job = GenericS3UploadJob(self.args1)
         expected_endpoints1 = json.loads(self.fake_endpoints_str)
         self.assertEqual(expected_endpoints1, job.configs.service_endpoints)
@@ -415,3 +421,108 @@ class TestGenericS3UploadJob(unittest.TestCase):
             s3_prefix=data_prefix,
             dryrun=job.configs.dry_run,
         )
+
+
+class TestGenericS3UploadJobs(unittest.TestCase):
+    """Unit tests for methods in GenericS3UploadJobs class."""
+
+    PATH_TO_EXAMPLE_CSV_FILE = (
+        Path(os.path.dirname(os.path.realpath(__file__)))
+        / "resources"
+        / "test_configs"
+        / "jobs_list.csv"
+    )
+
+    def test_load_configs(self) -> None:
+        """Tests configs are loaded correctly."""
+        expected_param_list = [
+            [
+                "--data-source",
+                "dir/data_set_1",
+                "--s3-bucket",
+                "some_bucket",
+                "--subject-id",
+                "123454",
+                "--modality",
+                "ecephys",
+                "--acq-date",
+                "2020-10-10",
+                "--acq-time",
+                "14-10-10",
+            ],
+            [
+                "--data-source",
+                "dir/data_set_2",
+                "--s3-bucket",
+                "some_bucket",
+                "--subject-id",
+                "123456",
+                "--modality",
+                "ecephys",
+                "--acq-date",
+                "2020-10-11",
+                "--acq-time",
+                "13-10-10",
+            ],
+        ]
+        args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE)]
+        jobs = GenericS3UploadJobList(args=args)
+        dry_run_args = args + ["--dry-run"]
+        dry_run_jobs = GenericS3UploadJobList(args=dry_run_args)
+        expected_param_list_dry_run = [
+            r + ["--dry-run"] for r in expected_param_list
+        ]
+        self.assertEqual(expected_param_list, jobs.job_param_list)
+        self.assertEqual(
+            expected_param_list_dry_run, dry_run_jobs.job_param_list
+        )
+
+    @patch("boto3.session.Session")
+    @patch("aind_data_transfer.jobs.s3_upload_job.GenericS3UploadJob")
+    @patch("logging.Logger.info")
+    def test_run_job(
+        self, mock_log: MagicMock, mock_job: MagicMock, mock_session: MagicMock
+    ) -> None:
+        """Tests that the jobs are run correctly."""
+
+        mock_session.return_value = (
+            TestGenericS3UploadJob._mock_boto_get_secret_session(
+                TestGenericS3UploadJob.fake_endpoints_str
+            )
+        )
+
+        mock_job.run_job.return_value = lambda: print("foo")
+
+        args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE), "--dry-run"]
+        jobs = GenericS3UploadJobList(args=args)
+
+        params_0 = jobs.job_param_list[0]
+        params_1 = jobs.job_param_list[1]
+
+        jobs.run_job()
+
+        mock_log.assert_has_calls(
+            [
+                call("Starting all jobs..."),
+                call(f"Running job 1 of 2 with params: {params_0}"),
+                call(f"Finished job 1 of 2 with params: {params_0}"),
+                call(f"Running job 2 of 2 with params: {params_1}"),
+                call(f"Finished job 2 of 2 with params: {params_1}"),
+                call("Finished all jobs!"),
+            ]
+        )
+
+        # Check that the GenericS3UploadJob constructor is called and
+        # GenericS3UploadJob().run_job() is called.
+        mock_job.assert_has_calls(
+            [
+                call(params_0),
+                call().run_job(),
+                call(params_1),
+                call().run_job(),
+            ]
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
