@@ -1,35 +1,48 @@
 """Job that reads open ephys data, compresses, and writes it."""
+import json
 import logging
+import os
+import platform
 import subprocess
 import sys
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-import warnings
 
-from botocore.session import get_session
+from aind_codeocean_api.codeocean import CodeOceanClient
 
-from aind_data_transfer.codeocean import CodeOceanDataAssetRequests
-from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
+from aind_data_transfer.config_loader.ephys_configuration_loader import (
+    EphysJobConfigurationLoader,
+)
 from aind_data_transfer.readers import EphysReaders
 from aind_data_transfer.transformations.compressors import EphysCompressors
-from aind_data_transfer.transformations.metadata_creation import ProcessingMetadata
-from aind_data_transfer.util.npopto_correction import correct_np_opto_electrode_locations
+from aind_data_transfer.transformations.metadata_creation import (
+    ProcessingMetadata,
+    SubjectMetadata,
+)
+from aind_data_transfer.util.npopto_correction import (
+    correct_np_opto_electrode_locations,
+)
+from aind_data_transfer.util.s3_utils import get_secret
 from aind_data_transfer.writers import EphysWriters
 
 root_logger = logging.getLogger()
 
 # Suppress a warning from one of the third-party libraries
-deprecation_msg = ("Creating a LegacyVersion has been deprecated and will be "
-                   "removed in the next major release")
-warnings.filterwarnings("ignore",
-                        category=DeprecationWarning,
-                        message=deprecation_msg)
+deprecation_msg = (
+    "Creating a LegacyVersion has been deprecated and will be "
+    "removed in the next major release"
+)
+warnings.filterwarnings(
+    "ignore", category=DeprecationWarning, message=deprecation_msg
+)
+
 
 # TODO: Break these up into importable jobs to fix the flake8 warning?
-if __name__ == "__main__":  # noqa: C901
+def run_job(args):  # noqa: C901
     # Location of conf file passed in as command line arg
     job_start_time = datetime.now(timezone.utc)
-    job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
+    job_configs = EphysJobConfigurationLoader().load_configs(args)
 
     root_logger.setLevel(job_configs["logging"]["level"])
     if job_configs["logging"].get("file") is not None:
@@ -42,10 +55,6 @@ if __name__ == "__main__":  # noqa: C901
     data_src_dir = Path(job_configs["endpoints"]["raw_data_dir"])
     dest_data_dir = Path(job_configs["endpoints"]["dest_data_dir"])
 
-    # Correct NP-opto electrode positions:
-    # correction is skipped if Neuropix-PXI version > 0.4.0
-    correct_np_opto_electrode_locations(data_src_dir)
-
     logging.info("Finished loading configs.")
 
     # Clip data job
@@ -56,9 +65,29 @@ if __name__ == "__main__":  # noqa: C901
         streams_to_clip = EphysReaders.get_streams_to_clip(
             data_name, data_src_dir
         )
+        aws_secret_names = job_configs["aws_secret_names"]
+        secret_name = aws_secret_names.get("video_encryption_password")
+        secret_region = aws_secret_names.get("region")
+        video_encryption_key_val = {"password": None}
+        if secret_name:
+            video_encryption_key_val = json.loads(
+                get_secret(secret_name, secret_region)
+            )
+
+        behavior_directory = job_configs["endpoints"].get("behavior_directory")
         EphysWriters.copy_and_clip_data(
-            data_src_dir, clipped_data_path, streams_to_clip, **clip_kwargs
+            src_dir=data_src_dir,
+            dst_dir=clipped_data_path,
+            stream_gen=streams_to_clip,
+            behavior_dir=behavior_directory,
+            video_encryption_key=video_encryption_key_val["password"],
+            **clip_kwargs,
         )
+
+        # Correct NP-opto electrode positions:
+        # correction is skipped if Neuropix-PXI version > 0.4.0
+        correct_np_opto_electrode_locations(clipped_data_path)
+
         logging.info("Finished clipping source data.")
 
     # Compress data job
@@ -74,9 +103,12 @@ if __name__ == "__main__":  # noqa: C901
         format_kwargs = job_configs["compress_data_job"]["format_kwargs"]
         scale_kwargs = job_configs["compress_data_job"]["scale_params"]
         write_kwargs = job_configs["compress_data_job"]["write_kwargs"]
+        max_filename_length = job_configs["compress_data_job"].get(
+            "max_windows_filename_len"
+        )
         read_blocks = EphysReaders.get_read_blocks(data_name, data_src_dir)
         compressor = EphysCompressors.get_compressor(
-            compressor_name, compressor_kwargs
+            compressor_name, **compressor_kwargs
         )
         scaled_read_blocks = EphysCompressors.scale_read_blocks(
             read_blocks, **scale_kwargs
@@ -85,6 +117,7 @@ if __name__ == "__main__":  # noqa: C901
             read_blocks=scaled_read_blocks,
             compressor=compressor,
             output_dir=compressed_data_path,
+            max_windows_filename_len=max_filename_length,
             job_kwargs=write_kwargs,
             **format_kwargs,
         )
@@ -92,6 +125,7 @@ if __name__ == "__main__":  # noqa: C901
 
     job_end_time = datetime.now(timezone.utc)
     if job_configs["jobs"]["attach_metadata"]:
+        # Processing metadata
         logging.info("Creating processing.json file.")
         start_date_time = job_start_time
         end_date_time = job_end_time
@@ -110,10 +144,8 @@ if __name__ == "__main__":  # noqa: C901
             output_location = dest_data_dir
 
         code_url = job_configs["endpoints"]["code_repo_location"]
-        schema_url = job_configs["endpoints"]["metadata_schemas"]
         parameters = job_configs
-        processing_metadata = ProcessingMetadata(schema_url=schema_url)
-        processing_instance = processing_metadata.ephys_job_to_processing(
+        processing_instance = ProcessingMetadata.ephys_job_to_processing(
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=str(input_location),
@@ -123,12 +155,32 @@ if __name__ == "__main__":  # noqa: C901
             notes=None,
         )
 
-        processing_metadata.write_metadata(
-            schema_instance=processing_instance, output_dir=dest_data_dir
-        )
+        file_path = dest_data_dir / ProcessingMetadata.output_file_name
+        with open(file_path, "w") as f:
+            contents = processing_instance.json(**{"indent": 4})
+            f.write(contents)
         logging.info("Finished creating processing.json file.")
 
+        # Subject metadata
+        logging.info("Creating subject.json file.")
+        metadata_url = job_configs["endpoints"]["metadata_service_url"]
+        subject_id = job_configs["data"].get("subject_id")
+        subject_instance = SubjectMetadata.ephys_job_to_subject(
+            metadata_url, subject_id, dest_data_dir.name
+        )
+        s_file_path = dest_data_dir / SubjectMetadata.output_file_name
+        if subject_instance is not None:
+            with open(s_file_path, "w") as f:
+                f.write(json.dumps(subject_instance, indent=4))
+            logging.info("Finished creating subject.json file.")
+        else:
+            logging.warning("No subject.json file created!")
+
     # Upload to s3
+    if platform.system() == "Windows":
+        shell = True
+    else:
+        shell = False
     if job_configs["jobs"]["upload_to_s3"]:
         # TODO: Use s3transfer library instead of subprocess?
         logging.info("Uploading to s3.")
@@ -144,10 +196,13 @@ if __name__ == "__main__":  # noqa: C901
                     dest_data_dir,
                     aws_dest,
                     "--dryrun",
-                ]
+                ],
+                shell=shell,
             )
         else:
-            subprocess.run(["aws", "s3", "sync", dest_data_dir, aws_dest])
+            subprocess.run(
+                ["aws", "s3", "sync", dest_data_dir, aws_dest], shell=shell
+            )
         logging.info("Finished uploading to s3.")
 
     # Upload to gcp
@@ -166,47 +221,38 @@ if __name__ == "__main__":  # noqa: C901
                     "-n",
                     dest_data_dir,
                     gcp_dest,
-                ]
+                ],
+                shell=shell,
             )
         else:
             subprocess.run(
-                ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest]
+                ["gsutil", "-m", "rsync", "-r", dest_data_dir, gcp_dest],
+                shell=shell,
             )
         logging.info("Finished uploading to gcp.")
 
-    # Register Asset on CodeOcean
-    if job_configs["jobs"]["register_to_codeocean"]:
-        # Use botocore to retrieve aws access tokens
-        logging.info("Registering data asset to code ocean.")
-        aws_session = get_session()
-        aws_credentials = aws_session.get_credentials()
-        aws_key = aws_credentials.access_key
-        aws_secret = aws_credentials.secret_key
-
-        co_api_token = job_configs["register_on_codeocean_job"]["api_token"]
+    if job_configs["jobs"]["trigger_codeocean_job"]:
+        logging.info("Triggering capsule run.")
+        capsule_id = job_configs["trigger_codeocean_job"]["capsule_id"]
+        co_api_token = os.getenv("CODEOCEAN_API_TOKEN")
+        if co_api_token is None:
+            aws_secret_names = job_configs["aws_secret_names"]
+            secret_name = aws_secret_names.get("code_ocean_api_token_name")
+            secret_region = aws_secret_names.get("region")
+            token_key_val = json.loads(get_secret(secret_name, secret_region))
+            co_api_token = token_key_val["CODEOCEAN_READWRITE_TOKEN"]
         co_domain = job_configs["endpoints"]["codeocean_domain"]
-        co_client = CodeOceanDataAssetRequests(
-            domain=co_domain, token=co_api_token
+        co_client = CodeOceanClient(domain=co_domain, token=co_api_token)
+        run_response = co_client.run_capsule(
+            capsule_id=capsule_id,
+            data_assets=[],
+            parameters=[json.dumps(job_configs)],
         )
+        logging.debug(f"Run response: {run_response.json()}")
 
-        co_tags = job_configs["register_on_codeocean_job"]["tags"]
+    return dest_data_dir
 
-        asset_name = job_configs["register_on_codeocean_job"]["asset_name"]
-        mount = job_configs["register_on_codeocean_job"]["mount"]
 
-        bucket = job_configs["endpoints"]["s3_bucket"]
-        prefix = job_configs["endpoints"]["s3_prefix"]
-
-        json_data = CodeOceanDataAssetRequests.create_post_json_data(
-            asset_name=asset_name,
-            mount=mount,
-            bucket=bucket,
-            prefix=prefix,
-            access_key_id=aws_key,
-            secret_access_key=aws_secret,
-            tags=co_tags,
-        )
-
-        co_client.register_data_asset(json_data=json_data)
-
-        logging.info("Finished registering data asset to code ocean.")
+if __name__ == "__main__":
+    sys_args = sys.argv[1:]
+    run_job(sys_args)

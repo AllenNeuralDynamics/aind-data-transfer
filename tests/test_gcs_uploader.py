@@ -1,9 +1,10 @@
 import os
 import unittest
-
 from unittest import mock
-from aind_data_transfer.gcs import GCSUploader
+
 from google.auth.exceptions import DefaultCredentialsError
+
+from aind_data_transfer.gcs import GCSUploader
 
 
 class TestGCSUploader(unittest.TestCase):

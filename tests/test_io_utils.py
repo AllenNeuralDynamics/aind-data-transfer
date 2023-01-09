@@ -10,7 +10,11 @@ import zarr.core
 from distributed import Client
 from tifffile import tifffile
 
-from aind_data_transfer.util.io_utils import TiffReader, ImarisReader, DataReaderFactory
+from aind_data_transfer.util.io_utils import (
+    DataReaderFactory,
+    ImarisReader,
+    TiffReader,
+)
 
 # TODO: make test fixtures instead of constants?
 IM_SHAPE = (64, 128, 128)
@@ -34,13 +38,12 @@ def _write_test_h5(folder, n=1):
         a = np.ones(IM_SHAPE, dtype=IM_DTYPE)
         path = os.path.join(folder, f"data_{i}.h5")
         paths.append(path)
-        with h5py.File(path, 'w') as f:
+        with h5py.File(path, "w") as f:
             f.create_dataset(DEFAULT_DATA_PATH, data=a, chunks=True)
     return paths
 
 
 class TestTiffReader(unittest.TestCase):
-
     def setUp(self):
         self._temp_dir = tempfile.TemporaryDirectory()
         self._image_dir = Path(self._temp_dir.name) / "images"
@@ -102,7 +105,6 @@ class TestTiffReader(unittest.TestCase):
 
 
 class TestHDF5Reader(unittest.TestCase):
-
     def setUp(self):
         self._temp_dir = tempfile.TemporaryDirectory()
         self._image_dir = Path(self._temp_dir.name) / "images"

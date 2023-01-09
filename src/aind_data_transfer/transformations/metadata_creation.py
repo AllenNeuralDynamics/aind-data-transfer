@@ -1,153 +1,29 @@
 """This module will have classes that handle mapping to metadata files."""
-
-import json
+import logging
+import re
 from datetime import datetime
-from enum import Enum
-from pathlib import Path
+from typing import Optional
 
 import requests
+from aind_data_schema.data_description import (
+    Funding,
+    Institution,
+    RawDataDescription,
+)
+from aind_data_schema.processing import DataProcess, Processing, ProcessName
+from aind_data_schema.subject import Subject
 
 import aind_data_transfer
 
 
-class MetadataSchemaClient:
-    """Class to retrieve metadata schemas. TODO: Move this into own project."""
-
-    class Schemas(Enum):
-        """Enum for schemas."""
-
-        processing = "processing"
-
-    def __init__(self, base_url: str) -> None:
-        self.base_url = base_url
-
-    @staticmethod
-    def extract_schema_constants(schema: dict) -> dict:
-        """
-        Given a given, pull out schema url and version
-        Args:
-            schema (dict): A metadata schema
-
-        Returns:
-        dict
-          {'describedBy: schema description, 'version': schema version}
-
-        """
-        described_by = schema["properties"]["describedBy"]["const"]
-        schema_version = schema["properties"]["schema_version"]["const"]
-        return {"describedBy": described_by, "schema_version": schema_version}
-
-    def retrieve_schema(self, schema: Schemas):
-        """
-        Retrieve the schema from where it is stored
-        Args:
-            schema (Schemas): Schema to retrieve
-
-        Returns:
-        json
-          Schema contents
-
-        """
-        schema_location = f"{self.base_url}/{schema.value}.json"
-        response = requests.get(schema_location)
-        return response.json()
-
-    @staticmethod
-    def create_data_processing_instance(
-        name: str,
-        version: str,
-        start_date_time: datetime,
-        end_date_time: datetime,
-        input_location: str,
-        output_location: str,
-        code_url: str,
-        parameters: dict,
-        notes: str = None,
-    ) -> dict:
-        """
-        Will create a data processing instance given some fields.
-        Args:
-            name (str): 'Ephys preprocessing' for example
-            version (str): Version of the software used
-            start_date_time (datetime): Time the processing job started
-            end_date_time (datetime): Time the processing job ended
-            input_location (str): Location of the raw data source
-            output_location (str): Location of the processed data
-            code_url (str): Location of where the code is maintained
-            parameters (dict): Parameters of the processing job
-            notes (str): Optional notes. Defaults to None
-
-        Returns:
-        dict
-            A valid Data Processing instance
-
-        """
-        contents = {
-            "name": name,
-            "version": version,
-            "start_date_time": start_date_time.isoformat(sep=" "),
-            "end_date_time": end_date_time.isoformat(sep=" "),
-            "input_location": input_location,
-            "output_location": output_location,
-            "code_url": code_url,
-            "parameters": parameters,
-        }
-        if notes:
-            contents["notes"] = notes
-        return contents
-
-    def create_processing_instance(self, data_processes: list) -> dict:
-        """
-        Creates a Processing instance given a list of data processes
-        Args:
-            data_processes (list[dict]): A list of data processes
-
-        Returns:
-        dict
-            A valid Processing instance
-        """
-        schema = self.retrieve_schema(self.Schemas.processing)
-        contents = MetadataSchemaClient.extract_schema_constants(schema)
-        contents["data_processes"] = data_processes
-        return contents
-
-
-class MetadataHandler:
-    """Base class for handling metadata."""
-
-    def __init__(
-        self, schema_url: str, schema: MetadataSchemaClient.Schemas
-    ) -> None:
-        self.schema = schema
-        self.schema_url = schema_url
-
-    def write_metadata(self, schema_instance: dict, output_dir: Path) -> None:
-        """
-        Writes out a processing instance.
-        Args:
-            schema_instance (dict): Data to write out
-            output_dir (Path): location of where to write the data
-
-        Returns:
-
-        """
-        file_path = output_dir / f"{str(self.schema.value)}.json"
-        with open(file_path, "w") as f:
-            json_contents = json.dumps(schema_instance, indent=4)
-            f.write(json_contents)
-
-
-class ProcessingMetadata(MetadataHandler):
+class ProcessingMetadata:
     """Class to handle the creation of the processing metadata file."""
 
-    def __init__(self, schema_url):
-        processing_schema = MetadataSchemaClient.Schemas.processing
-        super(ProcessingMetadata, self).__init__(
-            schema_url=schema_url, schema=processing_schema
-        )
+    # TODO: import this from aind_data_schema.Processing class
+    output_file_name = Processing.construct().default_filename()
 
+    @staticmethod
     def ephys_job_to_processing(
-        self,
         start_date_time: datetime,
         end_date_time: datetime,
         input_location: str,
@@ -155,28 +31,35 @@ class ProcessingMetadata(MetadataHandler):
         code_url: str,
         parameters: dict,
         notes: str = None,
-    ) -> dict:
+    ) -> Processing:
         """
         Creates a processing instance based on the openephys_job settings
-        Args:
-            schema_url (str): Location of where to retrieve the schema
-            start_date_time (datetime): Time the processing job started
-            end_date_time (datetime): Time the processing job ended
-            input_location (str): Location of the raw data source
-            output_location (str): Location of the processed data
-            code_url (str): Location of where the code is maintained
-            parameters (dict): Parameters of the processing job
-            notes (str): Optional notes. Defaults to None
-
-        Returns:
+        Parameters
+        ----------
+        start_date_time : datetime
+          Time the processing job started
+        end_date_time : datetime
+          Time the processing job ended
+        input_location : str
+          Location of the raw data source
+        output_location : str
+          Location of the processed data
+        code_url : str
+          Location of where the code is maintained.
+          TODO: Extract this from pyproject.toml file.
+        parameters : dict
+          Parameters of the processing job
+        notes : Optional[str]
+            Optional notes to attach
+        Returns
+        -------
+        aind_data_schema.Processing
+          A Processing instance to annotate a dataset with.
 
         """
-        name = "Ephys preprocessing"
-        version = aind_data_transfer.__version__
-        msc = MetadataSchemaClient(self.schema_url)
-        data_processing_instance = msc.create_data_processing_instance(
-            name=name,
-            version=version,
+        data_processing_instance = DataProcess(
+            name=ProcessName.EPHYS_PREPROCESSING.value,
+            version=aind_data_transfer.__version__,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=input_location,
@@ -185,8 +68,136 @@ class ProcessingMetadata(MetadataHandler):
             parameters=parameters,
             notes=notes,
         )
-        processing_instance = msc.create_processing_instance(
+        processing_instance = Processing(
             data_processes=[data_processing_instance]
         )
 
         return processing_instance
+
+
+class SubjectMetadata:
+    """Class to handle the creation of the subject metadata file."""
+
+    output_file_name = Subject.construct().default_filename()
+
+    @staticmethod
+    def get_subject_metadata(
+        metadata_service_url: str, subject_id: str
+    ) -> Optional[dict]:
+        # TODO: construct this from aind_metadata_service.client
+        subject_url = metadata_service_url + f"/subject/{subject_id}"
+        response = requests.get(subject_url)
+
+        if response.status_code == 200:
+            response_json = response.json()
+            response_data = response_json["data"]
+            return response_data
+        elif response.status_code == 418:
+            response_json = response.json()
+            logging.warning(response_json["message"])
+            response_data_original = response_json["data"]
+            if type(response_data_original) == list:
+                response_data = response_data_original[0]
+            else:
+                response_data = response_data_original
+            return response_data
+        else:
+            logging.error("No data retrieved!")
+            return None
+
+    @staticmethod
+    def ephys_job_to_subject(
+        metadata_service_url: str,
+        subject_id: Optional[str] = None,
+        filepath: Optional[str] = None,
+        file_subject_regex: Optional[str] = (
+            "(ecephys|ephys)*_*(\\d+)_\\d{4}"
+        ),
+    ) -> Optional[dict]:
+        """
+
+        Parameters
+        ----------
+        metadata_service_url : str
+        subject_id : Optional[str]
+          The subject id. If not provided, this method will try to parse it
+          from the filepath. Default is None
+        filepath : Optional[str]
+          If the subject_id is None, then this method will try to parse the
+          subject id from the filepath. Default is None.
+        file_subject_regex : Optional[str]
+          Regex pattern that will be used if the subject_id is None and the
+          filepath is not None.
+
+        Returns
+        -------
+        dict
+          The subject information retrieved from aind-metadata-service.
+
+        """
+
+        # TODO: Import aind_metadata_service.client once it's written
+        if subject_id is None:
+            parsed_filepath = re.findall(file_subject_regex, filepath)
+            subject_id = parsed_filepath[0][1]
+
+        # TODO: construct this from aind_metadata_service.client
+        subject_url = metadata_service_url + f"/subject/{subject_id}"
+        response = requests.get(subject_url)
+
+        if response.status_code == 200:
+            response_json = response.json()
+            response_data = response_json["data"]
+            return response_data
+        elif response.status_code == 418:
+            response_json = response.json()
+            logging.warning(response_json["message"])
+            response_data_original = response_json["data"]
+            if type(response_data_original) == list:
+                response_data = response_data_original[0]
+            else:
+                response_data = response_data_original
+            return response_data
+        else:
+            logging.error("No data retrieved!")
+            return None
+
+
+class RawDataDescriptionMetadata:
+    """Class to handle the creation of the processing metadata file."""
+
+    output_file_name = RawDataDescription.construct().default_filename()
+
+    @staticmethod
+    def get_data_description(
+        name: str,
+        institution=Institution.AIND,
+        funding_source=(Funding(funder=Institution.AIND.value),),
+    ) -> RawDataDescription:
+        """
+        Creates a data description instance
+        Parameters
+        ----------
+        name : str
+          Name of data, also the name of the directory containing all metadata
+        institution : str
+          The name of the organization that collected this data
+        funding_source : tuple
+          Funding sources. If internal label as Institution
+        Returns
+        -------
+        aind_data_schema.RawDataDescription
+          A RawDataDescription instance to annotate a dataset with.
+
+        """
+        funding_source_list = (
+            list(funding_source)
+            if isinstance(funding_source, tuple)
+            else funding_source
+        )
+        data_description_instance = RawDataDescription.from_name(
+            name,
+            institution=institution,
+            funding_source=funding_source_list,
+        )
+        return data_description_instance

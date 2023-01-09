@@ -1,12 +1,12 @@
-"""Loads job configurations"""
+"""Loads Ephys job configurations"""
 import argparse
-import logging
 import os
 import re
 from pathlib import Path
 
 import yaml
 from numcodecs import Blosc
+
 from aind_data_transfer.readers import EphysReaders
 
 
@@ -90,23 +90,20 @@ class EphysJobConfigurationLoader:
             dest_data_folder = Path(configs["endpoints"]["dest_data_dir"]).name
             configs["endpoints"]["gcp_prefix"] = dest_data_folder
 
-        if configs["register_on_codeocean_job"]["asset_name"] is None:
-            configs["register_on_codeocean_job"]["asset_name"] = configs[
-                "endpoints"
-            ]["s3_prefix"]
+        if configs["trigger_codeocean_job"]["job_type"] is None:
+            configs["trigger_codeocean_job"]["job_type"] = configs["data"][
+                "name"
+            ]
 
-        if configs["register_on_codeocean_job"]["mount"] is None:
-            configs["register_on_codeocean_job"]["mount"] = configs[
-                "endpoints"
-            ]["s3_prefix"]
+        if configs["trigger_codeocean_job"]["bucket"] is None:
+            configs["trigger_codeocean_job"]["bucket"] = configs["endpoints"][
+                "s3_bucket"
+            ]
 
-        if (
-            configs["jobs"]["register_to_codeocean"]
-            and configs["register_on_codeocean_job"]["api_token"] is None
-        ):
-            configs["register_on_codeocean_job"]["api_token"] = os.getenv(
-                "CODEOCEAN_API_TOKEN"
-            )
+        if configs["trigger_codeocean_job"]["prefix"] is None:
+            configs["trigger_codeocean_job"]["prefix"] = configs["endpoints"][
+                "s3_prefix"
+            ]
 
     @staticmethod
     def __resolve_logging(configs: dict) -> None:
@@ -136,12 +133,19 @@ class EphysJobConfigurationLoader:
         parser.add_argument(
             "-r", "--raw-data-source", required=False, type=str
         )
+        parser.add_argument(
+            "-b", "--behavior-directory", required=False, type=str
+        )
         args = parser.parse_args(sys_args)
         conf_src = args.conf_file_location
         with open(conf_src) as f:
             raw_config = yaml.load(f, Loader=yaml.SafeLoader)
         if args.raw_data_source is not None:
             raw_config["endpoints"]["raw_data_dir"] = args.raw_data_source
+        if args.behavior_directory is not None:
+            raw_config["endpoints"]["behavior_directory"] = (
+                args.behavior_directory
+            )
         self.__resolve_endpoints(raw_config)
         self.__resolve_logging(raw_config)
         config_without_nones = self.__remove_none(raw_config)
