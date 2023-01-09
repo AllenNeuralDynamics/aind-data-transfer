@@ -2,22 +2,28 @@
 endpoints:
   raw_data_dir: # Set this to raw data location
   dest_data_dir: # Defaults to the raw_data_dir folder name
-  s3_bucket: aind-ephys-data
+  behavior_directory: # Leaving blank will have job check for a video folder in raw_data_dir
+  s3_bucket:
   s3_prefix: # Defaults to folder name in dest_data_dir
   gcp_bucket:
   gcp_prefix:
-  codeocean_domain: https://codeocean.allenneuraldynamics.org
-  metadata_schemas: https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas
-  code_repo_location: https://github.com/AllenNeuralDynamics/aind-data-transfer
+  codeocean_domain:
+  code_repo_location:
+  metadata_service_url:
+aws_secret_names:
+  region:
+  video_encryption_password: # If blank or not able to access AWS, will NOT encrypt
+  code_ocean_api_token_name: # Can be overridden by env variable CODEOCEAN_API_TOKEN
 jobs: # Select which jobs to run
   clip: true
   compress: true
   attach_metadata: true
   upload_to_s3: true
   upload_to_gcp: false
-  register_to_codeocean: true
+  trigger_codeocean_job: true
 data:
   name: openephys
+  subject_id: # Leave blank to try and parse from folder name
 clip_data_job:
   clip_kwargs:
     n_frames:
@@ -32,13 +38,14 @@ compress_data_job:
     num_chunks_per_segment:
     chunk_size:
     disable_tqdm:
+  max_windows_filename_len: # Windows OS has max filename length of 256, which can mess up zarr writer
 upload_data_job:
   dryrun: false # Set this to true to perform a dryrun of the upload
-register_on_codeocean_job:
-  api_token: # Defaults to ENV Variable CODEOCEAN_API_TOKEN
-  tags: ['ecephys', 'raw']
-  asset_name:  # Defaults to s3_prefix
-  mount:  # Defaults to s3_prefix
+trigger_codeocean_job:
+  capsule_id:
+  job_type: # Defaults to data.name
+  bucket: # Defaults to endpoints.s3_bucket
+  prefix: # Defaults to endpoints.s3_prefix
 logging:
-  level: "INFO" # Will override with env variable LOG_LEVEL
+  level: "INFO" # Env variable LOG_LEVEL will override this value
   file: # If blank, will log to stdout.
