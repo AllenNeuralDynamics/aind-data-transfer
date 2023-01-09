@@ -12,7 +12,7 @@ from botocore.exceptions import ClientError
 
 from aind_data_transfer.jobs.s3_upload_job import (
     GenericS3UploadJob,
-    GenericS3UploadJobs,
+    GenericS3UploadJobList,
 )
 
 
@@ -466,9 +466,9 @@ class TestGenericS3UploadJobs(unittest.TestCase):
             ],
         ]
         args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE)]
-        jobs = GenericS3UploadJobs(args=args)
+        jobs = GenericS3UploadJobList(args=args)
         dry_run_args = args + ["--dry-run"]
-        dry_run_jobs = GenericS3UploadJobs(args=dry_run_args)
+        dry_run_jobs = GenericS3UploadJobList(args=dry_run_args)
         expected_param_list_dry_run = [
             r + ["--dry-run"] for r in expected_param_list
         ]
@@ -494,7 +494,7 @@ class TestGenericS3UploadJobs(unittest.TestCase):
         mock_job.run_job.return_value = lambda: print("foo")
 
         args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE), "--dry-run"]
-        jobs = GenericS3UploadJobs(args=args)
+        jobs = GenericS3UploadJobList(args=args)
 
         params_0 = jobs.job_param_list[0]
         params_1 = jobs.job_param_list[1]

@@ -291,7 +291,7 @@ class GenericS3UploadJob:
         self.trigger_codeocean_capsule()
 
 
-class GenericS3UploadJobs:
+class GenericS3UploadJobList:
     """Class to run multiple jobs defined in a csv file."""
 
     # Expected field names in the csv file
@@ -384,7 +384,7 @@ class GenericS3UploadJobs:
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
     if ("-j" in sys_args) or ("--jobs-csv-file" in sys_args):
-        job = GenericS3UploadJobs(sys_args)
+        job = GenericS3UploadJobList(sys_args)
     else:
         job = GenericS3UploadJob(sys_args)
     job.run_job()
