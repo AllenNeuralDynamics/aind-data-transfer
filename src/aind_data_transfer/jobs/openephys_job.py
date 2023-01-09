@@ -57,6 +57,10 @@ def run_job(args):  # noqa: C901
 
     logging.info("Finished loading configs.")
 
+    # Correct NP-opto electrode positions:
+    # correction is skipped if Neuropix-PXI version > 0.4.0
+    correct_np_opto_electrode_locations(data_src_dir)
+
     # Clip data job
     if job_configs["jobs"]["clip"]:
         logging.info("Clipping source data. This may take a minute.")
@@ -83,10 +87,6 @@ def run_job(args):  # noqa: C901
             video_encryption_key=video_encryption_key_val["password"],
             **clip_kwargs,
         )
-
-        # Correct NP-opto electrode positions:
-        # correction is skipped if Neuropix-PXI version > 0.4.0
-        correct_np_opto_electrode_locations(clipped_data_path)
 
         logging.info("Finished clipping source data.")
 
