@@ -1,6 +1,7 @@
 """Basic job to upload a data directory to s3 with some metadata attached."""
 
 import argparse
+import csv
 import datetime
 import json
 import logging
@@ -232,7 +233,21 @@ class GenericS3UploadJob:
         """Parses sys args using argparse and resolves the service
         endpoints."""
 
-        parser = argparse.ArgumentParser()
+        description = (
+            "Uploads a data folder to s3 with a formatted file name. "
+            "Also attaches metadata and registers asset to Code Ocean."
+        )
+        additional_info = (
+            "It's possible to define multiple jobs in a csv file. "
+            "Run: \n\tpython -m aind_data_transfer.jobs.s3_upload_job --help "
+            "--jobs-csv-file\nfor more info."
+        )
+
+        parser = argparse.ArgumentParser(
+            description=description,
+            epilog=additional_info,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
         parser.add_argument("-d", "--data-source", required=True, type=str)
         parser.add_argument("-b", "--s3-bucket", required=True, type=str)
         parser.add_argument("-s", "--subject-id", required=True, type=str)
@@ -276,7 +291,100 @@ class GenericS3UploadJob:
         self.trigger_codeocean_capsule()
 
 
+class GenericS3UploadJobList:
+    """Class to run multiple jobs defined in a csv file."""
+
+    # Expected field names in the csv file
+    CSV_FILE_FIELD_NAMES = [
+        "data-source",
+        "s3-bucket",
+        "subject-id",
+        "modality",
+        "acq-date",
+        "acq-time",
+    ]
+
+    def __init__(self, args: list) -> None:
+        """Initializes class with sys args. Convert the sys args to configs."""
+        self.args = args
+        self.configs = self._load_configs(args)
+        self.job_param_list = self._create_job_param_list()
+
+    @staticmethod
+    def _load_configs(args: list) -> argparse.Namespace:
+        """Parses args into argparse object."""
+
+        help_message_csv_file = (
+            "Path to csv file with list of job configs. The csv file needs "
+            "to have the headers: data-source, s3-bucket, subject-id, "
+            "modality, acq-date, acq-time"
+        )
+        help_message_dry_run = (
+            "Tests the upload without actually uploading the files."
+        )
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "-j",
+            "--jobs-csv-file",
+            required=True,
+            type=str,
+            help=help_message_csv_file,
+        )
+        parser.add_argument(
+            "--dry-run", action="store_true", help=help_message_dry_run
+        )
+        parser.set_defaults(dry_run=False)
+        job_args = parser.parse_args(args)
+        return job_args
+
+    def _create_job_param_list(self):
+        """Reads in the csv file and outputs a list that can be parsed by
+        argparse."""
+        job_list = list()
+        with open(self.configs.jobs_csv_file, newline="") as csvfile:
+            reader = csv.DictReader(csvfile, skipinitialspace=True)
+            for row in reader:
+                job_list.append(row)
+        assert len(job_list) > 0
+        assert sorted(job_list[0].keys()) == sorted(self.CSV_FILE_FIELD_NAMES)
+        param_list = list()
+        for job_item in job_list:
+            res = [
+                x
+                for t in [
+                    ("--" + keys[0], keys[1]) for keys in job_item.items()
+                ]
+                for x in t
+            ]
+            if self.configs.dry_run:
+                res.append("--dry-run")
+            param_list.append(res)
+        return param_list
+
+    def run_job(self):
+        """Loop through param list and run GenericS3UploadJob"""
+        total_jobs = len(self.job_param_list)
+        current_job_num = 1
+        logging.info("Starting all jobs...")
+        for job_params in self.job_param_list:
+            one_job = GenericS3UploadJob(job_params)
+            logging.info(
+                f"Running job {current_job_num} of {total_jobs} "
+                f"with params: {job_params}"
+            )
+            one_job.run_job()
+            logging.info(
+                f"Finished job {current_job_num} of {total_jobs} "
+                f"with params: {job_params}"
+            )
+            current_job_num += 1
+        logging.info("Finished all jobs!")
+
+
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
-    job = GenericS3UploadJob(sys_args)
+    if ("-j" in sys_args) or ("--jobs-csv-file" in sys_args):
+        job = GenericS3UploadJobList(sys_args)
+    else:
+        job = GenericS3UploadJob(sys_args)
     job.run_job()
