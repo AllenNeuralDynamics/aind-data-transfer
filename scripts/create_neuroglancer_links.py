@@ -1,4 +1,5 @@
 import argparse
+import logging
 import re
 
 import fsspec
@@ -59,19 +60,22 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-
-    provider, bucket, cloud_path = file_utils.parse_cloud_url(args.input)
+def write_json_from_zarr(
+        input_zarr: str,
+        output_json: str,
+        vmin: float,
+        vmax: float
+):
+    provider, bucket, cloud_path = file_utils.parse_cloud_url(input_zarr)
     protocol = provider.replace("://", "")
 
     fs = fsspec.filesystem(protocol)
 
-    dimensions = _parse_dimensions(args.input)
+    dimensions = _parse_dimensions(input_zarr)
 
     channels = []
     source_paths = []
-    for f in fs.listdir(args.input):
+    for f in fs.listdir(input_zarr):
         m = re.search(TILE_PATTERN, f["Key"])
         if m is None:
             continue
@@ -97,7 +101,7 @@ def main():
                 "vec": "vec3",
             },
             "shaderControls": {  # Optional
-                "normalized": {"range": [args.vmin, args.vmax]}
+                "normalized": {"range": [vmin, vmax]}
             },
         }
         layers.append(layer)
@@ -108,10 +112,16 @@ def main():
         input_config=state,
         mount_service=protocol,
         bucket_path=bucket,
-        output_json=args.output,
+        output_json=output_json,
     )
 
+    logging.info(f"Created link: {neuroglancer_link.get_url_link()}")
     neuroglancer_link.save_state_as_json()
+
+
+def main():
+    args = parse_args()
+    write_json_from_zarr(args.input, args.output, args.vmin, args.vmax)
 
 
 if __name__ == "__main__":
