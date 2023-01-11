@@ -39,6 +39,8 @@ _OME_ZARR_SCRIPT = _SCRIPTS_DIR / "write_ome_zarr.py"
 if not _OME_ZARR_SCRIPT.is_file():
     raise Exception(f"script not found: {_OME_ZARR_SCRIPT}")
 
+_NG_LINK_SCRIPT = _SCRIPTS_DIR / "create_neuroglancer_links.py"
+
 _SUBMIT_SCRIPT = _SCRIPTS_DIR / "cluster" / "submit.py"
 if not _SUBMIT_SCRIPT.is_file():
     raise Exception(f"script not found: {_SUBMIT_SCRIPT}")
@@ -110,12 +112,14 @@ def _build_ome_zar_cmd(
     return job_cmd
 
 
-def _build_submit_cmd(job_cmd: str, job_configs: dict) -> str:
+def _build_submit_cmd(job_cmd: str, job_configs: dict, wait: bool = False) -> str:
     submit_args = job_configs["transcode_job"]["submit_args"]
     # FIXME: necessary to wrap job_cmd in quotes
     submit_cmd = f'python {_SUBMIT_SCRIPT} generate-and-launch-run --job_cmd="{job_cmd}"'
     for k, v in submit_args.items():
         submit_cmd += f" --{k}={v}"
+    if wait:
+        submit_cmd += " --wait"
     return submit_cmd
 
 
@@ -153,6 +157,30 @@ def main():
 
     raw_image_dir_name = Path(raw_image_dir).name
 
+    wait = job_configs["jobs"]["create_ng_link"]
+    if wait:
+        LOGGER.info("Will wait for job to terminate before continuing execution")
+
+    zarr_out = dest_data_dir + "/" + raw_image_dir_name
+    if job_configs["jobs"]["transcode"]:
+        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs)
+        submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
+        subprocess.run(submit_cmd, shell=True)
+        LOGGER.info("Submitted transcode job to cluster")
+
+    if job_configs["jobs"]["create_ng_link"]:
+        ng_link_cmd = (
+            f"python {_NG_LINK_SCRIPT} "
+            f"--input={zarr_out} "
+            f"--output={data_src_dir} "
+            f"--vmin={job_configs['create_ng_link_job']['vmin']} "
+            f"--vmax={job_configs['create_ng_link_job']['vmax']}"
+        )
+        subprocess.run(ng_link_cmd, shell=True)
+        output_json = data_src_dir / "process_output.json"
+        if not output_json.is_file():
+            LOGGER.error(f"Creating neuroglancer link failed; {output_json} was not created")
+
     if job_configs["jobs"]["upload_aux_files"]:
         LOGGER.info("Uploading auxiliary data")
         t0 = time.time()
@@ -178,13 +206,6 @@ def main():
         LOGGER.info(
             f"Finished uploading auxiliary data, took {time.time() - t0}"
         )
-
-    if job_configs["jobs"]["transcode"]:
-        zarr_out = dest_data_dir + "/" + raw_image_dir_name
-        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs)
-        submit_cmd = _build_submit_cmd(job_cmd, job_configs)
-        subprocess.run(submit_cmd, shell=True)
-        LOGGER.info("Submitted transcode job to cluster")
 
 
 if __name__ == "__main__":
