@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 TEST_CONFIG_LOCATION=$PWD/conf/transcode_job_configs.yml
 
