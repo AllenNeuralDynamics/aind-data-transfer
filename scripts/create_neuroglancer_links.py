@@ -85,7 +85,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_object_path_key(fs: AbstractFileSystem) -> str:
+def _get_object_path_key(fs: AbstractFileSystem) -> str:
     """
     Given a fsspec AbstractFileSystem, return the key used to access the
     object path
@@ -127,7 +127,7 @@ def write_json_from_zarr(
     channels = []
     source_paths = []
     for f in fs.listdir(input_zarr):
-        tile_path_field = get_object_path_key(fs)
+        tile_path_field = _get_object_path_key(fs)
         m = re.search(TILE_PATTERN, f[tile_path_field])
         if m is None:
             continue
