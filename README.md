@@ -40,13 +40,13 @@ You may need to first install `pyminizip` from conda if getting errors on Window
 To run scripts on a cluster, you need to install [dask-mpi](http://mpi.dask.org/en/latest/).
 This requires compiling [mpi4py](https://mpi4py.readthedocs.io/en/stable/install.html)
 with the MPI implementation used by your cluster (Open MPI, MPICH, etc).
-The following example is for the Allen institute HPC, but should be applicable to other HPC systems.
+The following example is for the Allen Institute HPC, but should be applicable to other HPC systems.
 
 SSH into your cluster login node
 
 ```ssh user.name@hpc-login```
 
-On the Allen cluster, the MPI modules are only avaiable on compute nodes, so SSH into a compute node (n256 chosen arbitrarily).
+On the Allen cluster, the MPI modules are only available on compute nodes, so SSH into a compute node (n256 chosen arbitrarily).
 
 ```ssh user.name@n256```
 
