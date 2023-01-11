@@ -5,7 +5,11 @@ import google.auth
 import google.auth.exceptions
 from google.cloud import storage
 from google.cloud.storage import Client
-from aind_data_transfer.util.file_utils import make_cloud_paths, collect_filepaths
+
+from aind_data_transfer.util.file_utils import (
+    collect_filepaths,
+    make_cloud_paths,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

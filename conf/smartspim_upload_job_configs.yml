@@ -1,0 +1,20 @@
+# Leave values blank to use defaults
+transfer_type: "HPC" # LOCAL
+co_capsule_id: # Code Ocean capsule ID for smartspim pipeline
+root_folder: # Folder where smartspim datasets are located
+organize_smartspim_datasets:
+  -
+    path: # Smartspim dataset folder
+    project: 
+    project_id: 
+    institution: AIND
+  -
+    path: # Smartspim dataset folder
+    project: 
+    project_id: 
+    institution: AIND
+
+
+dest_data_dir: # Defaults to the raw_data_dir folder name
+s3_bucket: aind-open-data # S3 bucket
+nthreads: 20

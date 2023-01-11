@@ -45,6 +45,7 @@ def find_hdf5plugin_path():
     # this should work with both conda environments and virtualenv
     # see https://stackoverflow.com/a/46071447
     import sysconfig
+
     site_packages = sysconfig.get_paths()["purelib"]
     plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
     if not os.path.isdir(plugin_path):
@@ -88,7 +89,7 @@ def output_valid(output: Union[str, os.PathLike]) -> bool:
         except Exception as e:
             LOGGER.error(f"Error connecting to bucket {bucket_name}: {e}")
             return False
-        status = response['ResponseMetadata']['HTTPStatusCode']
+        status = response["ResponseMetadata"]["HTTPStatusCode"]
         if status == 200:
             return True
         else:
@@ -116,7 +117,7 @@ def parse_args():
         "--input",
         type=str,
         help="directory of images to transcode to OME-Zarr. Each image"
-             " is written to a separate group in the top-level zarr folder."
+        " is written to a separate group in the top-level zarr folder.",
     )
     parser.add_argument(
         "--output",
@@ -147,7 +148,7 @@ def parse_args():
     parser.add_argument(
         "--deployment",
         type=str,
-        default="slurm",
+        default="local",
         help="cluster deployment type",
     )
     parser.add_argument("--log_level", type=int, default=logging.INFO)
@@ -174,7 +175,7 @@ def parse_args():
         "--voxsize",
         type=str,
         default=None,
-        help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"'
+        help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"',
     )
     args = parser.parse_args()
     return args
