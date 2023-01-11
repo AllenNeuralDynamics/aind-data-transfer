@@ -220,6 +220,12 @@ def parse_args():
         help="local directory for dask worker file spilling. "
         "This should be fast, node-local storage.",
     )
+    parser.add_argument(
+        "--wait",
+        default=False,
+        action="store_true",
+        help="do not exit until the submitted job terminates. See the --wait flag for sbatch."
+    )
 
     args = parser.parse_args()
 
@@ -239,8 +245,12 @@ def main():
     write_dask_config(args, run_info, args.deployment)
 
     if args.task == "generate-and-launch-run":
-        print(f"Running:\n  {run_info.launch_script}\n")
-        os.system(f"sbatch {run_info.launch_script}")
+        cmd = f"sbatch "
+        if args.wait:
+            cmd += "--wait "
+        cmd += run_info.launch_script
+        print(f"Running:\n  {cmd}\n")
+        os.system(cmd)
     else:
         print(f"To launch jobs, run:\n  {run_info.launch_script}\n")
 
