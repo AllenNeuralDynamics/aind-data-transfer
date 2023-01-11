@@ -4,9 +4,12 @@ import re
 
 import fsspec
 import zarr
+from fsspec import AbstractFileSystem
+from gcsfs import GCSFileSystem
 from ng_link import NgState
 
 from aind_data_transfer.util import file_utils
+from s3fs import S3FileSystem
 
 TILE_PATTERN = r"tile_x_\d{4}_y_\d{4}_z_\d{4}_ch_\d+"
 CHANNEL_PATTERN = r"ch_(\d+)"
@@ -60,6 +63,19 @@ def parse_args():
     return parser.parse_args()
 
 
+def get_object_path_key(fs: AbstractFileSystem) -> str:
+    """
+    Given a fsspec AbstractFileSystem, return the key used to access the
+    object path
+    """
+    if isinstance(fs, S3FileSystem):
+        return "Key"
+    elif isinstance(fs, GCSFileSystem):
+        return "name"
+    else:
+        raise NotImplementedError
+
+
 def write_json_from_zarr(
         input_zarr: str,
         output_json: str,
@@ -76,10 +92,11 @@ def write_json_from_zarr(
     channels = []
     source_paths = []
     for f in fs.listdir(input_zarr):
-        m = re.search(TILE_PATTERN, f["Key"])
+        tile_path_field = get_object_path_key(fs)
+        m = re.search(TILE_PATTERN, f[tile_path_field])
         if m is None:
             continue
-        tile_source = provider + f["Key"]
+        tile_source = provider + f[tile_path_field]
         source_paths.append(tile_source)
         tile_name = m.group(0)
         m = re.search(CHANNEL_PATTERN, tile_name)
