@@ -13,8 +13,8 @@ from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
 )
 from aind_data_transfer.transformations.metadata_creation import (
-    DataDescriptionMetadata,
     ProcessingMetadata,
+    RawDataDescriptionMetadata,
     SubjectMetadata,
 )
 
@@ -232,7 +232,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
 
         """
         data_description_instance = (
-            DataDescriptionMetadata.ephys_job_to_data_description(
+            RawDataDescriptionMetadata.get_data_description(
                 name="ecephys_0000_2022-10-20_16-30-01"
             )
         )

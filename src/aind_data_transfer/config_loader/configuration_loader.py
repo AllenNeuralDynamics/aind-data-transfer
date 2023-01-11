@@ -9,7 +9,6 @@ from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
 
 
 class ImagingJobConfigurationLoader:
-
     def load_configs(self, sys_args):
         """Load yaml config at conf_src Path as python dict"""
         parser = argparse.ArgumentParser()
@@ -46,7 +45,7 @@ class ImagingJobConfigurationLoader:
             provider, bucket, prefix = parse_cloud_url(dest_data_dir)
             if prefix == "":
                 prefix = Path(configs["endpoints"]["raw_data_dir"]).name
-                dest_data_dir = dest_data_dir.strip("/") + '/' + prefix
+                dest_data_dir = dest_data_dir.strip("/") + "/" + prefix
                 configs["endpoints"]["dest_data_dir"] = dest_data_dir
 
     @staticmethod
