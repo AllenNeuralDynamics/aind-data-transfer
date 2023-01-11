@@ -7,15 +7,25 @@ import zarr
 from fsspec import AbstractFileSystem
 from gcsfs import GCSFileSystem
 from ng_link import NgState
+from s3fs import S3FileSystem
 
 from aind_data_transfer.util import file_utils
-from s3fs import S3FileSystem
 
 TILE_PATTERN = r"tile_x_\d{4}_y_\d{4}_z_\d{4}_ch_\d+"
 CHANNEL_PATTERN = r"ch_(\d+)"
 
 
-def _map_channel_colors(channels):
+def _map_channel_colors(channels: list) -> dict:
+    """
+    Map a list of channel names to unique colors. Only up to 4 channels are
+    currently supported.
+
+    Args:
+        channels: a list of channel names
+
+    Returns:
+        a dict mapping channel names to colors
+    """
     colors = ["green", "magenta", "cyan", "yellow"]
     if len(channels) > 4:
         raise Exception("Only up to 4 channels supported.")
@@ -23,7 +33,19 @@ def _map_channel_colors(channels):
     return color_map
 
 
-def _parse_dimensions(zarr_path):
+def _parse_dimensions(zarr_path: str) -> dict:
+    """
+    Given a url to a zarr dataset, create a dictionary of the dimensions
+    used to construct the neuroglancer state. Each dimension has a
+    voxel_size field and a unit field, except for channel (c'),
+    which has an empty string for unit.
+
+    Args:
+        zarr_path: the url of the zarr dataset
+
+    Returns:
+        a dict of dimensions
+    """
     z = zarr.open(zarr_path, "r")
     attrs = dict(z[next(iter(z.keys()))].attrs)
     ms = attrs["multiscales"][0]
@@ -67,6 +89,12 @@ def get_object_path_key(fs: AbstractFileSystem) -> str:
     """
     Given a fsspec AbstractFileSystem, return the key used to access the
     object path
+
+    Args:
+        fs: the AbstractFileSystem instance
+
+    Returns
+        the key used to access an object path
     """
     if isinstance(fs, S3FileSystem):
         return "Key"
@@ -77,11 +105,18 @@ def get_object_path_key(fs: AbstractFileSystem) -> str:
 
 
 def write_json_from_zarr(
-        input_zarr: str,
-        output_json: str,
-        vmin: float,
-        vmax: float
-):
+    input_zarr: str, out_json_dir: str, vmin: float, vmax: float
+) -> None:
+    """
+    Create a "process_output.json" file with a neuroglancer link to the
+    zarr data. The link is found in the "ng_link" field.
+
+    Args:
+        input_zarr: the url of the zarr dataset
+        out_json_dir: the directory to write the "process_output.json" file
+        vmin: the default minimum of the neuroglancer display range
+        vmax: the default maximum of the neuroglancer display range
+    """
     provider, bucket, cloud_path = file_utils.parse_cloud_url(input_zarr)
     protocol = provider.replace("://", "")
 
@@ -129,7 +164,7 @@ def write_json_from_zarr(
         input_config=state,
         mount_service=protocol,
         bucket_path=bucket,
-        output_json=output_json,
+        output_json=out_json_dir,
     )
 
     logging.info(f"Created link: {neuroglancer_link.get_url_link()}")
