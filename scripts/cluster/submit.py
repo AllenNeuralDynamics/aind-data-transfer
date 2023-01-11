@@ -174,13 +174,6 @@ def parse_args():
         help="number of cpus per job",
     )
     parser.add_argument(
-        "--processes",
-        type=int,
-        default=None,
-        help="cut the job into this many processes. "
-        "defaults to ~= sqrt(cpus_per_task)",
-    )
-    parser.add_argument(
         "--mem_per_cpu", type=int, default=500, help="memory per cpu in MB"
     )
     parser.add_argument(
