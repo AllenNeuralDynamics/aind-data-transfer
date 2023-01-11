@@ -281,7 +281,7 @@ def main():
         my_dask_kwargs.update(get_dask_kwargs(hdf5_plugin_path))
     LOGGER.info(f"dask kwargs: {my_dask_kwargs}")
 
-    client = get_client(args.deployment, **my_dask_kwargs)
+    client, _ = get_client(args.deployment, **my_dask_kwargs)
 
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
     LOGGER.info(f"Writing OME-Zarr to {args.output}")
