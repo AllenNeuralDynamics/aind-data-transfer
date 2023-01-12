@@ -31,8 +31,8 @@ class ImagingJobConfigurationLoader:
     @staticmethod
     def __resolve_endpoints(configs):
         """
-        If the destination folder is a cloud bucket without prefix, a prefix will be
-        created using the acquisition directory name.
+        If the destination folder is a cloud bucket without prefix, a prefix
+        will be created using the acquisition directory name.
         Args:
             configs (dic): Configurations
 

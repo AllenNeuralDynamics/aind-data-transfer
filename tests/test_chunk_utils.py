@@ -35,7 +35,7 @@ class TestChunkUtils(unittest.TestCase):
 
     def test_guess_chunks(self):
         data_shape = (2048, 2048, 2048)
-        target_size = 128 * (1024 ** 2)  # 128MB
+        target_size = 128 * (1024**2)  # 128MB
         itemsize = 2
 
         expected_chunks = (16, 2048, 2048)
@@ -72,7 +72,7 @@ class TestChunkUtils(unittest.TestCase):
     def test_expand_chunks(self):
         data_shape = (2048, 2048, 2048)
         chunks = (32, 32, 32)
-        target_size = 128 * (1024 ** 2)  # 128MB
+        target_size = 128 * (1024**2)  # 128MB
         itemsize = 2
 
         expected_chunks = (416, 416, 416)
@@ -115,7 +115,7 @@ class TestChunkUtils(unittest.TestCase):
             chunk_utils.expand_chunks(chunks, data_shape, target_size, 0)
 
     def test_closer_to_target(self):
-        target_bytes = 128 * (1024 ** 2)
+        target_bytes = 128 * (1024**2)
         itemsize = 2
 
         s1 = (1024, 256, 256)
