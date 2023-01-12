@@ -10,16 +10,10 @@ from datetime import datetime
 from pathlib import PurePath
 
 import numpy as np
-from cluster.config import load_jobqueue_config
-from dask_jobqueue import SLURMCluster
-from distributed import Client
 from google.cloud.storage import Blob
-
-from aind_data_transfer.gcs import GCSUploader, create_client
-from aind_data_transfer.util.file_utils import (
-    collect_filepaths,
-    make_cloud_paths,
-)
+from aind_data_transfer.gcs import create_client, GCSUploader
+from aind_data_transfer.util.file_utils import collect_filepaths, make_cloud_paths
+from aind_data_transfer.util.dask_utils import log_dashboard_address, get_client
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 logger = logging.getLogger(__name__)
@@ -27,27 +21,6 @@ logger.setLevel(logging.INFO)
 
 
 GCLOUD_TOOLS = ["gcloud alpha storage", "gsutil"]
-
-
-def get_client(deployment="slurm"):
-    """
-    Args:
-        deployment (str): type of cluster
-    Returns:
-        the dask Client and its configuration dict
-    """
-    base_config = load_jobqueue_config()
-    if deployment == "slurm":
-        config = base_config["jobqueue"]["slurm"]
-        # cluster config is automatically populated from
-        # ~/.config/dask/jobqueue.yaml
-        cluster = SLURMCluster()
-        cluster.scale(config["n_workers"])
-    else:
-        raise NotImplementedError
-    logger.info(cluster.job_script())
-    client = Client(cluster)
-    return client, config
 
 
 def _chunk_files(filepaths, n_workers, tasks_per_worker):
@@ -109,11 +82,8 @@ def run_cluster_job(
         chunk_size (int): set the blob chunk size (bytes).
                           Increasing this can speed up transfers.
     """
-    client, config = get_client()
-    ntasks = config["n_workers"]
-
+    client, ntasks = get_client(deployment="slurm")
     chunked_files = _chunk_files(filepaths, ntasks, tasks_per_worker)
-
     futures = []
     for i, chunk in enumerate(chunked_files):
         futures.append(
