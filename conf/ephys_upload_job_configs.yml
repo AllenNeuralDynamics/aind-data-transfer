@@ -2,12 +2,14 @@
 endpoints:
   raw_data_dir: # Set this to raw data location
   dest_data_dir: # Defaults to the raw_data_dir folder name
+  behavior_directory: # Leaving blank will have job check for a video folder in raw_data_dir
   s3_bucket:
   s3_prefix: # Defaults to folder name in dest_data_dir
   gcp_bucket:
   gcp_prefix:
   codeocean_domain:
   code_repo_location:
+  metadata_service_url:
 aws_secret_names:
   region:
   video_encryption_password: # If blank or not able to access AWS, will NOT encrypt
@@ -21,6 +23,7 @@ jobs: # Select which jobs to run
   trigger_codeocean_job: true
 data:
   name: openephys
+  subject_id: # Leave blank to try and parse from folder name
 clip_data_job:
   clip_kwargs:
     n_frames:
@@ -35,6 +38,7 @@ compress_data_job:
     num_chunks_per_segment:
     chunk_size:
     disable_tqdm:
+  max_windows_filename_len: # Windows OS has max filename length of 256, which can mess up zarr writer
 upload_data_job:
   dryrun: false # Set this to true to perform a dryrun of the upload
 trigger_codeocean_job:

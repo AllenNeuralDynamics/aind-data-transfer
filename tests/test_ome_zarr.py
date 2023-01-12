@@ -24,13 +24,19 @@ def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
     DEFAULT_DATA_PATH = "/DataSet/ResolutionLevel 0/TimePoint 0/Channel 0/Data"
     for i in range(n):
         a = np.ones(shape, dtype=np.uint16)
-        with h5py.File(os.path.join(folder, f"data_{i}.h5"), 'w') as f:
+        with h5py.File(os.path.join(folder, f"data_{i}.h5"), "w") as f:
             f.create_dataset(DEFAULT_DATA_PATH, data=a, chunks=True)
             # Write origin metadata
             dataset_info = f.create_group("DataSetInfo/Image")
-            dataset_info.attrs["ExtMin0"] = np.array(['1', '0', '0'], dtype='S')
-            dataset_info.attrs["ExtMin1"] = np.array(['2', '0', '0'], dtype='S')
-            dataset_info.attrs["ExtMin2"] = np.array(['3', '0', '0'], dtype='S')
+            dataset_info.attrs["ExtMin0"] = np.array(
+                ["1", "0", "0"], dtype="S"
+            )
+            dataset_info.attrs["ExtMin1"] = np.array(
+                ["2", "0", "0"], dtype="S"
+            )
+            dataset_info.attrs["ExtMin2"] = np.array(
+                ["3", "0", "0"], dtype="S"
+            )
 
 
 class TestOmeZarr(unittest.TestCase):
@@ -53,7 +59,7 @@ class TestOmeZarr(unittest.TestCase):
         self._client.close()
 
     def _check_multiscales_arrays(
-            self, z, full_shape, actual_keys, n_levels, scale_factor
+        self, z, full_shape, actual_keys, n_levels, scale_factor
     ):
         # Test arrays across resolution levels
         for key in actual_keys:
@@ -62,14 +68,16 @@ class TestOmeZarr(unittest.TestCase):
                 expected_shape_at_lvl = (
                     1,
                     1,
-                    int(math.ceil(full_shape[2] / (scale_factor ** lvl))),
-                    int(math.ceil(full_shape[3] / (scale_factor ** lvl))),
-                    int(math.ceil(full_shape[4] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[2] / (scale_factor**lvl))),
+                    int(math.ceil(full_shape[3] / (scale_factor**lvl))),
+                    int(math.ceil(full_shape[4] / (scale_factor**lvl))),
                 )
                 self.assertEqual(expected_shape_at_lvl, a.shape)
                 self.assertTrue(a.nbytes_stored > 0)
 
-    def _check_zarr_attributes(self, z, voxel_size, scale_factor, has_translation):
+    def _check_zarr_attributes(
+        self, z, voxel_size, scale_factor, has_translation
+    ):
         for key in z.keys():
             tile_group = z[key]
             attrs = dict(tile_group.attrs)
@@ -130,9 +138,9 @@ class TestOmeZarr(unittest.TestCase):
                             "scale": [
                                 1.0,
                                 1.0,
-                                voxel_size[0] * (scale_factor ** i),
-                                voxel_size[1] * (scale_factor ** i),
-                                voxel_size[2] * (scale_factor ** i),
+                                voxel_size[0] * (scale_factor**i),
+                                voxel_size[1] * (scale_factor**i),
+                                voxel_size[2] * (scale_factor**i),
                             ],
                             "type": "scale",
                         }
@@ -140,10 +148,12 @@ class TestOmeZarr(unittest.TestCase):
                     "path": f"{i}",
                 }
                 if has_translation:
-                    expected_transform['coordinateTransformations'].append({
-                        "translation": [0, 0, 300.0, 200.0, 100.0],
-                        "type": "translation"
-                    })
+                    expected_transform["coordinateTransformations"].append(
+                        {
+                            "translation": [0, 0, 300.0, 200.0, 100.0],
+                            "type": "translation",
+                        }
+                    )
                 self.assertEqual(expected_transform, datasets_metadata[i])
 
             self.assertEqual(f"/{key}", attrs["multiscales"][0]["name"])
@@ -156,9 +166,7 @@ class TestOmeZarr(unittest.TestCase):
         elif file_type == "tiff":
             image_dir = self.tiff_dir
 
-        files = list(
-            sorted([image_dir / f for f in image_dir.iterdir()])
-        )
+        files = list(sorted([image_dir / f for f in image_dir.iterdir()]))
 
         shape = (64, 128, 128)
         out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
@@ -183,7 +191,9 @@ class TestOmeZarr(unittest.TestCase):
             z, expected_shape, actual_keys, n_levels, scale_factor
         )
 
-        self._check_zarr_attributes(z, voxel_size, scale_factor, has_translation=(file_type == "h5"))
+        self._check_zarr_attributes(
+            z, voxel_size, scale_factor, has_translation=(file_type == "h5")
+        )
 
     @parameterized.expand(["h5", "tiff"])
     def test_write_folder(self, file_type):
@@ -200,9 +210,7 @@ class TestOmeZarr(unittest.TestCase):
         voxel_size = [1.0, 1.0, 1.0]
 
         # create a dummy file to exclude from conversion
-        tifffile.imwrite(
-            image_dir / "dummy.tif", np.zeros(shape)
-        )
+        tifffile.imwrite(image_dir / "dummy.tif", np.zeros(shape))
         exclude = ["*dummy*"]
 
         write_folder(
@@ -226,7 +234,9 @@ class TestOmeZarr(unittest.TestCase):
             z, expected_shape, actual_keys, n_levels, scale_factor
         )
 
-        self._check_zarr_attributes(z, voxel_size, scale_factor, has_translation=(file_type == "h5"))
+        self._check_zarr_attributes(
+            z, voxel_size, scale_factor, has_translation=(file_type == "h5")
+        )
 
 
 if __name__ == "__main__":

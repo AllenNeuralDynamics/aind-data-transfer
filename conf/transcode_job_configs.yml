@@ -5,8 +5,9 @@ endpoints:
   metadata_schemas: "https://raw.githubusercontent.com/AllenNeuralDynamics/data_schema/main/schemas"
   code_repo_location: "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 jobs: # Select which jobs to run
-  upload_aux_files: false
+  upload_aux_files: true
   transcode: true
+  create_ng_link: true
 data:
   name: exaspim
 transcode_job:
@@ -31,3 +32,6 @@ transcode_job:
     mail_user: "cameron.arshadi@alleninstitute.org",
     queue: "aind"
   }
+create_ng_link_job:
+  vmin: 0
+  vmax: 500

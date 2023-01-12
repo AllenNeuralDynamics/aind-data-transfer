@@ -1,16 +1,15 @@
-"""This module contains the api to write ephys data.
-"""
+import logging
 import os
 import platform
 import shutil
 
 import numpy as np
 
-from aind_data_transfer.transformations.compressors import VideoCompressor
+from aind_data_transfer.transformations.ephys_compressors import (
+    VideoCompressor,
+)
 
-# Zarr adds many characters for groups, datasets,
-# file names and temporary files.
-MAX_WINDOWS_FILENAME_LEN = 100
+DEFAULT_MAX_WINDOWS_FILENAME_LEN = 150
 
 
 class EphysWriters:
@@ -18,7 +17,12 @@ class EphysWriters:
 
     @staticmethod
     def compress_and_write_block(
-        read_blocks, compressor, output_dir, job_kwargs, output_format="zarr"
+        read_blocks,
+        compressor,
+        output_dir,
+        job_kwargs,
+        output_format="zarr",
+        max_windows_filename_len=DEFAULT_MAX_WINDOWS_FILENAME_LEN,
     ):
         """
         Compress and write read_blocks.
@@ -30,12 +34,17 @@ class EphysWriters:
             output_dir (Path): Output directory to write compressed data
             job_kwargs (dict): Recording save job kwargs.
             output_format (str): Defaults to zarr
+            max_windows_filename_len (int): Warn if base file names are larger
+              than this.
 
         Returns:
             Nothing. Writes data to a folder.
         """
         if job_kwargs["n_jobs"] == -1:
             job_kwargs["n_jobs"] = os.cpu_count()
+
+        if max_windows_filename_len is None:
+            max_windows_filename_len = DEFAULT_MAX_WINDOWS_FILENAME_LEN
 
         for read_block in read_blocks:
             if "recording" in read_block:
@@ -47,11 +56,13 @@ class EphysWriters:
             zarr_path = output_dir / f"{experiment_name}_{stream_name}.zarr"
             if (
                 platform.system() == "Windows"
-                and len(str(zarr_path)) > MAX_WINDOWS_FILENAME_LEN
+                and len(str(zarr_path)) > max_windows_filename_len
             ):
                 raise Exception(
-                    f"File name for zarr path is too long ({len(str(zarr_path))})"
-                    f" and might lead to errors. Use a shorter destination path."
+                    f"File name for zarr path is too long "
+                    f"({len(str(zarr_path))})"
+                    f" and might lead to errors. Use a shorter destination "
+                    f"path."
                 )
             _ = rec.save(
                 format=output_format,
@@ -62,7 +73,12 @@ class EphysWriters:
 
     @staticmethod
     def copy_and_clip_data(
-        src_dir, dst_dir, stream_gen, video_encryption_key=None, n_frames=100
+        src_dir,
+        dst_dir,
+        stream_gen,
+        behavior_dir=None,
+        video_encryption_key=None,
+        n_frames=100,
     ):
         """
         Copies the raw data to a new directory with the .dat files clipped to
@@ -78,9 +94,12 @@ class EphysWriters:
         stream_gen : dict
           A dict with
             'data': np.memmap(dat file),
-              'relative_path_name': path name of raw data so it can be copied
+              'relative_path_name': path name of raw data
                 to new dir correctly
               'n_chan': number of channels.
+        behavior_dir: Path
+          Location of videos files to compress. If None, will check if src_dir
+          contains a Video or video folder in its root.
         video_encryption_key : Optional[str]
           Password to use to encrypt video files. Default is None.
         n_frames : int
@@ -110,21 +129,26 @@ class EphysWriters:
                 mode="w+",
             )
             dst_data[:] = data[:n_frames]
-        # third: check if videos directory exists and copy it up one level
-        # TODO: Is there a cleaner way to do this?
-        videos_path = dst_dir / "Videos"
-        videos_path_l = dst_dir / "videos"
-        if os.path.isdir(videos_path):
-            new_videos_path = dst_dir / ".." / "videos"
-            shutil.move(videos_path, new_videos_path)
-            video_compressor = VideoCompressor(
-                encryption_key=video_encryption_key
-            )
-            video_compressor.compress_all_videos_in_dir(new_videos_path)
 
-        elif os.path.isdir(videos_path_l):
-            new_videos_path = dst_dir / ".." / "videos"
-            shutil.move(videos_path_l, new_videos_path)
+        # third: check if videos directory exists
+        new_videos_path = dst_dir / ".." / "behavior"
+        if behavior_dir is not None:
+            videos_path = behavior_dir
+            shutil.copytree(videos_path, new_videos_path)
+        elif os.path.isdir(dst_dir / "Videos"):
+            videos_path = dst_dir / "Videos"
+            shutil.move(videos_path, new_videos_path)
+        elif os.path.isdir(dst_dir / "videos"):
+            videos_path = dst_dir / "videos"
+            shutil.move(videos_path, new_videos_path)
+        else:
+            videos_path = None
+
+        # Log a warning if no videos path found
+        if videos_path is None:
+            logging.warning("No videos found!")
+        else:
+            # Compress and optionally encrypt
             video_compressor = VideoCompressor(
                 encryption_key=video_encryption_key
             )

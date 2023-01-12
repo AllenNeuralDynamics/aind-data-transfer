@@ -16,7 +16,10 @@ from s3transfer.crt import (
     create_s3_crt_client,
 )
 
-from aind_data_transfer.util.file_utils import collect_filepaths, make_cloud_paths
+from aind_data_transfer.util.file_utils import (
+    collect_filepaths,
+    make_cloud_paths,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -105,7 +108,7 @@ class S3Uploader:
         s3_bucket: str,
         s3_folder: str,
         recursive: bool = True,
-        exclude_dirs: list = None
+        exclude_dirs: list = None,
     ) -> List[str]:
         """Upload a directory to s3.
         Args:

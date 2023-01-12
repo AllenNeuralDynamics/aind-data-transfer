@@ -1,6 +1,6 @@
 {
-    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/site-packages/aind_data_schema/processing.py",
-    "schema_version": "0.0.1",
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/processing.py",
+    "schema_version": "0.1.0",
     "data_processes": [
         {
             "name": "Ephys preprocessing",
@@ -12,11 +12,11 @@
             "code_url": "https://github.com/AllenNeuralDynamics/aind-data-transfer",
             "parameters": {
                 "jobs": {
-                    "attach_metadata": true,
+                    "attach_metadata": false,
                     "clip": true,
                     "compress": true,
                     "upload_to_s3": true,
-                    "upload_to_gcp": true,
+                    "upload_to_gcp": false,
                     "trigger_codeocean_job": false
                 },
                 "endpoints": {
@@ -27,12 +27,12 @@
                     "gcp_bucket": "some-gcp-bucket",
                     "gcp_prefix": "test_20221001",
                     "codeocean_domain": "https://acmecorp.codeocean.com",
-                    "code_repo_location": "https://location_of_code_repo"
+                    "code_repo_location": "https://location_of_code_repo",
+                    "metadata_service_url": "http://some-url"
                 },
                 "aws_secret_names": {
                     "code_ocean_api_token_name": "secret_name_for_api_token",
-                    "region": "us-west-2",
-                    "video_encryption_password": "secret_name_for_vid_password"},
+                    "region": "us-west-2"},
                 "data": {
                     "name": "openephys"
                 },

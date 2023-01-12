@@ -11,17 +11,22 @@ from pathlib import Path
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 
-from aind_data_transfer.configuration_loader import EphysJobConfigurationLoader
-from aind_data_transfer.readers import EphysReaders
-from aind_data_transfer.transformations.compressors import EphysCompressors
+from aind_data_transfer.config_loader.ephys_configuration_loader import (
+    EphysJobConfigurationLoader,
+)
+from aind_data_transfer.readers.ephys_readers import EphysReaders
+from aind_data_transfer.transformations.ephys_compressors import (
+    EphysCompressors,
+)
 from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
+    SubjectMetadata,
 )
 from aind_data_transfer.util.npopto_correction import (
     correct_np_opto_electrode_locations,
 )
 from aind_data_transfer.util.s3_utils import get_secret
-from aind_data_transfer.writers import EphysWriters
+from aind_data_transfer.writers.ephys_writers import EphysWriters
 
 root_logger = logging.getLogger()
 
@@ -34,11 +39,12 @@ warnings.filterwarnings(
     "ignore", category=DeprecationWarning, message=deprecation_msg
 )
 
+
 # TODO: Break these up into importable jobs to fix the flake8 warning?
-if __name__ == "__main__":  # noqa: C901
+def run_job(args):  # noqa: C901
     # Location of conf file passed in as command line arg
     job_start_time = datetime.now(timezone.utc)
-    job_configs = EphysJobConfigurationLoader().load_configs(sys.argv[1:])
+    job_configs = EphysJobConfigurationLoader().load_configs(args)
 
     root_logger.setLevel(job_configs["logging"]["level"])
     if job_configs["logging"].get("file") is not None:
@@ -51,11 +57,11 @@ if __name__ == "__main__":  # noqa: C901
     data_src_dir = Path(job_configs["endpoints"]["raw_data_dir"])
     dest_data_dir = Path(job_configs["endpoints"]["dest_data_dir"])
 
+    logging.info("Finished loading configs.")
+
     # Correct NP-opto electrode positions:
     # correction is skipped if Neuropix-PXI version > 0.4.0
     correct_np_opto_electrode_locations(data_src_dir)
-
-    logging.info("Finished loading configs.")
 
     # Clip data job
     if job_configs["jobs"]["clip"]:
@@ -68,19 +74,22 @@ if __name__ == "__main__":  # noqa: C901
         aws_secret_names = job_configs["aws_secret_names"]
         secret_name = aws_secret_names.get("video_encryption_password")
         secret_region = aws_secret_names.get("region")
-        video_encryption_key_val = None
+        video_encryption_key_val = {"password": None}
         if secret_name:
             video_encryption_key_val = json.loads(
                 get_secret(secret_name, secret_region)
             )
 
+        behavior_directory = job_configs["endpoints"].get("behavior_directory")
         EphysWriters.copy_and_clip_data(
-            data_src_dir,
-            clipped_data_path,
-            streams_to_clip,
-            video_encryption_key_val["password"],
+            src_dir=data_src_dir,
+            dst_dir=clipped_data_path,
+            stream_gen=streams_to_clip,
+            behavior_dir=behavior_directory,
+            video_encryption_key=video_encryption_key_val["password"],
             **clip_kwargs,
         )
+
         logging.info("Finished clipping source data.")
 
     # Compress data job
@@ -96,6 +105,9 @@ if __name__ == "__main__":  # noqa: C901
         format_kwargs = job_configs["compress_data_job"]["format_kwargs"]
         scale_kwargs = job_configs["compress_data_job"]["scale_params"]
         write_kwargs = job_configs["compress_data_job"]["write_kwargs"]
+        max_filename_length = job_configs["compress_data_job"].get(
+            "max_windows_filename_len"
+        )
         read_blocks = EphysReaders.get_read_blocks(data_name, data_src_dir)
         compressor = EphysCompressors.get_compressor(
             compressor_name, **compressor_kwargs
@@ -107,6 +119,7 @@ if __name__ == "__main__":  # noqa: C901
             read_blocks=scaled_read_blocks,
             compressor=compressor,
             output_dir=compressed_data_path,
+            max_windows_filename_len=max_filename_length,
             job_kwargs=write_kwargs,
             **format_kwargs,
         )
@@ -114,6 +127,7 @@ if __name__ == "__main__":  # noqa: C901
 
     job_end_time = datetime.now(timezone.utc)
     if job_configs["jobs"]["attach_metadata"]:
+        # Processing metadata
         logging.info("Creating processing.json file.")
         start_date_time = job_start_time
         end_date_time = job_end_time
@@ -148,6 +162,21 @@ if __name__ == "__main__":  # noqa: C901
             contents = processing_instance.json(**{"indent": 4})
             f.write(contents)
         logging.info("Finished creating processing.json file.")
+
+        # Subject metadata
+        logging.info("Creating subject.json file.")
+        metadata_url = job_configs["endpoints"]["metadata_service_url"]
+        subject_id = job_configs["data"].get("subject_id")
+        subject_instance = SubjectMetadata.ephys_job_to_subject(
+            metadata_url, subject_id, dest_data_dir.name
+        )
+        s_file_path = dest_data_dir / SubjectMetadata.output_file_name
+        if subject_instance is not None:
+            with open(s_file_path, "w") as f:
+                f.write(json.dumps(subject_instance, indent=4))
+            logging.info("Finished creating subject.json file.")
+        else:
+            logging.warning("No subject.json file created!")
 
     # Upload to s3
     if platform.system() == "Windows":
@@ -222,3 +251,10 @@ if __name__ == "__main__":  # noqa: C901
             parameters=[json.dumps(job_configs)],
         )
         logging.debug(f"Run response: {run_response.json()}")
+
+    return dest_data_dir
+
+
+if __name__ == "__main__":
+    sys_args = sys.argv[1:]
+    run_job(sys_args)

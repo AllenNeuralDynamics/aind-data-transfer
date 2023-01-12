@@ -4,15 +4,12 @@ import logging
 import google.cloud.exceptions
 import pandas as pd
 from botocore.session import get_session
-from dask_jobqueue import SLURMCluster
-from distributed import Client, LocalCluster
 from numcodecs import blosc
 
 from aind_data_transfer.gcs import create_client
 from aind_data_transfer.transcode.ome_zarr import write_files
 from aind_data_transfer.util.file_utils import *
-
-from cluster.config import load_jobqueue_config
+from aind_data_transfer.util.dask_utils import log_dashboard_address, get_client
 
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
@@ -24,47 +21,6 @@ blosc.use_threads = False
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
-
-
-def set_hdf5_env_vars(hdf5_plugin_path=None):
-    if hdf5_plugin_path is not None:
-        os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path
-    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-
-
-class HDF5PluginError(Exception):
-    pass
-
-
-def find_hdf5plugin_path():
-    # this should work with both conda environments and virtualenv
-    # see https://stackoverflow.com/a/46071447
-    import sysconfig
-    site_packages = sysconfig.get_paths()["purelib"]
-    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
-    if not os.path.isdir(plugin_path):
-        raise HDF5PluginError(
-            f"Could not find hdf5plugin in site-packages, "
-            f"{plugin_path} does not exist. "
-            f"Try setting --hdf5_plugin_path manually."
-        )
-    return plugin_path
-
-
-def check_any_hdf5(filepaths):
-    return any(f.endswith((".ims", ".h5")) for f in filepaths)
-
-
-def get_dask_kwargs(hdf5_plugin_path=None):
-    my_dask_kwargs = {"env_extra": []}
-    if hdf5_plugin_path is not None:
-        # TODO: figure out why this is necessary
-        # Override plugin path in each Dask worker
-        my_dask_kwargs["env_extra"].append(
-            f"export HDF5_PLUGIN_PATH={hdf5_plugin_path}"
-        )
-    my_dask_kwargs["env_extra"].append("export HDF5_USE_FILE_LOCKING=FALSE")
-    return my_dask_kwargs
 
 
 def get_blosc_codec(cname, clevel):
@@ -81,26 +37,24 @@ def get_blosc_codec(cname, clevel):
     return opts
 
 
-def get_client(deployment="slurm", **kwargs):
-    if deployment == "slurm":
-        base_config = load_jobqueue_config()
-        config = base_config["jobqueue"]["slurm"]
-        # cluster config is automatically populated from
-        # ~/.config/dask/jobqueue.yaml
-        cluster = SLURMCluster(**kwargs)
-        cluster.scale(config["n_workers"])
-        LOGGER.info(cluster.job_script())
-    elif deployment == "local":
-        import platform
+class HDF5PluginError(Exception):
+    pass
 
-        use_procs = False if platform.system() == "Windows" else True
-        cluster = LocalCluster(processes=use_procs, threads_per_worker=1)
-        config = None
-    else:
-        raise NotImplementedError
 
-    client = Client(cluster)
-    return client, config
+def find_hdf5plugin_path():
+    # this should work with both conda environments and virtualenv
+    # see https://stackoverflow.com/a/46071447
+    import sysconfig
+
+    site_packages = sysconfig.get_paths()["purelib"]
+    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
+    if not os.path.isdir(plugin_path):
+        raise HDF5PluginError(
+            f"Could not find hdf5plugin in site-packages, "
+            f"{plugin_path} does not exist. "
+            f"Try setting --hdf5_plugin_path manually."
+        )
+    return plugin_path
 
 
 def output_valid(output: Union[str, os.PathLike]) -> bool:
@@ -135,7 +89,7 @@ def output_valid(output: Union[str, os.PathLike]) -> bool:
         except Exception as e:
             LOGGER.error(f"Error connecting to bucket {bucket_name}: {e}")
             return False
-        status = response['ResponseMetadata']['HTTPStatusCode']
+        status = response["ResponseMetadata"]["HTTPStatusCode"]
         if status == 200:
             return True
         else:
@@ -163,7 +117,7 @@ def parse_args():
         "--input",
         type=str,
         help="directory of images to transcode to OME-Zarr. Each image"
-             " is written to a separate group in the top-level zarr folder."
+        " is written to a separate group in the top-level zarr folder.",
     )
     parser.add_argument(
         "--output",
@@ -199,12 +153,6 @@ def parse_args():
     )
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     parser.add_argument(
-        "--hdf5_plugin_path",
-        type=str,
-        default=None,
-        help="path to HDF5 filter plugins. Specifying this is necessary if transcoding HDF5 or IMS files on HPC.",
-    )
-    parser.add_argument(
         "--metrics_file",
         type=str,
         default="tile-metrics.csv",
@@ -227,7 +175,7 @@ def parse_args():
         "--voxsize",
         type=str,
         default=None,
-        help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"'
+        help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"',
     )
     args = parser.parse_args()
     return args
@@ -271,32 +219,16 @@ def main():
         LOGGER.info(f"No images found, exiting.")
         return
 
-    my_dask_kwargs = {}
-    if check_any_hdf5(images):
-        # We only care to set this if we're reading HDF5 or IMS
-        hdf5_plugin_path = args.hdf5_plugin_path
-        if hdf5_plugin_path is None:
-            hdf5_plugin_path = find_hdf5plugin_path()
-        set_hdf5_env_vars(hdf5_plugin_path)
-        my_dask_kwargs.update(get_dask_kwargs(hdf5_plugin_path))
-    LOGGER.info(f"dask kwargs: {my_dask_kwargs}")
-
-    client, _ = get_client(args.deployment, **my_dask_kwargs)
-
-    # Upload all the files that we're not converting to Zarr
-    if is_cloud_url(args.output):
-        provider, bucket, cloud_dst = parse_cloud_url(args.output)
-
-        # We will place the Zarr in the cloud folder corresponding to image_dir
-        zarr_dst = make_cloud_paths([image_dir], cloud_dst)[0]
-        zarr_dst = f"{provider}{bucket}/{zarr_dst}"
-    else:
-        # We will place the Zarr in the output folder corresponding to image_dir
-        zarr_dst = Path(args.output)
-        zarr_dst.mkdir(parents=True, exist_ok=True)
+    worker_options = {
+        "env": {
+            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
+            "HDF5_USE_FILE_LOCKING": "FALSE"
+        }
+    }
+    client, _ = get_client(args.deployment, worker_options=worker_options)
 
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
-    LOGGER.info(f"Writing OME-Zarr to {zarr_dst}")
+    LOGGER.info(f"Writing OME-Zarr to {args.output}")
 
     # If voxsize is None, we will
     # attempt to parse it from the image metadata
@@ -310,7 +242,7 @@ def main():
 
     all_metrics = write_files(
         images,
-        zarr_dst,
+        args.output,
         args.n_levels,
         args.scale_factor,
         overwrite,
@@ -319,8 +251,6 @@ def main():
         voxsize,
         opts,
     )
-
-    client.shutdown()
 
     df = pd.DataFrame.from_records(all_metrics)
     df.to_csv(args.metrics_file, index_label="test_number")

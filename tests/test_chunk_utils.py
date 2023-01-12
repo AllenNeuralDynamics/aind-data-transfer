@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+
 from aind_data_transfer.util import chunk_utils
 from aind_data_transfer.util.chunk_utils import DimensionsError
 
