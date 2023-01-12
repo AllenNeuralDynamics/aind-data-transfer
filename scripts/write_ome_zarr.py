@@ -2,21 +2,19 @@ import argparse
 import logging
 
 import google.cloud.exceptions
-
-# Importing this alone doesn't work on HPC
-# Must manually override HDF5_PLUGIN_PATH environment variable
-# in each Dask worker
-import hdf5plugin
 import pandas as pd
 from botocore.session import get_session
-from cluster.config import load_jobqueue_config
-from dask_jobqueue import SLURMCluster
-from distributed import Client, LocalCluster
 from numcodecs import blosc
 
 from aind_data_transfer.gcs import create_client
 from aind_data_transfer.transcode.ome_zarr import write_files
 from aind_data_transfer.util.file_utils import *
+from aind_data_transfer.util.dask_utils import log_dashboard_address, get_client
+
+# Importing this alone doesn't work on HPC
+# Must manually override HDF5_PLUGIN_PATH environment variable
+# in each Dask worker
+import hdf5plugin
 
 blosc.use_threads = False
 
@@ -25,10 +23,18 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 
-def set_hdf5_env_vars(hdf5_plugin_path=None):
-    if hdf5_plugin_path is not None:
-        os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path
-    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+def get_blosc_codec(cname, clevel):
+    opts = {
+        "compressor": blosc.Blosc(
+            cname=cname, clevel=clevel, shuffle=blosc.SHUFFLE
+        ),
+        "params": {
+            "shuffle": blosc.SHUFFLE,
+            "level": clevel,
+            "name": f"blosc-{cname}",
+        },
+    }
+    return opts
 
 
 class HDF5PluginError(Exception):
@@ -49,58 +55,6 @@ def find_hdf5plugin_path():
             f"Try setting --hdf5_plugin_path manually."
         )
     return plugin_path
-
-
-def check_any_hdf5(filepaths):
-    return any(f.endswith((".ims", ".h5")) for f in filepaths)
-
-
-def get_dask_kwargs(hdf5_plugin_path=None):
-    my_dask_kwargs = {"env_extra": []}
-    if hdf5_plugin_path is not None:
-        # TODO: figure out why this is necessary
-        # Override plugin path in each Dask worker
-        my_dask_kwargs["env_extra"].append(
-            f"export HDF5_PLUGIN_PATH={hdf5_plugin_path}"
-        )
-    my_dask_kwargs["env_extra"].append("export HDF5_USE_FILE_LOCKING=FALSE")
-    return my_dask_kwargs
-
-
-def get_blosc_codec(cname, clevel):
-    opts = {
-        "compressor": blosc.Blosc(
-            cname=cname, clevel=clevel, shuffle=blosc.SHUFFLE
-        ),
-        "params": {
-            "shuffle": blosc.SHUFFLE,
-            "level": clevel,
-            "name": f"blosc-{cname}",
-        },
-    }
-    return opts
-
-
-def get_client(deployment="slurm", **kwargs):
-    if deployment == "slurm":
-        base_config = load_jobqueue_config()
-        config = base_config["jobqueue"]["slurm"]
-        # cluster config is automatically populated from
-        # ~/.config/dask/jobqueue.yaml
-        cluster = SLURMCluster(**kwargs)
-        cluster.scale(config["n_workers"])
-        LOGGER.info(cluster.job_script())
-    elif deployment == "local":
-        import platform
-
-        use_procs = False if platform.system() == "Windows" else True
-        cluster = LocalCluster(processes=use_procs, threads_per_worker=1)
-        config = None
-    else:
-        raise NotImplementedError
-
-    client = Client(cluster)
-    return client, config
 
 
 def output_valid(output: Union[str, os.PathLike]) -> bool:
@@ -199,12 +153,6 @@ def parse_args():
     )
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     parser.add_argument(
-        "--hdf5_plugin_path",
-        type=str,
-        default=None,
-        help="path to HDF5 filter plugins. Specifying this is necessary if transcoding HDF5 or IMS files on HPC.",
-    )
-    parser.add_argument(
         "--metrics_file",
         type=str,
         default="tile-metrics.csv",
@@ -271,17 +219,13 @@ def main():
         LOGGER.info(f"No images found, exiting.")
         return
 
-    my_dask_kwargs = {}
-    if check_any_hdf5(images):
-        # We only care to set this if we're reading HDF5 or IMS
-        hdf5_plugin_path = args.hdf5_plugin_path
-        if hdf5_plugin_path is None:
-            hdf5_plugin_path = find_hdf5plugin_path()
-        set_hdf5_env_vars(hdf5_plugin_path)
-        my_dask_kwargs.update(get_dask_kwargs(hdf5_plugin_path))
-    LOGGER.info(f"dask kwargs: {my_dask_kwargs}")
-
-    client, _ = get_client(args.deployment, **my_dask_kwargs)
+    worker_options = {
+        "env": {
+            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
+            "HDF5_USE_FILE_LOCKING": "FALSE"
+        }
+    }
+    client, _ = get_client(args.deployment, worker_options=worker_options)
 
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
     LOGGER.info(f"Writing OME-Zarr to {args.output}")
@@ -307,8 +251,6 @@ def main():
         voxsize,
         opts,
     )
-
-    client.shutdown()
 
     df = pd.DataFrame.from_records(all_metrics)
     df.to_csv(args.metrics_file, index_label="test_number")
