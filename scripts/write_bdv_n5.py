@@ -1,30 +1,20 @@
 import argparse
-import json
 import logging
-import os
 
 import dask.array
 import numpy as np
 import zarr
-from dask_jobqueue import SLURMCluster
-from distributed import Client, LocalCluster, wait
+from distributed import wait
 from numcodecs import GZip
 
 from aind_data_transfer.transcode.ome_zarr import _get_or_create_pyramid
 from aind_data_transfer.util.file_utils import *
 from aind_data_transfer.util.io_utils import DataReaderFactory, ImarisReader
-
-from cluster.config import load_jobqueue_config
+from aind_data_transfer.util.dask_utils import get_client
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
-
-
-def set_hdf5_env_vars(hdf5_plugin_path=None):
-    if hdf5_plugin_path is not None:
-        os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path
-    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 
 class HDF5PluginError(Exception):
@@ -47,48 +37,11 @@ def find_hdf5plugin_path():
     return plugin_path
 
 
-def check_any_hdf5(filepaths):
-    return any(f.endswith((".ims", ".h5")) for f in filepaths)
-
-
-def get_dask_kwargs(hdf5_plugin_path=None):
-    my_dask_kwargs = {"env_extra": []}
-    if hdf5_plugin_path is not None:
-        # Override plugin path in each Dask worker
-        my_dask_kwargs["env_extra"].append(
-            f"export HDF5_PLUGIN_PATH={hdf5_plugin_path}"
-        )
-    my_dask_kwargs["env_extra"].append("export HDF5_USE_FILE_LOCKING=FALSE")
-    return my_dask_kwargs
-
-
 def get_downscale_factors(n_levels, scale_factors=(2, 2, 2)):
     return [
         [scale_factors[0] ** i, scale_factors[1] ** i, scale_factors[2] ** i]
         for i in range(n_levels)
     ]
-
-
-def get_client(deployment="slurm", **kwargs):
-    if deployment == "slurm":
-        base_config = load_jobqueue_config()
-        config = base_config["jobqueue"]["slurm"]
-        # cluster config is automatically populated from
-        # ~/.config/dask/jobqueue.yaml
-        cluster = SLURMCluster(**kwargs)
-        cluster.scale(config["n_workers"])
-        LOGGER.info(cluster.job_script())
-    elif deployment == "local":
-        import platform
-
-        use_procs = False if platform.system() == "Windows" else True
-        cluster = LocalCluster(processes=use_procs, threads_per_worker=1)
-        config = None
-    else:
-        raise NotImplementedError
-
-    client = Client(cluster)
-    return client, config
 
 
 def get_datatype_str(dtype):
@@ -172,14 +125,13 @@ def main():
         n_levels, scale_factors=downscale_factors
     )
 
-    my_dask_kwargs = {}
-    if check_any_hdf5(images):
-        hdf5_plugin_path = find_hdf5plugin_path()
-        set_hdf5_env_vars(hdf5_plugin_path)
-        my_dask_kwargs.update(get_dask_kwargs(hdf5_plugin_path))
-    LOGGER.info(f"dask kwargs: {my_dask_kwargs}")
-
-    client, _ = get_client(args.deployment, **my_dask_kwargs)
+    worker_options = {
+        "env": {
+            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
+            "HDF5_USE_FILE_LOCKING": "FALSE"
+        }
+    }
+    client, _ = get_client(args.deployment, worker_options=worker_options)
 
     meta = {}
 
