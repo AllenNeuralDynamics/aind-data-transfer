@@ -238,7 +238,7 @@ def parse_args():
         "--wait",
         default=False,
         action="store_true",
-        help="do not exit until the submitted job terminates. See the --wait flag for sbatch."
+        help="do not exit until the submitted job terminates. See the --wait flag for sbatch.",
     )
 
     args = parser.parse_args()
