@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 from numcodecs import Blosc
 
-from aind_data_transfer.readers import EphysReaders
+from aind_data_transfer.readers.ephys_readers import EphysReaders
 
 
 class EphysJobConfigurationLoader:
@@ -143,9 +143,9 @@ class EphysJobConfigurationLoader:
         if args.raw_data_source is not None:
             raw_config["endpoints"]["raw_data_dir"] = args.raw_data_source
         if args.behavior_directory is not None:
-            raw_config["endpoints"]["behavior_directory"] = (
-                args.behavior_directory
-            )
+            raw_config["endpoints"][
+                "behavior_directory"
+            ] = args.behavior_directory
         self.__resolve_endpoints(raw_config)
         self.__resolve_logging(raw_config)
         config_without_nones = self.__remove_none(raw_config)

@@ -14,8 +14,10 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
 )
-from aind_data_transfer.readers import EphysReaders
-from aind_data_transfer.transformations.compressors import EphysCompressors
+from aind_data_transfer.readers.ephys_readers import EphysReaders
+from aind_data_transfer.transformations.ephys_compressors import (
+    EphysCompressors,
+)
 from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     SubjectMetadata,
@@ -24,7 +26,7 @@ from aind_data_transfer.util.npopto_correction import (
     correct_np_opto_electrode_locations,
 )
 from aind_data_transfer.util.s3_utils import get_secret
-from aind_data_transfer.writers import EphysWriters
+from aind_data_transfer.writers.ephys_writers import EphysWriters
 
 root_logger = logging.getLogger()
 

@@ -1,10 +1,9 @@
+"""Unit tests for ephys readers module."""
 import os
 import unittest
 from pathlib import Path
 
-from parameterized import parameterized
-
-from aind_data_transfer.readers import EphysReaders, ImagingReaders
+from aind_data_transfer.readers.ephys_readers import EphysReaders
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 RESOURCES_DIR = TEST_DIR / "resources"
@@ -54,37 +53,9 @@ class TestEphysReaders(unittest.TestCase):
         with self.assertRaises(Exception):
             list(
                 EphysReaders.get_read_blocks(
-                    "Made up reader", self.open_ephys_dir
+                    "Made up readers", self.open_ephys_dir
                 )
             )
-
-
-class TestImagingReaders(unittest.TestCase):
-
-    imaging_dir = RESOURCES_DIR / "imaging"
-    exaspim_dir = imaging_dir / "exaSPIM_125L_2022-08-05_17-25-36"
-    mesospim_dir = imaging_dir / "mesoSPIM_125L_2022-08-18_17-05-00"
-
-    @parameterized.expand(
-        [
-            (ImagingReaders.Readers.exaspim.value, exaspim_dir),
-            (ImagingReaders.Readers.mesospim.value, mesospim_dir),
-        ]
-    )
-    def test_get_raw_data_dir(self, reader, input_dir):
-        raw_data_dir = ImagingReaders.get_raw_data_dir(reader, input_dir)
-        expected_raw_data_dir = input_dir / reader
-        self.assertEqual(expected_raw_data_dir, raw_data_dir)
-
-    @parameterized.expand(
-        [
-            ImagingReaders.Readers.exaspim.value,
-            ImagingReaders.Readers.mesospim.value,
-        ]
-    )
-    def test_get_raw_data_dir_fails(self, reader):
-        with self.assertRaises(FileNotFoundError):
-            ImagingReaders.get_raw_data_dir(reader, "Made up directory")
 
 
 if __name__ == "__main__":
