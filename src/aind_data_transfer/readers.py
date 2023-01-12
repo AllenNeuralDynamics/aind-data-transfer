@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import List, Union
 
 import numpy as np
-import spikeinterface.extractors as se
+
+try:
+    import spikeinterface.extractors as se
+    HAVE_SPIKEINTERFACE = True
+except ImportError:
+    HAVE_SPIKEINTERFACE = False
 
 PathLike = Union[str, Path]
 
@@ -50,6 +55,7 @@ class EphysReaders:
             {'recording', 'experiment_name', 'stream_name'}.
 
         """
+        assert HAVE_SPIKEINTERFACE, "spikeinterface is required for ephys readers"
         if reader_name == EphysReaders.Readers.openephys.value:
             nblocks = se.get_neo_num_blocks(reader_name, input_dir)
             stream_names, stream_ids = se.get_neo_streams(
@@ -89,6 +95,7 @@ class EphysReaders:
 
     @staticmethod
     def get_streams_to_clip(reader_name, input_dir):
+        assert HAVE_SPIKEINTERFACE, "spikeinterface is required for ephys readers"
         stream_names, stream_ids = se.get_neo_streams(reader_name, input_dir)
         for dat_file in input_dir.glob("**/*.dat"):
             oe_stream_name = dat_file.parent.name

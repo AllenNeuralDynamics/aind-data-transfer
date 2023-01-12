@@ -7,11 +7,15 @@ from typing import Optional
 
 import numpy as np
 import pyminizip
-import spikeinterface.full as si
-import spikeinterface.preprocessing as spre
 from numcodecs import Blosc
 from tqdm import tqdm
-from wavpack_numcodecs import WavPack
+
+try:
+    import spikeinterface.full as si
+    import spikeinterface.preprocessing as spre
+    HAVE_SPIKEINTERFACE = True
+except ImportError:
+    HAVE_SPIKEINTERFACE = False
 
 from aind_data_transfer.readers import EphysReaders
 
@@ -42,6 +46,7 @@ class EphysCompressors:
         if compressor_name == EphysCompressors.Compressors.blosc.name:
             return Blosc(**kwargs)
         elif compressor_name == EphysCompressors.Compressors.wavpack.name:
+            from wavpack_numcodecs import WavPack
             return WavPack(**kwargs)
         else:
             raise Exception(
@@ -72,6 +77,8 @@ class EphysCompressors:
         np.array
             median_values
         """
+        assert HAVE_SPIKEINTERFACE, "spikeinterface is required for ephys compression"
+
         # gather chunks
         chunks = si.get_random_data_chunks(
             recording, seed=0, **random_chunk_kwargs
@@ -132,6 +139,8 @@ class EphysCompressors:
             {'scaled_recording', 'block_index', 'stream_name'}.
 
         """
+        assert HAVE_SPIKEINTERFACE, "spikeinterface is required for ephys compression"
+
         for read_block in read_blocks:
             # We don't need to scale the NI-DAQ recordings
             # TODO: Convert this to regex matching?
