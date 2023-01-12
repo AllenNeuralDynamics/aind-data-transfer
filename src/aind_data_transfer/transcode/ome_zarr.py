@@ -4,15 +4,16 @@ import time
 from pathlib import Path
 from typing import List, Union
 
-import zarr
 import dask
 import dask.array
-from distributed import wait
-from numpy.typing import NDArray
+import zarr
 from aicsimageio.types import PhysicalPixelSizes
 from aicsimageio.writers import OmeZarrWriter
+from distributed import wait
+from numpy.typing import NDArray
 from xarray_multiscale import multiscale
 from xarray_multiscale.reducers import windowed_mean
+
 from aind_data_transfer.util.chunk_utils import *
 from aind_data_transfer.util.file_utils import collect_filepaths
 from aind_data_transfer.util.io_utils import (
@@ -91,7 +92,7 @@ def write_files(
         except KeyError:
             LOGGER.warning("compression parameters will not be logged")
 
-        # Create reader, but don't construct dask array
+        # Create readers, but don't construct dask array
         # until we know the optimal chunk shape.
         reader = DataReaderFactory().create(impath)
 
@@ -291,8 +292,7 @@ def _compute_chunks(reader, target_size_mb):
 
 
 def _create_pyramid(
-        data: Union[NDArray, dask.array.Array],
-        n_lvls: int
+    data: Union[NDArray, dask.array.Array], n_lvls: int
 ) -> List[Union[NDArray, dask.array.Array]]:
     """
     Create a lazy multiscale image pyramid using data as the full-resolution layer.

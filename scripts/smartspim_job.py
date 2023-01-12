@@ -11,9 +11,11 @@ import s3_upload
 import yaml
 from argschema import ArgSchema, ArgSchemaParser
 from argschema.fields import Dict, InputFile, Int, List, Str
-from aind_data_transfer.readers import SmartSPIMReader
+
+from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
 from aind_data_transfer.util import file_utils
-from aind_data_transfer.writers import SmartSPIMWriter
+from aind_data_transfer.writers.imaging_writers import SmartSPIMWriter
+
 warnings.filterwarnings("ignore")
 
 logging.basicConfig(
