@@ -15,7 +15,6 @@ from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.INFO)
 
 
 _AXES = {
@@ -43,7 +42,7 @@ def _parse_args():
         default="local",
         help="cluster deployment type",
     )
-    parser.add_argument("--log_level", type=int, default=logging.INFO)
+    parser.add_argument("--log-level", type=int, default=logging.INFO)
     parser.add_argument(
         "--axes",
         type=str,
@@ -91,6 +90,8 @@ def project_and_write(arr, axis, out_dir, tile_name, overwrite=False):
 
 def main():
     args = _parse_args()
+
+    _LOGGER.setLevel(args.log_level)
 
     image_paths = collect_filepaths(
         args.input,
