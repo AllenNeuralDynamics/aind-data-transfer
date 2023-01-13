@@ -102,7 +102,7 @@ You can also define the job parameters in a csv file.
 ```
 python -m aind_data_transfer.jobs.s3_upload_job --jobs-csv-file "path_to_jobs_list"
 python -m aind_data_transfer.jobs.s3_upload_job -j "path_to_jobs_list"
-python -m aind_data_transfer.jobs.s3_upload_job ... --dryrun
+python -m aind_data_transfer.jobs.s3_upload_job ... --dry-run
 ```
 
 The csv file should look something like:
