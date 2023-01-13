@@ -1,6 +1,6 @@
 import unittest
 
-from transfer.s3 import S3Uploader
+from aind_data_transfer.s3 import S3Uploader
 
 
 class TestS3Uploader(unittest.TestCase):

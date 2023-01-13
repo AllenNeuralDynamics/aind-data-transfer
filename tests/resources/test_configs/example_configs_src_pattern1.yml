@@ -1,0 +1,51 @@
+# Leave values blank to use defaults
+endpoints:
+  raw_data_dir: /some/random/folder/625463_2022-10-06_10-14-25
+  dest_data_dir:
+  behavior_directory:
+  s3_bucket: some-s3-bucket
+  s3_prefix: # Defaults to folder in temp_data_dir name
+  gcp_bucket: some-gcp-bucket
+  gcp_prefix:
+  codeocean_domain: https://acmecorp.codeocean.com
+  code_repo_location: https://location_of_code_repo
+  metadata_service_url: http://some-url
+aws_secret_names:
+  region: us-west-2
+  video_encryption_password: "secret_name_for_vid_password"
+  code_ocean_api_token_name: "secret_name_for_api_token"
+jobs: # Select which jobs to run
+  clip: true
+  compress: true
+  attach_metadata: false
+  upload_to_s3: true
+  upload_to_gcp: true
+  trigger_codeocean_job: false
+data:
+  name: openephys
+  subject_id:
+clip_data_job:
+  clip_kwargs:
+    n_frames:
+compress_data_job:
+  write_kwargs: {"n_jobs": -1, "chunk_duration": "1s", "progress_bar": true}
+  format_kwargs:
+    output_format:
+  compressor:
+    compressor_name: wavpack
+    kwargs: {"level": 3}
+  scale_params:
+    num_chunks_per_segment:
+    chunk_size:
+    disable_tqdm:
+  max_windows_filename_len:
+upload_data_job:
+  dryrun: true # Set this to true to perform a dryrun of the upload
+trigger_codeocean_job:
+  capsule_id:
+  job_type: # Defaults to data.name
+  bucket: # Defaults to endpoints.s3_bucket
+  prefix: # Defaults to endpoints.s3_prefix
+logging:
+  level: "INFO" # Will override with env variable LOG_LEVEL
+  file: # If blank, will log to stdout.

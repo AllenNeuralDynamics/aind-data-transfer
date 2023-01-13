@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 import yaml
+
 from config import DASK_CONF_FILE
 
 
@@ -58,30 +59,26 @@ def write_slurm_scripts(args, run_info):
 
 
 def write_dask_config(args, run_info, deployment="slurm"):
-    config = {"jobqueue": {}}
+    config = {}
     if deployment == "slurm":
-        config["jobqueue"]["slurm"] = {
-            "queue": args.queue,
-            "cores": args.cpus_per_task,
-            "processes": args.processes,
-            "memory": f"{args.mem_per_cpu * args.cpus_per_task}MB",
-            "walltime": args.walltime,
-            "n_workers": args.ntasks_per_node * args.nodes,
-            "death_timeout": 600,
-            "job_extra": [f"--tmp {args.tmp_space}"],
-            "local_directory": args.local_dir,
-            "log_directory": os.path.join(
-                run_info.logs_dir, "dask-worker-logs"
-            ),
+        config['distributed'] = {
+            'worker': {
+                'memory': {
+                    "target": args.worker_memory_target,
+                    "spill": args.worker_memory_spill,
+                    "pause": args.worker_memory_pause,
+                    "terminate": args.worker_memory_terminate
+                }
+            }
         }
     else:
         raise ValueError("Only Slurm is currently supported")
     # Save a carbon copy to the run directory
     with open(run_info.dask_conf_file, "w") as f:
-        yaml.dump(config, f, default_flow_style=None)
+        yaml.dump(config, f, default_flow_style=False)
     # Now save the file actually used by Dask
     with open(DASK_CONF_FILE, "w") as f:
-        yaml.dump(config, f, default_flow_style=None)
+        yaml.dump(config, f, default_flow_style=False)
 
 
 RunInfo = collections.namedtuple(
@@ -108,7 +105,7 @@ def create_run(args):
     run_conf_dir = f"{run_dir}/conf"
     launch_script = f"{run_scripts_dir}/queue-slurm-jobs.sh"
 
-    dask_conf_file = f"{run_conf_dir}/jobqueue.yaml"
+    dask_conf_file = f"{run_conf_dir}/dask-config.yaml"
 
     user_name = os.getenv("USER")
     job_name_prefix = f"slurm_{user_name}_{timestamp}"
@@ -177,13 +174,6 @@ def parse_args():
         help="number of cpus per job",
     )
     parser.add_argument(
-        "--processes",
-        type=int,
-        default=None,
-        help="cut the job into this many processes. "
-        "defaults to ~= sqrt(cpus_per_task)",
-    )
-    parser.add_argument(
         "--mem_per_cpu", type=int, default=500, help="memory per cpu in MB"
     )
     parser.add_argument(
@@ -220,6 +210,36 @@ def parse_args():
         help="local directory for dask worker file spilling. "
         "This should be fast, node-local storage.",
     )
+    parser.add_argument(
+        "--worker_memory_target",
+        type=float,
+        default=0.6,
+        help="fraction of managed memory where Dask workers start spilling to disk"
+    )
+    parser.add_argument(
+        "--worker_memory_spill",
+        type=float,
+        default=0.7,
+        help="fraction of process memory where Dask workers start spilling to disk"
+    )
+    parser.add_argument(
+        "--worker_memory_pause",
+        type=float,
+        default=0.8,
+        help="fraction of process memory at which we pause Dask worker threads"
+    )
+    parser.add_argument(
+        "--worker_memory_terminate",
+        type=float,
+        default=0.95,
+        help="fraction of process memory at which we terminate the Dask worker"
+    )
+    parser.add_argument(
+        "--wait",
+        default=False,
+        action="store_true",
+        help="do not exit until the submitted job terminates. See the --wait flag for sbatch.",
+    )
 
     args = parser.parse_args()
 
@@ -239,8 +259,12 @@ def main():
     write_dask_config(args, run_info, args.deployment)
 
     if args.task == "generate-and-launch-run":
-        print(f"Running:\n  {run_info.launch_script}\n")
-        os.system(f"sbatch {run_info.launch_script}")
+        cmd = f"sbatch "
+        if args.wait:
+            cmd += "--wait "
+        cmd += run_info.launch_script
+        print(f"Running:\n  {cmd}\n")
+        os.system(cmd)
     else:
         print(f"To launch jobs, run:\n  {run_info.launch_script}\n")
 

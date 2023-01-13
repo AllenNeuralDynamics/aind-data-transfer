@@ -1,0 +1,13 @@
+{
+    "Species": "mus musculus",
+    "Date of Birth": "2019-06-02",
+    "Maternal Genotype": "C57BL/6",
+    "Paternal Genotype": "Slc17a6-IRES-Cre (homozygous)",
+    "Genotype": "Slc17a6-IRES-Cre",
+    "Specimen ID": "ANM457202",
+    "Internal IDs": {
+	"Cage ID": "CAG170333",
+	"Ear Tag ID": "1933339",
+	"Reference ID": "111L",
+    }
+}

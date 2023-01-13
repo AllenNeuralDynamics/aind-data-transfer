@@ -33,14 +33,17 @@ set -e
 
 pwd; date
 
-echo "Starting the dask scheduler on node ${HOSTNAME}"
-echo "Access the dashboard with \"ssh -L 8787:${HOSTNAME}:8787 ${USER}@@hpc-login\""
-
 [[ -f "@{conda_activate}" ]] && source "@{conda_activate}" @{conda_env}
+
+module purge
+module load mpi/mpich-3.2-x86_64
 
 echo "Running \"@{job_cmd}\""
 
-@{job_cmd}
+# Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
+# are not sitting idle while the workers (rank 2...N) work
+# See https://edbennett.github.io/high-performance-python/11-dask/ for details.
+mpirun -np $(( SLURM_NTASKS + 2 )) @{job_cmd}
 
 echo "Done"
 
