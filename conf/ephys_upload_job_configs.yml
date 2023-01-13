@@ -1,0 +1,51 @@
+# Leave values blank to use defaults
+endpoints:
+  raw_data_dir: # Set this to raw data location
+  dest_data_dir: # Defaults to the raw_data_dir folder name
+  behavior_directory: # Leaving blank will have job check for a video folder in raw_data_dir
+  s3_bucket:
+  s3_prefix: # Defaults to folder name in dest_data_dir
+  gcp_bucket:
+  gcp_prefix:
+  codeocean_domain:
+  code_repo_location:
+  metadata_service_url:
+aws_secret_names:
+  region:
+  video_encryption_password: # If blank or not able to access AWS, will NOT encrypt
+  code_ocean_api_token_name: # Can be overridden by env variable CODEOCEAN_API_TOKEN
+jobs: # Select which jobs to run
+  clip: true
+  compress: true
+  attach_metadata: true
+  upload_to_s3: true
+  upload_to_gcp: false
+  trigger_codeocean_job: true
+data:
+  name: openephys
+  subject_id: # Leave blank to try and parse from folder name
+clip_data_job:
+  clip_kwargs:
+    n_frames:
+compress_data_job:
+  write_kwargs: {"n_jobs": -1, "chunk_duration": "1s", "progress_bar": true}
+  format_kwargs:
+    output_format:
+  compressor:
+    compressor_name: wavpack
+    kwargs: {"level": 3}
+  scale_params:
+    num_chunks_per_segment:
+    chunk_size:
+    disable_tqdm:
+  max_windows_filename_len: # Windows OS has max filename length of 256, which can mess up zarr writer
+upload_data_job:
+  dryrun: false # Set this to true to perform a dryrun of the upload
+trigger_codeocean_job:
+  capsule_id:
+  job_type: # Defaults to data.name
+  bucket: # Defaults to endpoints.s3_bucket
+  prefix: # Defaults to endpoints.s3_prefix
+logging:
+  level: "INFO" # Env variable LOG_LEVEL will override this value
+  file: # If blank, will log to stdout.

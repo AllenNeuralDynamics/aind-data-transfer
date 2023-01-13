@@ -1,0 +1,30 @@
+# Leave values blank to use defaults
+endpoints:
+  raw_data_dir: "tests/resources/imaging/exaSPIM_125L_2022-08-05_17-25-36"
+  dest_data_dir: "s3://aind-transfer-test"
+  code_repo_location: "https://github.com/AllenNeuralDynamics/aind-data-transfer"
+jobs: # Select which jobs to run
+  upload_aux_files: false
+  transcode: true
+data:
+  name: imaging
+transcode_job:
+  compressor:
+    compressor_name: blosc
+    kwargs: {cname: "zstd", clevel: 1, shuffle: "SHUFFLE"}
+  chunk_size: 64
+  resume: false
+  n_levels: 8
+  submit_args: {
+    nodes: 8,
+    ntasks_per_node: 8,
+    cpus_per_task: 1,
+    mem_per_cpu: 3000,
+    conda_activate: "/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/bin/activate",
+    conda_env: "aind-data-transfer",
+    run_parent_dir: "/home/cameron.arshadi/exaSPIM-transcode-jobs/exaSPIM_125L_2022-08-05_17-25-36",
+    walltime: "72:00:00",
+    tmp_space: "8GB",
+    mail_user: "cameron.arshadi@alleninstitute.org",
+    queue: "aind"
+  }
