@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import List
 
 import tifffile
 
@@ -13,11 +14,11 @@ from aind_data_transfer.util.file_utils import collect_filepaths
 from aind_data_transfer.util.dask_utils import get_client
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
-LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
+_LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.INFO)
 
 
-AXES = {
+_AXES = {
     "XY": 0,
     "XZ": 1,
     "YZ": 2
@@ -28,7 +29,7 @@ class HDF5PluginError(Exception):
     pass
 
 
-def find_hdf5plugin_path():
+def _find_hdf5plugin_path():
     # this should work with both conda environments and virtualenv
     # see https://stackoverflow.com/a/46071447
     import sysconfig
@@ -44,7 +45,11 @@ def find_hdf5plugin_path():
     return plugin_path
 
 
-def parse_args():
+def _any_hdf5(filepaths: List[str]):
+    return any(fp.endswith((".h5", ".ims")) for fp in filepaths)
+
+
+def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input",
@@ -94,24 +99,22 @@ def parse_args():
 
 
 def project_and_write(arr, axis, out_dir, overwrite=False):
-    LOGGER.info(f"computing axis {axis}")
+    _LOGGER.info(f"computing axis {axis}")
     out_tiff = os.path.join(out_dir, f"MIP_axis_{axis}.tiff")
     if not overwrite and os.path.isfile(out_tiff):
-        LOGGER.info(f"{out_tiff} exists, skipping.")
+        _LOGGER.info(f"{out_tiff} exists, skipping.")
         return
-    norm_axis = AXES[axis]
+    norm_axis = _AXES[axis]
     t0 = time.time()
     res = arr.max(axis=norm_axis).compute()
     t1 = time.time()
-    LOGGER.info(f"{t1 - t0}s")
-    LOGGER.info(res.shape)
+    _LOGGER.info(f"{t1 - t0}s")
+    _LOGGER.info(res.shape)
     tifffile.imwrite(out_tiff, res, imagej=True)
 
 
 def main():
-    args = parse_args()
-
-    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+    args = _parse_args()
 
     image_paths = collect_filepaths(
         args.input,
@@ -126,28 +129,29 @@ def main():
 
     image_paths = [p for p in image_paths if p not in exclude_paths]
 
-    LOGGER.info(f"Found {len(image_paths)} images to process")
+    _LOGGER.info(f"Found {len(image_paths)} images to process")
 
     if not image_paths:
-        LOGGER.warning("No images found. Exiting.")
+        _LOGGER.warning("No images found. Exiting.")
         return
 
-    worker_options = {
-        "env": {
-            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
-            "HDF5_USE_FILE_LOCKING": "FALSE"
-        }
-    }
+    worker_options = {}
+    if _any_hdf5(image_paths):
+        os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+        worker_options["env"] = {
+                "HDF5_PLUGIN_PATH": _find_hdf5plugin_path(),
+                "HDF5_USE_FILE_LOCKING": "FALSE"
+            }
 
     client, _ = get_client(args.deployment, worker_options=worker_options)
 
     for impath in image_paths:
 
-        LOGGER.info(f"Processing {impath}")
+        _LOGGER.info(f"Processing {impath}")
 
         reader = DataReaderFactory().create(impath)
         chunks = _compute_chunks(reader, args.chunk_size)[2:]  # MB
-        LOGGER.info(f"chunks: {chunks}")
+        _LOGGER.info(f"chunks: {chunks}")
 
         arr = reader.as_dask_array(chunks=chunks)
 
