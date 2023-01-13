@@ -5,7 +5,7 @@ import os
 import time
 from pathlib import Path
 
-import h5py
+import tifffile
 
 from aind_data_transfer.transcode.ome_zarr import _compute_chunks
 from aind_data_transfer.util.io_utils import DataReaderFactory
@@ -15,6 +15,13 @@ from aind_data_transfer.util.dask_utils import get_client
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
+
+
+AXES = {
+    "XY": 0,
+    "XZ": 1,
+    "YZ": 2
+}
 
 
 class HDF5PluginError(Exception):
@@ -42,15 +49,13 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default="/net/172.20.102.30/aind/exaSPIM/20220805_172536_brain1/",
-        # default=r"/allen/programs/aind/workgroups/msma/cameron.arshadi/test_ims",
+        default="/net/aind.vast01/aind/exaSPIM/exaSPIM_MN9_RH2_high_SNR_2022-11-10_09-53-25",
         help="directory of images to transcode",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="/allen/programs/aind/workgroups/msma/exaSPIM-projections/20220805_172536",
-        help="output Zarr path, e.g., s3://bucket/tiles.zarr",
+        default="/allen/programs/aind/workgroups/msma/exaSPIM-projections/exaSPIM_MN9_RH2_high_SNR_2022-11-10_09-53-25",
     )
     parser.add_argument(
         "--deployment",
@@ -60,20 +65,15 @@ def parse_args():
     )
     parser.add_argument("--log_level", type=int, default=logging.INFO)
     parser.add_argument(
-        "--hdf5-plugin-path",
+        "--axes",
         type=str,
-        default="/allen/programs/aind/workgroups/msma/cameron.arshadi/miniconda3/envs/nd-data-transfer/lib/python3.10/site-packages/hdf5plugin/plugins",
-        help="path to HDF5 filter plugins. Specifying this is necessary if transcoding HDF5 or IMS files on HPC."
-    )
-    parser.add_argument(
-        "--do-xy",
-        default=False,
-        action="store_true",
-        help="save the XY MIP in addition to XZ and YZ"
+        nargs="+",
+        default=["XY", "XZ", "YZ"],
+        help="the projections to create"
     )
     parser.add_argument(
         "--exclude",
-        default=[],
+        default=["*.tiff"],
         type=str,
         nargs="+",
         help="filename patterns to exclude, e.g., \"*.tif\", \"*.memento\", etc"
@@ -84,38 +84,35 @@ def parse_args():
         action="store_true",
         help="Overwrite MIPs if they already exist on disk."
     )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=512,
+        help="dask chunk size (MB)"
+    )
     args = parser.parse_args()
     return args
 
 
-def mip_exists(out_h5):
-    if not os.path.exists(out_h5):
-        return False
-    with h5py.File(out_h5) as f:
-        try:
-            check = f['data']
-            return check.nbytes > 0
-        except KeyError:
-            return False
-
-
 def project_and_write(arr, axis, out_dir, overwrite=False):
     LOGGER.info(f"computing axis {axis}")
-    out_h5 = os.path.join(out_dir, f"MIP_axis_{axis}.h5")
-    if not overwrite and mip_exists(out_h5):
-        LOGGER.info(f"{out_h5} exists, skipping.")
+    out_tiff = os.path.join(out_dir, f"MIP_axis_{axis}.tiff")
+    if not overwrite and os.path.isfile(out_tiff):
+        LOGGER.info(f"{out_tiff} exists, skipping.")
         return
+    norm_axis = AXES[axis]
     t0 = time.time()
-    res = arr.max(axis=axis).compute()
+    res = arr.max(axis=norm_axis).compute()
     t1 = time.time()
     LOGGER.info(f"{t1 - t0}s")
     LOGGER.info(res.shape)
-    with h5py.File(out_h5, 'w') as f:
-        f.create_dataset("data", data=res, chunks=(128, 128))
+    tifffile.imwrite(out_tiff, res, imagej=True)
 
 
 def main():
     args = parse_args()
+
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
     image_paths = collect_filepaths(
         args.input,
@@ -142,6 +139,7 @@ def main():
             "HDF5_USE_FILE_LOCKING": "FALSE"
         }
     }
+
     client, _ = get_client(args.deployment, worker_options=worker_options)
 
     for impath in image_paths:
@@ -149,7 +147,7 @@ def main():
         LOGGER.info(f"Processing {impath}")
 
         reader = DataReaderFactory().create(impath)
-        chunks = _compute_chunks(reader, 1024)[2:]  # MB
+        chunks = _compute_chunks(reader, args.chunk_size)[2:]  # MB
         LOGGER.info(f"chunks: {chunks}")
 
         arr = reader.as_dask_array(chunks=chunks)
@@ -162,11 +160,8 @@ def main():
         # FIXME: compute the projections serially since
         #  dask worker memory blows up if doing
         #  xy, xz, yz = dask.compute(arr.max(axis=0), arr.max(axis=1), arr.max(axis=2))
-        axes = [1, 2]
-        if args.do_xy:
-            axes.insert(0, 0)
-        for a in axes:
-            project_and_write(arr, a, out_dir, overwrite=args.overwrite)
+        for axis in args.axes:
+            project_and_write(arr, axis, out_dir, overwrite=args.overwrite)
 
 
 if __name__ == "__main__":
