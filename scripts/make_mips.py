@@ -49,18 +49,17 @@ def parse_args():
     parser.add_argument(
         "--input",
         type=str,
-        default="/net/aind.vast01/aind/exaSPIM/exaSPIM_MN9_RH2_high_SNR_2022-11-10_09-53-25",
         help="directory of images to transcode",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="/allen/programs/aind/workgroups/msma/exaSPIM-projections/exaSPIM_MN9_RH2_high_SNR_2022-11-10_09-53-25",
+        help="directory to output MIPs"
     )
     parser.add_argument(
         "--deployment",
         type=str,
-        default="slurm",
+        default="local",
         help="cluster deployment type",
     )
     parser.add_argument("--log_level", type=int, default=logging.INFO)
@@ -73,7 +72,7 @@ def parse_args():
     )
     parser.add_argument(
         "--exclude",
-        default=["*.tiff"],
+        default=[],
         type=str,
         nargs="+",
         help="filename patterns to exclude, e.g., \"*.tif\", \"*.memento\", etc"
@@ -87,7 +86,7 @@ def parse_args():
     parser.add_argument(
         "--chunk-size",
         type=int,
-        default=512,
+        default=128,
         help="dask chunk size (MB)"
     )
     args = parser.parse_args()
