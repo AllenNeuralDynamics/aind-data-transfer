@@ -6,54 +6,35 @@ import time
 from pathlib import Path
 
 import h5py
-from dask_jobqueue import SLURMCluster
-from distributed import LocalCluster, Client
-from transfer.transcode.io import DataReaderFactory
-from transfer.util.fileutils import collect_filepaths
 
-from cluster.config import load_jobqueue_config
-from transfer.util.arrayutils import ensure_shape_5d, guess_chunks, expand_chunks
+from aind_data_transfer.transcode.ome_zarr import _compute_chunks
+from aind_data_transfer.util.io_utils import DataReaderFactory
+from aind_data_transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.util.dask_utils import get_client
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 
-def set_hdf5_env_vars(hdf5_plugin_path=None):
-    if hdf5_plugin_path is not None:
-        os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path
-    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+class HDF5PluginError(Exception):
+    pass
 
 
-def get_dask_kwargs(hdf5_plugin_path=None):
-    my_dask_kwargs = {'env_extra': []}
-    if hdf5_plugin_path is not None:
-        # TODO: figure out why this is necessary
-        # Override plugin path in each Dask worker
-        my_dask_kwargs['env_extra'].append(f"export HDF5_PLUGIN_PATH={hdf5_plugin_path}")
-    my_dask_kwargs['env_extra'].append("export HDF5_USE_FILE_LOCKING=FALSE")
-    return my_dask_kwargs
+def find_hdf5plugin_path():
+    # this should work with both conda environments and virtualenv
+    # see https://stackoverflow.com/a/46071447
+    import sysconfig
 
-
-def get_client(deployment="slurm", **kwargs):
-    if deployment == "slurm":
-        base_config = load_jobqueue_config()
-        config = base_config["jobqueue"]["slurm"]
-        # cluster config is automatically populated from
-        # ~/.config/dask/jobqueue.yaml
-        cluster = SLURMCluster(**kwargs)
-        cluster.scale(config["n_workers"])
-        LOGGER.info(cluster.job_script())
-    elif deployment == "local":
-        import platform
-        use_procs = False if platform.system() == "Windows" else True
-        cluster = LocalCluster(processes=use_procs, threads_per_worker=1)
-        config = None
-    else:
-        raise NotImplementedError
-
-    client = Client(cluster)
-    return client, config
+    site_packages = sysconfig.get_paths()["purelib"]
+    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
+    if not os.path.isdir(plugin_path):
+        raise HDF5PluginError(
+            f"Could not find hdf5plugin in site-packages, "
+            f"{plugin_path} does not exist. "
+            f"Try setting --hdf5_plugin_path manually."
+        )
+    return plugin_path
 
 
 def parse_args():
@@ -107,31 +88,6 @@ def parse_args():
     return args
 
 
-def compute_chunks(reader, target_size_mb):
-    target_size_bytes = target_size_mb * 1024 * 1024
-    padded_chunks = ensure_shape_5d(reader.get_chunks())
-    padded_shape = ensure_shape_5d(reader.get_shape())
-    LOGGER.info(f"Using multiple of base chunk size: {padded_chunks}")
-    if padded_chunks[-2:] == padded_shape[-2:]:
-        LOGGER.info("chunks and shape have same XY dimensions, "
-                    "will chunk along Z only.")
-        chunks = guess_chunks(
-            padded_shape,
-            target_size_bytes,
-            reader.get_itemsize(),
-            mode="z"
-        )
-    else:
-        chunks = expand_chunks(
-            padded_chunks,
-            padded_shape,
-            target_size_bytes,
-            reader.get_itemsize(),
-            mode="iso"
-        )
-    return chunks
-
-
 def mip_exists(out_h5):
     if not os.path.exists(out_h5):
         return False
@@ -180,18 +136,20 @@ def main():
         LOGGER.warning("No images found. Exiting.")
         return
 
-    set_hdf5_env_vars(args.hdf5_plugin_path)
-
-    my_dask_kwargs = get_dask_kwargs(args.hdf5_plugin_path)
-
-    client, _ = get_client(args.deployment, **my_dask_kwargs)
+    worker_options = {
+        "env": {
+            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
+            "HDF5_USE_FILE_LOCKING": "FALSE"
+        }
+    }
+    client, _ = get_client(args.deployment, worker_options=worker_options)
 
     for impath in image_paths:
 
         LOGGER.info(f"Processing {impath}")
 
         reader = DataReaderFactory().create(impath)
-        chunks = compute_chunks(reader, 1024)[2:]  # MB
+        chunks = _compute_chunks(reader, 1024)[2:]  # MB
         LOGGER.info(f"chunks: {chunks}")
 
         arr = reader.as_dask_array(chunks=chunks)
