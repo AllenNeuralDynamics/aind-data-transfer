@@ -98,9 +98,9 @@ def _parse_args():
     return args
 
 
-def project_and_write(arr, axis, out_dir, overwrite=False):
+def project_and_write(arr, axis, out_dir, tile_name, overwrite=False):
     _LOGGER.info(f"computing axis {axis}")
-    out_tiff = os.path.join(out_dir, f"MIP_axis_{axis}.tiff")
+    out_tiff = os.path.join(out_dir, f"{tile_name}_mip_{axis}.tiff")
     if not overwrite and os.path.isfile(out_tiff):
         _LOGGER.info(f"{out_tiff} exists, skipping.")
         return
@@ -109,7 +109,7 @@ def project_and_write(arr, axis, out_dir, overwrite=False):
     res = arr.max(axis=norm_axis).compute()
     t1 = time.time()
     _LOGGER.info(f"{t1 - t0}s")
-    _LOGGER.info(res.shape)
+    _LOGGER.info("MIP shape: {res.shape}")
     tifffile.imwrite(out_tiff, res, imagej=True)
 
 
@@ -145,6 +145,8 @@ def main():
 
     client, _ = get_client(args.deployment, worker_options=worker_options)
 
+    os.makedirs(args.output, exist_ok=True)
+
     for impath in image_paths:
 
         _LOGGER.info(f"Processing {impath}")
@@ -157,14 +159,11 @@ def main():
 
         tile_name = Path(impath).stem
 
-        out_dir = os.path.join(args.output, tile_name)
-        os.makedirs(out_dir, exist_ok=True)
-
         # FIXME: compute the projections serially since
         #  dask worker memory blows up if doing
         #  xy, xz, yz = dask.compute(arr.max(axis=0), arr.max(axis=1), arr.max(axis=2))
         for axis in args.axes:
-            project_and_write(arr, axis, out_dir, overwrite=args.overwrite)
+            project_and_write(arr, axis, args.output, tile_name, overwrite=args.overwrite)
 
 
 if __name__ == "__main__":
