@@ -9,12 +9,15 @@ from numcodecs import blosc
 from aind_data_transfer.gcs import create_client
 from aind_data_transfer.transcode.ome_zarr import write_files
 from aind_data_transfer.util.file_utils import *
-from aind_data_transfer.util.dask_utils import log_dashboard_address, get_client
+from aind_data_transfer.util.dask_utils import get_client
+from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
 import hdf5plugin
+
+
 
 blosc.use_threads = False
 
@@ -35,26 +38,6 @@ def get_blosc_codec(cname, clevel):
         },
     }
     return opts
-
-
-class HDF5PluginError(Exception):
-    pass
-
-
-def find_hdf5plugin_path():
-    # this should work with both conda environments and virtualenv
-    # see https://stackoverflow.com/a/46071447
-    import sysconfig
-
-    site_packages = sysconfig.get_paths()["purelib"]
-    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
-    if not os.path.isdir(plugin_path):
-        raise HDF5PluginError(
-            f"Could not find hdf5plugin in site-packages, "
-            f"{plugin_path} does not exist. "
-            f"Try setting --hdf5_plugin_path manually."
-        )
-    return plugin_path
 
 
 def output_valid(output: Union[str, os.PathLike]) -> bool:
