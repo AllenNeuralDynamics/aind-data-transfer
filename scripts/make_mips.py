@@ -4,14 +4,14 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import List
 
 import tifffile
 
 from aind_data_transfer.transcode.ome_zarr import _compute_chunks
 from aind_data_transfer.util.io_utils import DataReaderFactory
-from aind_data_transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.util.file_utils import collect_filepaths, any_hdf5
 from aind_data_transfer.util.dask_utils import get_client
+from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 _LOGGER = logging.getLogger(__name__)
@@ -23,30 +23,6 @@ _AXES = {
     "XZ": 1,
     "YZ": 2
 }
-
-
-class HDF5PluginError(Exception):
-    pass
-
-
-def _find_hdf5plugin_path():
-    # this should work with both conda environments and virtualenv
-    # see https://stackoverflow.com/a/46071447
-    import sysconfig
-
-    site_packages = sysconfig.get_paths()["purelib"]
-    plugin_path = os.path.join(site_packages, "hdf5plugin/plugins")
-    if not os.path.isdir(plugin_path):
-        raise HDF5PluginError(
-            f"Could not find hdf5plugin in site-packages, "
-            f"{plugin_path} does not exist. "
-            f"Try setting --hdf5_plugin_path manually."
-        )
-    return plugin_path
-
-
-def _any_hdf5(filepaths: List[str]):
-    return any(fp.endswith((".h5", ".ims")) for fp in filepaths)
 
 
 def _parse_args():
@@ -136,10 +112,10 @@ def main():
         return
 
     worker_options = {}
-    if _any_hdf5(image_paths):
+    if any_hdf5(image_paths):
         os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
         worker_options["env"] = {
-                "HDF5_PLUGIN_PATH": _find_hdf5plugin_path(),
+                "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
                 "HDF5_USE_FILE_LOCKING": "FALSE"
             }
 
