@@ -9,6 +9,9 @@ def find_hdf5plugin_path() -> str:
     """
     Finds the site-packages directory containing hdf5plugin plugins. This requires
     that hdf5plugin is installed in your current Python environment.
+
+    Returns:
+        the path to the hdf5plugin plugins directory
     """
     # this should work with both conda environments and virtualenv
     # see https://stackoverflow.com/a/46071447
