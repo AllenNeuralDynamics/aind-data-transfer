@@ -447,3 +447,16 @@ def get_status_filename_data(dataset_path: PathLike) -> list:
 
     file_content = read_text_to_list(filename_path[0])
     return file_content
+
+
+def any_hdf5(filepaths: List[str]) -> bool:
+    """
+    Checks if any filepaths are HDF5-based, e.g., ".h5", ".ims"
+
+    Args:
+        filepaths: a list of filepath strings
+
+    Returns:
+        True if any files are HDF5-based, else False
+    """
+    return any(fp.endswith((".h5", ".ims")) for fp in filepaths)
