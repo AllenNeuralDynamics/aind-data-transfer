@@ -34,15 +34,23 @@ class TestProcessingMetadata(unittest.TestCase):
 
     conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
     args = ["-c", str(conf_file_path)]
-    loaded_configs = EphysJobConfigurationLoader().load_configs(args)
+    # loaded_configs = EphysJobConfigurationLoader().load_configs(args)
 
-    def test_create_processing_metadata(self) -> None:
+    @mock.patch(
+        "aind_data_transfer.config_loader.ephys_configuration_loader."
+        "EphysJobConfigurationLoader._get_endpoints"
+    )
+    def test_create_processing_metadata(self, mock_get_endpoints) -> None:
         """
         Tests that the processing metadata is created correctly.
 
         Returns:
 
         """
+
+        mock_get_endpoints.return_value = {"codeocean_trigger_capsule": None}
+
+        loaded_configs = EphysJobConfigurationLoader().load_configs(self.args)
 
         start_date_time = datetime.datetime.fromisoformat(
             "2020-10-20T00:00:00.000+00:00"
@@ -54,7 +62,7 @@ class TestProcessingMetadata(unittest.TestCase):
         output_location = "some_output_location"
         code_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
-        parameters = self.loaded_configs
+        parameters = loaded_configs
 
         processing_instance = ProcessingMetadata.ephys_job_to_processing(
             start_date_time=start_date_time,

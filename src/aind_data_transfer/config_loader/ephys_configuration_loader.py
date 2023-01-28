@@ -1,17 +1,62 @@
 """Loads Ephys job configurations"""
 import argparse
+import json
+import logging
 import os
 import re
 from pathlib import Path
 
 import yaml
+from botocore.exceptions import ClientError
 from numcodecs import Blosc
 
 from aind_data_transfer.readers.ephys_readers import EphysReaders
+from aind_data_transfer.util.s3_utils import get_secret
 
 
 class EphysJobConfigurationLoader:
     """Class to handle loading ephys job configs"""
+
+    DEFAULT_AWS_REGION = "us-west-2"
+    # Not the actual passwords, just the key name to retrieve it from aws
+    # secrets manager
+    SERVICE_ENDPOINT_KEY = "service_endpoints"
+    VIDEO_ENCRYPTION_KEY_NAME = "video_encryption_password"
+    CODE_OCEAN_API_TOKEN_NAME = "codeocean-api-token"
+    # TODO: Is there a better way to do this?
+    CODE_REPO_LOCATION = (
+        "https://github.com/AllenNeuralDynamics/aind-data-transfer"
+    )
+
+    @staticmethod
+    def _get_endpoints(s3_region: str) -> dict:
+        """
+        If the service endpoints aren't set in the sys args, then this method
+        will try to pull them from aws secrets manager. It's static since it's
+        being called before the job is created.
+        Parameters
+        ----------
+        s3_region : str
+
+        Returns
+        -------
+        dict
+          Will return an empty dictionary if the service endpoints are not set
+          in sys args, or if they can't be pulled from aws secrets manager.
+
+        """
+        try:
+            s3_secret_name = EphysJobConfigurationLoader.SERVICE_ENDPOINT_KEY
+            get_secret(s3_secret_name, s3_region)
+            endpoints = json.loads(get_secret(s3_secret_name, s3_region))
+        except ClientError as e:
+            logging.warning(
+                f"Unable to retrieve aws secret: "
+                f"{EphysJobConfigurationLoader.SERVICE_ENDPOINT_KEY}"
+            )
+            logging.debug(e.response)
+            endpoints = {}
+        return endpoints
 
     def __remove_none(self, data):
         """Remove keys whose value is None."""
@@ -54,7 +99,7 @@ class EphysJobConfigurationLoader:
             ] = shuffle_val
 
     @staticmethod
-    def __resolve_endpoints(configs):
+    def __resolve_endpoints(configs):  # noqa: C901
         """
         Only the raw data source needs to be provided as long as the base dir
         name is formatted correctly. If the dest_data_dir and cloud endpoints
@@ -104,6 +149,49 @@ class EphysJobConfigurationLoader:
             configs["trigger_codeocean_job"]["prefix"] = configs["endpoints"][
                 "s3_prefix"
             ]
+
+        if configs["aws_secret_names"]["region"] is None:
+            configs["aws_secret_names"][
+                "region"
+            ] = EphysJobConfigurationLoader.DEFAULT_AWS_REGION
+
+        # Not the actual password, just the key used to retrieve it
+        if configs["aws_secret_names"]["video_encryption_password"] is None:
+            configs["aws_secret_names"][
+                "video_encryption_password"
+            ] = EphysJobConfigurationLoader.VIDEO_ENCRYPTION_KEY_NAME
+
+        if configs["aws_secret_names"]["code_ocean_api_token_name"] is None:
+            configs["aws_secret_names"][
+                "code_ocean_api_token_name"
+            ] = EphysJobConfigurationLoader.VIDEO_ENCRYPTION_KEY_NAME
+
+        if configs["endpoints"]["code_repo_location"] is None:
+            configs["endpoints"][
+                "code_repo_location"
+            ] = EphysJobConfigurationLoader.CODE_REPO_LOCATION
+
+        if (
+            (configs["endpoints"]["codeocean_domain"] is None)
+            or (configs["endpoints"]["metadata_service_url"] is None)
+            or (configs["trigger_codeocean_job"]["capsule_id"] is None)
+        ):
+            service_endpoints = EphysJobConfigurationLoader._get_endpoints(
+                configs["aws_secret_names"]["region"]
+            )
+            if configs["endpoints"]["codeocean_domain"] is None:
+                configs["endpoints"]["codeocean_domain"] = service_endpoints[
+                    "codeocean_domain"
+                ]
+            if configs["endpoints"]["metadata_service_url"] is None:
+                configs["endpoints"][
+                    "metadata_service_url"
+                ] = service_endpoints["metadata_service_url"]
+
+            if configs["trigger_codeocean_job"]["capsule_id"] is None:
+                configs["trigger_codeocean_job"][
+                    "capsule_id"
+                ] = service_endpoints["codeocean_trigger_capsule"]
 
     @staticmethod
     def __resolve_logging(configs: dict) -> None:
