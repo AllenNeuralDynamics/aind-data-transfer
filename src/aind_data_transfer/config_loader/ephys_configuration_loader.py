@@ -164,7 +164,7 @@ class EphysJobConfigurationLoader:
         if configs["aws_secret_names"]["code_ocean_api_token_name"] is None:
             configs["aws_secret_names"][
                 "code_ocean_api_token_name"
-            ] = EphysJobConfigurationLoader.VIDEO_ENCRYPTION_KEY_NAME
+            ] = EphysJobConfigurationLoader.CODE_OCEAN_API_TOKEN_NAME
 
         if configs["endpoints"]["code_repo_location"] is None:
             configs["endpoints"][
