@@ -2,6 +2,7 @@
 import os
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from numcodecs import Blosc
 
@@ -16,8 +17,14 @@ CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
 class TestEphysJobConfigs(unittest.TestCase):
     """Tests ephys job pipeline methods"""
 
-    def test_conf_loads(self):
+    @mock.patch(
+        "aind_data_transfer.config_loader.ephys_configuration_loader."
+        "EphysJobConfigurationLoader._get_endpoints"
+    )
+    def test_conf_loads(self, mocked_get_endpoints):
         """Basic config loads test"""
+
+        mocked_get_endpoints.return_value = {"codeocean_trigger_capsule": None}
 
         raw_data_dir = (
             "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
@@ -49,6 +56,7 @@ class TestEphysJobConfigs(unittest.TestCase):
             "aws_secret_names": {
                 "code_ocean_api_token_name": "secret_name_for_api_token",
                 "region": "us-west-2",
+                "video_encryption_password": "video_encryption_password",
             },
             "data": {"name": "openephys"},
             "clip_data_job": {
@@ -82,8 +90,14 @@ class TestEphysJobConfigs(unittest.TestCase):
         loaded_configs = EphysJobConfigurationLoader().load_configs(args)
         self.assertEqual(loaded_configs, expected_configs)
 
-    def test_endpoints_are_resolved(self):
+    @mock.patch(
+        "aind_data_transfer.config_loader.ephys_configuration_loader."
+        "EphysJobConfigurationLoader._get_endpoints"
+    )
+    def test_endpoints_are_resolved(self, mocked_get_endpoints):
         """Tests default endpoints are resolved correctly"""
+
+        mocked_get_endpoints.return_value = {"codeocean_trigger_capsule": None}
 
         raw_data_dir = "/some/random/folder/625463_2022-10-06_10-14-25"
         expected_configs = {
