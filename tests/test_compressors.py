@@ -9,10 +9,13 @@ from wavpack_numcodecs import WavPack
 from aind_data_transfer.readers.ephys_readers import EphysReaders
 from aind_data_transfer.transformations.ephys_compressors import (
     EphysCompressors,
+)
+from aind_data_transfer.transformations.imaging_compressors import (
+    ImagingCompressors,
+)
+from aind_data_transfer.transformations.video_compressors import (
     VideoCompressor,
 )
-from aind_data_transfer.transformations.imaging_compressors import \
-    ImagingCompressors
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 RESOURCES_DIR = TEST_DIR / "resources"

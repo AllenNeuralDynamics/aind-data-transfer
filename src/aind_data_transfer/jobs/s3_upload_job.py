@@ -6,8 +6,10 @@ import datetime
 import json
 import logging
 import os
+import shutil
 import sys
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 from aind_codeocean_api.codeocean import CodeOceanClient
@@ -16,6 +18,9 @@ from botocore.exceptions import ClientError
 from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
     SubjectMetadata,
+)
+from aind_data_transfer.transformations.video_compressors import (
+    VideoCompressor,
 )
 from aind_data_transfer.util.s3_utils import (
     copy_to_s3,
@@ -30,6 +35,7 @@ class GenericS3UploadJob:
     SERVICE_ENDPOINT_KEY = "service_endpoints"
     METADATA_SERVICE_URL_KEY = "metadata_service_url"
     S3_DEFAULT_REGION = "us-west-2"
+    VIDEO_ENCRYPTION_KEY_NAME = "video_encryption_password"
 
     # TODO: Move the code ocean configs into own class? Or import them?
     CODEOCEAN_DOMAIN_KEY = "codeocean_domain"
@@ -38,6 +44,7 @@ class GenericS3UploadJob:
     CODEOCEAN_TOKEN_KEY_ENV = CODEOCEAN_TOKEN_KEY.replace("-", "_").upper()
     CODEOCEAN_READ_WRITE_KEY = "CODEOCEAN_READWRITE_TOKEN"
     CODEOCEAN_JOB_TYPE = "register_data"
+    BEHAVIOR_S3_PREFIX = "behavior"
 
     def __init__(self, args: list) -> None:
         """Initializes class with sys args. Convert the sys args to configs."""
@@ -73,6 +80,33 @@ class GenericS3UploadJob:
             logging.debug(e.response)
             endpoints = {}
         return endpoints
+
+    def compress_and_upload_behavior_data(self):
+        """Uploads the behavior directory. Attempts to encrypt the video
+        files."""
+        behavior_dir = self.configs.behavior_dir
+        if behavior_dir:
+            encryption_key = get_secret(
+                self.VIDEO_ENCRYPTION_KEY_NAME, self.configs.s3_region
+            )
+            video_compressor = VideoCompressor(encryption_key=encryption_key)
+            s3_behavior_prefix = "/".join(
+                [self.s3_prefix, self.BEHAVIOR_S3_PREFIX]
+            )
+            # Copy data to a temp directory
+            with tempfile.TemporaryDirectory() as td:
+                for root, dirs, files in os.walk(behavior_dir):
+                    for file in files:
+                        raw_file_path = os.path.join(root, file)
+                        new_file_path = os.path.join(td, file)
+                        shutil.copy(raw_file_path, new_file_path)
+                video_compressor.compress_all_videos_in_dir(td)
+                upload_to_s3(
+                    directory_to_upload=td,
+                    s3_bucket=self.configs.s3_bucket,
+                    s3_prefix=s3_behavior_prefix,
+                    dryrun=self.configs.dry_run,
+                )
 
     def upload_subject_metadata(self) -> None:
         """Retrieves subject metadata from metadata service and copies it to
@@ -254,6 +288,7 @@ class GenericS3UploadJob:
         parser.add_argument("-m", "--modality", required=True, type=str)
         parser.add_argument("-a", "--acq-date", required=True, type=str)
         parser.add_argument("-t", "--acq-time", required=True, type=str)
+        parser.add_argument("-v", "--behavior-dir", required=False, type=str)
         parser.add_argument(
             "-e", "--service-endpoints", required=False, type=json.loads
         )
@@ -274,11 +309,18 @@ class GenericS3UploadJob:
 
         data_prefix = "/".join([self.s3_prefix, self.configs.modality])
 
+        behavior_dir = self.configs.behavior_dir
+        if behavior_dir is not None:
+            self.compress_and_upload_behavior_data()
+            behavior_dir = Path(behavior_dir) / "*"
+
+        # Upload non-behavior data to s3 first
         upload_to_s3(
             directory_to_upload=self.configs.data_source,
             s3_bucket=self.configs.s3_bucket,
             s3_prefix=data_prefix,
             dryrun=self.configs.dry_run,
+            excluded=behavior_dir,
         )
 
         # Create subject.json file if metadata service url is provided
@@ -302,6 +344,7 @@ class GenericS3UploadJobList:
         "modality",
         "acq-date",
         "acq-time",
+        "behavior-dir",
     ]
 
     def __init__(self, args: list) -> None:
@@ -317,7 +360,7 @@ class GenericS3UploadJobList:
         help_message_csv_file = (
             "Path to csv file with list of job configs. The csv file needs "
             "to have the headers: data-source, s3-bucket, subject-id, "
-            "modality, acq-date, acq-time"
+            "modality, acq-date, acq-time. Optional header: behavior-dir."
         )
         help_message_dry_run = (
             "Tests the upload without actually uploading the files."
@@ -346,13 +389,23 @@ class GenericS3UploadJobList:
             for row in reader:
                 job_list.append(row)
         assert len(job_list) > 0
-        assert sorted(job_list[0].keys()) == sorted(self.CSV_FILE_FIELD_NAMES)
+        assert (
+            sorted(job_list[0].keys()) == sorted(self.CSV_FILE_FIELD_NAMES)
+        ) or (
+            sorted(job_list[0].keys())
+            == sorted(self.CSV_FILE_FIELD_NAMES[0:-1])
+        )
         param_list = list()
         for job_item in job_list:
             res = [
                 x
                 for t in [
-                    ("--" + keys[0], keys[1]) for keys in job_item.items()
+                    ("--" + keys[0], keys[1])
+                    for keys in job_item.items()
+                    if (
+                        (keys[0] != "behavior-dir")
+                        or ((keys[1] is not None) and (keys[1] != ""))
+                    )
                 ]
                 for x in t
             ]

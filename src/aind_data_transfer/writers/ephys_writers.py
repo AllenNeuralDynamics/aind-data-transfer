@@ -5,7 +5,7 @@ import shutil
 
 import numpy as np
 
-from aind_data_transfer.transformations.ephys_compressors import (
+from aind_data_transfer.transformations.video_compressors import (
     VideoCompressor,
 )
 

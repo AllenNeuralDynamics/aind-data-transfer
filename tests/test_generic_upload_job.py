@@ -140,6 +140,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
             "s3_region": "us-west-2",
             "service_endpoints": json.loads(self.fake_endpoints_str),
             "dry_run": True,
+            "behavior_dir": None,
         }
         self.assertEqual(expected_configs_vars, vars(job.configs))
 
@@ -391,6 +392,51 @@ class TestGenericS3UploadJob(unittest.TestCase):
             "CodeOcean endpoints are required to trigger capsule."
         )
 
+    @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
+    @patch("tempfile.TemporaryDirectory")
+    @patch(
+        "aind_data_transfer.transformations.video_compressors."
+        "VideoCompressor.compress_all_videos_in_dir"
+    )
+    @patch("shutil.copy")
+    @patch("os.walk")
+    @patch("boto3.session.Session")
+    def test_compress_and_upload_behavior_data(
+        self,
+        mock_session: MagicMock,
+        mock_walk: MagicMock,
+        mock_copy: MagicMock,
+        mock_compress: MagicMock,
+        mocked_tempdir: MagicMock,
+        mock_upload_to_s3: MagicMock,
+    ) -> None:
+        """Tests behavior directory is uploaded correctly."""
+
+        args_with_behavior = ["-v", "some_behave_dir"]
+        args_with_behavior.extend(self.args1)
+        mock_session.return_value = self._mock_boto_get_secret_session(
+            "video_encryption_password"
+        )
+        mocked_tempdir.return_value.__enter__ = lambda _: "tmp_dir"
+        mock_walk.return_value = [
+            ("some_behave_dir", "", ["foo1.avi", "foo2.avi"])
+        ]
+        job = GenericS3UploadJob(args_with_behavior)
+        job.compress_and_upload_behavior_data()
+        mock_copy.assert_has_calls(
+            [
+                call("some_behave_dir/foo1.avi", "tmp_dir/foo1.avi"),
+                call("some_behave_dir/foo2.avi", "tmp_dir/foo2.avi"),
+            ]
+        )
+        mock_compress.assert_called_once_with("tmp_dir")
+        mock_upload_to_s3.assert_called_once_with(
+            directory_to_upload="tmp_dir",
+            s3_bucket="some_s3_bucket",
+            s3_prefix=("ecephys_12345_2022-10-10_13-24-01/behavior"),
+            dryrun=True,
+        )
+
     @patch.dict(
         os.environ,
         ({f"{GenericS3UploadJob.CODEOCEAN_TOKEN_KEY_ENV}": "abc-12345"}),
@@ -420,6 +466,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
             s3_bucket=job.configs.s3_bucket,
             s3_prefix=data_prefix,
             dryrun=job.configs.dry_run,
+            excluded=None,
         )
 
 

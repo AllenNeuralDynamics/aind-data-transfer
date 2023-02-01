@@ -88,6 +88,12 @@ python -m aind_data_transfer.jobs.s3_upload_job ... --service-endpoints '{"metad
 python -m aind_data_transfer.jobs.s3_upload_job ... -e '{"metadata_service_url":"http://something","codeocean_domain":"https://codeocean.acme.org","codeocean_trigger_capsule":"abc-123"}'
 ```
 
+Optional behavior directory (None if not set). This will upload files from this directory to a folder called {s3_bucket}/{s3_prefix}/behavior in s3. The uploaded video files will be encrypted.
+```
+python -m aind_data_transfer.jobs.s3_upload_job ... --behavior-dir "/home/some_folder"
+python -m aind_data_transfer.jobs.s3_upload_job ... -v "/home/some_folder"
+```
+
 Optional dry run (defaults to False.) If flag is set, dry-run is set to True. It will perform the operations without actually uploading or triggering the codeocean capsule. It will check that the job can hit the endpoints correctly and give a preview of the upload/trigger results:
 ```
 python -m aind_data_transfer.jobs.s3_upload_job ... --dry-run
@@ -111,6 +117,15 @@ The csv file should look something like:
 data-source, s3-bucket, subject-id, modality, acq-date, acq-time
 dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10, 14-10-10
 dir/data_set_2, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10
+```
+
+Alternatively, you can define the behavior directories also (leave the field blank to ignore the setting. Also, it's fine if it's a subfolder of the data-source)
+
+```
+data-source, s3-bucket, subject-id, modality, acq-date, acq-time, behavior-dir
+dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10, 14-10-10, dir/data_set_1/Videos
+dir/data_set_2, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10, dir/alt_dir
+dir/data_set_3, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10,
 ```
 
 ## Contributing
