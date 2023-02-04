@@ -17,6 +17,7 @@ class ImagingReaders:
 
         exaspim = "exaSPIM"
         mesospim = "mesoSPIM"
+        generic = "micr"
 
     readers = [member.value for member in Readers]
 
@@ -59,9 +60,7 @@ class ImagingReaders:
         ):
             return ImagingReaders.Readers.mesospim.value
         else:
-            raise Exception(
-                f"An appropriate readers could not be created for {input_dir}"
-            )
+            return ImagingReaders.Readers.generic.value
 
 
 class SmartSPIMReader:
