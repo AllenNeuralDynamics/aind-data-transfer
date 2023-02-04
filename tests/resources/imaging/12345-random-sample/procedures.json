@@ -1,0 +1,23 @@
+[
+    {
+	"Type": "expansion",
+	"Signal Amplification": {
+	    "Antibody Type": "conjugate",
+	    "Antibody": "Anti-tDT A546"
+	}
+    },
+    {
+	"Type": "viral injection",
+	"Date of Procedure": "2019-10-18",
+	"Location": "retro-orbital",
+	"Virus": "AAV-PHP-eB-Syn-FLEX-2xTRE-tTA;AAV-PHP-eB-Syn-FLEX-7xTRE-tDT"
+    },
+    {
+	"Type": "perfusion",
+	"Date of Procedure": "2020-02-15"
+    },
+    {
+	"Type": "dissection",
+	"Target Location": "left hemisphere"
+    }
+]
