@@ -109,6 +109,9 @@ def _build_ome_zar_cmd(
         job_cmd += f" --exclude {exclusions}"
     if "resume" in job_opts and job_opts["resume"]:
         job_cmd += " --resume"
+    if "voxsize" in job_opts and job_opts["voxsize"] != "":
+        voxsize = job_opts["voxsize"]
+        job_cmd += f" --voxsize {voxsize}"
     return job_cmd
 
 
