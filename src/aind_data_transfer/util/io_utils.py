@@ -106,15 +106,15 @@ class ScanImageTiffReader(DataReader):
         n_frames = shape[-3] if len(shape) > 2 else 1
         frames_per_chunk = chunks[-3] if (chunks is not None and len(chunks) > 2) else 1
         idx = list(range_with_end(0, n_frames, frames_per_chunk))
-        slices = zip(idx, idx[1:])
+        slices = list(zip(idx, idx[1:]))
         lazy_arrays = [
             dask.delayed(ScanImageTiffReader._get_interval_helper)(self.filepath, s[0], s[1])
             for s in slices
         ]
         dtype = self.get_dtype()
         lazy_arrays = [
-            da.from_delayed(x, shape=(frames_per_chunk, shape[-2], shape[-1]), dtype=dtype)
-            for x in lazy_arrays
+            da.from_delayed(x, shape=(s[1]-s[0], shape[-2], shape[-1]), dtype=dtype)
+            for x, s in zip(lazy_arrays, slices)
         ]
         return da.concatenate(lazy_arrays, axis=0)
 
