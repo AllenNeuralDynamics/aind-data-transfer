@@ -124,7 +124,7 @@ class ScanImageTiffReader(DataReader):
 
     def get_shape(self):
         with _ScanImageTiffReader(self.filepath) as reader:
-            return reader.shape()
+            return tuple(reader.shape())
 
     def get_chunks(self):
         chunks = list(self.get_shape())
