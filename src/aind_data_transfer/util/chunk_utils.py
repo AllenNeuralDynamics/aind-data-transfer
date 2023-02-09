@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, Union
+from typing import Tuple, Union, Iterator
 
 import dask.array as da
 import numpy as np
@@ -168,6 +168,26 @@ def expand_chunks(
         raise ValueError(f"Invalid mode {mode}")
 
     return tuple(int(d) for d in expanded)
+
+
+# https://stackoverflow.com/a/47518679
+def range_with_end(start: int, end: int, step: int) -> Iterator[int]:
+    """Generator for a range function which always includes the end value.
+    Args:
+        start: the start value
+        end: the end value (inclusive)
+        step: the step size
+    Returns:
+        A generator of integers
+    Example:
+        >>> list(range_with_end(0, 10, 3))
+        >>> [0, 3, 6, 9, 10]
+    """
+    i = start
+    while i < end:
+        yield i
+        i += step
+    yield end
 
 
 def _closer_to_target(

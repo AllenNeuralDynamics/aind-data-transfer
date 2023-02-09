@@ -2,6 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any
 
+import dask
 import dask.array as da
 import dask_image.imread
 import h5py
@@ -13,6 +14,9 @@ import hdf5plugin
 import numpy as np
 import tifffile
 import zarr
+from ScanImageTiffReader import ScanImageTiffReader as _ScanImageTiffReader
+
+from aind_data_transfer.util.chunk_utils import range_with_end
 
 
 class DataReader(ABC):
@@ -21,7 +25,7 @@ class DataReader(ABC):
         super().__init__()
 
     @abstractmethod
-    def as_dask_array(self, chunks: Any = True) -> da.Array:
+    def as_dask_array(self, chunks: Any = None) -> da.Array:
         pass
 
     @abstractmethod
@@ -83,6 +87,60 @@ class TiffReader(DataReader):
         if self.handle is not None:
             self.handle.close()
             self.handle = None
+
+
+class ScanImageTiffReader(DataReader):
+    def __init__(self, filepath):
+        super().__init__(filepath)
+
+    @staticmethod
+    def _get_interval_helper(filepath: str, beg: int, end: int):
+        """Reader instance cannot be serialized,
+        so we have to instantiate inside the worker for every get"""
+        with _ScanImageTiffReader(filepath) as reader:
+            data = reader.data(beg=beg, end=end)
+            return data
+
+    def as_dask_array(self, chunks=None):
+        shape = self.get_shape()
+        n_frames = shape[-3] if len(shape) > 2 else 1
+        frames_per_chunk = chunks[-3] if (chunks is not None and len(chunks) > 2) else 1
+        idx = list(range_with_end(0, n_frames, frames_per_chunk))
+        slices = zip(idx, idx[1:])
+        lazy_arrays = [
+            dask.delayed(ScanImageTiffReader._get_interval_helper)(self.filepath, s[0], s[1])
+            for s in slices
+        ]
+        dtype = self.get_dtype()
+        lazy_arrays = [
+            da.from_delayed(x, shape=(frames_per_chunk, shape[-2], shape[-1]), dtype=dtype)
+            for x in lazy_arrays
+        ]
+        return da.concatenate(lazy_arrays, axis=0)
+
+    def as_array(self):
+        with _ScanImageTiffReader(self.filepath) as reader:
+            return reader.data()
+
+    def get_shape(self):
+        with _ScanImageTiffReader(self.filepath) as reader:
+            return reader.shape()
+
+    def get_chunks(self):
+        chunks = list(self.get_shape())
+        if len(chunks) > 2:
+            chunks[:-2] = [1] * len(chunks[:-2])
+        return tuple(chunks)
+
+    def get_dtype(self):
+        with _ScanImageTiffReader(self.filepath) as reader:
+            return reader.dtype()
+
+    def get_itemsize(self):
+        return self.get_dtype().itemsize
+
+    def close(self):
+        pass
 
 
 class MissingDatasetError(Exception):
@@ -183,8 +241,8 @@ class DataReaderFactory:
     factory = {}
 
     def __init__(self):
-        self.factory[".tif"] = TiffReader
-        self.factory[".tiff"] = TiffReader
+        self.factory[".tif"] = ScanImageTiffReader
+        self.factory[".tiff"] = ScanImageTiffReader
         self.factory[".h5"] = ImarisReader
         self.factory[".ims"] = ImarisReader
 
