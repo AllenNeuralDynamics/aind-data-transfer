@@ -143,7 +143,8 @@ class ScanImageTiffReader(DataReader):
         """Return the image stack as a Dask Array
 
         Args:
-            chunks: the chunk shape. This is currently ignored.
+            chunks: the chunk shape. Only the Z value is used.
+                    The chunk shape in XY is the same as the frame shape.
 
         Returns:
             dask.array.Array
