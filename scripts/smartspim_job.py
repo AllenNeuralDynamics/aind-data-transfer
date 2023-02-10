@@ -248,8 +248,18 @@ def organize_datasets(datasets: list) -> None:
     """
 
     if datasets:
+        
+        # Looking for DATASET_STATUS.txt
+        ready_datasets = []
+        for dataset_path in datasets:
+            file_content = file_utils.get_status_filename_data(dataset_path)
+
+            if not len(file_content):
+                logging.error(f"Ignoring dataset {dataset_path}, it's not ready")
+                ready_datasets.append(dataset_path)
+
         # Organizing smartspim folders
-        smartSPIM_writer = SmartSPIMWriter(dataset_paths=datasets)
+        smartSPIM_writer = SmartSPIMWriter(dataset_paths=ready_datasets)
 
         (
             new_dataset_paths,
@@ -304,7 +314,7 @@ def main():
 
             if config["transfer_type"] == "HPC":
 
-                cmd = f'python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd="python {S3_UPLOAD_PATH} --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} --recursive --cluster --trigger_code_ocean --capsule_id={co_capsule_id}" --run_parent_dir="/home/camilo.laiton/.slurm" --conda_activate="/home/camilo.laiton/anaconda3/bin/activate" --conda_env="data_transfer" --queue="aind" --ntasks_per_node=4 --nodes=4 --cpus_per_task=2 --mem_per_cpu=4000 --walltime="05:00:00" --mail_user="camilo.laiton@alleninstitute.org"'
+                cmd = f'python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd="python {S3_UPLOAD_PATH} --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} --recursive --cluster --trigger_code_ocean --capsule_id={co_capsule_id}" --run_parent_dir="/home/camilo.laiton/.slurm" --conda_activate="/home/camilo.laiton/anaconda3/bin/activate" --conda_env="data_transfer" --queue="aind" --ntasks_per_node=8 --nodes=4 --cpus_per_task=1 --mem_per_cpu=4000 --walltime="05:00:00" --mail_user="camilo.laiton@alleninstitute.org"'
                 # HPC run
                 logger.info(f"Uploading dataset: {dataset_name}")
                 for out in file_utils.execute_command(cmd):
