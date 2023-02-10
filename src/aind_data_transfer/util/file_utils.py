@@ -433,19 +433,21 @@ def get_status_filename_data(dataset_path: PathLike) -> list:
         Text file content.
     """
     STATUS_FILENAME = "DATASET_STATUS.txt"
-
     file_content = []
 
-    filename_path = [
-        dataset_path.joinpath(f)
-        for f in os.listdir(dataset_path)
-        if f == STATUS_FILENAME
-        and os.path.isfile(os.path.join(dataset_path, f))
-    ]
-    if not len(filename_path):
-        return []
+    if os.path.isdir(dataset_path):
 
-    file_content = read_text_to_list(filename_path[0])
+        filename_path = [
+            dataset_path.joinpath(f)
+            for f in os.listdir(dataset_path)
+            if f == STATUS_FILENAME
+            and os.path.isfile(os.path.join(dataset_path, f))
+        ]
+        if not len(filename_path):
+            return []
+
+        file_content = read_text_to_list(filename_path[0])
+
     return file_content
 
 
