@@ -52,6 +52,7 @@ imaging = [
     'xarray-multiscale',
     'parameterized',
     'scanimage-tiff-reader',
+    'zarr==2.13.3',
 ]
 full = [
     'aind-data-transfer[ephys]',
