@@ -1,22 +1,24 @@
+import logging
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, List, Tuple
 
-import dask
 import dask.array as da
-import dask_image.imread
+import fsspec
 import h5py
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
 import hdf5plugin
 import numpy as np
-import tifffile
+import ujson
 import zarr
-from ScanImageTiffReader import ScanImageTiffReader as _ScanImageTiffReader
+from kerchunk.tiff import tiff_to_zarr
 from numpy import dtype
 
-from aind_data_transfer.util.chunk_utils import range_with_end
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DataReader(ABC):
@@ -55,152 +57,52 @@ class DataReader(ABC):
 class TiffReader(DataReader):
     def __init__(self, filepath):
         super().__init__(filepath)
-        self.handle = tifffile.TiffFile(filepath)
+        refs = tiff_to_zarr(filepath)
+        self._refs_file = os.path.join(
+            os.getcwd(),
+            f"references-{Path(filepath).name}.json"
+        )
+        with open(self._refs_file, 'wb') as f:
+            f.write(ujson.dumps(refs).encode())
+        fs = fsspec.filesystem(
+            "reference",
+            fo=self._refs_file,
+            remote_protocol='file'
+        )
+        self._arr = zarr.open(fs.get_mapper(""), 'r')
 
-    def as_dask_array(self, chunks: Any = True) -> da.Array:
-        """Return the image stack as a Dask Array
-
-        Args:
-            chunks: the chunk shape. This is currently ignored.
-
-        Returns:
-            dask.array.Array
-        """
-        # Note, this will only read the first plane of
-        # ImageJ-formatted Tiffs that are larger than 4GB
-        return dask_image.imread.imread(self.filepath)
+    def as_dask_array(self, chunks=None):
+        return da.from_array(self._arr, chunks=chunks)
 
     def as_array(self) -> np.ndarray:
         """
         Get the image stack as a ndarray
         """
-        return self.as_zarr()[:]
+        return self._arr[:]
 
-    def as_zarr(self) -> zarr.Array:
+    def as_zarr(self):
         """
         Get the image stack as a zarr Array
         """
-        return zarr.open(self.handle.aszarr(), "r")
+        return self._arr
 
     def get_shape(self) -> tuple:
         """
         Get the shape of the image stack
         """
-        # Open as Zarr store in case we're dealing with
-        # ImageJ hyperstacks
-        return self.as_zarr().shape
+        return self._arr.shape
 
     def get_chunks(self) -> tuple:
         """
         Get the chunk shape of the image stack
         """
-        return self.as_zarr().chunks
-
-    def get_itemsize(self) -> int:
-        """
-        Get the number of bytes per element
-        """
-        with tifffile.TiffFile(self.filepath) as tif:
-            return tif.series[0].dtype.itemsize
-
-    def get_handle(self) -> tifffile.TiffFile:
-        """
-        Gets the file handle
-        """
-        return self.handle
-
-    def close(self) -> None:
-        """
-        Close the file handle to free resources
-        """
-        if self.handle is not None:
-            self.handle.close()
-            self.handle = None
-
-
-class ScanImageTiffReader(DataReader):
-    def __init__(self, filepath):
-        super().__init__(filepath)
-
-    @staticmethod
-    def _get_interval_helper(filepath: str, beg: int, end: int) -> np.ndarray:
-        """Reader instance cannot be serialized,
-        so we have to instantiate inside the worker for every get
-
-        Args:
-            filepath: the path to the ScanImage tiff
-            beg: the start slice (inclusive)
-            end: the end slice (exclusive)
-
-        Returns:
-            a numpy array of the image data between beg and end
-        """
-        with _ScanImageTiffReader(filepath) as reader:
-            data = reader.data(beg=beg, end=end)
-            return data
-
-    def as_dask_array(self, chunks=None) -> da.Array:
-        """Return the image stack as a Dask Array
-
-        Args:
-            chunks: the chunk shape. Only the Z value is used.
-                    The chunk shape in XY is the same as the frame shape.
-
-        Returns:
-            dask.array.Array
-        """
-        shape = self.get_shape()
-        n_frames = self.get_nframes()
-        frames_per_chunk = chunks[-3] if (chunks is not None and len(chunks) > 2) else 1
-        idx = list(range_with_end(0, n_frames, frames_per_chunk))
-        slices = list(zip(idx, idx[1:]))
-        lazy_arrays = [
-            dask.delayed(ScanImageTiffReader._get_interval_helper)(self.filepath, s[0], s[1])
-            for s in slices
-        ]
-        dtype = self.get_dtype()
-        lazy_arrays = [
-            da.from_delayed(x, shape=(s[1]-s[0], shape[-2], shape[-1]), dtype=dtype)
-            for x, s in zip(lazy_arrays, slices)
-        ]
-        return da.concatenate(lazy_arrays, axis=0)
-
-    def as_array(self) -> np.ndarray:
-        """
-        Get the image stack as a ndarray
-        """
-        with _ScanImageTiffReader(self.filepath) as reader:
-            return reader.data()
-
-    def get_shape(self) -> tuple:
-        """
-        Get the shape of the image stack
-        """
-        with _ScanImageTiffReader(self.filepath) as reader:
-            return tuple(reader.shape())
-
-    def get_nframes(self) -> int:
-        """
-        Get the number of frames in the image stack
-        """
-        with _ScanImageTiffReader(self.filepath) as reader:
-            return len(reader)
-
-    def get_chunks(self) -> tuple:
-        """
-        Get the chunk shape of the image stack
-        """
-        chunks = list(self.get_shape())
-        if len(chunks) > 2:
-            chunks[:-2] = [1] * len(chunks[:-2])
-        return tuple(chunks)
+        return self._arr.chunks
 
     def get_dtype(self) -> dtype:
         """
         Get the data type of the image stack
         """
-        with _ScanImageTiffReader(self.filepath) as reader:
-            return reader.dtype()
+        return self._arr.dtype
 
     def get_itemsize(self) -> int:
         """
@@ -210,7 +112,11 @@ class ScanImageTiffReader(DataReader):
 
     def close(self) -> None:
         """Close the file handle to free resources"""
-        pass
+        self._arr = None
+        try:
+            os.remove(self._refs_file)
+        except OSError as e:
+            _LOGGER.error("Error: %s - %s." % (e.filename, e.strerror))
 
 
 class MissingDatasetError(Exception):
@@ -391,8 +297,8 @@ class DataReaderFactory:
     factory = {}
 
     def __init__(self):
-        self.factory[".tif"] = ScanImageTiffReader
-        self.factory[".tiff"] = ScanImageTiffReader
+        self.factory[".tif"] = TiffReader
+        self.factory[".tiff"] = TiffReader
         self.factory[".h5"] = ImarisReader
         self.factory[".ims"] = ImarisReader
 
