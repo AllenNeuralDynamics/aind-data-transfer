@@ -72,10 +72,10 @@ class SmartSPIMReader:
         # regex expressions for not structured smartspim datasets
         capture_date_regex = r"(20[0-9]{2}([0-9][0-9]{1})([0-9][0-9]{1}))"
         capture_time_regex = r"(_(\d{2})_(\d{2})_(\d{2})_)"
-        capture_mouse_id = r"(_(\d{7}|\d{6}))"
+        capture_mouse_id = r"(_(\d+|[a-zA-Z]*\d+)$)"
 
         # Regular expression for smartspim datasets
-        smartspim_regex = r"SmartSPIM_(\d{7}|\d{6})_(20\d{2}-(\d\d{1})-(\d\d{1}))_((\d{2})-(\d{2})-(\d{2}))"
+        smartspim_regex = r"SmartSPIM_(\d+|[a-zA-Z]*\d+)_(20\d{2}-(\d\d{1})-(\d\d{1}))_((\d{2})-(\d{2})-(\d{2}))"
 
         # Regex expressions for inner folders inside root
         regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"

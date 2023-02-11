@@ -279,6 +279,11 @@ def main():
                     "channel": "Ex_488_Em_525.zarr",
                     "input_scale": "3",
                 },
+                "segmentation": {
+                    "channel": "Ex_488_Em_525",
+                    "input_scale": "0",
+                    "chunksize": "500"
+                }
             }
         }
 
