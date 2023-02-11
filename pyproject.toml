@@ -51,7 +51,6 @@ imaging = [
     'gcsfs',
     'xarray-multiscale',
     'parameterized',
-    'scanimage-tiff-reader',
     'zarr==2.13.3',
 ]
 full = [
