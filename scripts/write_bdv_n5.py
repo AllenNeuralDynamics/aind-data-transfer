@@ -101,6 +101,14 @@ def parse_args():
 def main():
     args = parse_args()
 
+    worker_options = {
+        "env": {
+            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
+            "HDF5_USE_FILE_LOCKING": "FALSE"
+        }
+    }
+    client, _ = get_client(args.deployment, worker_options=worker_options)
+
     imdir = args.input
     images = get_images(imdir)
     LOGGER.info(f"Found {len(images)} images")
@@ -124,14 +132,6 @@ def main():
     factors_by_lvl = get_downscale_factors(
         n_levels, scale_factors=downscale_factors
     )
-
-    worker_options = {
-        "env": {
-            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
-            "HDF5_USE_FILE_LOCKING": "FALSE"
-        }
-    }
-    client, _ = get_client(args.deployment, worker_options=worker_options)
 
     meta = {}
 
