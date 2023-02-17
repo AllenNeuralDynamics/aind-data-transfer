@@ -263,6 +263,36 @@ class GenericS3UploadJob:
             ]
         )
 
+    @staticmethod
+    def _parse_date(date: str) -> str:
+        """parses date string to %YYYY-%MM-%DD format"""
+        try:
+            valid_date = str(datetime.date.fromisoformat(date))
+        except ValueError:
+            try:
+                valid_date = datetime.datetime.strptime(date, "%d/%m/%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                raise ValueError("Incorrect data format, should be YYYY-MM-DD or DD/MM/YYYY")
+        return valid_date
+
+    @staticmethod
+    def _parse_time(time: str) -> str:
+        """Parses time string to "%HH-%MM-%SS format"""
+        try:
+            valid_time = datetime.datetime.strptime(time, "%H-%M-%S")
+        except ValueError:
+            try:
+                valid_time = datetime.datetime.strptime(time, "%H:%M:%S").strftime("%H-%M-%S")
+            except ValueError:
+                raise ValueError("Incorrect data format, should be HH-MM-SS or HH:MM:SS")
+        return valid_time
+
+    def _parse_date_time(self, date: str, time: str) -> [str, str]:
+        """Parses date and time to Excel default format"""
+        valid_date = self._parse_date(date)
+        valid_time = self._parse_time(time)
+        return valid_date, valid_time
+
     def _load_configs(self, args: list) -> argparse.Namespace:
         """Parses sys args using argparse and resolves the service
         endpoints."""
