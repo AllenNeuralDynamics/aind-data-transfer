@@ -9,6 +9,7 @@ import os
 import shutil
 import sys
 import tempfile
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -265,33 +266,33 @@ class GenericS3UploadJob:
 
     @staticmethod
     def _parse_date(date: str) -> str:
-        """parses date string to %YYYY-%MM-%DD format"""
-        try:
-            valid_date = str(datetime.date.fromisoformat(date))
-        except ValueError:
+        """Parses date string to %YYYY-%MM-%DD format"""
+        pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
+        if re.match(pattern, date):
+            return date
+        else:
             try:
-                valid_date = datetime.datetime.strptime(date, "%d/%m/%Y").strftime("%Y-%m-%d")
+                return datetime.datetime.strptime(date, "%m/%d/%Y").strftime("%Y-%m-%d")
             except ValueError:
                 raise ValueError("Incorrect data format, should be YYYY-MM-DD or DD/MM/YYYY")
-        return valid_date
 
     @staticmethod
     def _parse_time(time: str) -> str:
         """Parses time string to "%HH-%MM-%SS format"""
-        try:
-            valid_time = datetime.datetime.strptime(time, "%H-%M-%S")
-        except ValueError:
+        pattern = "^[0-9]{2}-[0-5][0-9]-[0-5][0-9]"
+        if re.match(pattern, time):
+            return time
+        else:
             try:
-                valid_time = datetime.datetime.strptime(time, "%H:%M:%S").strftime("%H-%M-%S")
+                return datetime.datetime.strptime(time, "%H:%M:%S").strftime("%H-%M-%S")
             except ValueError:
                 raise ValueError("Incorrect data format, should be HH-MM-SS or HH:MM:SS")
-        return valid_time
 
-    def _parse_date_time(self, date: str, time: str) -> [str, str]:
+    def _parse_date_time(self, job_args: argparse.Namespace):
         """Parses date and time to Excel default format"""
-        valid_date = self._parse_date(date)
-        valid_time = self._parse_time(time)
-        return valid_date, valid_time
+        args_dict = vars(job_args)
+        args_dict['acq_date'] = self._parse_date(args_dict['acq_date'])
+        args_dict['acq_time'] = self._parse_time(args_dict['acq_time'])
 
     def _load_configs(self, args: list) -> argparse.Namespace:
         """Parses sys args using argparse and resolves the service
@@ -331,6 +332,7 @@ class GenericS3UploadJob:
             job_args.service_endpoints = self._get_endpoints(
                 job_args.s3_region
             )
+        self._parse_date_time(job_args)
         return job_args
 
     def run_job(self) -> None:
