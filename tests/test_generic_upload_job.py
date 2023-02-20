@@ -98,6 +98,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         date2 = "2021-10-12"
         date3 = "2021.10.12"
         date4 = "1/3/2023"
+        date5 = "14/12/2023"
         parsed_date1 = GenericS3UploadJob._parse_date(date1)
         self.assertEqual(parsed_date1, "2021-12-10")
         parsed_date2 = GenericS3UploadJob._parse_date(date2)
@@ -106,6 +107,8 @@ class TestGenericS3UploadJob(unittest.TestCase):
             GenericS3UploadJob._parse_date(date3)
         parsed_date4 = GenericS3UploadJob._parse_date(date4)
         self.assertEqual(parsed_date4, "2023-01-03")
+        with self.assertRaises(ValueError):
+            GenericS3UploadJob._parse_date(date5)
 
     def test_parse_time(self) -> None:
         """Tests the extra time parsing method"""

@@ -12,6 +12,7 @@ import tempfile
 import re
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
@@ -267,27 +268,32 @@ class GenericS3UploadJob:
     @staticmethod
     def _parse_date(date: str) -> str:
         """Parses date string to %YYYY-%MM-%DD format"""
-        pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
-        if re.match(pattern, date):
-            return date
+        stripped_date = date.strip()
+        pattern = "^\d{4}-\d{2}-\d{2}$"
+        pattern2 = "^\d{1,2}/\d{1,2}/\d{4}$"
+        if re.match(pattern, stripped_date):
+            parsed_date = datetime.strptime(stripped_date, "%Y-%m-%d")
+            return parsed_date.strftime("%Y-%m-%d")
+        elif re.match(pattern2, stripped_date):
+            parsed_date = datetime.strptime(stripped_date, "%m/%d/%Y")
+            return parsed_date.strftime("%Y-%m-%d")
         else:
-            try:
-                parsed_date = datetime.datetime.strptime(date, "%m/%d/%Y")
-                return parsed_date.strftime("%Y-%m-%d")
-            except ValueError:
-                raise ValueError("Incorrect data format, should be YYYY-MM-DD or DD/MM/YYYY")
+            raise ValueError("Incorrect data format, should be YYYY-MM-DD or DD/MM/YYYY")
 
     @staticmethod
     def _parse_time(time: str) -> str:
         """Parses time string to "%HH-%MM-%SS format"""
-        pattern = "^[0-9]{2}-[0-5][0-9]-[0-5][0-9]"
-        if re.match(pattern, time):
-            return time
+        stripped_time = time.strip()
+        pattern = "^\d{1,2}-\d{1,2}-\d{1,2}$"
+        pattern2 = "^\d{1,2}:\d{1,2}:\d{1,2}$"
+        if re.match(pattern, stripped_time):
+            parsed_time = datetime.strptime(stripped_time, "%H-%M-%S")
+            return parsed_time.strftime("%H-%M-%S")
+        elif re.match(pattern2, stripped_time):
+            parsed_time = datetime.strptime(stripped_time, "%H:%M:%S")
+            return parsed_time.strftime("%H-%M-%S")
         else:
-            try:
-                return datetime.datetime.strptime(time, "%H:%M:%S").strftime("%H-%M-%S")
-            except ValueError:
-                raise ValueError("Incorrect data format, should be HH-MM-SS or HH:MM:SS")
+            raise ValueError("Incorrect data format, should be HH-MM-SS or HH:MM:SS")
 
     def _parse_date_time(self, job_args: argparse.Namespace):
         """Parses date and time to Excel default format"""
