@@ -272,7 +272,8 @@ class GenericS3UploadJob:
             return date
         else:
             try:
-                return datetime.datetime.strptime(date, "%m/%d/%Y").strftime("%Y-%m-%d")
+                parsed_date = datetime.datetime.strptime(date, "%m/%d/%Y")
+                return parsed_date.strftime("%Y-%m-%d")
             except ValueError:
                 raise ValueError("Incorrect data format, should be YYYY-MM-DD or DD/MM/YYYY")
 

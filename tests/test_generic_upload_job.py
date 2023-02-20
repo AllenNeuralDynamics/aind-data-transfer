@@ -92,6 +92,33 @@ class TestGenericS3UploadJob(unittest.TestCase):
         mock_session_object.client.return_value = mock_client
         return mock_session_object
 
+    def test_parse_date(self) -> None:
+        """Tests the extra date parsing method"""
+        date1 = "12/10/2021"
+        date2 = "2021-10-12"
+        date3 = "2021.10.12"
+        date4 = "1/3/2023"
+        parsed_date1 = GenericS3UploadJob._parse_date(date1)
+        self.assertEqual(parsed_date1, "2021-12-10")
+        parsed_date2 = GenericS3UploadJob._parse_date(date2)
+        self.assertEqual(parsed_date2, "2021-10-12")
+        with self.assertRaises(ValueError):
+            GenericS3UploadJob._parse_date(date3)
+        parsed_date4 = GenericS3UploadJob._parse_date(date4)
+        self.assertEqual(parsed_date4, "2023-01-03")
+
+    def test_parse_time(self) -> None:
+        """Tests the extra time parsing method"""
+        time1 = "5:26:59"
+        time2 = "05-03-59"
+        time3 = "5.26.59"
+        parsed_time1 = GenericS3UploadJob._parse_time(time1)
+        self.assertEqual(parsed_time1, "05-26-59")
+        parsed_time2 = GenericS3UploadJob._parse_time(time2)
+        self.assertEqual(parsed_time2, "05-03-59")
+        with self.assertRaises(ValueError):
+            GenericS3UploadJob._parse_time(time3)
+
     def test_create_s3_prefix(self) -> None:
         """Tests that a s3 prefix is created correctly from job configs."""
         job = GenericS3UploadJob(self.args1)
