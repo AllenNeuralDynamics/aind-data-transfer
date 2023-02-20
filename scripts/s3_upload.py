@@ -8,14 +8,17 @@ from datetime import datetime
 from pathlib import PurePath
 
 import numpy as np
-from s3transfer.constants import GB, MB
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.credentials import CodeOceanCredentials
+from s3transfer.constants import GB, MB
 
 from aind_data_transfer.s3 import S3Uploader
 from aind_data_transfer.util import file_utils
+from aind_data_transfer.util.dask_utils import (
+    get_client,
+    log_dashboard_address,
+)
 from aind_data_transfer.util.file_utils import collect_filepaths
-from aind_data_transfer.util.dask_utils import log_dashboard_address, get_client
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"
@@ -64,7 +67,9 @@ def run_cluster_job(
     client, ntasks = get_client(deployment="slurm")
     logger.info(f"Client has {ntasks} registered workers")
 
-    chunked_files = chunk_files(input_dir, ntasks * chunks_per_worker, recursive, exclude_dirs)
+    chunked_files = chunk_files(
+        input_dir, ntasks * chunks_per_worker, recursive, exclude_dirs
+    )
     logger.info(
         f"Split files into {len(chunked_files)} chunks with "
         f"{len(chunked_files[0])} files each"
@@ -130,6 +135,19 @@ def run_local_job(
 # Check dataset status
 STATUS = ["PENDING", "UPLOADED"]
 STATUS_FILENAME = "DATASET_STATUS.txt"
+
+
+def get_smartspim_config(job_config: dict, pipeline_config: dict) -> dict:
+    def get_key(job_cnf, key):
+        if key in pipeline_config:
+            job_cnf[key] = pipeline_config[key]
+
+        return job_cnf
+
+    for step in ["stitching", "registration", "segmentation"]:
+        job_config = get_key(job_config, step)
+
+    return job_config
 
 
 def main():
@@ -209,19 +227,20 @@ def main():
         help="upload a directory recursively",
     )
     parser.add_argument(
-        "--capsule_id",
+        "--pipeline_config",
         type=str,
         default="",
-        help="Capsule ID to execute dataset once is uploaded",
+        help="Configuration to pipeline in Code Ocean",
     )
 
     args = parser.parse_args()
 
+    pipeline_config = dict(args.pipeline_config)
     input_path = args.input
     bucket = args.bucket
     n_failed_uploads = -1
     trigger_code_ocean = args.trigger_code_ocean
-    capsule_id = args.capsule_id
+    capsule_id = pipeline_config["co_capsule_id"]
 
     s3_path = args.s3_path
     if s3_path is None:
@@ -267,7 +286,6 @@ def main():
         )
 
     if trigger_code_ocean and not n_failed_uploads and len(capsule_id):
-
         asset_name = PurePath(s3_path).stem
 
         job_configs = {
@@ -275,17 +293,12 @@ def main():
                 "job_type": "smartspim",
                 "bucket": bucket,
                 "prefix": asset_name,
-                "registration": {
-                    "channel": "Ex_488_Em_525.zarr",
-                    "input_scale": "3",
-                },
-                "segmentation": {
-                    "channel": "Ex_488_Em_525",
-                    "input_scale": "0",
-                    "chunksize": "500"
-                }
             }
         }
+
+        job_config["trigger_codeocean_job"] = get_smartspim_config(
+            job_config["trigger_codeocean_job"], pipeline_config
+        )
 
         try:
             co_cred = CodeOceanCredentials().credentials

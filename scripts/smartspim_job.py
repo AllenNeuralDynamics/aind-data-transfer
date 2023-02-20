@@ -5,7 +5,7 @@ import time
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 import s3_upload
 import yaml
@@ -209,7 +209,6 @@ def get_upload_datasets(dataset_folder: PathLike) -> list:
             continue
 
         if isinstance(file_content, list):
-
             if "PENDING" in file_content:
                 # Upload dataset
                 pending_datasets.append(dataset_path)
@@ -234,29 +233,49 @@ def get_upload_datasets(dataset_folder: PathLike) -> list:
     return pending_datasets
 
 
-def organize_datasets(datasets: list) -> None:
+def organize_datasets(
+    root_folder: PathLike, datasets: list
+) -> Tuple[list, list]:
     """
     This function organizes the smartspim
     datasets
 
     Parameters
     ------------------------
+    root_folder: PathLike
+        Root folder where these datasets
+        are stored
+
     datasets: List
         List with the smartspim dataset
         paths.
 
+    Returns
+    --------------
+    Tuple[List[str], List[dict]]
+        Tuple that contains in the first position
+        a list with the new paths for the smartspim
+        datasets, and in the second position a list
+        with the pipeline configuration of those
+        datasets
     """
 
     if datasets:
-        
         # Looking for DATASET_STATUS.txt
         ready_datasets = []
-        for dataset_path in datasets:
+        for dataset in datasets:
+            dataset_path = Path(root_folder).joinpath(dataset["path"])
+
+            if not os.path.isdir(dataset_path):
+                continue
+
             file_content = file_utils.get_status_filename_data(dataset_path)
 
             if not len(file_content):
-                logging.error(f"Ignoring dataset {dataset_path}, it's not ready")
-                ready_datasets.append(dataset_path)
+                logging.error(
+                    f"Ignoring dataset {dataset_path}, it's not ready"
+                )
+                ready_datasets.append(dataset)
 
         # Organizing smartspim folders
         smartSPIM_writer = SmartSPIMWriter(dataset_paths=ready_datasets)
@@ -266,26 +285,153 @@ def organize_datasets(datasets: list) -> None:
             ignored_datasets,
         ) = smartSPIM_writer.prepare_datasets(mode="move")
 
-    return new_dataset_paths
+    return new_dataset_paths, ready_datasets
+
+
+def get_pipeline_config(
+    dataset_config: dict,
+    pipeline_steps: list = ["stitching", "registration", "segmentation"],
+) -> dict:
+    """
+    Returns the pipeline configuration
+
+    Parameters
+    ------------
+    dataset_config: dict
+        Configuration of a SmartSPIM dataset
+
+    pipeline_steps: List[str]
+        List with the steps that will be
+        performed in the pipeline
+
+    Returns
+    ---------
+    dict
+        Dictionary with the configuration
+        of that smartspim dataset to be
+        executed
+    """
+    pipeline_config = {}
+
+    for pipeline_step in pipeline_steps:
+        if pipeline_step in dataset_config:
+            pipeline_config[pipeline_step] = dataset_config[pipeline_step]
+
+    return pipeline_config
+
+
+def get_smartspim_default_config() -> dict:
+    """
+    Returns the default config
+    for the smartspim pipeline
+    """
+    return {
+        "stitching": {"co_folder": "scratch", "stitch_channel": 0},
+        "registration": {"channel": "Ex_488_Em_525.zarr", "input_scale": 3},
+        "segmentation": {
+            "channel": "Ex_488_Em_525",
+            "input_scale": 0,
+            "chunksize": 500,
+        },
+    }
+
+
+def set_dataset_config(
+    pending_datasets: list,
+    new_dataset_paths: list,
+    old_dataset_paths: list,
+    default_pipeline_config: dict,
+) -> list:
+    """
+    Returns a dictionary with the
+    pipeline steps per dataset
+
+    Parameters
+    ------------
+    pending_datasets: List[str]
+        List with the paths to the
+        pending datasets
+
+    new_dataset_paths: List[str]
+        List with the new paths of
+        the old_dataset_paths in the
+        same order
+
+    old_dataset_paths: List[dict]
+        List with Dicitonaries with the original
+        paths and configuration for the
+        datasets
+
+    default_pipeline_config: dict
+        Default configuration for the
+        smartspim datasets that are not
+        found in the yaml file
+
+    Returns
+    -----------
+    List[dict]
+        List with dictionaries with the configuration
+        for the smartspim datasets
+    """
+
+    smartspim_datasets_configs = []
+
+    # Setting the configuration for the datasets
+    # that are in the YAML
+    for new_name_idx in range(len(new_dataset_paths)):
+        config = {**old_dataset_paths[new_name_idx]}
+
+        config["path"] = new_dataset_paths[new_name_idx]["path"]
+
+        smartspim_datasets_configs.append(config)
+
+    pending_datasets = set(pending_datasets)
+    new_dataset_paths = set(new_dataset_paths)
+
+    # Datasets with no YAML config
+    no_yaml_datasets = pending_datasets.symmetric_difference(new_dataset_paths)
+
+    for no_yaml_dataset in no_yaml_datasets:
+        smartspim_datasets_configs.append(
+            {"path": no_yaml_dataset, **default_pipeline_config}
+        )
+
+    return smartspim_datasets_configs
 
 
 def main():
     """
     Main to execute the smartspim job
     """
-    config_param = ArgSchemaParser(schema_type=ConfigFile)
 
+    # HPC paths
+    config_param = ArgSchemaParser(schema_type=ConfigFile)
     SUBMIT_HPC_PATH = "/home/camilo.laiton/repositories/aind-data-transfer/scripts/cluster/submit.py"
     S3_UPLOAD_PATH = "/home/camilo.laiton/repositories/aind-data-transfer/scripts/s3_upload.py"
 
+    # Getting config file
     config_file_path = config_param.args["config_file"]
     config = get_default_config(config_file_path)
 
-    new_dataset_paths = organize_datasets(
-        config["organize_smartspim_datasets"]
+    # Organizing folders
+    root_folder = Path(config["root_folder"])
+    new_dataset_paths, ready_datasets = organize_datasets(
+        root_folder, config["organize_smartspim_datasets"]
     )
 
-    pending_datasets = get_upload_datasets(Path(config["root_folder"]))
+    # Getting all pending datasets in root folder (even old ones)
+    pending_datasets = get_upload_datasets(root_folder)
+
+    print("BEF: ", pending_datasets)
+    # Providing parameters to datasets
+    default_pipeline_config = get_smartspim_default_config()
+
+    pending_datasets = set_dataset_config(
+        pending_datasets,
+        new_dataset_paths,
+        ready_datasets,
+        default_pipeline_config,
+    )
 
     sys.argv = [""]
 
@@ -303,27 +449,38 @@ def main():
 
     logger.info(f"Uploading {pending_datasets}")
 
-    for dataset_path in pending_datasets:
-
-        dataset_path = Path(dataset_path)
+    for dataset in pending_datasets:
+        dataset["co_capsule_id"] = co_capsule_id
+        dataset_path = Path(root_folder).joinpath(dataset["path"])
         dataset_name = dataset_path.stem
 
         if os.path.isdir(dataset_path):
-
             dataset_dest_path = dest_data_dir.joinpath(dataset_name)
 
             if config["transfer_type"] == "HPC":
+                cmd = f"""
+                    python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd="python {S3_UPLOAD_PATH} \
+                    --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} \
+                    --recursive --cluster --trigger_code_ocean --pipeline_config={dataset}" \
+                    --run_parent_dir="/home/camilo.laiton/.slurm" \
+                    --conda_activate="/home/camilo.laiton/anaconda3/bin/activate" \
+                    --conda_env="data_transfer" --queue="aind" --ntasks_per_node=8 --nodes=4 \
+                    --cpus_per_task=1 --mem_per_cpu=4000 --walltime="05:00:00" \
+                    --mail_user="camilo.laiton@alleninstitute.org"
+                """
 
-                cmd = f'python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd="python {S3_UPLOAD_PATH} --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} --recursive --cluster --trigger_code_ocean --capsule_id={co_capsule_id}" --run_parent_dir="/home/camilo.laiton/.slurm" --conda_activate="/home/camilo.laiton/anaconda3/bin/activate" --conda_env="data_transfer" --queue="aind" --ntasks_per_node=8 --nodes=4 --cpus_per_task=1 --mem_per_cpu=4000 --walltime="05:00:00" --mail_user="camilo.laiton@alleninstitute.org"'
                 # HPC run
                 logger.info(f"Uploading dataset: {dataset_name}")
                 for out in file_utils.execute_command(cmd):
                     logger.info(out)
 
-                # Error with slurm logs directory
-                time.sleep(30)
+                # # Error with slurm logs directory
+                # time.sleep(30)
+                logger.info(f"{cmd}")
             else:
                 # Local
+                logger.info("Deprecated! Fix local uploader")
+
                 sys.argv = [
                     "",
                     f"--input={dataset_path}",
@@ -349,7 +506,7 @@ def main():
         else:
             logger.warning(f"Path {dataset_path} does not exist. Ignoring...")
 
-    pending_datasets = get_upload_datasets(Path(config["root_folder"]))
+    pending_datasets = get_upload_datasets(root_folder)
 
 
 if __name__ == "__main__":
