@@ -115,12 +115,15 @@ class TestGenericS3UploadJob(unittest.TestCase):
         time1 = "5:26:59"
         time2 = "05-03-59"
         time3 = "5.26.59"
+        time4 = "5:91:40"
         parsed_time1 = GenericS3UploadJob._parse_time(time1)
         self.assertEqual(parsed_time1, "05-26-59")
         parsed_time2 = GenericS3UploadJob._parse_time(time2)
         self.assertEqual(parsed_time2, "05-03-59")
         with self.assertRaises(ValueError):
             GenericS3UploadJob._parse_time(time3)
+        with self.assertRaises(ValueError):
+            GenericS3UploadJob._parse_time(time4)
 
     def test_create_s3_prefix(self) -> None:
         """Tests that a s3 prefix is created correctly from job configs."""
