@@ -246,7 +246,7 @@ class GenericS3UploadJob:
 
         # Validate date and time strings
         try:
-            datetime.datetime.strptime(
+            datetime.strptime(
                 self.configs.acq_date + " " + self.configs.acq_time,
                 "%Y-%m-%d %H-%M-%S",
             )
