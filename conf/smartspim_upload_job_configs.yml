@@ -1,18 +1,56 @@
 # Leave values blank to use defaults
 transfer_type: "HPC" # LOCAL
+metadata_service_domain: ""
+codeocean_credentials_path: ""
 co_capsule_id: # Code Ocean capsule ID for smartspim pipeline
 root_folder: # Folder where smartspim datasets are located
 organize_smartspim_datasets:
   -
-    path: # Smartspim dataset folder
-    project: 
-    project_id: 
-    institution: AIND
+    path: "RAW_DATASET_NAME"
+    data_description:
+      project: 
+      project_id: 
+      institution: AIND
+    adquisition:
+      instrument_id: 
+      experimenter:
+      immersion:
+        medium:
+        refractive_index:
+      local_storage_directory:
+    stitching:
+      co_folder: scratch
+      stitch_channel: 0 # Check the order of the channels TODO change to string
+    registration:
+      channel: Ex_488_Em_525.zarr
+      input_scale: 3
+    segmentation:
+      channel: Ex_488_Em_525
+      input_scale: 0
+      chunksize: 500
   -
-    path: # Smartspim dataset folder
-    project: 
-    project_id: 
-    institution: AIND
+    path: "RAW_DATASET_NAME_2"
+    data_description:
+      project: 
+      project_id: 
+      institution: AIND
+    adquisition:
+      instrument_id: 
+      experimenter:
+      immersion:
+        medium:
+        refractive_index:
+      local_storage_directory:
+    stitching:
+      co_folder: scratch
+      stitch_channel: 0 # Check the order of the channels TODO change to string
+    registration:
+      channel: Ex_488_Em_525.zarr
+      input_scale: 3
+    segmentation:
+      channel: Ex_488_Em_525
+      input_scale: 0
+      chunksize: 250
 
 
 dest_data_dir: # Defaults to the raw_data_dir folder name
