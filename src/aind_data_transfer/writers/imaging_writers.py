@@ -6,12 +6,7 @@ from pathlib import Path
 from typing import Tuple, Union
 
 from aind_data_schema import Funding, Procedures, RawDataDescription, Subject
-from aind_data_schema.procedures import (
-    Anaesthetic,
-    Craniotomy,
-    InjectionMaterial,
-    NanojectInjection,
-)
+from aind_data_schema.imaging import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
 from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
@@ -31,6 +26,144 @@ logging.basicConfig(
 logging.disable("DEBUG")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+def digest_asi_line(line: str) -> datetime:
+    """
+    Scrape a datetime from a non-empty line, otherwise return None
+
+    Parameters
+    -----------
+    line: str
+        Line from the ASI file
+
+    Returns
+    -----------
+    datetime
+        A date that could be parsed from a string
+    """
+
+    if line.isspace():
+        return None
+    else:
+        mdy, hms, ampm = line.split()[0:3]
+
+    mdy = [int(i) for i in mdy.split(b"/")]
+    ymd = [mdy[i] for i in [2, 0, 1]]
+
+    hms = [int(i) for i in hms.split(b":")]
+    if ampm == b"PM":
+        hms[0] += 12
+    ymdhms = ymd + hms
+    dtime = datetime(*ymdhms)
+    ymd = datetime.date(*ymd)
+    hms = datetime.time(*hms)
+    return dtime
+
+
+def get_session_end(asi_file) -> datetime:
+    """
+    Work backward from the last line until there is a timestamp
+
+    Parameters
+    ------------
+    asi_file: PathLike
+        Path where the ASI metadata file is
+        located
+
+    Returns
+    ------------
+    Date when the session ended
+    """
+
+    with open(asi_file, "rb") as file:
+        asi_mdata = file.readlines()
+
+    idx = -1
+    result = None
+    while result is None:
+        result = digest_asi_line(asi_mdata[idx])
+        idx -= 1
+
+    return result
+
+
+def get_scale(lc_mdata) -> tile.Scale3dTransform:
+    """
+    Get scales metadata
+
+    Parameters
+    -----------
+    lc_mdata: List[bytes]
+        List with bytes containing the
+        scale information
+
+    Returns
+    -----------
+    aind_data_schema.imaging.tile.Scale3dTransform
+        Scales for the imaging data
+    """
+
+    line = lc_mdata[1]
+    xy, z = line.split()[3:5]
+    scale = tile.Scale3dTransform(scale=[xy, xy, z])
+
+    return scale
+
+
+def make_acq_tiles(lc_mdata):
+    """
+    Makes metadata for the acquired tiles of
+    the dataset
+
+    Parameters
+    -----------
+    lc_mdata: List[bytes]
+        List with bytes containing the
+        scale information
+
+    Returns
+    -----------
+    List[tile.Translation3dTransform]
+        List with the metadata for the tiles
+    """
+    filter_mapping = {488: 525, 561: 600, 647: 690}
+
+    channels = {}
+
+    for idx, l in enumerate(lc_mdata[3:6]):
+        wavelength, powerl, powerr = [float(j) for j in l.split()]
+
+        channel = tile.Channel(
+            channel_name=wavelength,
+            laser_wavelength=wavelength,
+            laser_power=powerl,
+            filter_wheel_index=idx,
+        )
+
+        channels[wavelength] = channel
+
+    scale = get_scale(lc_mdata)
+
+    tiles = []
+    for line in lc_mdata[8:]:
+        X, Y, Z, W, S, E, Sk = [int(i) for i in line.split()]
+
+        tform = tile.Translation3dTransform(
+            translation=[int(i) / 10 for i in line.split()[0:3]]
+        )
+
+        channel = channels[float(W)]
+        t = tile.AcquisitionTile(
+            channel=channel,
+            notes=(
+                "\nLaser power is in percentage of total -- needs calibration"
+            ),
+            coordinate_transformations=[tform, scale],
+            file_name=f"Ex_{W}_Em_{filter_mapping[W]}/{X}/{X}_{Y}/",
+        )
+        tiles.append(t)
+    return tiles
 
 
 class SmartSPIMWriter:
@@ -128,18 +261,26 @@ class SmartSPIMWriter:
             f"SmartSPIM_{mouse_id_str}_{date_str}_{time_str}"
         )
 
-        return new_dataset_path, mouse_id_str
+        mouse_date = datetime.strptime(
+            parsed_data["creation_date"] + parsed_data["creation_time"],
+            "%%Y-%m-%d%H-%M-%S",
+        )
+
+        parsed_data = {"mouse_id": mouse_id_str, "mouse_date": mouse_date}
+
+        return new_dataset_path, parsed_data
 
     def __create_data_description(
-        self, mouse_id: str, dataset_info: dict, output_path: PathLike
+        self, parsed_data: dict, dataset_info: dict, output_path: PathLike
     ):
         """
         Creates the data description json.
 
         Parameters
         ------------------------
-        mouse_id: str
-            Mouse id for the dataset
+        parsed_data: dict
+            Parsed data for the dataset. Contains
+            mouse id and creation datetime
 
         dataset_info: dict
             Information for the dataset
@@ -149,14 +290,18 @@ class SmartSPIMWriter:
 
         """
 
-        today = datetime.today()
+        mouse_date = parsed_data["mouse_date"]
 
         # Creating data description
         data_description = RawDataDescription(
             modality="smartspim",
             subject_id=mouse_id,
-            creation_date=date(today.year, today.month, today.day),
-            creation_time=time(today.hour, today.minute, today.second),
+            creation_date=date(
+                mouse_date.year, mouse_date.month, mouse_date.day
+            ),
+            creation_time=time(
+                mouse_date.hour, mouse_date.minute, mouse_date.second
+            ),
             institution=dataset_info["institution"],
             group="MSMA",
             project_name=dataset_info["project"],
@@ -191,7 +336,7 @@ class SmartSPIMWriter:
         if response.status_code == 200:
             data = response.json()["data"]
 
-            model = Subject(
+            subject = Subject(
                 species=data["species"],
                 subject_id=data["subject_id"],
                 sex=data["sex"],
@@ -223,31 +368,87 @@ class SmartSPIMWriter:
                 f"Mouse {mouse_id} does not have subject information - res status: {res.status_code}"
             )
 
-    def __create_adquisition(self, mouse_id: str, output_path: PathLike):
+    def __create_adquisition(
+        self,
+        parsed_data: dict,
+        dataset_info: dict,
+        original_dataset_path: PathLike,
+        output_path: PathLike,
+    ):
         """
         Creates the data description json.
 
         Parameters
         ------------------------
-        mouse_id: str
-            Mouse id for the dataset
+        parsed_data: dict
+            Parsed data for the dataset. Contains
+            mouse id and creation datetime
+
+        dataset_info: dict
+            Information for the dataset
 
         output_path: PathLike
             Path where the dataset is located
 
         """
-        pass
+
+        asi_file = original_dataset_path.joinpath("ASI_logging.txt")
+        mdata_file = original_dataset_path.joinpath("metadata.txt")
+
+        with open(mdata_file, "rb") as file:
+            lc_mdata = file.readlines()
+
+        session_end_time = get_session_end(asi_file)
+
+        adquisition = acquisition.Acquisition(
+            specimen_id="",
+            instrument_id=dataset_info["instrument_id"],
+            experimenter_full_name=dataset_info["experimenter"],
+            subject_id=mouse_id,
+            session_start_time=parsed_data["mouse_date"],
+            session_end_time=session_end_time,
+            local_storage_directory=dataset_info["local_storage_directory"],
+            external_storage_directory="",
+            chamber_immersion=acquisition.Immersion(
+                medium=dataset_info["medium"],
+                refractive_index=dataset_info["refractive_index"],
+            ),
+            axes=[
+                acquisition.Axis(
+                    name="X",
+                    dimension=2,
+                    direction="Left_to_right",
+                ),
+                acquisition.Axis(
+                    name="Y", dimension=1, direction="Posterior_to_anterior"
+                ),
+                acquisition.Axis(
+                    name="Z", dimension=0, direction="Superior_to_inferior"
+                ),
+            ],
+            tiles=make_acq_tiles(lc_mdata),
+        )
+
+        acquisition_path = str(output_path.joinpath("acquisition.json"))
+
+        with open(acquisition_path, "w") as f:
+            f.write(acquisition.json(indent=3))
 
     def __create_smartspim_metadata(
-        self, mouse_id: str, dataset_info: dict, output_path: PathLike
+        self,
+        parsed_data: dict,
+        dataset_info: dict,
+        original_dataset_path: PathLike,
+        output_path: PathLike,
     ) -> None:
         """
         Creates the data description json.
 
         Parameters
         ------------------------
-        mouse_id: str
-            Mouse id for the dataset
+        parsed_data: config
+            Dictionary with the data from the dataset name.
+            It includes mouse id, creation date and time for the dataset
 
         dataset_info: dict
             Information for the dataset
@@ -259,13 +460,30 @@ class SmartSPIMWriter:
         output_path = Path(output_path)
 
         # Creates the data description json
-        self.__create_data_description(mouse_id, dataset_info, output_path)
+        if "data_description" in dataset_info:
+            self.__create_data_description(
+                parsed_data, dataset_info["data_description"], output_path
+            )
+        else:
+            logger.error(
+                f"data_description.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
+            )
 
         # Creates the subject metadata json
-        self.__create_subject(mouse_id, output_path)
+        self.__create_subject(parsed_data["mouse_id"], output_path)
 
-        # Creates the procedures json
-        self.__create_procedures(mouse_id, output_path)
+        # Creates the adquisition json
+        if "adquisition" in dataset_info:
+            self.__create_adquisition(
+                mouse_id,
+                dataset_info["adquisition"],
+                original_dataset_path,
+                output_path,
+            )
+        else:
+            logger.error(
+                f"adquisition.json was not created for {mouse_id}. Add it to the YAML configuration."
+            )
 
     def prepare_datasets(
         self, mode: str = "move", delete_empty: bool = True
@@ -301,7 +519,7 @@ class SmartSPIMWriter:
                 logger.info(f"Processing: {dataset_path}\n")
                 (
                     new_dataset_path,
-                    mouse_id_str,
+                    parsed_data,
                 ) = self.create_dataset_convention(dataset_path)
                 derivatives_path = new_dataset_path.joinpath("derivatives")
                 smartspim_channels_path = new_dataset_path.joinpath(
@@ -316,8 +534,9 @@ class SmartSPIMWriter:
 
                     # Create smartspim metadata
                     self.__create_smartspim_metadata(
-                        mouse_id=mouse_id_str,
+                        parsed_data=parsed_data,
                         dataset_info=dataset_info,
+                        original_dataset_path=dataset_path,
                         output_path=new_dataset_path,
                     )
 
