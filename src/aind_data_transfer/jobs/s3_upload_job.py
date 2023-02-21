@@ -6,13 +6,13 @@ import datetime
 import json
 import logging
 import os
+import re
 import shutil
 import sys
 import tempfile
-import re
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
@@ -278,7 +278,9 @@ class GenericS3UploadJob:
             parsed_date = datetime.strptime(stripped_date, "%m/%d/%Y")
             return parsed_date.strftime("%Y-%m-%d")
         else:
-            raise ValueError("Incorrect data format, should be YYYY-MM-DD or DD/MM/YYYY")
+            raise ValueError(
+                "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
+            )
 
     @staticmethod
     def _parse_time(time: str) -> str:
@@ -293,13 +295,15 @@ class GenericS3UploadJob:
             parsed_time = datetime.strptime(stripped_time, "%H:%M:%S")
             return parsed_time.strftime("%H-%M-%S")
         else:
-            raise ValueError("Incorrect data format, should be HH-MM-SS or HH:MM:SS")
+            raise ValueError(
+                "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
+            )
 
     def _parse_date_time(self, job_args: argparse.Namespace):
         """Parses date and time to Excel default format"""
         args_dict = vars(job_args)
-        args_dict['acq_date'] = self._parse_date(args_dict['acq_date'])
-        args_dict['acq_time'] = self._parse_time(args_dict['acq_time'])
+        args_dict["acq_date"] = self._parse_date(args_dict["acq_date"])
+        args_dict["acq_time"] = self._parse_time(args_dict["acq_time"])
 
     def _load_configs(self, args: list) -> argparse.Namespace:
         """Parses sys args using argparse and resolves the service
