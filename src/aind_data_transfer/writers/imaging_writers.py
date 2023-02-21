@@ -5,7 +5,14 @@ from datetime import date, datetime, time
 from pathlib import Path
 from typing import Tuple, Union
 
-from aind_data_schema import Funding, RawDataDescription
+from aind_data_schema import Funding, Procedures, RawDataDescription, Subject
+from aind_data_schema.procedures import (
+    Anaesthetic,
+    Craniotomy,
+    InjectionMaterial,
+    NanojectInjection,
+)
+from aind_metadata_service.client import AindMetadataServiceClient
 
 from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
 from aind_data_transfer.util import file_utils
@@ -29,7 +36,7 @@ logger.setLevel(logging.INFO)
 class SmartSPIMWriter:
     """This class contains the methods to write smartspim data."""
 
-    def __init__(self, dataset_paths: dict):
+    def __init__(self, dataset_paths: dict, metadata_domain: str):
         """
         Class constructor.
 
@@ -38,9 +45,13 @@ class SmartSPIMWriter:
         dataset_paths: dict
             Dictionary with the dataset paths
 
+        metadata_domain: str
+            Metadata domain
+
         """
         self.__dataset_paths = dataset_paths
         self.__regex_expressions = SmartSPIMReader.RegexPatterns
+        self.__metadata_domain = metadata_domain
 
     @property
     def dataset_paths(self) -> dict:
@@ -119,26 +130,25 @@ class SmartSPIMWriter:
 
         return new_dataset_path, mouse_id_str
 
-    def __create_smartspim_metadata(
+    def __create_data_description(
         self, mouse_id: str, dataset_info: dict, output_path: PathLike
-    ) -> None:
-
+    ):
         """
-        Prepares .
+        Creates the data description json.
 
         Parameters
         ------------------------
-        dataset_path: PathLike
+        mouse_id: str
+            Mouse id for the dataset
+
+        dataset_info: dict
+            Information for the dataset
+
+        output_path: PathLike
             Path where the dataset is located
 
-        Returns
-        ------------------------
-        Tuple
-            Tuple with the new dataset path based on
-            the data conventions and mouse id
         """
 
-        output_path = Path(output_path)
         today = datetime.today()
 
         # Creating data description
@@ -161,10 +171,105 @@ class SmartSPIMWriter:
         with open(data_description_path, "w") as f:
             f.write(data_description.json(indent=3))
 
+    def __create_subject(self, mouse_id: str, output_path: PathLike):
+        """
+        Creates the data description json.
+
+        Parameters
+        ------------------------
+        mouse_id: str
+            Mouse id for the dataset
+
+        output_path: PathLike
+            Path where the dataset is located
+        """
+
+        client = AindMetadataServiceClient(self.__metadata_domain)
+
+        response = client.get_subject(mouse_id)
+
+        if response.status_code == 200:
+            data = response.json()["data"]
+
+            model = Subject(
+                species=data["species"],
+                subject_id=data["subject_id"],
+                sex=data["sex"],
+                date_of_birth=data["date_of_birth"],
+                genotype=data["genotype"],
+                mgi_allele_ids=data["mgi_allele_ids"],
+                background_strain=data["background_strain"],
+                source=data["source"],
+                rrid=data["rrid"],
+                restrictions=data["restrictions"],
+                breeding_group=data["breeding_group"],
+                maternal_id=data["maternal_id"],
+                maternal_genotype=data["maternal_genotype"],
+                paternal_id=data["paternal_id"],
+                paternal_genotype=data["paternal_genotype"],
+                light_cycle=data["light_cycle"],
+                home_cage_enrichment=data["home_cage_enrichment"],
+                wellness_reports=data["wellness_reports"],
+                notes=data["notes"],
+            )
+
+            subject_path = str(output_path.joinpath("subject.json"))
+
+            with open(subject_path, "w") as f:
+                f.write(subject.json(indent=3))
+
+        else:
+            logger.error(
+                f"Mouse {mouse_id} does not have subject information - res status: {res.status_code}"
+            )
+
+    def __create_adquisition(self, mouse_id: str, output_path: PathLike):
+        """
+        Creates the data description json.
+
+        Parameters
+        ------------------------
+        mouse_id: str
+            Mouse id for the dataset
+
+        output_path: PathLike
+            Path where the dataset is located
+
+        """
+        pass
+
+    def __create_smartspim_metadata(
+        self, mouse_id: str, dataset_info: dict, output_path: PathLike
+    ) -> None:
+        """
+        Creates the data description json.
+
+        Parameters
+        ------------------------
+        mouse_id: str
+            Mouse id for the dataset
+
+        dataset_info: dict
+            Information for the dataset
+
+        dataset_path: PathLike
+            Path where the dataset is located
+        """
+
+        output_path = Path(output_path)
+
+        # Creates the data description json
+        self.__create_data_description(mouse_id, dataset_info, output_path)
+
+        # Creates the subject metadata json
+        self.__create_subject(mouse_id, output_path)
+
+        # Creates the procedures json
+        self.__create_procedures(mouse_id, output_path)
+
     def prepare_datasets(
         self, mode: str = "move", delete_empty: bool = True
     ) -> Tuple:
-
         """
         Prepares the smartspim folder structure
         based on the data conventions.
@@ -190,11 +295,9 @@ class SmartSPIMWriter:
         ignored_datasets = []
 
         for dataset_info in self.__dataset_paths:
-
             dataset_path = dataset_info["path"]
 
             if os.path.isdir(dataset_path):
-
                 logger.info(f"Processing: {dataset_path}\n")
                 (
                     new_dataset_path,
@@ -206,7 +309,6 @@ class SmartSPIMWriter:
                 )
 
                 if not os.path.isdir(new_dataset_path):
-
                     file_utils.create_folder(derivatives_path, True)
                     file_utils.create_folder(smartspim_channels_path, True)
 
