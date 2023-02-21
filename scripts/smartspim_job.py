@@ -48,6 +48,22 @@ class CopyDatasets(ArgSchema):
         dump_default="LOCAL",
     )
 
+    metadata_service_domain = Str(
+        required=True,
+        metadata={
+            "description": 'Metadata service domain'
+        },
+        dump_default="",
+    )
+
+    codeocean_credentials_path = Str(
+        required=True,
+        metadata={
+            "description": 'Path where the code ocean credentials are saved'
+        },
+        dump_default="",
+    )
+
     co_capsule_id = Str(
         required=True,
         metadata={"description": "Capsule id of smartspim pipeline"},
@@ -278,7 +294,10 @@ def organize_datasets(
                 ready_datasets.append(dataset)
 
         # Organizing smartspim folders
-        smartSPIM_writer = SmartSPIMWriter(dataset_paths=ready_datasets)
+        smartSPIM_writer = SmartSPIMWriter(
+            dataset_paths=ready_datasets,
+            metadata_domain=os.getenv("METADATA_SERVICE_DOMAIN"),
+        )
 
         (
             new_dataset_paths,
@@ -404,14 +423,16 @@ def main():
     Main to execute the smartspim job
     """
 
-    # HPC paths
     config_param = ArgSchemaParser(schema_type=ConfigFile)
-    SUBMIT_HPC_PATH = "/home/camilo.laiton/repositories/aind-data-transfer/scripts/cluster/submit.py"
-    S3_UPLOAD_PATH = "/home/camilo.laiton/repositories/aind-data-transfer/scripts/s3_upload.py"
+
+    SUBMIT_HPC_PATH = Path(os.path.dirname(os.path.realpath(__file__))) / "s3_upload.py"
+    S3_UPLOAD_PATH = Path(os.path.dirname(os.path.realpath(__file__))) / "cluster/submit.py"
 
     # Getting config file
     config_file_path = config_param.args["config_file"]
     config = get_default_config(config_file_path)
+
+    os.environ["CODEOCEAN_CREDENTIALS_PATH"] = config["codeocean_credentials_path"]
 
     # Organizing folders
     root_folder = Path(config["root_folder"])
@@ -422,7 +443,6 @@ def main():
     # Getting all pending datasets in root folder (even old ones)
     pending_datasets = get_upload_datasets(root_folder)
 
-    print("BEF: ", pending_datasets)
     # Providing parameters to datasets
     default_pipeline_config = get_smartspim_default_config()
 
@@ -479,7 +499,6 @@ def main():
                 logger.info(f"{cmd}")
             else:
                 # Local
-                logger.info("Deprecated! Fix local uploader")
 
                 sys.argv = [
                     "",
@@ -487,6 +506,8 @@ def main():
                     f"--bucket={s3_bucket}",
                     f"--s3_path={dataset_dest_path}",
                     f"--nthreads={nthreads}",
+                    "--trigger_code_ocean",
+                    f"--pipeline_config={dataset}",
                     "--recursive",
                 ]
 
