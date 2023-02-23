@@ -6,6 +6,7 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Tuple, Union
+import json
 
 import s3_upload
 import yaml
@@ -345,12 +346,12 @@ def get_smartspim_default_config() -> dict:
     for the smartspim pipeline
     """
     return {
-        "stitching": {"co_folder": "scratch", "stitch_channel": 0},
-        "registration": {"channel": "Ex_488_Em_525.zarr", "input_scale": 3},
-        "segmentation": {
-            "channel": "Ex_488_Em_525",
-            "input_scale": 0,
-            "chunksize": 500,
+        'stitching': {'co_folder': 'scratch', 'stitch_channel': '0'},
+        'registration': {'channel': 'Ex_488_Em_525.zarr', 'input_scale': '3'},
+        'segmentation': {
+            'channel': 'Ex_488_Em_525',
+            'input_scale': '0',
+            'chunksize': '500',
         },
     }
 
@@ -425,8 +426,10 @@ def main():
 
     config_param = ArgSchemaParser(schema_type=ConfigFile)
 
-    SUBMIT_HPC_PATH = Path(os.path.dirname(os.path.realpath(__file__))) / "s3_upload.py"
-    S3_UPLOAD_PATH = Path(os.path.dirname(os.path.realpath(__file__))) / "cluster/submit.py"
+    SUBMIT_HPC_PATH = Path(os.path.dirname(
+        os.path.realpath(__file__))) / "cluster/submit.py"
+    S3_UPLOAD_PATH = Path(os.path.dirname(
+        os.path.realpath(__file__))) / "s3_upload.py"
 
     # Getting config file
     config_file_path = config_param.args["config_file"]
@@ -478,25 +481,16 @@ def main():
             dataset_dest_path = dest_data_dir.joinpath(dataset_name)
 
             if config["transfer_type"] == "HPC":
-                cmd = f"""
-                    python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd="python {S3_UPLOAD_PATH} \
-                    --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} \
-                    --recursive --cluster --trigger_code_ocean --pipeline_config={dataset}" \
-                    --run_parent_dir="/home/camilo.laiton/.slurm" \
-                    --conda_activate="/home/camilo.laiton/anaconda3/bin/activate" \
-                    --conda_env="data_transfer" --queue="aind" --ntasks_per_node=8 --nodes=4 \
-                    --cpus_per_task=1 --mem_per_cpu=4000 --walltime="05:00:00" \
-                    --mail_user="camilo.laiton@alleninstitute.org"
-                """
-
+                dataset_dumped = json.dumps(dataset).replace('"', "[token]")
+                cmd = f"""python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd='python {S3_UPLOAD_PATH} --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} --recursive --cluster --trigger_code_ocean --pipeline_config="{dataset_dumped}" ' --run_parent_dir='/home/svc_aind_upload/sci_comp_team/SmartSPIM/.slurm' --conda_activate='/home/svc_aind_upload/anaconda3/bin/activate' --conda_env='smartspim_transfer' --queue='aind' --ntasks_per_node=8 --nodes=4  --cpus_per_task=1 --mem_per_cpu=4000 --walltime='05:00:00' --mail_user='camilo.laiton@alleninstitute.org' """
+                
                 # HPC run
                 logger.info(f"Uploading dataset: {dataset_name}")
                 for out in file_utils.execute_command(cmd):
                     logger.info(out)
 
-                # # Error with slurm logs directory
-                # time.sleep(30)
-                logger.info(f"{cmd}")
+                # Error with slurm logs directory
+                time.sleep(30)
             else:
                 # Local
 
