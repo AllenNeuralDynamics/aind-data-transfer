@@ -1,9 +1,5 @@
-# Leave values blank to use defaults
-transfer_type: "HPC" # LOCAL
-metadata_service_domain: ""
-codeocean_credentials_path: ""
-co_capsule_id: # Code Ocean capsule ID for smartspim pipeline
-root_folder: # Folder where smartspim datasets are located
+# SmartSPIM datasets that need to be organized
+# and generate metadata
 organize_smartspim_datasets:
   -
     path: "RAW_DATASET_NAME"
@@ -20,7 +16,7 @@ organize_smartspim_datasets:
       local_storage_directory:
     stitching:
       co_folder: "scratch"
-      stitch_channel: 0 # Check the order of the channels TODO change to string
+      stitch_channel: "0" # Check the order of the channels TODO change to string
     registration:
       channel: "Ex_488_Em_525.zarr"
       input_scale: "3"
@@ -45,14 +41,30 @@ organize_smartspim_datasets:
       co_folder: "scratch"
       stitch_channel: "0" # Check the order of the channels TODO change to string
     registration:
-      channel: Ex_488_Em_525."zarr"
+      channel: "Ex_488_Em_525.zarr"
       input_scale: "3"
     segmentation:
       channel: "Ex_488_Em_525"
       input_scale: "0"
       chunksize: "250"
 
-
+# Parameters to upload organized smartspim datasets
+transfer_type:
+  type: "HPC" # LOCAL
+  hpc_account: ""
+  logs_folder: ""
+  conda_env: ""
+  hpc_queue: ""
+  tasks_per_node: 
+  nodes: 
+  cpus_per_task: 
+  mem_per_cpu: 
+  walltime: ""
+  mail_user: ""
+metadata_service_domain: ""
+codeocean_credentials_path: ""
+co_capsule_id: "" # Code Ocean capsule ID for smartspim pipeline
+root_folder: "" # Folder where smartspim datasets are located
 dest_data_dir: # Defaults to the raw_data_dir folder name
 s3_bucket: aind-open-data # S3 bucket
 nthreads: 20

@@ -41,12 +41,11 @@ class CopyDatasets(ArgSchema):
     datasets
     """
 
-    transfer_type = Str(
+    transfer_type = Dict(
         required=True,
         metadata={
-            "description": 'Where the processes will be run. ["HPC", "LOCAL"]'
-        },
-        dump_default="LOCAL",
+            "description": 'Configuration for the transfer type'
+        }
     )
 
     metadata_service_domain = Str(
@@ -480,10 +479,19 @@ def main():
         if os.path.isdir(dataset_path):
             dataset_dest_path = dest_data_dir.joinpath(dataset_name)
 
-            if config["transfer_type"] == "HPC":
+            if config["transfer_type"]["type"] == "HPC":
                 dataset_dumped = json.dumps(dataset).replace('"', "[token]")
-                cmd = f"""python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd='python {S3_UPLOAD_PATH} --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} --recursive --cluster --trigger_code_ocean --pipeline_config="{dataset_dumped}" ' --run_parent_dir='/home/svc_aind_upload/sci_comp_team/SmartSPIM/.slurm' --conda_activate='/home/svc_aind_upload/anaconda3/bin/activate' --conda_env='smartspim_transfer' --queue='aind' --ntasks_per_node=8 --nodes=4  --cpus_per_task=1 --mem_per_cpu=4000 --walltime='05:00:00' --mail_user='camilo.laiton@alleninstitute.org' """
-                
+                cmd = f"""python {SUBMIT_HPC_PATH} generate-and-launch-run --job_cmd='python {S3_UPLOAD_PATH} \
+                --input={dataset_path} --bucket={s3_bucket} --s3_path={dataset_name} --recursive --cluster \
+                --trigger_code_ocean --pipeline_config="{dataset_dumped}" ' \
+                --run_parent_dir='{config['transfer_type']['logs_folder']}' \
+                --conda_activate='/home/{config['transfer_type']['hpc_account']}/anaconda3/bin/activate' \
+                --conda_env='{config['transfer_type']['conda_env']}' --queue='{config['transfer_type']['hpc_queue']}' \
+                --ntasks_per_node={config['transfer_type']['tasks_per_node']} \
+                --nodes={config['transfer_type']['nodes']}  --cpus_per_task={config['transfer_type']['cpus_per_task']} \
+                --mem_per_cpu={config['transfer_type']['mem_per_cpu']} --walltime='{config['transfer_type']['walltime']}' \
+                --mail_user='{config['transfer_type']['mail_user']}' """
+
                 # HPC run
                 logger.info(f"Uploading dataset: {dataset_name}")
                 for out in file_utils.execute_command(cmd):
