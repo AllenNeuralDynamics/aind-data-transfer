@@ -81,6 +81,7 @@ def run_cluster_job(
     if chunked_files is None:
         logger.error(f"No files found!")
         client.close()
+        return -1
 
     logger.info(
         f"Split files into {len(chunked_files)} chunks with "
@@ -303,7 +304,7 @@ def main():
             ["UPLOADED", f"Upload time: {now_datetime}", f"Bucket: {bucket}"],
         )
 
-    if trigger_code_ocean and pipeline_config:
+    if trigger_code_ocean and pipeline_config and not n_failed_uploads:
         logger.info(f"Triggering code ocean {pipeline_config}")
         asset_name = PurePath(s3_path).stem
 
