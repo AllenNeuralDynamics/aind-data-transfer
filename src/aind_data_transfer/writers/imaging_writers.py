@@ -5,7 +5,7 @@ from datetime import date, datetime, time
 from pathlib import Path
 from typing import Tuple, Union
 
-from aind_data_schema import Funding, Procedures, RawDataDescription, Subject
+from aind_data_schema import Funding, RawDataDescription, Subject
 from aind_data_schema.imaging import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
@@ -295,7 +295,7 @@ class SmartSPIMWriter:
         # Creating data description
         data_description = RawDataDescription(
             modality="smartspim",
-            subject_id=mouse_id,
+            subject_id=parsed_data["mouse_id"],
             creation_date=date(
                 mouse_date.year, mouse_date.month, mouse_date.day
             ),
@@ -365,7 +365,7 @@ class SmartSPIMWriter:
 
         else:
             logger.error(
-                f"Mouse {mouse_id} does not have subject information - res status: {res.status_code}"
+                f"Mouse {mouse_id} does not have subject information - res status: {response.status_code}"
             )
 
     def __create_adquisition(
@@ -400,11 +400,11 @@ class SmartSPIMWriter:
 
         session_end_time = get_session_end(asi_file)
 
-        adquisition = acquisition.Acquisition(
+        acquisition_model = acquisition.Acquisition(
             specimen_id="",
             instrument_id=dataset_info["instrument_id"],
             experimenter_full_name=dataset_info["experimenter"],
-            subject_id=mouse_id,
+            subject_id=parsed_data["mouse_id"],
             session_start_time=parsed_data["mouse_date"],
             session_end_time=session_end_time,
             local_storage_directory=dataset_info["local_storage_directory"],
@@ -432,7 +432,7 @@ class SmartSPIMWriter:
         acquisition_path = str(output_path.joinpath("acquisition.json"))
 
         with open(acquisition_path, "w") as f:
-            f.write(acquisition.json(indent=3))
+            f.write(acquisition_model.json(indent=3))
 
     def __create_smartspim_metadata(
         self,
@@ -475,14 +475,14 @@ class SmartSPIMWriter:
         # Creates the adquisition json
         if "adquisition" in dataset_info:
             self.__create_adquisition(
-                mouse_id,
+                parsed_data,
                 dataset_info["adquisition"],
                 original_dataset_path,
                 output_path,
             )
         else:
             logger.error(
-                f"adquisition.json was not created for {mouse_id}. Add it to the YAML configuration."
+                f"adquisition.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
             )
 
     def prepare_datasets(

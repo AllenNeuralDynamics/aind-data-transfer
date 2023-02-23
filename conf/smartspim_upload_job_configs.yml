@@ -19,15 +19,15 @@ organize_smartspim_datasets:
         refractive_index:
       local_storage_directory:
     stitching:
-      co_folder: scratch
+      co_folder: "scratch"
       stitch_channel: 0 # Check the order of the channels TODO change to string
     registration:
-      channel: Ex_488_Em_525.zarr
-      input_scale: 3
+      channel: "Ex_488_Em_525.zarr"
+      input_scale: "3"
     segmentation:
-      channel: Ex_488_Em_525
-      input_scale: 0
-      chunksize: 500
+      channel: "Ex_488_Em_525"
+      input_scale: "0"
+      chunksize: "500"
   -
     path: "RAW_DATASET_NAME_2"
     data_description:
@@ -42,15 +42,15 @@ organize_smartspim_datasets:
         refractive_index:
       local_storage_directory:
     stitching:
-      co_folder: scratch
-      stitch_channel: 0 # Check the order of the channels TODO change to string
+      co_folder: "scratch"
+      stitch_channel: "0" # Check the order of the channels TODO change to string
     registration:
-      channel: Ex_488_Em_525.zarr
-      input_scale: 3
+      channel: Ex_488_Em_525."zarr"
+      input_scale: "3"
     segmentation:
-      channel: Ex_488_Em_525
-      input_scale: 0
-      chunksize: 250
+      channel: "Ex_488_Em_525"
+      input_scale: "0"
+      chunksize: "250"
 
 
 dest_data_dir: # Defaults to the raw_data_dir folder name

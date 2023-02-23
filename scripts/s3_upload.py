@@ -6,6 +6,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import PurePath
+import json
 
 import numpy as np
 from aind_codeocean_api.codeocean import CodeOceanClient
@@ -30,7 +31,13 @@ logger.setLevel(logging.INFO)
 
 def chunk_files(input_dir, ntasks, recursive=True, exclude_dirs=None):
     filepaths = collect_filepaths(input_dir, recursive, exclude_dirs)
-    logger.info(f"Collected {len(filepaths)} files")
+    
+    filepaths_len = len(filepaths)
+
+    if not filepaths_len:
+        return None
+
+    logger.info(f"Collected {filepaths_len} files")
     return np.array_split(filepaths, ntasks)
 
 
@@ -70,6 +77,11 @@ def run_cluster_job(
     chunked_files = chunk_files(
         input_dir, ntasks * chunks_per_worker, recursive, exclude_dirs
     )
+
+    if chunked_files is None:
+        logger.error(f"No files found!")
+        client.close()
+
     logger.info(
         f"Split files into {len(chunked_files)} chunks with "
         f"{len(chunked_files[0])} files each"
@@ -235,13 +247,19 @@ def main():
 
     args = parser.parse_args()
 
-    pipeline_config = dict(args.pipeline_config)
+    pipeline_config = None
+    if len(args.pipeline_config):
+        pipeline_config = args.pipeline_config.replace("[token]", '"')
+        pipeline_config = json.loads(
+            pipeline_config
+        )
+
     input_path = args.input
     bucket = args.bucket
     n_failed_uploads = -1
     trigger_code_ocean = args.trigger_code_ocean
     capsule_id = pipeline_config["co_capsule_id"]
-
+    
     s3_path = args.s3_path
     if s3_path is None:
         s3_path = PurePath(args.input).name
@@ -285,7 +303,8 @@ def main():
             ["UPLOADED", f"Upload time: {now_datetime}", f"Bucket: {bucket}"],
         )
 
-    if trigger_code_ocean and not n_failed_uploads and len(capsule_id):
+    if trigger_code_ocean and pipeline_config:
+        logger.info(f"Triggering code ocean {pipeline_config}")
         asset_name = PurePath(s3_path).stem
 
         job_configs = {
@@ -296,8 +315,8 @@ def main():
             }
         }
 
-        job_config["trigger_codeocean_job"] = get_smartspim_config(
-            job_config["trigger_codeocean_job"], pipeline_config
+        job_configs["trigger_codeocean_job"] = get_smartspim_config(
+            job_configs["trigger_codeocean_job"], pipeline_config
         )
 
         try:
@@ -317,6 +336,8 @@ def main():
         except ValueError as err:
             logger.error(f"Error communicating with Code Ocean API {err}")
 
+    else:
+        logger.warning("Code ocean was not triggered. If this is an error, check your parameters")
 
 if __name__ == "__main__":
     main()
