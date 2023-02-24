@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -6,7 +7,6 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Tuple, Union
-import json
 
 import s3_upload
 import yaml
@@ -43,23 +43,19 @@ class CopyDatasets(ArgSchema):
 
     transfer_type = Dict(
         required=True,
-        metadata={
-            "description": 'Configuration for the transfer type'
-        }
+        metadata={"description": "Configuration for the transfer type"},
     )
 
     metadata_service_domain = Str(
         required=True,
-        metadata={
-            "description": 'Metadata service domain'
-        },
+        metadata={"description": "Metadata service domain"},
         dump_default="",
     )
 
     codeocean_credentials_path = Str(
         required=True,
         metadata={
-            "description": 'Path where the code ocean credentials are saved'
+            "description": "Path where the code ocean credentials are saved"
         },
         dump_default="",
     )
@@ -345,12 +341,12 @@ def get_smartspim_default_config() -> dict:
     for the smartspim pipeline
     """
     return {
-        'stitching': {'co_folder': 'scratch', 'stitch_channel': '0'},
-        'registration': {'channel': 'Ex_488_Em_525.zarr', 'input_scale': '3'},
-        'segmentation': {
-            'channel': 'Ex_488_Em_525',
-            'input_scale': '0',
-            'chunksize': '500',
+        "stitching": {"co_folder": "scratch", "stitch_channel": "0"},
+        "registration": {"channel": "Ex_488_Em_525.zarr", "input_scale": "3"},
+        "segmentation": {
+            "channel": "Ex_488_Em_525",
+            "input_scale": "0",
+            "chunksize": "500",
         },
     }
 
@@ -425,16 +421,20 @@ def main():
 
     config_param = ArgSchemaParser(schema_type=ConfigFile)
 
-    SUBMIT_HPC_PATH = Path(os.path.dirname(
-        os.path.realpath(__file__))) / "cluster/submit.py"
-    S3_UPLOAD_PATH = Path(os.path.dirname(
-        os.path.realpath(__file__))) / "s3_upload.py"
+    SUBMIT_HPC_PATH = (
+        Path(os.path.dirname(os.path.realpath(__file__))) / "cluster/submit.py"
+    )
+    S3_UPLOAD_PATH = (
+        Path(os.path.dirname(os.path.realpath(__file__))) / "s3_upload.py"
+    )
 
     # Getting config file
     config_file_path = config_param.args["config_file"]
     config = get_default_config(config_file_path)
 
-    os.environ["CODEOCEAN_CREDENTIALS_PATH"] = config["codeocean_credentials_path"]
+    os.environ["CODEOCEAN_CREDENTIALS_PATH"] = config[
+        "codeocean_credentials_path"
+    ]
 
     # Organizing folders
     root_folder = Path(config["root_folder"])
