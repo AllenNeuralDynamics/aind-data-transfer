@@ -114,11 +114,15 @@ class GenericS3UploadJob:
         """Uploads json files stored in the user defined metadata directory.
         A few files might not be uploaded. subject.json, processing.json, etc.
         are generated dynamically."""
+        # Exclude all files, then add include so that only json files are
+        # uploaded.
         upload_to_s3(
             directory_to_upload=self.configs.metadata_dir,
             s3_bucket=self.configs.s3_bucket,
             s3_prefix=self.s3_prefix,
             dryrun=self.configs.dry_run,
+            excluded="*",
+            included="*.json",
         )
 
         return None

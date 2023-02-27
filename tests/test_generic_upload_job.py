@@ -439,6 +439,8 @@ class TestGenericS3UploadJob(unittest.TestCase):
             s3_bucket="some_s3_bucket",
             s3_prefix=("ecephys_12345_2022-10-10_13-24-01"),
             dryrun=True,
+            excluded="*",
+            included="*.json",
         )
 
     @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")

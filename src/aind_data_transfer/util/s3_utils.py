@@ -33,7 +33,12 @@ def get_secret(secret_name, region_name):
 
 
 def upload_to_s3(
-    directory_to_upload, s3_bucket, s3_prefix, dryrun, excluded=None
+        directory_to_upload,
+        s3_bucket,
+        s3_prefix,
+        dryrun,
+        excluded=None,
+        included=None,
 ):
     # Upload to s3
     if platform.system() == "Windows":
@@ -48,6 +53,8 @@ def upload_to_s3(
 
     if excluded:
         base_command.extend(["--exclude", excluded])
+    if included:
+        base_command.extend(["--include", included])
     if dryrun:
         base_command.append("--dryrun")
     subprocess.run(base_command, shell=shell)
