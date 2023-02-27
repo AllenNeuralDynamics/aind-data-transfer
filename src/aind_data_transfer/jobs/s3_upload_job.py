@@ -110,6 +110,19 @@ class GenericS3UploadJob:
                     dryrun=self.configs.dry_run,
                 )
 
+    def upload_metadata_from_folder(self) -> None:
+        """Uploads json files stored in the user defined metadata directory.
+        A few files might not be uploaded. subject.json, processing.json, etc.
+        are generated dynamically."""
+        upload_to_s3(
+            directory_to_upload=self.configs.metadata_dir,
+            s3_bucket=self.configs.s3_bucket,
+            s3_prefix=self.s3_prefix,
+            dryrun=self.configs.dry_run,
+        )
+
+        return None
+
     def upload_subject_metadata(self) -> None:
         """Retrieves subject metadata from metadata service and copies it to
         s3. Logs warning if unable to retrieve metadata from service."""
@@ -269,8 +282,8 @@ class GenericS3UploadJob:
     def _parse_date(date: str) -> str:
         """Parses date string to %YYYY-%MM-%DD format"""
         stripped_date = date.strip()
-        pattern = "^\d{4}-\d{2}-\d{2}$"
-        pattern2 = "^\d{1,2}/\d{1,2}/\d{4}$"
+        pattern = r"^\d{4}-\d{2}-\d{2}$"
+        pattern2 = r"^\d{1,2}/\d{1,2}/\d{4}$"
         if re.match(pattern, stripped_date):
             parsed_date = datetime.strptime(stripped_date, "%Y-%m-%d")
             return parsed_date.strftime("%Y-%m-%d")
@@ -286,8 +299,8 @@ class GenericS3UploadJob:
     def _parse_time(time: str) -> str:
         """Parses time string to "%HH-%MM-%SS format"""
         stripped_time = time.strip()
-        pattern = "^\d{1,2}-\d{1,2}-\d{1,2}$"
-        pattern2 = "^\d{1,2}:\d{1,2}:\d{1,2}$"
+        pattern = r"^\d{1,2}-\d{1,2}-\d{1,2}$"
+        pattern2 = r"^\d{1,2}:\d{1,2}:\d{1,2}$"
         if re.match(pattern, stripped_time):
             parsed_time = datetime.strptime(stripped_time, "%H-%M-%S")
             return parsed_time.strftime("%H-%M-%S")
@@ -331,6 +344,7 @@ class GenericS3UploadJob:
         parser.add_argument("-a", "--acq-date", required=True, type=str)
         parser.add_argument("-t", "--acq-time", required=True, type=str)
         parser.add_argument("-v", "--behavior-dir", required=False, type=str)
+        parser.add_argument("-x", "--metadata-dir", required=False, type=str)
         parser.add_argument(
             "-e", "--service-endpoints", required=False, type=json.loads
         )
@@ -352,12 +366,18 @@ class GenericS3UploadJob:
 
         data_prefix = "/".join([self.s3_prefix, self.configs.modality])
 
+        # Optionally upload the data in the metadata directory to s3
+        metadata_dir = self.configs.metadata_dir
+        if metadata_dir is not None:
+            self.upload_metadata_from_folder()
+
+        # Optionally upload the data in the behavior directory to s3
         behavior_dir = self.configs.behavior_dir
         if behavior_dir is not None:
             self.compress_and_upload_behavior_data()
             behavior_dir = Path(behavior_dir) / "*"
 
-        # Upload non-behavior data to s3 first
+        # Upload non-behavior data to s3
         upload_to_s3(
             directory_to_upload=self.configs.data_source,
             s3_bucket=self.configs.s3_bucket,
@@ -388,6 +408,7 @@ class GenericS3UploadJobList:
         "acq-date",
         "acq-time",
         "behavior-dir",
+        "metadata-dir",
     ]
 
     def __init__(self, args: list) -> None:
@@ -403,7 +424,8 @@ class GenericS3UploadJobList:
         help_message_csv_file = (
             "Path to csv file with list of job configs. The csv file needs "
             "to have the headers: data-source, s3-bucket, subject-id, "
-            "modality, acq-date, acq-time. Optional header: behavior-dir."
+            "modality, acq-date, acq-time. Optional headers: behavior-dir, "
+            "metadata-dir."
         )
         help_message_dry_run = (
             "Tests the upload without actually uploading the files."
@@ -432,13 +454,18 @@ class GenericS3UploadJobList:
             for row in reader:
                 job_list.append(row)
         assert len(job_list) > 0
-        assert (
-            sorted(job_list[0].keys()) == sorted(self.CSV_FILE_FIELD_NAMES)
-        ) or (
-            sorted(job_list[0].keys())
-            == sorted(self.CSV_FILE_FIELD_NAMES[0:-1])
+        # We want to check that the csv header contains the proper info.
+        # Must contain relevant keys but does not need to contain the
+        # optional keys. There's probably a cleaner way to do this?
+        job_list_keys = job_list[0].keys()
+        assert len(job_list_keys) == len(set(job_list_keys))
+        assert set(self.CSV_FILE_FIELD_NAMES[0:-2]).issubset(
+            set(job_list_keys)
         )
+        assert set(job_list_keys).issubset(self.CSV_FILE_FIELD_NAMES)
         param_list = list()
+        # Loop through rows in job_list csv file. Build the shell command
+        # from items in the row. Can ignore the optional settings.
         for job_item in job_list:
             res = [
                 x
@@ -446,12 +473,13 @@ class GenericS3UploadJobList:
                     ("--" + keys[0], keys[1])
                     for keys in job_item.items()
                     if (
-                        (keys[0] != "behavior-dir")
+                        (keys[0] not in ["behavior-dir", "metadata-dir"])
                         or ((keys[1] is not None) and (keys[1] != ""))
                     )
                 ]
                 for x in t
             ]
+            # Add dry-run command if set in command line.
             if self.configs.dry_run:
                 res.append("--dry-run")
             param_list.append(res)

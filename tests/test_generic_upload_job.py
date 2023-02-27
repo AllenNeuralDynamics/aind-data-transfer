@@ -174,6 +174,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
             "service_endpoints": json.loads(self.fake_endpoints_str),
             "dry_run": True,
             "behavior_dir": None,
+            "metadata_dir": None,
         }
         self.assertEqual(expected_configs_vars, vars(job.configs))
 
@@ -426,6 +427,21 @@ class TestGenericS3UploadJob(unittest.TestCase):
         )
 
     @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
+    def test_upload_metadata_folder(self, mock_upload_to_s3: MagicMock):
+        """Tests that the optional metadata folder will be uploaded
+        correctly."""
+        args_with_metadata = ["-x", "some_metadata_dir"]
+        args_with_metadata.extend(self.args1)
+        job = GenericS3UploadJob(args_with_metadata)
+        job.upload_metadata_from_folder()
+        mock_upload_to_s3.assert_called_once_with(
+            directory_to_upload="some_metadata_dir",
+            s3_bucket="some_s3_bucket",
+            s3_prefix=("ecephys_12345_2022-10-10_13-24-01"),
+            dryrun=True,
+        )
+
+    @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
     @patch("tempfile.TemporaryDirectory")
     @patch(
         "aind_data_transfer.transformations.video_compressors."
@@ -503,7 +519,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         )
 
 
-class TestGenericS3UploadJobs(unittest.TestCase):
+class TestGenericS3UploadJobList(unittest.TestCase):
     """Unit tests for methods in GenericS3UploadJobs class."""
 
     PATH_TO_EXAMPLE_CSV_FILE = (
