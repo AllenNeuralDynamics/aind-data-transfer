@@ -12,7 +12,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
@@ -110,10 +110,16 @@ class GenericS3UploadJob:
                     dryrun=self.configs.dry_run,
                 )
 
-    def upload_metadata_from_folder(self) -> None:
+    def upload_metadata_from_folder(self) -> List[str]:
         """Uploads json files stored in the user defined metadata directory.
         A few files might not be uploaded. subject.json, processing.json, etc.
         are generated dynamically."""
+        # Get a list of file names for use later
+        file_names = [
+            fn
+            for fn in os.listdir(self.configs.metadata_dir)
+            if fn.endswith(".json")
+        ]
         # Exclude all files, then add include so that only json files are
         # uploaded.
         upload_to_s3(
@@ -125,7 +131,7 @@ class GenericS3UploadJob:
             included="*.json",
         )
 
-        return None
+        return file_names
 
     def upload_subject_metadata(self) -> None:
         """Retrieves subject metadata from metadata service and copies it to
@@ -354,7 +360,9 @@ class GenericS3UploadJob:
         )
         parser.add_argument("-r", "--s3-region", required=False, type=str)
         parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--metadata-dir-force", action="store_true")
         parser.set_defaults(dry_run=False)
+        parser.set_defaults(metadata_dir_force=False)
         parser.set_defaults(s3_region=self.S3_DEFAULT_REGION)
         job_args = parser.parse_args(args)
         if job_args.service_endpoints is None:
@@ -369,11 +377,6 @@ class GenericS3UploadJob:
         and trigger the codeocean capsule."""
 
         data_prefix = "/".join([self.s3_prefix, self.configs.modality])
-
-        # Optionally upload the data in the metadata directory to s3
-        metadata_dir = self.configs.metadata_dir
-        if metadata_dir is not None:
-            self.upload_metadata_from_folder()
 
         # Optionally upload the data in the behavior directory to s3
         behavior_dir = self.configs.behavior_dir
@@ -390,11 +393,30 @@ class GenericS3UploadJob:
             excluded=behavior_dir,
         )
 
-        # Create subject.json file if metadata service url is provided
-        self.upload_subject_metadata()
+        # Optionally upload the data in the metadata directory to s3
+        metadata_dir = self.configs.metadata_dir
+        user_defined_metadata_files = None
+        if metadata_dir is not None:
+            user_defined_metadata_files = self.upload_metadata_from_folder()
 
-        # Create data description file
-        self.upload_data_description_metadata()
+        # Will create a data description file if not found in user defined
+        # metadata directory. Assumes user defined is source of truth if
+        # provided by default.
+        if (user_defined_metadata_files is None) or (
+            "data_description.json" not in user_defined_metadata_files
+        ):
+            self.upload_data_description_metadata()
+
+        # Create subject.json file if metadata service url is provided
+        # Will not upload if subject.json in user defined metadata folder and
+        # force command present. Assumes aind-metadata-service is source of
+        # truth by default.
+        if (
+            (user_defined_metadata_files is None)
+            or ("subject.json" not in user_defined_metadata_files)
+            or (self.configs.metadata_dir_force is False)
+        ):
+            self.upload_subject_metadata()
 
         # Register to code ocean if url is provided
         self.trigger_codeocean_capsule()
@@ -411,8 +433,9 @@ class GenericS3UploadJobList:
         "modality",
         "acq-date",
         "acq-time",
-        "behavior-dir",
-        "metadata-dir",
+        "behavior-dir",  # Optional
+        "metadata-dir",  # Optional
+        "metadata-dir-force",  # Optional
     ]
 
     def __init__(self, args: list) -> None:
@@ -463,7 +486,7 @@ class GenericS3UploadJobList:
         # optional keys. There's probably a cleaner way to do this?
         job_list_keys = job_list[0].keys()
         assert len(job_list_keys) == len(set(job_list_keys))
-        assert set(self.CSV_FILE_FIELD_NAMES[0:-2]).issubset(
+        assert set(self.CSV_FILE_FIELD_NAMES[0:-3]).issubset(
             set(job_list_keys)
         )
         assert set(job_list_keys).issubset(self.CSV_FILE_FIELD_NAMES)
@@ -477,12 +500,21 @@ class GenericS3UploadJobList:
                     ("--" + keys[0], keys[1])
                     for keys in job_item.items()
                     if (
-                        (keys[0] not in ["behavior-dir", "metadata-dir"])
-                        or ((keys[1] is not None) and (keys[1] != ""))
+                        (keys[0] != "metadata-dir-force")
+                        and (
+                            (keys[0] not in ["behavior-dir", "metadata-dir"])
+                            or ((keys[1] is not None) and (keys[1] != ""))
+                        )
                     )
                 ]
                 for x in t
             ]
+            # Convert metadata-dir-force to a flag if it's been set in csv file
+            if (job_item.get("metadata-dir-force") is not None) and (
+                job_item.get("metadata-dir-force")
+                in ["True", "true", "t", "T", "Yes", "yes", "y", "1"]
+            ):
+                res.append("--metadata-dir-force")
             # Add dry-run command if set in command line.
             if self.configs.dry_run:
                 res.append("--dry-run")
