@@ -448,7 +448,8 @@ class TestGenericS3UploadJob(unittest.TestCase):
             excluded="*",
             included="*.json",
         )
-        self.assertEqual(expected_files_found, actual_files_found)
+        self.assertEqual(len(set(actual_files_found)), len(actual_files_found))
+        self.assertEqual(set(expected_files_found), set(actual_files_found))
 
     @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
     @patch("tempfile.TemporaryDirectory")
