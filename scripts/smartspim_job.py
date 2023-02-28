@@ -12,6 +12,7 @@ import s3_upload
 import yaml
 from argschema import ArgSchema, ArgSchemaParser
 from argschema.fields import Dict, InputFile, Int, List, Str
+from validate_datasets import validate_dataset
 
 from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
 from aind_data_transfer.util import file_utils
@@ -246,7 +247,7 @@ def get_upload_datasets(dataset_folder: PathLike) -> list:
 
 
 def organize_datasets(
-    root_folder: PathLike, datasets: list
+    root_folder: PathLike, datasets: list, metadata_service: str
 ) -> Tuple[list, list]:
     """
     This function organizes the smartspim
@@ -281,18 +282,28 @@ def organize_datasets(
             if not os.path.isdir(dataset_path):
                 continue
 
-            file_content = file_utils.get_status_filename_data(dataset_path)
-
-            if not len(file_content):
-                logging.error(
-                    f"Ignoring dataset {dataset_path}, it's not ready"
+            if validate_dataset(dataset_path):
+                file_content = file_utils.get_status_filename_data(
+                    dataset_path
                 )
-                ready_datasets.append(dataset)
+
+                if not len(file_content):
+                    logging.error(
+                        f"Ignoring dataset {dataset_path}, it's not ready"
+                    )
+                    dataset_config = dataset.copy()
+                    dataset_config["path"] = dataset_path
+                    ready_datasets.append(dataset_config)
+
+            else:
+                logger.info(
+                    f"Dataset f{dataset['path']} has problems in tiles!"
+                )
 
         # Organizing smartspim folders
         smartSPIM_writer = SmartSPIMWriter(
             dataset_paths=ready_datasets,
-            metadata_domain=os.getenv("METADATA_SERVICE_DOMAIN"),
+            metadata_domain=metadata_service,
         )
 
         (
@@ -343,11 +354,11 @@ def get_smartspim_default_config() -> dict:
     return {
         "stitching": {"co_folder": "scratch", "stitch_channel": "0"},
         "registration": {"channel": "Ex_488_Em_525.zarr", "input_scale": "3"},
-        "segmentation": {
-            "channel": "Ex_488_Em_525",
-            "input_scale": "0",
-            "chunksize": "500",
-        },
+        # 'segmentation': {
+        #     'channel': 'Ex_488_Em_525',
+        #     'input_scale': '0',
+        #     'chunksize': '500',
+        # },
     }
 
 
@@ -396,7 +407,7 @@ def set_dataset_config(
     for new_name_idx in range(len(new_dataset_paths)):
         config = {**old_dataset_paths[new_name_idx]}
 
-        config["path"] = new_dataset_paths[new_name_idx]["path"]
+        config["path"] = new_dataset_paths[new_name_idx]
 
         smartspim_datasets_configs.append(config)
 
@@ -439,7 +450,9 @@ def main():
     # Organizing folders
     root_folder = Path(config["root_folder"])
     new_dataset_paths, ready_datasets = organize_datasets(
-        root_folder, config["organize_smartspim_datasets"]
+        root_folder,
+        config["organize_smartspim_datasets"],
+        config["metadata_service_domain"],
     )
 
     # Getting all pending datasets in root folder (even old ones)
@@ -447,6 +460,10 @@ def main():
 
     # Providing parameters to datasets
     default_pipeline_config = get_smartspim_default_config()
+
+    # FIX new dataset paths
+    # config["path"] = new_dataset_paths[new_name_idx]["path"]
+    # TypeError: 'PosixPath' object is not subscriptable
 
     pending_datasets = set_dataset_config(
         pending_datasets,

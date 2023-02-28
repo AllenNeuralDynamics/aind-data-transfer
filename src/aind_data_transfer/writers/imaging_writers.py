@@ -3,7 +3,7 @@ import os
 import re
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 from aind_data_schema import Funding, RawDataDescription, Subject
 from aind_data_schema.imaging import acquisition, tile
@@ -56,8 +56,8 @@ def digest_asi_line(line: str) -> datetime:
         hms[0] += 12
     ymdhms = ymd + hms
     dtime = datetime(*ymdhms)
-    ymd = datetime.date(*ymd)
-    hms = datetime.time(*hms)
+    ymd = date(*ymd)
+    hms = time(*hms)
     return dtime
 
 
@@ -111,7 +111,7 @@ def get_scale(lc_mdata) -> tile.Scale3dTransform:
     return scale
 
 
-def make_acq_tiles(lc_mdata):
+def make_acq_tiles(lc_mdata: bytes, filter_mapping: dict):
     """
     Makes metadata for the acquired tiles of
     the dataset
@@ -127,42 +127,54 @@ def make_acq_tiles(lc_mdata):
     List[tile.Translation3dTransform]
         List with the metadata for the tiles
     """
-    filter_mapping = {488: 525, 561: 600, 647: 690}
 
     channels = {}
 
-    for idx, l in enumerate(lc_mdata[3:6]):
-        wavelength, powerl, powerr = [float(j) for j in l.split()]
+    wavelength_line = None
+    tiles_line = None
 
-        channel = tile.Channel(
-            channel_name=wavelength,
-            laser_wavelength=wavelength,
-            laser_power=powerl,
-            filter_wheel_index=idx,
-        )
+    for idx_line in range(len(lc_mdata)):
 
-        channels[wavelength] = channel
+        if "Wavelength" in str(lc_mdata[idx_line]):
+            wavelength_line = idx_line + 1
 
-    scale = get_scale(lc_mdata)
+        elif "Skip" in str(lc_mdata[idx_line]):
+            tiles_line = idx_line + 1
 
     tiles = []
-    for line in lc_mdata[8:]:
-        X, Y, Z, W, S, E, Sk = [int(i) for i in line.split()]
 
-        tform = tile.Translation3dTransform(
-            translation=[int(i) / 10 for i in line.split()[0:3]]
-        )
+    if wavelength_line and tiles_line:
+        for idx, l in enumerate(lc_mdata[wavelength_line : tiles_line - 1]):
+            wavelength, powerl, powerr = [float(j) for j in l.split()]
 
-        channel = channels[float(W)]
-        t = tile.AcquisitionTile(
-            channel=channel,
-            notes=(
-                "\nLaser power is in percentage of total -- needs calibration"
-            ),
-            coordinate_transformations=[tform, scale],
-            file_name=f"Ex_{W}_Em_{filter_mapping[W]}/{X}/{X}_{Y}/",
-        )
-        tiles.append(t)
+            channel = tile.Channel(
+                channel_name=wavelength,
+                laser_wavelength=wavelength,
+                laser_power=powerl,
+                filter_wheel_index=idx,
+            )
+
+            channels[wavelength] = channel
+
+        scale = get_scale(lc_mdata)
+
+        for line in lc_mdata[tiles_line:]:
+            X, Y, Z, W, S, E, Sk = [int(float(i)) for i in line.split()]
+
+            tform = tile.Translation3dTransform(
+                translation=[int(float(i)) / 10 for i in line.split()[0:3]]
+            )
+
+            channel = channels[float(W)]
+            t = tile.AcquisitionTile(
+                channel=channel,
+                notes=(
+                    "\nLaser power is in percentage of total -- needs calibration"
+                ),
+                coordinate_transformations=[tform, scale],
+                file_name=f"Ex_{W}_Em_{filter_mapping[W]}/{X}/{X}_{Y}/",
+            )
+            tiles.append(t)
     return tiles
 
 
@@ -261,12 +273,7 @@ class SmartSPIMWriter:
             f"SmartSPIM_{mouse_id_str}_{date_str}_{time_str}"
         )
 
-        mouse_date = datetime.strptime(
-            parsed_data["creation_date"] + parsed_data["creation_time"],
-            "%%Y-%m-%d%H-%M-%S",
-        )
-
-        parsed_data = {"mouse_id": mouse_id_str, "mouse_date": mouse_date}
+        parsed_data = {"mouse_id": mouse_id_str, "mouse_date": date_time_obj}
 
         return new_dataset_path, parsed_data
 
@@ -368,6 +375,39 @@ class SmartSPIMWriter:
                 f"Mouse {mouse_id} does not have subject information - res status: {response.status_code}"
             )
 
+    def __get_excitation_emission_waves(dataset_path: PathLike) -> dict:
+        """
+        Gets the excitation and emission waves for
+        the existing channels within a dataset
+
+        Parameters
+        ------------
+        dataset_path: PathLike
+            Path where the channels of the dataset
+            are stored
+
+        Returns
+        ------------
+        dict
+            Dictionary with the excitation
+            and emission waves
+        """
+        regex_channels = self.__regex_expressions.regex_channels.value
+        excitation_emission_channels = {}
+
+        elements = [
+            element
+            for element in os.listdir(dataset_path)
+            if re.match(regex_channels, element)
+        ]
+
+        for channel in elements:
+            channel = channel.replace("Em_", "").replace("Ex_", "")
+            splitted = channel.split("_")
+            excitation_emission_channels[int(splitted[0])] = int(splitted[1])
+
+        return excitation_emission_channels
+
     def __create_adquisition(
         self,
         parsed_data: dict,
@@ -394,6 +434,9 @@ class SmartSPIMWriter:
 
         asi_file = original_dataset_path.joinpath("ASI_logging.txt")
         mdata_file = original_dataset_path.joinpath("metadata.txt")
+        filter_mapping = self.__get_excitation_emission_waves(
+            original_dataset_path
+        )
 
         with open(mdata_file, "rb") as file:
             lc_mdata = file.readlines()
@@ -401,7 +444,7 @@ class SmartSPIMWriter:
         session_end_time = get_session_end(asi_file)
 
         acquisition_model = acquisition.Acquisition(
-            specimen_id="",
+            # specimen_id="",
             instrument_id=dataset_info["instrument_id"],
             experimenter_full_name=dataset_info["experimenter"],
             subject_id=parsed_data["mouse_id"],
@@ -410,8 +453,8 @@ class SmartSPIMWriter:
             local_storage_directory=dataset_info["local_storage_directory"],
             external_storage_directory="",
             chamber_immersion=acquisition.Immersion(
-                medium=dataset_info["medium"],
-                refractive_index=dataset_info["refractive_index"],
+                medium=dataset_info["immersion"]["medium"],
+                refractive_index=dataset_info["immersion"]["refractive_index"],
             ),
             axes=[
                 acquisition.Axis(
@@ -426,7 +469,7 @@ class SmartSPIMWriter:
                     name="Z", dimension=0, direction="Superior_to_inferior"
                 ),
             ],
-            tiles=make_acq_tiles(lc_mdata),
+            tiles=make_acq_tiles(lc_mdata, filter_mapping),
         )
 
         acquisition_path = str(output_path.joinpath("acquisition.json"))
