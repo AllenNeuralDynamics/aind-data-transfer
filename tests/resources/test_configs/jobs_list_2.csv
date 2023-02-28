@@ -1,0 +1,4 @@
+data-source, s3-bucket, subject-id, modality, acq-date, acq-time, behavior-dir, metadata-dir, metadata-dir-force
+dir/data_set_1, some_bucket, 123454, mri, 2020-10-10, 14-10-10, dir/behave1, dir/metadata1, True
+dir/data_set_2, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10, dir/behave2
+dir/data_set_3, some_bucket, 123456, testing, 2020-10-11, 13-10-10,, dir/metadata2,

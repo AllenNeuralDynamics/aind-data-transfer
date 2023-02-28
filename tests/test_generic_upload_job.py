@@ -15,6 +15,10 @@ from aind_data_transfer.jobs.s3_upload_job import (
     GenericS3UploadJobList,
 )
 
+TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
+CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
+METADATA_DIR = TEST_DIR / "resources" / "test_metadata"
+
 
 class TestGenericS3UploadJob(unittest.TestCase):
     """Unit tests for methods in GenericS3UploadJob class."""
@@ -174,6 +178,8 @@ class TestGenericS3UploadJob(unittest.TestCase):
             "service_endpoints": json.loads(self.fake_endpoints_str),
             "dry_run": True,
             "behavior_dir": None,
+            "metadata_dir": None,
+            "metadata_dir_force": False,
         }
         self.assertEqual(expected_configs_vars, vars(job.configs))
 
@@ -426,6 +432,30 @@ class TestGenericS3UploadJob(unittest.TestCase):
         )
 
     @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
+    def test_upload_metadata_folder(self, mock_upload_to_s3: MagicMock):
+        """Tests that the optional metadata folder will be uploaded
+        correctly."""
+        args_with_metadata = ["-x", str(METADATA_DIR)]
+        args_with_metadata.extend(self.args1)
+        job = GenericS3UploadJob(args_with_metadata)
+        actual_files_found = job.upload_metadata_from_folder()
+        expected_files_found = [
+            "data_description.json",
+            "processing.json",
+            "subject.json",
+        ]
+        mock_upload_to_s3.assert_called_once_with(
+            directory_to_upload=str(METADATA_DIR),
+            s3_bucket="some_s3_bucket",
+            s3_prefix="ecephys_12345_2022-10-10_13-24-01",
+            dryrun=True,
+            excluded="*",
+            included="*.json",
+        )
+        self.assertEqual(len(set(actual_files_found)), len(actual_files_found))
+        self.assertEqual(set(expected_files_found), set(actual_files_found))
+
+    @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
     @patch("tempfile.TemporaryDirectory")
     @patch(
         "aind_data_transfer.transformations.video_compressors."
@@ -466,7 +496,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         mock_upload_to_s3.assert_called_once_with(
             directory_to_upload="tmp_dir",
             s3_bucket="some_s3_bucket",
-            s3_prefix=("ecephys_12345_2022-10-10_13-24-01/behavior"),
+            s3_prefix="ecephys_12345_2022-10-10_13-24-01/behavior",
             dryrun=True,
         )
 
@@ -503,7 +533,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         )
 
 
-class TestGenericS3UploadJobs(unittest.TestCase):
+class TestGenericS3UploadJobList(unittest.TestCase):
     """Unit tests for methods in GenericS3UploadJobs class."""
 
     PATH_TO_EXAMPLE_CSV_FILE = (
@@ -511,6 +541,13 @@ class TestGenericS3UploadJobs(unittest.TestCase):
         / "resources"
         / "test_configs"
         / "jobs_list.csv"
+    )
+
+    PATH_TO_EXAMPLE_CSV_FILE2 = (
+        Path(os.path.dirname(os.path.realpath(__file__)))
+        / "resources"
+        / "test_configs"
+        / "jobs_list_2.csv"
     )
 
     def test_load_configs(self) -> None:
@@ -571,7 +608,7 @@ class TestGenericS3UploadJobs(unittest.TestCase):
             )
         )
 
-        mock_job.run_job.return_value = lambda: print("foo")
+        mock_job.run_job.return_value = lambda: print("Ran Job!")
 
         args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE), "--dry-run"]
         jobs = GenericS3UploadJobList(args=args)
@@ -599,6 +636,57 @@ class TestGenericS3UploadJobs(unittest.TestCase):
                 call(params_0),
                 call().run_job(),
                 call(params_1),
+                call().run_job(),
+            ]
+        )
+
+    @patch("boto3.session.Session")
+    @patch("aind_data_transfer.jobs.s3_upload_job.GenericS3UploadJob")
+    @patch("logging.Logger.info")
+    def test_run_job2(
+        self, mock_log: MagicMock, mock_job: MagicMock, mock_session: MagicMock
+    ) -> None:
+        """Tests that the jobs with optional args are run correctly."""
+
+        mock_session.return_value = (
+            TestGenericS3UploadJob._mock_boto_get_secret_session(
+                TestGenericS3UploadJob.fake_endpoints_str
+            )
+        )
+
+        mock_job.run_job.return_value = lambda: print("Ran Job!")
+
+        args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE2), "--dry-run"]
+        jobs = GenericS3UploadJobList(args=args)
+
+        params_0 = jobs.job_param_list[0]
+        params_1 = jobs.job_param_list[1]
+        params_2 = jobs.job_param_list[2]
+
+        jobs.run_job()
+
+        mock_log.assert_has_calls(
+            [
+                call("Starting all jobs..."),
+                call(f"Running job 1 of 3 with params: {params_0}"),
+                call(f"Finished job 1 of 3 with params: {params_0}"),
+                call(f"Running job 2 of 3 with params: {params_1}"),
+                call(f"Finished job 2 of 3 with params: {params_1}"),
+                call(f"Running job 3 of 3 with params: {params_2}"),
+                call(f"Finished job 3 of 3 with params: {params_2}"),
+                call("Finished all jobs!"),
+            ]
+        )
+
+        # Check that the GenericS3UploadJob constructor is called and
+        # GenericS3UploadJob().run_job() is called.
+        mock_job.assert_has_calls(
+            [
+                call(params_0),
+                call().run_job(),
+                call(params_1),
+                call().run_job(),
+                call(params_2),
                 call().run_job(),
             ]
         )
