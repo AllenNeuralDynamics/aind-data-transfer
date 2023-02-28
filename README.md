@@ -72,8 +72,8 @@ This job will copy the contents of a data_folder to a bucket and s3 folder with 
 
 Required arguments
 ```
-python -m aind_data_transfer.jobs.s3_upload_job --data-source "path_to_data_folder" --s3-bucket "s3_bucket" --subject-id "12345" --modality "ecephys" --acq-date "2022-12-21" --acq-time "12-00-00"
-python -m aind_data_transfer.jobs.s3_upload_job -d "path_to_data_folder" -b "s3_bucket" -s "12345" -m "ecephys" -a "2022-12-21" -t "12-00-00"
+python -m aind_data_transfer.jobs.s3_upload_job --data-source "path_to_data_folder" --s3-bucket "s3_bucket" --subject-id "12345" --modality "test_phys" --acq-date "2022-12-21" --acq-time "12-00-00"
+python -m aind_data_transfer.jobs.s3_upload_job -d "path_to_data_folder" -b "s3_bucket" -s "12345" -m "test_phys" -a "2022-12-21" -t "12-00-00"
 ```
 
 Optional aws region (defaults to us-west-2)
@@ -127,34 +127,34 @@ The csv file should look something like:
 
 ```
 data-source, s3-bucket, subject-id, modality, acq-date, acq-time
-dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10, 14-10-10
-dir/data_set_2, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10
+dir/data_set_1, some_bucket, 123454, test_phys, 2020-10-10, 14-10-10
+dir/data_set_2, some_bucket, 123456, test_phys, 2020-10-11, 13-10-10
 ```
 
 Alternatively, you can define the behavior directories also (leave the field blank to ignore the setting. Also, it's fine if it's a subfolder of the data-source)
 
 ```
 data-source, s3-bucket, subject-id, modality, acq-date, acq-time, behavior-dir
-dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10, 14-10-10, dir/data_set_1/Videos
-dir/data_set_2, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10, dir/alt_dir
-dir/data_set_3, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10,
+dir/data_set_1, some_bucket, 123454, test_phys, 2020-10-10, 14-10-10, dir/data_set_1/Videos
+dir/data_set_2, some_bucket, 123456, test_phys, 2020-10-11, 13-10-10, dir/alt_dir
+dir/data_set_3, some_bucket, 123456, test_phys, 2020-10-11, 13-10-10,
 ```
 
 Alternatively, you can define the metadata directories also (leave the field blank to ignore the setting. Also, it's fine if it's a subfolder of the data-source)
 
 ```
 data-source, s3-bucket, subject-id, modality, acq-date, acq-time, metadata-dir
-dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10, 14-10-10, dir/metadata_dir1
-dir/data_set_2, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10, dir/metadata_dir2
-dir/data_set_3, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10,
+dir/data_set_1, some_bucket, 123454, test_phys, 2020-10-10, 14-10-10, dir/metadata_dir1
+dir/data_set_2, some_bucket, 123456, test_phys, 2020-10-11, 13-10-10, dir/metadata_dir2
+dir/data_set_3, some_bucket, 123456, test_phys, 2020-10-11, 13-10-10,
 ```
 
 Another example with mixing and matching optional directories:
 
 ```
 data-source, s3-bucket, subject-id, modality, acq-date, acq-time, behavior-dir, metadata-dir, metadata-dir-force
-dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10, 14-10-10, dir/data_set_1/Videos, dir/metadata_dir1, True
-dir/data_set_2, some_bucket, 123456, ecephys, 2020-10-11, 13-10-10, dir/alt_dir, dir/metadata_dir2, False
+dir/data_set_1, some_bucket, 123454, test_phys, 2020-10-10, 14-10-10, dir/data_set_1/Videos, dir/metadata_dir1, True
+dir/data_set_2, some_bucket, 123456, test_phys, 2020-10-11, 13-10-10, dir/alt_dir, dir/metadata_dir2, False
 dir/data_set_3, some_bucket, 123456, test, 2020-10-11, 13-10-10, , dir/metadata_dir3
 dir/data_set_4, some_bucket, 123457, mri, 2020-10-12, 15-10-10, , dir/metadata_dir4, True
 dir/data_set_5, some_bucket, 123458, test, 2020-10-12, 16-10-10, dir/behavior_dir_5
