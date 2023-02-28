@@ -401,10 +401,12 @@ class GenericS3UploadJob:
             user_defined_metadata_files = self.upload_metadata_from_folder()
 
         # Will create a data description file if not found in user defined
-        # metadata directory. Assumes user defined is source of truth if
-        # provided by default.
-        if (user_defined_metadata_files is None) or (
-            "data_description.json" not in user_defined_metadata_files
+        # metadata directory. Assumes data description built by this job
+        # is the source of truth unless metadata-dir-force is set.
+        if (
+            (user_defined_metadata_files is None)
+            or ("data_description.json" not in user_defined_metadata_files)
+            or (self.configs.metadata_dir_force is False)
         ):
             self.upload_data_description_metadata()
 

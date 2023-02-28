@@ -439,7 +439,11 @@ class TestGenericS3UploadJob(unittest.TestCase):
         args_with_metadata.extend(self.args1)
         job = GenericS3UploadJob(args_with_metadata)
         actual_files_found = job.upload_metadata_from_folder()
-        expected_files_found = ["data_description.json", "processing.json"]
+        expected_files_found = [
+            "data_description.json",
+            "processing.json",
+            "subject.json",
+        ]
         mock_upload_to_s3.assert_called_once_with(
             directory_to_upload=str(METADATA_DIR),
             s3_bucket="some_s3_bucket",
