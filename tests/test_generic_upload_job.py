@@ -443,7 +443,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         mock_upload_to_s3.assert_called_once_with(
             directory_to_upload=str(METADATA_DIR),
             s3_bucket="some_s3_bucket",
-            s3_prefix=("ecephys_12345_2022-10-10_13-24-01"),
+            s3_prefix="ecephys_12345_2022-10-10_13-24-01",
             dryrun=True,
             excluded="*",
             included="*.json",
@@ -492,7 +492,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         mock_upload_to_s3.assert_called_once_with(
             directory_to_upload="tmp_dir",
             s3_bucket="some_s3_bucket",
-            s3_prefix=("ecephys_12345_2022-10-10_13-24-01/behavior"),
+            s3_prefix="ecephys_12345_2022-10-10_13-24-01/behavior",
             dryrun=True,
         )
 
