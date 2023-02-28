@@ -461,10 +461,6 @@ def main():
     # Providing parameters to datasets
     default_pipeline_config = get_smartspim_default_config()
 
-    # FIX new dataset paths
-    # config["path"] = new_dataset_paths[new_name_idx]["path"]
-    # TypeError: 'PosixPath' object is not subscriptable
-
     pending_datasets = set_dataset_config(
         pending_datasets,
         new_dataset_paths,
