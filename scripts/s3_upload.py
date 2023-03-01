@@ -165,16 +165,10 @@ def get_smartspim_config(job_config: dict, pipeline_config: dict) -> dict:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i",
-        "--input",
-        type=str,
-        help="folder or file to upload",
+        "-i", "--input", type=str, help="folder or file to upload",
     )
     parser.add_argument(
-        "-b",
-        "--bucket",
-        type=str,
-        help="s3 bucket",
+        "-b", "--bucket", type=str, help="s3 bucket",
     )
     parser.add_argument(
         "--s3_path",

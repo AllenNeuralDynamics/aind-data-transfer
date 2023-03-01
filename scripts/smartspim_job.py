@@ -302,8 +302,7 @@ def organize_datasets(
 
         # Organizing smartspim folders
         smartSPIM_writer = SmartSPIMWriter(
-            dataset_paths=ready_datasets,
-            metadata_domain=metadata_service,
+            dataset_paths=ready_datasets, metadata_domain=metadata_service,
         )
 
         (
@@ -407,7 +406,7 @@ def set_dataset_config(
     for new_name_idx in range(len(new_dataset_paths)):
         config = {**old_dataset_paths[new_name_idx]}
 
-        config["path"] = new_dataset_paths[new_name_idx]
+        config["path"] = str(new_dataset_paths[new_name_idx])
 
         smartspim_datasets_configs.append(config)
 
