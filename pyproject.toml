@@ -51,7 +51,8 @@ imaging = [
     'gcsfs',
     'xarray-multiscale',
     'parameterized',
-    'zarr==2.13.3'
+    'zarr==2.13.3',
+    'tqdm==4.64.1'
 ]
 full = [
     'aind-data-transfer[ephys]',
