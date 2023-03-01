@@ -375,7 +375,7 @@ class SmartSPIMWriter:
                 f"Mouse {mouse_id} does not have subject information - res status: {response.status_code}"
             )
 
-    def __get_excitation_emission_waves(dataset_path: PathLike) -> dict:
+    def __get_excitation_emission_waves(self, dataset_path: PathLike) -> dict:
         """
         Gets the excitation and emission waves for
         the existing channels within a dataset
@@ -385,7 +385,7 @@ class SmartSPIMWriter:
         dataset_path: PathLike
             Path where the channels of the dataset
             are stored
-
+        
         Returns
         ------------
         dict
@@ -444,7 +444,7 @@ class SmartSPIMWriter:
         session_end_time = get_session_end(asi_file)
 
         acquisition_model = acquisition.Acquisition(
-            # specimen_id="",
+            specimen_id="",
             instrument_id=dataset_info["instrument_id"],
             experimenter_full_name=dataset_info["experimenter"],
             subject_id=parsed_data["mouse_id"],
@@ -458,9 +458,7 @@ class SmartSPIMWriter:
             ),
             axes=[
                 acquisition.Axis(
-                    name="X",
-                    dimension=2,
-                    direction="Left_to_right",
+                    name="X", dimension=2, direction="Left_to_right",
                 ),
                 acquisition.Axis(
                     name="Y", dimension=1, direction="Posterior_to_anterior"

@@ -3,6 +3,7 @@ Script to validate smartspim datasets
 """
 
 import logging
+import multiprocessing
 import os
 import re
 from datetime import datetime
@@ -10,7 +11,12 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Union
 
+import exiftool
 from tqdm import tqdm
+
+os.environ[
+    "PATH"
+] = f"/home/svc_aind_upload/sci_comp_team/SmartSPIM/exitftool/Image-ExifTool-12.57:{os.environ['PATH']}"
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -162,7 +168,7 @@ def read_image_directory_structure(folder_dir) -> dict:
                     )
 
                     if os.path.isdir(possible_row):
-                        col_row_images = len(os.listdir(possible_row))
+                        col_row_images = os.listdir(possible_row)
                         directory_structure[channel_paths[channel_idx]][col][
                             row
                         ] = col_row_images
@@ -188,20 +194,187 @@ def get_images_channel(channel_dict: dict) -> int:
 
     for col_name, rows in channel_dict.items():
         for row_name, images in rows.items():
-            if images == 1:
+            len_images = len(images)
+
+            if images == len_images:
                 raise ValueError(
                     f"Possible error in pos {col_name}/{row_name}"
                 )
 
-            n_images += images
+            n_images += len_images
 
     return n_images
 
 
-def validate_dataset(dataset_path: PathLike) -> bool:
+def get_image_metadata(image_paths: PathLike) -> List[dict]:
+
+    with exiftool.ExifToolHelper() as et:
+        metadata = et.get_metadata(image_paths)
+
+    return metadata
+
+
+def validate_rows(
+    row_names: List[str],
+    row_images: List[str],
+    channel_path: PathLike,
+    col_name: str,
+    file_format: str,
+    bit_depth: int,
+) -> bool:
+    """
+    Function that validates the rows
+    of a channel in a dataset. Function designed
+    to work in parallel
+    """
+
+    n_images = len(row_images)
+
+    for n_image in range(n_images):
+        print(f"Validating: {col_name}/{row_names[n_image]}")
+        image_paths = [
+            str(
+                Path(channel_path).joinpath(
+                    f"{col_name}/{row_names[n_image]}/{image_path}"
+                )
+            )
+            for image_path in row_images[n_image]
+        ]
+
+        metadata_files = get_image_metadata(image_paths)
+        logger.info(f"Validating metadata: {col_name}/{row_names[n_image]}")
+
+        for metadata_file in metadata_files:
+            if metadata_file["File:FileType"] != file_format:
+                msg = f"Error in file format for {metadata_file['File:SourceFile']}"
+                logger.error(msg)
+                return False
+
+            elif metadata_file[f"{file_format}:BitDepth"] != bit_depth:
+                msg = f"Error in bit depth for {metadata_file['File:SourceFile']}"
+                logger.error(msg)
+                return False
+
+    return True
+
+
+def _validate_rows(args_dict: dict) -> bool:
+    """
+    Function used to be dispatched to workers
+    by using multiprocessing
+    """
+    return validate_rows(**args_dict)
+
+
+def validate_metadata_parallel(
+    channel_path: str, channel_dict: dict, file_format: str, bit_depth: int
+) -> bool:
+    workers = multiprocessing.cpu_count()
+    logger.info(f"N CPUs {workers}")
+    rows_per_worker = 1
+
+    for col_name, rows in channel_dict.items():
+
+        n_rows = len(rows)
+
+        if n_rows < workers:
+            workers = n_rows
+            rows_per_worker = 1
+        else:
+            if n_rows % 2 != 0:
+                rows_per_worker = (n_rows // workers) + 1
+            else:
+                rows_per_worker = n_rows // workers
+
+        start_row = 0
+        end_row = rows_per_worker
+        args = []
+
+        row_names = list(rows.keys())
+        row_images = list(rows.values())
+
+        for idx_worker in range(workers):
+            arg_dict = {
+                "row_names": row_names[start_row:end_row],
+                "row_images": row_images[start_row:end_row],
+                "channel_path": channel_path,
+                "col_name": col_name,
+                "file_format": file_format,
+                "bit_depth": bit_depth,
+            }
+
+            args.append(arg_dict)
+
+            if idx_worker + 1 == workers - 1:
+                start_row = end_row
+                end_row = n_rows
+            else:
+                start_row = end_row
+                end_row += rows_per_worker
+
+        res = []
+
+        with multiprocessing.Pool(workers) as pool:
+            results = pool.imap(_validate_rows, args, chunksize=1,)
+
+            for pos in results:
+                res.append(pos)
+
+        for res_idx in range(len(res)):
+
+            if not res[res_idx]:
+                logger.error(
+                    f"Dataset with format or bit depth issues found by worker {res_idx}"
+                )
+                return False
+
+    return True
+
+
+def validate_metadata(
+    channel_path: str, channel_dict: dict, file_format: str, bit_depth: int
+) -> bool:
+    workers = multiprocessing.cpu_count()
+    logger.info(f"N CPU cores: {workers}")
+    rows_per_worker = 1
+
+    for col_name, rows in channel_dict.items():
+
+        for row_name, images in rows.items():
+            print(f"Validating: {col_name}/{row_name}")
+            start_date = datetime.now()
+            image_paths = [
+                str(
+                    Path(channel_path).joinpath(
+                        f"{col_name}/{row_name}/{image_path}"
+                    )
+                )
+                for image_path in images
+            ]
+
+            metadata_files = get_image_metadata(image_paths)
+
+            for metadata_file in metadata_files:
+                if metadata_file["File:FileType"] != file_format:
+                    msg = f"Error in file format for {metadata_file['File:SourceFile']}"
+                    raise ValueError(msg)
+
+                elif metadata_file[f"{file_format}:BitDepth"] != bit_depth:
+                    msg = f"Error in bit depth for {metadata_file['File:SourceFile']}"
+                    raise ValueError(msg)
+            end_date = datetime.now()
+
+            print(f"Time to validate stack of tiles: {end_date - start_date}")
+
+    return True
+
+
+def validate_dataset(
+    dataset_path: PathLike, validate_mdata: bool = False
+) -> bool:
     """
     Validates a dataset
-
+    
     Parameters
     ------------
     dataset_path: PathLike
@@ -234,6 +407,23 @@ def validate_dataset(dataset_path: PathLike) -> bool:
         if channel_images != images_per_channel[images_idx]:
             return False
 
+    if validate_mdata:
+        logger.info("Validating metadata")
+
+        for channel_name, config in dataset_structure.items():
+            validation_config = {
+                "channel_path": str(channel_name),
+                "channel_dict": config,
+                "file_format": "PNG",
+                "bit_depth": 16,
+            }
+
+            channel_val = validate_metadata_parallel(**validation_config)
+
+            if not channel_val:
+                logger.error(f"Wrong metadata in channel {channel_name}")
+                return False
+
     return True
 
 
@@ -243,11 +433,15 @@ def main():
     of each dataset in terms of # of tiles.
     """
 
-    # BASE_PATH = Path("/allen/aind/stage/SmartSPIM")
-    BASE_PATH = Path("/net/aind.vast01/aind/SmartSPIM_Data/")
+    BASE_PATH = Path("/allen/aind/stage/SmartSPIM")
+    # BASE_PATH = Path("/net/aind.vast01/aind/SmartSPIM_Data/")
+    # DATASET_PATH = BASE_PATH.joinpath("SmartSPIM_643634_2023-02-10_12-48-15/SmartSPIM")
+    # DATASET_PATH = BASE_PATH.joinpath("SmartSPIM_AK015_2023-02-22_02-02-29/SmartSPIM")
+
     error_dataset_paths = "/net/aind.vast01/aind/SmartSPIM_Data/dataset_errors_SmartSPIM_DATA_folder.txt"
 
     search_datasets = True
+    validate_mdata = False
     dataset_paths = []
 
     if search_datasets:
@@ -269,7 +463,9 @@ def main():
         logger.info(f"Validating dataset: {dataset_path}")
 
         try:
-            tile_status = validate_dataset(val_path)
+            tile_status = validate_dataset(
+                val_path, validate_metadata=validate_mdata
+            )
 
         except FileNotFoundError as e:
             logger.error(

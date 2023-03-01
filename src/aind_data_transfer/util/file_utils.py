@@ -64,9 +64,7 @@ def get_images(
     if exclude is None:
         exclude = []
     image_paths = collect_filepaths(
-        image_folder,
-        recursive=recursive,
-        include_exts=include_exts,
+        image_folder, recursive=recursive, include_exts=include_exts,
     )
 
     exclude_paths = set()
@@ -190,7 +188,7 @@ def create_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
         try:
             if verbose:
                 print(f"Creating new directory: {dest_dir}")
-            os.makedirs(dest_dir)
+            os.makedirs(dest_dir, mode=0o777)
         except OSError as e:
             raise
 
