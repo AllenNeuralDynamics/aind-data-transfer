@@ -58,10 +58,17 @@ class TiffReader(DataReader):
     def __init__(self, filepath):
         super().__init__(filepath)
         refs = tiff_to_zarr(filepath)
+        # This file needs to be readable by all nodes
+        # in the cluster. I'm writing to the current
+        # working directory since the code will likely
+        # be run from a location accessible by all nodes.
         self._refs_file = os.path.join(
             os.getcwd(),
             f"references-{Path(filepath).name}.json"
         )
+        if os.path.isfile(self._refs_file):
+            raise Exception(f"References file already exists: {self._refs_file}")
+        Path(self._refs_file).parent.mkdir(parents=True, exist_ok=True)
         with open(self._refs_file, 'wb') as f:
             f.write(ujson.dumps(refs).encode())
         fs = fsspec.filesystem(
@@ -72,7 +79,20 @@ class TiffReader(DataReader):
         self._arr = zarr.open(fs.get_mapper(""), 'r')
 
     def as_dask_array(self, chunks=None):
-        return da.from_array(self._arr, chunks=chunks)
+        """Return the image stack as a Dask Array
+
+        Args:
+            chunks: the chunk shape. This is currently ignored.
+
+        Returns:
+            dask.array.Array
+        """
+        # For performance it is *critical* the initial dask array construction
+        # uses single plane chunks, and to then rechunk with the desired chunks
+        return da.from_array(
+            self._arr,
+            chunks=(1, self._arr.shape[-2], self._arr.shape[-1])
+        ).rechunk(chunks)
 
     def as_array(self) -> np.ndarray:
         """

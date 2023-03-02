@@ -187,6 +187,16 @@ def main():
 
     LOGGER.setLevel(args.log_level)
 
+    worker_options = {
+        "env": {
+            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
+            "HDF5_USE_FILE_LOCKING": "FALSE",
+            "OMP_NUM_THREADS": "1",
+            "MALLOC_TRIM_THRESHOLD_": "0"
+        }
+    }
+    client, _ = get_client(args.deployment, worker_options=worker_options)
+
     if not output_valid(args.output):
         LOGGER.error("Output path not valid, aborting.")
         return
@@ -201,14 +211,6 @@ def main():
     if not images:
         LOGGER.info(f"No images found, exiting.")
         return
-
-    worker_options = {
-        "env": {
-            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
-            "HDF5_USE_FILE_LOCKING": "FALSE"
-        }
-    }
-    client, _ = get_client(args.deployment, worker_options=worker_options)
 
     LOGGER.info(f"Writing {len(images)} images to OME-Zarr")
     LOGGER.info(f"Writing OME-Zarr to {args.output}")
