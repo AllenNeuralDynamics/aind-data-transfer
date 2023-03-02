@@ -82,17 +82,20 @@ class TiffReader(DataReader):
         """Return the image stack as a Dask Array
 
         Args:
-            chunks: the chunk shape. This is currently ignored.
+            chunks: the chunk shape.
 
         Returns:
             dask.array.Array
         """
         # For performance it is *critical* the initial dask array construction
         # uses single plane chunks, and to then rechunk with the desired chunks
-        return da.from_array(
+        a = da.from_array(
             self._arr,
             chunks=(1, self._arr.shape[-2], self._arr.shape[-1])
-        ).rechunk(chunks)
+        )
+        if chunks is not None:
+            a = a.rechunk(chunks)
+        return a
 
     def as_array(self) -> np.ndarray:
         """
