@@ -22,8 +22,8 @@ dependencies = [
     'pyyaml',
     'google-cloud-storage',
     'pyminizip',
-    'aind-codeocean-api',
-    'aind-data-schema'
+    'aind-codeocean-api==0.1.0',
+    'aind-data-schema==0.12.9'
 ]
 
 [project.optional-dependencies]
@@ -52,6 +52,7 @@ imaging = [
     'xarray-multiscale',
     'parameterized',
     'zarr==2.13.3',
+    'tqdm==4.64.1'
 ]
 full = [
     'aind-data-transfer[ephys]',
