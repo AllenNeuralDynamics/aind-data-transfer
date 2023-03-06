@@ -25,10 +25,10 @@ class ImagingReaders:
         """Enum for regex patterns the source folder name should match"""
 
         exaspim_acquisition = (
-            r"exaSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            r"exaSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
         )
         mesospim_acquisition = (
-            r"mesoSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            r"mesoSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
         )
 
     @staticmethod
