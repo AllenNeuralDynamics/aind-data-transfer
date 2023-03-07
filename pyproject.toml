@@ -23,7 +23,8 @@ dependencies = [
     'google-cloud-storage',
     'pyminizip',
     'aind-codeocean-api==0.1.0',
-    'aind-data-schema==0.12.9'
+    'aind-data-schema==0.12.9',
+    'aind-metadata-service[client]'
 ]
 
 [project.optional-dependencies]
