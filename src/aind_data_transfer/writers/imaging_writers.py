@@ -762,7 +762,7 @@ class ExASPIMWriter:
         Parameters
         ------------------------
         output: PathLike
-            directory to write the procedures.json file
+            directory to write the data_description.json file
 
         """
         # Creating data description
