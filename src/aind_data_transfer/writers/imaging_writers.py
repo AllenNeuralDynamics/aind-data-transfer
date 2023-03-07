@@ -634,7 +634,7 @@ class SmartSPIMWriter:
         return new_dataset_paths, ignored_datasets
 
 
-class ExaSPIMWriter:
+class ExASPIMWriter:
     __regexes = ImagingReaders.SourceRegexPatterns
 
     def __init__(self, dataset_path: PathLike, metadata_domain: str):
@@ -657,6 +657,11 @@ class ExaSPIMWriter:
     def __parse_dataset(self, dataset_path) -> Tuple[str, datetime]:
         """
         Parses mouse ID and acquisition date from the dataset path.
+
+        Parameters
+        ------------------------
+        dataset_path: PathLike
+            path to the top-level folder of the ExASPIM dataset
 
         Returns
         ------------------------
@@ -688,7 +693,12 @@ class ExaSPIMWriter:
 
     def write_subject(self, output: PathLike) -> None:
         """
-        Creates the data description json.
+        Creates the subject.json file.
+
+        Parameters
+        ------------------------
+        output: PathLike
+            directory to write the subject.json file
         """
         response = self.__metadata_service.get_subject(self.__mouse_id)
 
@@ -726,6 +736,14 @@ class ExaSPIMWriter:
             )
 
     def write_procedures(self, output: PathLike) -> None:
+        """
+        Creates the procedures.json file
+
+        Parameters
+        ------------------------
+        output: PathLike
+            directory to write the procedures.json file
+        """
         response = self.__metadata_service.get_procedures(self.__mouse_id)
 
         if response.status_code == 200:
@@ -739,7 +757,13 @@ class ExaSPIMWriter:
 
     def write_data_description(self, output: PathLike) -> None:
         """
-        Creates the data description json.
+        Creates the data_description.json file.
+
+        Parameters
+        ------------------------
+        output: PathLike
+            directory to write the procedures.json file
+
         """
         # Creating data description
         data_description = RawDataDescription(
