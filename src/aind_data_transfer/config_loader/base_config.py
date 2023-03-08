@@ -5,13 +5,31 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Optional
 
 import boto3
 from botocore.exceptions import ClientError
 
 
-class JobEndpointsResolver(ABC):
+class EnvVarKeys(Enum):
+    """Class used to keep a list of the environment variables a user can set.
+    For example, if in a bash shell:
+    AIND_DATA_TRANSFER_ENDPOINTS='{"codeocean_domain":"some_domain"}'
+    then, in a python shell:
+    job_endpoints = JobEndpoints()
+    print(job_endpoints.codeocean_domain)
+    will display "some_domain".
+    """
+
+    # Env var that can be used to define a json string of endpoint defs
+    AIND_DATA_TRANSFER_ENDPOINTS = "AIND_DATA_TRANSFER_ENDPOINTS"
+
+    # Env var that can be used to define a json string of secrets defs
+    AIND_DATA_TRANSFER_SECRETS = "AIND_DATA_TRANSFER_SECRETS"
+
+
+class JobConfigResolver(ABC):
     """Abstract class to contain methods that are used in the parameter store
     resolver to retrieve endpoints and the secrets store manager."""
 
@@ -98,21 +116,42 @@ class JobEndpointsResolver(ABC):
         return None
 
 
-class JobEndpoints(JobEndpointsResolver):
+class JobEndpoints(JobConfigResolver):
     """This class handles configuring common service endpoints in the jobs."""
 
     _DEFAULT_PARAMETER_STORE_KEY_NAME = "/aind/data/transfer/endpoints"
-    _ENV_VAR_NAME = "AIND_DATA_TRANSFER_ENDPOINTS"
+    _ENV_VAR_NAME = EnvVarKeys.AIND_DATA_TRANSFER_ENDPOINTS.value
 
     def __init__(
         self,
-        param_store: str = _DEFAULT_PARAMETER_STORE_KEY_NAME,
-        codeocean_domain: str = None,
-        codeocean_trigger_capsule_id: str = None,
-        codeocean_trigger_capsule_version: str = None,
-        metadata_service_domain: str = None,
-        aind_data_transfer_repo_location: str = None,
-    ):
+        param_store: Optional[str] = _DEFAULT_PARAMETER_STORE_KEY_NAME,
+        codeocean_domain: Optional[str] = None,
+        codeocean_trigger_capsule_id: Optional[str] = None,
+        codeocean_trigger_capsule_version: Optional[str] = None,
+        metadata_service_domain: Optional[str] = None,
+        aind_data_transfer_repo_location: Optional[str] = None,
+    ) -> None:
+        """
+        Constructor for JobEndpoints class.
+        Parameters
+        ----------
+        param_store : Optional[str]
+          Name of the parameter store in aws where the parameters might be
+          kept. Defaults to what's defined in _DEFAULT_PARAMETER_STORE_KEY_NAME
+        codeocean_domain : Optional[str]
+          Domain name for code ocean service. Defaults to None.
+        codeocean_trigger_capsule_id : Optional[str]
+          Capsule ID for primary capsule in code ocean to trigger. Defaults to
+          None.
+        codeocean_trigger_capsule_version : Optional[str]
+          Version number of the primary capsule in code ocean to trigger.
+          Defaults to None.
+        metadata_service_domain : Optional[str]
+          Domain name for aind-metadata-service. Defaults to None.
+        aind_data_transfer_repo_location : Optional[str]
+          Name where the aind-data-transfer library code is stored. Defaults
+          to None.
+        """
         self.__param_store = param_store
         self.codeocean_domain = codeocean_domain
         self.codeocean_trigger_capsule_id = codeocean_trigger_capsule_id
@@ -144,18 +183,30 @@ class JobEndpoints(JobEndpointsResolver):
         return params
 
 
-class JobSecrets(JobEndpointsResolver):
+class JobSecrets(JobConfigResolver):
     """This class handles configuring common secrets used in the jobs."""
 
     _DEFAULT_SECRETS_NAME = "/aind/data/transfer/secrets"
-    _ENV_VAR_NAME = "AIND_DATA_TRANSFER_SECRETS"
+    _ENV_VAR_NAME = EnvVarKeys.AIND_DATA_TRANSFER_SECRETS.value
 
     def __init__(
         self,
-        secrets_name: str = _DEFAULT_SECRETS_NAME,
-        video_encryption_password: str = None,
-        codeocean_api_token: str = None,
+        secrets_name: Optional[str] = _DEFAULT_SECRETS_NAME,
+        video_encryption_password: Optional[str] = None,
+        codeocean_api_token: Optional[str] = None,
     ):
+        """
+        Constructor for JobSecrets class.
+        Parameters
+        ----------
+        secrets_name : Optional[str]
+          Name of the secret in aws secrets manager where the secret might be
+          kept. Defaults to what's defined in _DEFAULT_SECRETS_NAME
+        video_encryption_password : Optional[str]
+          The video encryption password.
+        codeocean_api_token : Optional[str]
+          An api token to be used to interface with the Code Ocean service.
+        """
         self.__secrets_name = secrets_name
         self.video_encryption_password = video_encryption_password
         self.codeocean_api_token = codeocean_api_token
