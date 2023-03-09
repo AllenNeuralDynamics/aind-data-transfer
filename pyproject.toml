@@ -24,7 +24,7 @@ dependencies = [
     'pyminizip',
     'aind-codeocean-api==0.1.0',
     'aind-data-schema==0.12.9',
-    'aind-metadata-service[client]'
+    'aind-metadata-service[client]>=0.2.5'
 ]
 
 [project.optional-dependencies]
@@ -92,7 +92,12 @@ omit = ["*__init__*"]
 source = ["src", "tests"]
 
 [tool.coverage.report]
-exclude_lines = ["if __name__ == .__main__.:"]
+exclude_lines = [
+    "if __name__ == .__main__.:",
+    "from",
+    "import",
+    "pragma: no cover"
+]
 fail_under = 0
 
 [tool.isort]
