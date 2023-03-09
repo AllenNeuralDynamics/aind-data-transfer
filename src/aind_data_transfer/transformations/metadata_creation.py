@@ -3,8 +3,9 @@ import logging
 import re
 from datetime import datetime
 from typing import Optional
+import json
 
-import requests
+import pydantic
 from aind_data_schema.data_description import (
     Funding,
     Institution,
@@ -12,8 +13,11 @@ from aind_data_schema.data_description import (
 )
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
 from aind_data_schema.subject import Subject
+from aind_data_schema.procedures import Procedures
+from aind_metadata_service.client import AindMetadataServiceClient
 
 import aind_data_transfer
+from pathlib import Path
 
 
 class ProcessingMetadata:
@@ -75,94 +79,6 @@ class ProcessingMetadata:
         return processing_instance
 
 
-class SubjectMetadata:
-    """Class to handle the creation of the subject metadata file."""
-
-    output_file_name = Subject.construct().default_filename()
-
-    @staticmethod
-    def get_subject_metadata(
-        metadata_service_url: str, subject_id: str
-    ) -> Optional[dict]:
-        # TODO: construct this from aind_metadata_service.client
-        subject_url = metadata_service_url + f"/subject/{subject_id}"
-        response = requests.get(subject_url)
-
-        if response.status_code == 200:
-            response_json = response.json()
-            response_data = response_json["data"]
-            return response_data
-        elif response.status_code == 418:
-            response_json = response.json()
-            logging.warning(response_json["message"])
-            response_data_original = response_json["data"]
-            if type(response_data_original) == list:
-                response_data = response_data_original[0]
-            else:
-                response_data = response_data_original
-            return response_data
-        else:
-            logging.error("No data retrieved!")
-            return None
-
-    @staticmethod
-    def ephys_job_to_subject(
-        metadata_service_url: str,
-        subject_id: Optional[str] = None,
-        filepath: Optional[str] = None,
-        file_subject_regex: Optional[str] = (
-            "(ecephys|ephys)*_*(\\d+)_\\d{4}"
-        ),
-    ) -> Optional[dict]:
-        """
-
-        Parameters
-        ----------
-        metadata_service_url : str
-        subject_id : Optional[str]
-          The subject id. If not provided, this method will try to parse it
-          from the filepath. Default is None
-        filepath : Optional[str]
-          If the subject_id is None, then this method will try to parse the
-          subject id from the filepath. Default is None.
-        file_subject_regex : Optional[str]
-          Regex pattern that will be used if the subject_id is None and the
-          filepath is not None.
-
-        Returns
-        -------
-        dict
-          The subject information retrieved from aind-metadata-service.
-
-        """
-
-        # TODO: Import aind_metadata_service.client once it's written
-        if subject_id is None:
-            parsed_filepath = re.findall(file_subject_regex, filepath)
-            subject_id = parsed_filepath[0][1]
-
-        # TODO: construct this from aind_metadata_service.client
-        subject_url = metadata_service_url + f"/subject/{subject_id}"
-        response = requests.get(subject_url)
-
-        if response.status_code == 200:
-            response_json = response.json()
-            response_data = response_json["data"]
-            return response_data
-        elif response.status_code == 418:
-            response_json = response.json()
-            logging.warning(response_json["message"])
-            response_data_original = response_json["data"]
-            if type(response_data_original) == list:
-                response_data = response_data_original[0]
-            else:
-                response_data = response_data_original
-            return response_data
-        else:
-            logging.error("No data retrieved!")
-            return None
-
-
 class RawDataDescriptionMetadata:
     """Class to handle the creation of the processing metadata file."""
 
@@ -201,3 +117,109 @@ class RawDataDescriptionMetadata:
             funding_source=funding_source_list,
         )
         return data_description_instance
+
+
+class ProceduresMetadata:
+
+    def __init__(self, procedures_info: Optional[dict] = None):
+        self.procedures_info = procedures_info
+
+    @property
+    def output_filename(self):
+        return Procedures.construct().default_filename()
+
+    @classmethod
+    def from_file(cls, file_location: Path):
+        with open(file_location) as f:
+            contents = json.load(f)
+        return cls(procedures_info=contents)
+
+    @classmethod
+    def from_service(cls, subject_id, domain):
+        ams_client = AindMetadataServiceClient(domain=domain)
+        response = ams_client.get_procedures(subject_id=subject_id)
+        response_json = response.json()
+        status_code = response.status_code
+        # Everything is okay
+        if status_code == 200:
+            contents = response_json["data"]
+        # Multiple items were found
+        elif status_code == 300:
+            logging.warning(response_json["message"])
+            contents = response_json["data"][0]
+        # The data retrieved is invalid
+        elif status_code == 406:
+            logging.warning(response_json["message"])
+            contents = response_json["data"]
+        # Connected to the service, but no data was found
+        elif status_code == 404:
+            logging.warning(response_json["message"])
+            contents = response_json["data"]
+        else:
+            logging.error(response_json["message"])
+            contents = json.loads(Procedures.construct().json())
+        return cls(procedures_info=contents)
+
+    def validate_obj(self) -> bool:
+        *_, validation_error = (
+            pydantic.validate_model(Procedures, self.procedures_info)
+        )
+        if validation_error:
+            logging.warning(f"Validation Errors: {validation_error}")
+            return False
+        else:
+            logging.info("Procedures model is valid.")
+            return True
+
+
+class SubjectMetadata:
+
+    def __init__(self, subject_info: Optional[dict] = None):
+        self.subject_info = subject_info
+
+    @property
+    def output_filename(self):
+        return Subject.construct().default_filename()
+
+    @classmethod
+    def from_file(cls, file_location: Path):
+        with open(file_location) as f:
+            contents = json.load(f)
+        return cls(subject_info=contents)
+
+    @classmethod
+    def from_service(cls, subject_id, domain):
+        ams_client = AindMetadataServiceClient(domain=domain)
+        response = ams_client.get_subject(subject_id=subject_id)
+        response_json = response.json()
+        status_code = response.status_code
+        # Everything is okay
+        if status_code == 200:
+            contents = response_json["data"]
+        # Multiple items were found
+        elif status_code == 300:
+            logging.warning(response_json["message"])
+            contents = response_json["data"][0]
+        # The data retrieved is invalid
+        elif status_code == 406:
+            logging.warning(response_json["message"])
+            contents = response_json["data"]
+        # Connected to the service, but no data was found
+        elif status_code == 404:
+            logging.warning(response_json["message"])
+            contents = response_json["data"]
+        else:
+            logging.error(response_json["message"])
+            contents = json.loads(Subject.construct().json())
+        return cls(subject_info=contents)
+
+    def validate_obj(self) -> bool:
+        *_, validation_error = (
+            pydantic.validate_model(Subject, self.subject_info)
+        )
+        if validation_error:
+            logging.warning(f"Validation Errors: {validation_error}")
+            return False
+        else:
+            logging.info("Subject model is valid.")
+            return True
