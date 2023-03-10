@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple, Type
 
+from requests.exceptions import JSONDecodeError, ConnectionError
+
 import aind_data_schema.base
 from aind_data_schema.data_description import (
     Funding,
@@ -39,9 +41,9 @@ class MetadataCreation(ABC):
         """
         self.model_obj = model_obj
 
-    @property
+    @staticmethod
     @abstractmethod
-    def _model(self) -> Type[aind_data_schema.base.AindCoreModel]:
+    def _model() -> Type[aind_data_schema.base.AindCoreModel]:
         """
         Returns
         -------
@@ -53,7 +55,7 @@ class MetadataCreation(ABC):
     def output_filename(self):
         """Returns the default json file name for the model as defined in
         aind_data_schema."""
-        return self._model.construct().default_filename()
+        return self._model().construct().default_filename()
 
     @classmethod
     def from_file(cls, file_location: Path):
@@ -79,7 +81,7 @@ class MetadataCreation(ABC):
           True if the model is valid. False otherwise.
 
         """
-        *_, validation_error = validate_model(self._model, self.model_obj)
+        *_, validation_error = validate_model(self._model(), self.model_obj)
         if validation_error:
             logging.warning(f"Validation Errors: {validation_error}")
             return False
@@ -163,38 +165,44 @@ class ServiceMetadataCreation(MetadataCreation):
 
         """
         ams_client = AindMetadataServiceClient(domain=domain)
-        response = cls._get_service_response(
-            subject_id=subject_id, ams_client=ams_client
-        )
-        response_json = response.json()
-        status_code = response.status_code
-        # Everything is okay
-        if status_code == 200:
-            contents = response_json["data"]
-        # Multiple items were found
-        elif status_code == 300:
-            logging.warning(response_json["message"])
-            contents = response_json["data"][0]
-        # The data retrieved is invalid
-        elif status_code == 406:
-            logging.warning(response_json["message"])
-            contents = response_json["data"]
-        # Connected to the service, but no data was found
-        elif status_code == 404:
-            logging.warning(response_json["message"])
-            contents = response_json["data"]
-        # A serious error happened. Build a default model.
-        else:
-            logging.error(response_json["message"])
-            contents = json.loads(Procedures.construct().json())
+        try:
+            response = cls._get_service_response(
+                subject_id=subject_id, ams_client=ams_client
+            )
+            response_json = response.json()
+            status_code = response.status_code
+            # Everything is okay
+            if status_code == 200:
+                contents = response_json["data"]
+            # Multiple items were found
+            elif status_code == 300:
+                logging.warning(response_json["message"])
+                contents = response_json["data"][0]
+            # The data retrieved is invalid
+            elif status_code == 406:
+                logging.warning(response_json["message"])
+                contents = response_json["data"]
+            # Connected to the service, but no data was found
+            elif status_code == 404:
+                logging.warning(response_json["message"])
+                contents = response_json["data"]
+            # A serious error happened. Build a default model.
+            else:
+                logging.error(response_json["message"])
+                contents = json.loads(cls._model().construct().json())
+        except (ConnectionError, JSONDecodeError) as e:
+            logging.error(
+                f"An error occured connecting to metadata service: {e}"
+            )
+            contents = json.loads(cls._model().construct().json())
         return cls(model_obj=contents)
 
 
 class SubjectMetadata(ServiceMetadataCreation):
     """Class to manage building the subject metadata"""
 
-    @property
-    def _model(self) -> Type[aind_data_schema.base.AindCoreModel]:
+    @staticmethod
+    def _model() -> Type[aind_data_schema.base.AindCoreModel]:
         return Subject
 
     @staticmethod
@@ -220,8 +228,9 @@ class SubjectMetadata(ServiceMetadataCreation):
 
 
 class ProceduresMetadata(ServiceMetadataCreation):
-    @property
-    def _model(self) -> Type[aind_data_schema.base.AindCoreModel]:
+
+    @staticmethod
+    def _model() -> Type[aind_data_schema.base.AindCoreModel]:
         return Procedures
 
     @staticmethod
@@ -247,8 +256,8 @@ class ProceduresMetadata(ServiceMetadataCreation):
 
 
 class ProcessingMetadata(MetadataCreation):
-    @property
-    def _model(self) -> Type[aind_data_schema.base.AindCoreModel]:
+    @staticmethod
+    def _model() -> Type[aind_data_schema.base.AindCoreModel]:
         return Processing
 
     @classmethod
@@ -306,8 +315,8 @@ class RawDataDescriptionMetadata(MetadataCreation):
     """Class to handle the creation of the raw data description metadata
     file."""
 
-    @property
-    def _model(self) -> Type[aind_data_schema.base.AindCoreModel]:
+    @staticmethod
+    def _model() -> Type[aind_data_schema.base.AindCoreModel]:
         return RawDataDescription
 
     @classmethod

@@ -7,7 +7,8 @@ from pathlib import Path
 from unittest import mock
 
 import requests
-from aind_data_schema import Processing, RawDataDescription
+from aind_data_schema import Processing, RawDataDescription, Subject
+from aind_data_schema.processing import ProcessName
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
@@ -34,7 +35,6 @@ class TestProcessingMetadata(unittest.TestCase):
 
     conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
     args = ["-c", str(conf_file_path)]
-    # loaded_configs = EphysJobConfigurationLoader().load_configs(args)
 
     @mock.patch(
         "aind_data_transfer.config_loader.ephys_configuration_loader."
@@ -64,25 +64,27 @@ class TestProcessingMetadata(unittest.TestCase):
 
         parameters = loaded_configs
 
-        processing_instance = ProcessingMetadata.ephys_job_to_processing(
+        processing_metadata_json = ProcessingMetadata.from_inputs(
+            process_name=ProcessName.EPHYS_PREPROCESSING,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=input_location,
             output_location=output_location,
             code_url=code_url,
             parameters=parameters,
-        )
+        ).model_obj
 
         # Hack to get match version to be the same as in the example file
         expected_processing_instance_json["data_processes"][0][
             "version"
-        ] = processing_instance.data_processes[0].version
+        ] = processing_metadata_json["data_processes"][0]["version"]
 
         expected_processing_instance = Processing.parse_obj(
             expected_processing_instance_json
         )
 
-        self.assertEqual(expected_processing_instance, processing_instance)
+        self.assertEqual(expected_processing_instance,
+                         processing_metadata_json)
 
 
 class TestSubjectMetadata(unittest.TestCase):
@@ -127,7 +129,9 @@ class TestSubjectMetadata(unittest.TestCase):
         ),
     }
 
-    @mock.patch("requests.get")
+    @mock.patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
     def test_successful_response(
         self, mock_api_get: unittest.mock.MagicMock
     ) -> None:
@@ -141,17 +145,19 @@ class TestSubjectMetadata(unittest.TestCase):
 
         mock_api_get.return_value = successful_response
 
-        actual_subject = SubjectMetadata.ephys_job_to_subject(
-            metadata_service_url="http://a-fake-url",
-            filepath="ecephys_632269_2022-10-10_16-13-22",
-        )
+        actual_subject = SubjectMetadata.from_service(
+            "632269",
+            "http://a-fake-url"
+        ).model_obj
 
         expected_subject = self.successful_response_message["data"]
 
         self.assertEqual(expected_subject, actual_subject)
 
     @mock.patch("logging.warning")
-    @mock.patch("requests.get")
+    @mock.patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
     def test_multiple_response_warning(
         self,
         mock_api_get: unittest.mock.MagicMock,
@@ -160,24 +166,26 @@ class TestSubjectMetadata(unittest.TestCase):
         """Tests parsing multiples subjects from metadata service."""
 
         multiple_response = requests.Response()
-        multiple_response.status_code = 418
+        multiple_response.status_code = 300
         multiple_response._content = json.dumps(
             self.multiple_subjects_response
         ).encode("utf-8")
 
         mock_api_get.return_value = multiple_response
 
-        actual_subject = SubjectMetadata.ephys_job_to_subject(
-            metadata_service_url="http://a-fake-url",
-            filepath="ecephys_632269_2022-10-10_16-13-22",
-        )
+        actual_subject = SubjectMetadata.from_service(
+            "632269",
+            "http://a-fake-url"
+        ).model_obj
 
         expected_subject = self.successful_response_message["data"]
         mock_log_warn.assert_called_once_with("Multiple Items Found.")
         self.assertEqual(expected_subject, actual_subject)
 
     @mock.patch("logging.warning")
-    @mock.patch("requests.get")
+    @mock.patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
     def test_invalid_response_warning(
         self,
         mock_api_get: unittest.mock.MagicMock,
@@ -186,7 +194,7 @@ class TestSubjectMetadata(unittest.TestCase):
         """Tests parsing invalid Subject from metadata service."""
 
         invalid_response = requests.Response()
-        invalid_response.status_code = 418
+        invalid_response.status_code = 406
         msg = self.successful_response_message
         msg["message"] = "Validation Errors: Errors here!"
         invalid_response._content = json.dumps(
@@ -195,10 +203,10 @@ class TestSubjectMetadata(unittest.TestCase):
 
         mock_api_get.return_value = invalid_response
 
-        actual_subject = SubjectMetadata.ephys_job_to_subject(
-            metadata_service_url="http://a-fake-url",
-            filepath="ecephys_632269_2022-10-10_16-13-22",
-        )
+        actual_subject = SubjectMetadata.from_service(
+            "632269",
+            "http://a-fake-url"
+        ).model_obj
 
         expected_subject = self.successful_response_message["data"]
         mock_log_warn.assert_called_once_with(
@@ -207,7 +215,39 @@ class TestSubjectMetadata(unittest.TestCase):
         self.assertEqual(expected_subject, actual_subject)
 
     @mock.patch("logging.error")
-    @mock.patch("requests.get")
+    @mock.patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
+    def test_server_response_warning(
+        self,
+        mock_api_get: unittest.mock.MagicMock,
+        mock_log_err: unittest.mock.MagicMock,
+    ) -> None:
+        """Tests parsing server error response from metadata service."""
+
+        err_response = requests.Response()
+        err_response.status_code = 500
+        err_message = {"message": "Internal Server Error.", "data": None}
+        err_response._content = json.dumps(
+            err_message
+        ).encode("utf-8")
+        mock_api_get.return_value = err_response
+
+        actual_subject = SubjectMetadata.from_service(
+            "632269",
+            "http://a-fake-url"
+        ).model_obj
+        expected_subject = Subject.construct().dict()
+
+        mock_log_err.assert_called_once_with(
+            "Internal Server Error."
+        )
+        self.assertEqual(expected_subject, actual_subject)
+
+    @mock.patch("logging.error")
+    @mock.patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
     def test_no_response_warning(
         self,
         mock_api_get: unittest.mock.MagicMock,
@@ -215,18 +255,21 @@ class TestSubjectMetadata(unittest.TestCase):
     ) -> None:
         """Tests parsing no response from metadata service."""
 
-        no_response = requests.Response()
-        no_response.status_code = 500
-
-        mock_api_get.return_value = no_response
-
-        actual_subject = SubjectMetadata.ephys_job_to_subject(
-            metadata_service_url="http://a-fake-url",
-            filepath="ecephys_632269_2022-10-10_16-13-22",
+        mock_api_get.side_effect = requests.ConnectionError(
+            "Unable to connect"
         )
 
-        mock_log_err.assert_called_once_with("No data retrieved!")
-        self.assertIsNone(actual_subject)
+        actual_subject = SubjectMetadata.from_service(
+            "632269",
+            "http://a-fake-url"
+        ).model_obj
+        expected_subject = Subject.construct().dict()
+
+        mock_log_err.assert_called_once_with(
+            "An error occured connecting to metadata service: Unable to "
+            "connect"
+        )
+        self.assertEqual(expected_subject, actual_subject)
 
 
 class TestDataDescriptionMetadata(unittest.TestCase):
@@ -235,14 +278,9 @@ class TestDataDescriptionMetadata(unittest.TestCase):
     def test_create_data_description_metadata(self) -> None:
         """
         Tests that the data description metadata is created correctly.
-
-        Returns:
-
         """
-        data_description_instance = (
-            RawDataDescriptionMetadata.get_data_description(
-                name="ecephys_0000_2022-10-20_16-30-01"
-            )
+        data_description = RawDataDescriptionMetadata.from_inputs(
+            name="ecephys_0000_2022-10-20_16-30-01"
         )
 
         expected_data_description_instance = RawDataDescription.parse_obj(
@@ -250,7 +288,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         )
 
         self.assertEqual(
-            expected_data_description_instance, data_description_instance
+            expected_data_description_instance, data_description.model_obj
         )
 
 
