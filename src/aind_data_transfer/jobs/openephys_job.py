@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from aind_codeocean_api.codeocean import CodeOceanClient
-
 from aind_data_schema.processing import ProcessName
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
@@ -21,6 +20,7 @@ from aind_data_transfer.transformations.ephys_compressors import (
     EphysCompressors,
 )
 from aind_data_transfer.transformations.metadata_creation import (
+    ProceduresMetadata,
     ProcessingMetadata,
     SubjectMetadata,
 )
@@ -153,8 +153,7 @@ def run_job(args):  # noqa: C901
             process_name=ProcessName.EPHYS_PREPROCESSING,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
-            input_location=str(
-                input_location),
+            input_location=str(input_location),
             output_location=output_location,
             code_url=code_url,
             parameters=parameters,
@@ -168,14 +167,26 @@ def run_job(args):  # noqa: C901
         metadata_url = job_configs["endpoints"]["metadata_service_url"]
         subject_id = job_configs["data"].get("subject_id")
         subject_instance = SubjectMetadata.from_service(
-            subject_id=subject_id,
-            domain=metadata_url
+            subject_id=subject_id, domain=metadata_url
         )
         if subject_instance is not None:
             subject_instance.write_to_json(dest_data_dir)
             logging.info("Finished creating subject.json file.")
         else:
             logging.warning("No subject.json file created!")
+
+        # Procedures metadata
+        logging.info("Creating procedures.json file.")
+        metadata_url = job_configs["endpoints"]["metadata_service_url"]
+        subject_id = job_configs["data"].get("subject_id")
+        procedures_instance = ProceduresMetadata.from_service(
+            subject_id=subject_id, domain=metadata_url
+        )
+        if procedures_instance is not None:
+            procedures_instance.write_to_json(dest_data_dir)
+            logging.info("Finished creating procedures.json file.")
+        else:
+            logging.warning("No procedures.json file created!")
 
     # Upload to s3
     if platform.system() == "Windows":

@@ -15,6 +15,7 @@ from aind_data_transfer.jobs.s3_upload_job import (
     GenericS3UploadJobList,
 )
 from aind_data_transfer.transformations.metadata_creation import (
+    ProceduresMetadata,
     SubjectMetadata,
 )
 
@@ -298,6 +299,54 @@ class TestGenericS3UploadJob(unittest.TestCase):
         )
 
     @patch("aind_data_transfer.jobs.s3_upload_job.copy_to_s3")
+    @patch("logging.Logger.warning")
+    @patch(
+        "aind_data_transfer.transformations.metadata_creation."
+        "ProceduresMetadata.from_service"
+    )
+    @patch("tempfile.TemporaryDirectory")
+    @patch("boto3.session.Session")
+    @patch("builtins.open", new_callable=mock_open())
+    def test_upload_procedures_metadata(
+        self,
+        mock_open_file: MagicMock,
+        mock_session: MagicMock,
+        mocked_tempdir: MagicMock,
+        mocked_ephys_job_to_subject: MagicMock,
+        mock_log: MagicMock,
+        mock_copy_to_s3: MagicMock,
+    ) -> None:
+        """Tests that procedures data is uploaded correctly."""
+
+        # Check that tempfile is called and copy to s3 is called
+        mock_session.return_value = self._mock_boto_get_secret_session_error()
+        mocked_ephys_job_to_subject.return_value = ProceduresMetadata(
+            model_obj={}
+        )
+        mocked_tempdir.return_value.__enter__ = lambda _: "tmp_dir"
+        tmp_file_name = os.path.join("tmp_dir", "procedures.json")
+        job = GenericS3UploadJob(self.args1)
+        job.upload_procedures_metadata()
+        mock_open_file.assert_called_once_with(tmp_file_name, "w")
+        mocked_tempdir.assert_called_once()
+        mock_copy_to_s3.assert_called_once_with(
+            file_to_upload=tmp_file_name,
+            s3_bucket="some_s3_bucket",
+            s3_prefix="ecephys_12345_2022-10-10_13-24-01/procedures.json",
+            dryrun=True,
+        )
+
+        # Check warning message if not metadata url is found
+        empty_args = self.args1.copy()
+        empty_args[13] = "{}"
+        job2 = GenericS3UploadJob(empty_args)
+        job2.upload_procedures_metadata()
+        mock_log.assert_called_once_with(
+            "No metadata service url given. "
+            "Not able to get procedures metadata."
+        )
+
+    @patch("aind_data_transfer.jobs.s3_upload_job.copy_to_s3")
     @patch("tempfile.TemporaryDirectory")
     @patch("boto3.session.Session")
     @patch("builtins.open", new_callable=mock_open())
@@ -511,30 +560,37 @@ class TestGenericS3UploadJob(unittest.TestCase):
     )
     @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
     @patch.object(GenericS3UploadJob, "upload_subject_metadata")
+    @patch.object(GenericS3UploadJob, "upload_procedures_metadata")
     @patch.object(GenericS3UploadJob, "upload_data_description_metadata")
     @patch.object(GenericS3UploadJob, "trigger_codeocean_capsule")
+    @patch.object(GenericS3UploadJob, "compress_and_upload_behavior_data")
     def test_run_job(
         self,
+        mock_compress_and_upload_behavior: MagicMock,
         mock_trigger_codeocean_capsule: MagicMock,
         mock_upload_data_description_metadata: MagicMock,
+        mock_upload_procedures_metadata: MagicMock,
         mock_upload_subject_metadata: MagicMock,
         mock_upload_to_s3: MagicMock,
     ) -> None:
         """Tests that the run_job method triggers all the sub jobs."""
 
         job = GenericS3UploadJob(self.args1)
+        job.configs.behavior_dir = "some_behavior_dir"
         job.run_job()
         data_prefix = "/".join([job.s3_prefix, job.configs.modality])
 
+        mock_compress_and_upload_behavior.assert_called_once()
         mock_trigger_codeocean_capsule.assert_called_once()
         mock_upload_data_description_metadata.assert_called_once()
         mock_upload_subject_metadata.assert_called_once()
+        mock_upload_procedures_metadata.assert_called_once()
         mock_upload_to_s3.assert_called_once_with(
             directory_to_upload=job.configs.data_source,
             s3_bucket=job.configs.s3_bucket,
             s3_prefix=data_prefix,
             dryrun=job.configs.dry_run,
-            excluded=None,
+            excluded=(Path("some_behavior_dir") / "*"),
         )
 
 

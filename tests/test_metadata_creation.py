@@ -4,7 +4,6 @@ import json
 import os
 import unittest
 from pathlib import Path
-from unittest import mock
 from unittest.mock import MagicMock, call, mock_open, patch
 
 from aind_data_schema import (
@@ -171,25 +170,22 @@ class TestSubjectMetadata(unittest.TestCase):
         expected_subject = self.successful_response_message["data"]
 
         mock_log_info.assert_called_once_with("Model is valid.")
-        mock_open.assert_has_calls([
-            call(Path("/some_path/subject.json"), "w"),
-            call().__enter__(),
-            call().__enter__().write(
-                json.dumps(expected_subject, indent=3, default=str)
-            ),
-            call().__exit__(None, None, None),
-            call(Path("/some_path/subject2.json"), "w"),
-            call().__enter__(),
-            call().__enter__().write(
-                json.dumps(expected_subject, indent=3, default=str)
-            ),
-            call().__exit__(None, None, None),
-        ])
-        # mock_open.assert_called_once_with(Path("/some_path/subject.json"), "w")
-        # mock_open.return_value.__enter__().write.assert_called_once_with(
-        #     json.dumps(expected_subject, indent=3, default=str)
-        # )
-        # '/my/path/not/exists/output.text', 'w+')
+        mock_open.assert_has_calls(
+            [
+                call(Path("/some_path/subject.json"), "w"),
+                call().__enter__(),
+                call()
+                .__enter__()
+                .write(json.dumps(expected_subject, indent=3, default=str)),
+                call().__exit__(None, None, None),
+                call(Path("/some_path/subject2.json"), "w"),
+                call().__enter__(),
+                call()
+                .__enter__()
+                .write(json.dumps(expected_subject, indent=3, default=str)),
+                call().__exit__(None, None, None),
+            ]
+        )
         self.assertEqual(expected_subject, actual_subject.model_obj)
         self.assertTrue(is_model_valid)
 
