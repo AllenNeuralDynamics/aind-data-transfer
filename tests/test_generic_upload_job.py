@@ -14,6 +14,9 @@ from aind_data_transfer.jobs.s3_upload_job import (
     GenericS3UploadJob,
     GenericS3UploadJobList,
 )
+from aind_data_transfer.transformations.metadata_creation import (
+    SubjectMetadata,
+)
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
@@ -250,7 +253,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
     @patch("logging.Logger.warning")
     @patch(
         "aind_data_transfer.transformations.metadata_creation.SubjectMetadata."
-        "ephys_job_to_subject"
+        "from_service"
     )
     @patch("tempfile.TemporaryDirectory")
     @patch("boto3.session.Session")
@@ -268,7 +271,9 @@ class TestGenericS3UploadJob(unittest.TestCase):
 
         # Check that tempfile is called and copy to s3 is called
         mock_session.return_value = self._mock_boto_get_secret_session_error()
-        mocked_ephys_job_to_subject.return_value = {}
+        mocked_ephys_job_to_subject.return_value = SubjectMetadata(
+            model_obj={}
+        )
         mocked_tempdir.return_value.__enter__ = lambda _: "tmp_dir"
         tmp_file_name = os.path.join("tmp_dir", "subject.json")
         job = GenericS3UploadJob(self.args1)

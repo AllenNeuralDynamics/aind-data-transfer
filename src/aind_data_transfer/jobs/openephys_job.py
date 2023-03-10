@@ -11,6 +11,8 @@ from pathlib import Path
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 
+from aind_data_schema.processing import ProcessName
+
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
 )
@@ -147,33 +149,30 @@ def run_job(args):  # noqa: C901
 
         code_url = job_configs["endpoints"]["code_repo_location"]
         parameters = job_configs
-        processing_instance = ProcessingMetadata.ephys_job_to_processing(
+        processing_instance = ProcessingMetadata.from_inputs(
+            process_name=ProcessName.EPHYS_PREPROCESSING,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
-            input_location=str(input_location),
+            input_location=str(
+                input_location),
             output_location=output_location,
             code_url=code_url,
             parameters=parameters,
             notes=None,
         )
-
-        file_path = dest_data_dir / ProcessingMetadata.output_file_name
-        with open(file_path, "w") as f:
-            contents = processing_instance.json(**{"indent": 4})
-            f.write(contents)
+        processing_instance.write_to_json(dest_data_dir)
         logging.info("Finished creating processing.json file.")
 
         # Subject metadata
         logging.info("Creating subject.json file.")
         metadata_url = job_configs["endpoints"]["metadata_service_url"]
         subject_id = job_configs["data"].get("subject_id")
-        subject_instance = SubjectMetadata.ephys_job_to_subject(
-            metadata_url, subject_id, dest_data_dir.name
+        subject_instance = SubjectMetadata.from_service(
+            subject_id=subject_id,
+            domain=metadata_url
         )
-        s_file_path = dest_data_dir / SubjectMetadata.output_file_name
         if subject_instance is not None:
-            with open(s_file_path, "w") as f:
-                f.write(json.dumps(subject_instance, indent=4))
+            subject_instance.write_to_json(dest_data_dir)
             logging.info("Finished creating subject.json file.")
         else:
             logging.warning("No subject.json file created!")

@@ -110,7 +110,7 @@ class MetadataCreation(ABC):
             out_path = path
 
         with open(out_path, "w") as outfile:
-            outfile.write(json.dumps(self.model_obj, indent=3))
+            outfile.write(json.dumps(self.model_obj, indent=3, default=str))
 
 
 class ServiceMetadataCreation(MetadataCreation):
@@ -203,6 +203,7 @@ class SubjectMetadata(ServiceMetadataCreation):
 
     @staticmethod
     def _model() -> Type[aind_data_schema.base.AindCoreModel]:
+        """AindDataSchema model"""
         return Subject
 
     @staticmethod
@@ -231,6 +232,7 @@ class ProceduresMetadata(ServiceMetadataCreation):
 
     @staticmethod
     def _model() -> Type[aind_data_schema.base.AindCoreModel]:
+        """AindDataSchema model"""
         return Procedures
 
     @staticmethod
@@ -258,6 +260,7 @@ class ProceduresMetadata(ServiceMetadataCreation):
 class ProcessingMetadata(MetadataCreation):
     @staticmethod
     def _model() -> Type[aind_data_schema.base.AindCoreModel]:
+        """AindDataSchema model"""
         return Processing
 
     @classmethod
@@ -317,6 +320,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
 
     @staticmethod
     def _model() -> Type[aind_data_schema.base.AindCoreModel]:
+        """AindDataSchema model"""
         return RawDataDescription
 
     @classmethod

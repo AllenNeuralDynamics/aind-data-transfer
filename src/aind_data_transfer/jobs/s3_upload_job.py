@@ -141,16 +141,21 @@ class GenericS3UploadJob:
             "metadata_service_url"
         )
         if metadata_service_url:
-            subject_metadata = SubjectMetadata.ephys_job_to_subject(
-                metadata_service_url=metadata_service_url,
+            subject_metadata = SubjectMetadata.from_service(
+                domain=metadata_service_url,
                 subject_id=self.configs.subject_id,
             )
-            file_name = SubjectMetadata.output_file_name
+            # subject_metadata = SubjectMetadata.ephys_job_to_subject(
+            #     metadata_service_url=metadata_service_url,
+            #     subject_id=self.configs.subject_id,
+            # )
+            file_name = subject_metadata.output_filename
             final_s3_prefix = "/".join([self.s3_prefix, file_name])
             with tempfile.TemporaryDirectory() as td:
                 tmp_file_name = os.path.join(td, file_name)
-                with open(tmp_file_name, "w") as fh:
-                    fh.write(json.dumps(subject_metadata, indent=4))
+                subject_metadata.write_to_json(tmp_file_name)
+                # with open(tmp_file_name, "w") as fh:
+                #     fh.write(json.dumps(subject_metadata, indent=3))
                 copy_to_s3(
                     file_to_upload=tmp_file_name,
                     s3_bucket=self.configs.s3_bucket,
@@ -166,17 +171,22 @@ class GenericS3UploadJob:
     def upload_data_description_metadata(self) -> None:
         """Builds basic data description and copies it to s3."""
 
-        data_description_metadata = (
-            RawDataDescriptionMetadata.get_data_description(
-                name=self.s3_prefix
-            )
+        data_description_metadata = RawDataDescriptionMetadata.from_inputs(
+            name=self.s3_prefix
         )
-        file_name = RawDataDescriptionMetadata.output_file_name
+
+        # data_description_metadata = (
+        #     RawDataDescriptionMetadata.get_data_description(
+        #         name=self.s3_prefix
+        #     )
+        # )
+        file_name = data_description_metadata.output_filename
         final_s3_prefix = "/".join([self.s3_prefix, file_name])
         with tempfile.TemporaryDirectory() as td:
             tmp_file_name = os.path.join(td, file_name)
-            with open(tmp_file_name, "w") as fh:
-                fh.write(data_description_metadata.json(**{"indent": 4}))
+            data_description_metadata.write_to_json(tmp_file_name)
+            # with open(tmp_file_name, "w") as fh:
+            #     fh.write(data_description_metadata.json(**{"indent": 4}))
             copy_to_s3(
                 file_to_upload=tmp_file_name,
                 s3_bucket=self.configs.s3_bucket,

@@ -17,6 +17,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
+    ProceduresMetadata
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -41,12 +42,7 @@ class TestProcessingMetadata(unittest.TestCase):
         "EphysJobConfigurationLoader._get_endpoints"
     )
     def test_create_processing_metadata(self, mock_get_endpoints) -> None:
-        """
-        Tests that the processing metadata is created correctly.
-
-        Returns:
-
-        """
+        """Tests that the processing metadata is created correctly."""
 
         mock_get_endpoints.return_value = {"codeocean_trigger_capsule": None}
 
@@ -83,8 +79,9 @@ class TestProcessingMetadata(unittest.TestCase):
             expected_processing_instance_json
         )
 
-        self.assertEqual(expected_processing_instance,
-                         processing_metadata_json)
+        self.assertEqual(
+            expected_processing_instance, processing_metadata_json
+        )
 
 
 class TestSubjectMetadata(unittest.TestCase):
@@ -146,8 +143,7 @@ class TestSubjectMetadata(unittest.TestCase):
         mock_api_get.return_value = successful_response
 
         actual_subject = SubjectMetadata.from_service(
-            "632269",
-            "http://a-fake-url"
+            "632269", "http://a-fake-url"
         ).model_obj
 
         expected_subject = self.successful_response_message["data"]
@@ -174,8 +170,7 @@ class TestSubjectMetadata(unittest.TestCase):
         mock_api_get.return_value = multiple_response
 
         actual_subject = SubjectMetadata.from_service(
-            "632269",
-            "http://a-fake-url"
+            "632269", "http://a-fake-url"
         ).model_obj
 
         expected_subject = self.successful_response_message["data"]
@@ -204,8 +199,7 @@ class TestSubjectMetadata(unittest.TestCase):
         mock_api_get.return_value = invalid_response
 
         actual_subject = SubjectMetadata.from_service(
-            "632269",
-            "http://a-fake-url"
+            "632269", "http://a-fake-url"
         ).model_obj
 
         expected_subject = self.successful_response_message["data"]
@@ -228,20 +222,15 @@ class TestSubjectMetadata(unittest.TestCase):
         err_response = requests.Response()
         err_response.status_code = 500
         err_message = {"message": "Internal Server Error.", "data": None}
-        err_response._content = json.dumps(
-            err_message
-        ).encode("utf-8")
+        err_response._content = json.dumps(err_message).encode("utf-8")
         mock_api_get.return_value = err_response
 
         actual_subject = SubjectMetadata.from_service(
-            "632269",
-            "http://a-fake-url"
+            "632269", "http://a-fake-url"
         ).model_obj
         expected_subject = Subject.construct().dict()
 
-        mock_log_err.assert_called_once_with(
-            "Internal Server Error."
-        )
+        mock_log_err.assert_called_once_with("Internal Server Error.")
         self.assertEqual(expected_subject, actual_subject)
 
     @mock.patch("logging.error")
@@ -260,8 +249,7 @@ class TestSubjectMetadata(unittest.TestCase):
         )
 
         actual_subject = SubjectMetadata.from_service(
-            "632269",
-            "http://a-fake-url"
+            "632269", "http://a-fake-url"
         ).model_obj
         expected_subject = Subject.construct().dict()
 
@@ -290,6 +278,127 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         self.assertEqual(
             expected_data_description_instance, data_description.model_obj
         )
+
+
+class TestProceduresMetadata(unittest.TestCase):
+
+    successful_response_message = {
+        "message": "Valid Model.",
+        "data": {
+            "describedBy": (
+                "https://raw.githubusercontent.com/AllenNeuralDynamics/"
+                "aind-data-schema/main/src/aind_data_schema/procedures.py"
+            ),
+            "schema_version": "0.6.1",
+            "subject_id": "436083",
+            "subject_procedures": [
+                {
+                    "start_date": "2019-01-09",
+                    "end_date": "2019-01-09",
+                    "experimenter_full_name": "NSB-000",
+                    "iacuc_protocol": "1804",
+                    "animal_weight_prior": 21.3,
+                    "animal_weight_post": 23.0,
+                    "weight_unit": "gram",
+                    "anaesthesia": {
+                        "type": "isoflurane",
+                        "duration": None,
+                        "level": "Select...",
+                    },
+                    "notes": None,
+                    "injection_materials": None,
+                    "recovery_time": None,
+                    "injection_duration": 10,
+                    "workstation_id": "SWS 6",
+                    "instrument_id": "NJ#6",
+                    "injection_coordinate_ml": -2.3,
+                    "injection_coordinate_ap": -2.3,
+                    "injection_coordinate_depth": 2.6,
+                    "injection_coordinate_unit": "millimeter",
+                    "injection_coordinate_reference": None,
+                    "bregma_to_lambda_distance": None,
+                    "bregma_to_lambda_unit": "millimeter",
+                    "injection_angle": 0.0,
+                    "injection_angle_unit": "degree",
+                    "injection_hemisphere": "Left",
+                    "procedure_type": "Nanoject injection",
+                    "injection_volume": 200.0,
+                    "injection_volume_unit": "nanoliter",
+                    "injection_type": "Nanoject (Pressure)",
+                },
+                {
+                    "start_date": "2019-01-09",
+                    "end_date": "2019-01-09",
+                    "experimenter_full_name": "NSB-000",
+                    "iacuc_protocol": "1804",
+                    "animal_weight_prior": 21.3,
+                    "animal_weight_post": 23.0,
+                    "weight_unit": "gram",
+                    "anaesthesia": {"type": "isoflurane", "level": "1.5"},
+                    "notes": None,
+                    "procedure_type": "Headframe",
+                    "headframe_type": "CAM-style",
+                    "headframe_part_number": "0160-100-10 Rev A",
+                    "headframe_material": None,
+                    "well_part_number": None,
+                    "well_type": "CAM-style",
+                },
+                {
+                    "start_date": "2019-01-09",
+                    "end_date": "2019-01-09",
+                    "experimenter_full_name": "NSB-000",
+                    "iacuc_protocol": "1804",
+                    "animal_weight_prior": 21.3,
+                    "animal_weight_post": 23.0,
+                    "weight_unit": "gram",
+                    "anaesthesia": {"type": "isoflurane", "level": "1.5"},
+                    "notes": None,
+                    "procedure_type": "Craniotomy",
+                    "craniotomy_type": "Visual Cortex",
+                    "craniotomy_hemisphere": "Left",
+                    "craniotomy_coordinates_ml": 2.8,
+                    "craniotomy_coordinates_ap": 1.3,
+                    "craniotomy_coordinates_unit": "millimeter",
+                    "craniotomy_coordinates_reference": None,
+                    "bregma_to_lambda_distance": None,
+                    "bregma_to_lambda_unit": "millimeter",
+                    "craniotomy_size": 5.0,
+                    "craniotomy_size_unit": "millimeter",
+                    "implant_part_number": None,
+                    "dura_removed": True,
+                    "protective_material": None,
+                    "workstation_id": "SWS 6",
+                    "recovery_time": None,
+                },
+            ],
+            "specimen_procedures": None,
+            "notes": None,
+        },
+    }
+
+    @mock.patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_procedures"
+    )
+    def test_procedures_from_service(
+        self, mock_api_get: unittest.mock.MagicMock
+    ):
+        """Tests that the procedures is generated from service call."""
+
+        successful_response = requests.Response()
+        successful_response.status_code = 200
+        successful_response._content = json.dumps(
+            self.successful_response_message
+        ).encode("utf-8")
+
+        mock_api_get.return_value = successful_response
+
+        actual_procedures = ProceduresMetadata.from_service(
+            "436083", "http://a-fake-url"
+        ).model_obj
+
+        expected_subject = self.successful_response_message["data"]
+
+        self.assertEqual(expected_subject, actual_procedures)
 
 
 if __name__ == "__main__":
