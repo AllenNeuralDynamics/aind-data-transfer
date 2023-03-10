@@ -49,7 +49,6 @@ class MetadataCreation(ABC):
         -------
           Needs to return an AindCoreModel, such as Subject for example.
         """
-        pass
 
     @property
     def output_filename(self):
@@ -150,7 +149,6 @@ class ServiceMetadataCreation(MetadataCreation):
           Has a status code and json contents.
 
         """
-        pass
 
     @classmethod
     def from_service(cls, subject_id: str, domain: str):
