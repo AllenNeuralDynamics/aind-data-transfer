@@ -7,6 +7,7 @@ import os
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional
+import inspect
 
 import boto3
 from botocore.exceptions import ClientError
@@ -36,18 +37,11 @@ class JobConfigResolver(ABC):
     @abstractmethod
     def _download_params_from_aws(self):
         """Child classes will need to define a way to retrieve data from aws"""
-        pass
 
-    def _endpoint_config_names(self):
+    @classmethod
+    def _endpoint_config_names(cls):
         """Get a list of the class attributes that need to be resolved"""
-        return [
-            class_attr
-            for class_attr in dir(self)
-            if (
-                (not class_attr.startswith("_"))
-                and (not callable(getattr(self, class_attr)))
-            )
-        ]
+        return list(inspect.signature(cls.__init__).parameters.keys())[1:]
 
     def _resolve_from_dict(self, param_dict: Optional[dict]) -> bool:
         """
@@ -115,6 +109,23 @@ class JobConfigResolver(ABC):
 
         return None
 
+    @classmethod
+    def from_dict(cls, param_dict: dict):
+        endpoint_names = cls._endpoint_config_names()
+        known_args = {
+            key: param_dict.get(key)
+            for key in endpoint_names
+            if key in param_dict
+        }
+        obj = cls.__new__(cls)
+        if len([a for a in known_args.keys() if a[0] != "_"]) != len(
+            [a for a in endpoint_names if a[0] != "_"]
+        ):
+            obj.__init__()
+        for k, v in known_args.items():
+            setattr(obj, k, v)
+        return obj
+
 
 class JobEndpoints(JobConfigResolver):
     """This class handles configuring common service endpoints in the jobs."""
@@ -124,7 +135,7 @@ class JobEndpoints(JobConfigResolver):
 
     def __init__(
         self,
-        param_store: Optional[str] = _DEFAULT_PARAMETER_STORE_KEY_NAME,
+        _param_store: Optional[str] = _DEFAULT_PARAMETER_STORE_KEY_NAME,
         codeocean_domain: Optional[str] = None,
         codeocean_trigger_capsule_id: Optional[str] = None,
         codeocean_trigger_capsule_version: Optional[str] = None,
@@ -152,7 +163,7 @@ class JobEndpoints(JobConfigResolver):
           Name where the aind-data-transfer library code is stored. Defaults
           to None.
         """
-        self.__param_store = param_store
+        self._param_store = _param_store
         self.codeocean_domain = codeocean_domain
         self.codeocean_trigger_capsule_id = codeocean_trigger_capsule_id
         self.codeocean_trigger_capsule_version = (
@@ -168,9 +179,7 @@ class JobEndpoints(JobConfigResolver):
         """Attempt to download the endpoints from an aws parameter store"""
         ssm_client = boto3.client("ssm")
         try:
-            param_from_store = ssm_client.get_parameter(
-                Name=self.__param_store
-            )
+            param_from_store = ssm_client.get_parameter(Name=self._param_store)
             param_string = param_from_store["Parameter"]["Value"]
             params = json.loads(param_string)
         except ClientError as e:
@@ -191,7 +200,7 @@ class JobSecrets(JobConfigResolver):
 
     def __init__(
         self,
-        secrets_name: Optional[str] = _DEFAULT_SECRETS_NAME,
+        _secrets_name: Optional[str] = _DEFAULT_SECRETS_NAME,
         video_encryption_password: Optional[str] = None,
         codeocean_api_token: Optional[str] = None,
     ):
@@ -207,7 +216,7 @@ class JobSecrets(JobConfigResolver):
         codeocean_api_token : Optional[str]
           An api token to be used to interface with the Code Ocean service.
         """
-        self.__secrets_name = secrets_name
+        self._secrets_name = _secrets_name
         self.video_encryption_password = video_encryption_password
         self.codeocean_api_token = codeocean_api_token
         self._resolve_endpoint_configs(self._ENV_VAR_NAME)
@@ -217,7 +226,7 @@ class JobSecrets(JobConfigResolver):
         sm_client = boto3.client("secretsmanager")
         try:
             secret_from_aws = sm_client.get_secret_value(
-                SecretId=self.__secrets_name
+                SecretId=self._secrets_name
             )
             secret_as_string = secret_from_aws["SecretString"]
             secrets = json.loads(secret_as_string)

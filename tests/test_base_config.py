@@ -43,10 +43,10 @@ class TestJobEndpointsConfigs(unittest.TestCase):
 
         """
         job_endpoints = JobEndpoints(
-            codeocean_domain="some_domain1", param_store="some_param_store"
+            codeocean_domain="some_domain1", _param_store="some_param_store"
         )
         self.assertEqual(
-            getattr(job_endpoints, "_JobEndpoints__param_store"),
+            getattr(job_endpoints, "_param_store"),
             "some_param_store",
         )
         self.assertEqual(job_endpoints.codeocean_domain, "some_domain1")
@@ -82,7 +82,7 @@ class TestJobEndpointsConfigs(unittest.TestCase):
 
         job_endpoints = JobEndpoints()
         self.assertEqual(
-            getattr(job_endpoints, "_JobEndpoints__param_store"),
+            getattr(job_endpoints, "_param_store"),
             "/aind/data/transfer/endpoints",
         )
         self.assertEqual(job_endpoints.codeocean_domain, "some_domain")
@@ -161,10 +161,11 @@ class TestJobSecretsConfigs(unittest.TestCase):
 
         """
         job_secrets = JobSecrets(
-            codeocean_api_token="some_token1", secrets_name="some_secret_store"
+            codeocean_api_token="some_token1",
+            _secrets_name="some_secret_store"
         )
         self.assertEqual(
-            getattr(job_secrets, "_JobSecrets__secrets_name"),
+            getattr(job_secrets, "_secrets_name"),
             "some_secret_store",
         )
         self.assertEqual(job_secrets.codeocean_api_token, "some_token1")
@@ -194,7 +195,7 @@ class TestJobSecretsConfigs(unittest.TestCase):
 
         job_secrets = JobSecrets()
         self.assertEqual(
-            getattr(job_secrets, "_JobSecrets__secrets_name"),
+            getattr(job_secrets, "_secrets_name"),
             "/aind/data/transfer/secrets",
         )
         self.assertEqual(job_secrets.codeocean_api_token, "some_token")

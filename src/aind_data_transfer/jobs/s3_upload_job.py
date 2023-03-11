@@ -12,86 +12,79 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from aind_codeocean_api.codeocean import CodeOceanClient
-from botocore.exceptions import ClientError
 
+from aind_data_transfer.config_loader.generic_config_loader import (
+    GenericJobConfigurationLoader,
+)
+from aind_data_transfer.transformations.generic_compressors import (
+    VideoCompressor,
+    ZipCompressor,
+)
 from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
     SubjectMetadata,
 )
-from aind_data_transfer.transformations.video_compressors import (
-    VideoCompressor,
-)
-from aind_data_transfer.util.s3_utils import (
-    copy_to_s3,
-    get_secret,
-    upload_to_s3,
-)
+from aind_data_transfer.util.s3_utils import copy_to_s3, upload_to_s3
+
+
+# class JobModality(str, Enum):
+#     ECEPHYS = "ecephys"
+#     TEST = "test"
+#
+#     def __str__(self) -> str:
+#         return str.__str__(self)
 
 
 class GenericS3UploadJob:
     """Class for basic job construction."""
 
-    SERVICE_ENDPOINT_KEY = "service_endpoints"
-    METADATA_SERVICE_URL_KEY = "metadata_service_url"
-    S3_DEFAULT_REGION = "us-west-2"
-    VIDEO_ENCRYPTION_KEY_NAME = "video_encryption_password"
-
-    # TODO: Move the code ocean configs into own class? Or import them?
-    CODEOCEAN_DOMAIN_KEY = "codeocean_domain"
-    CODEOCEAN_CAPSULE_KEY = "codeocean_trigger_capsule"
-    CODEOCEAN_TOKEN_KEY = "codeocean-api-token"
-    CODEOCEAN_TOKEN_KEY_ENV = CODEOCEAN_TOKEN_KEY.replace("-", "_").upper()
-    CODEOCEAN_READ_WRITE_KEY = "CODEOCEAN_READWRITE_TOKEN"
-    CODEOCEAN_JOB_TYPE = "register_data"
+    # CODEOCEAN_JOB_TYPE = "register_data"
     BEHAVIOR_S3_PREFIX = "behavior"
 
     def __init__(self, args: list) -> None:
         """Initializes class with sys args. Convert the sys args to configs."""
         self.args = args
-        self.configs = self._load_configs(args)
+        self.configs = GenericJobConfigurationLoader(args).configs
 
-    @staticmethod
-    def _get_endpoints(s3_region: str) -> dict:
-        """
-        If the service endpoints aren't set in the sys args, then this method
-        will try to pull them from aws secrets manager. It's static since it's
-        being called before the job is created.
-        Parameters
-        ----------
-        s3_region : str
-
-        Returns
-        -------
-        dict
-          Will return an empty dictionary if the service endpoints are not set
-          in sys args, or if they can't be pulled from aws secrets manager.
-
-        """
-        try:
-            s3_secret_name = GenericS3UploadJob.SERVICE_ENDPOINT_KEY
-            get_secret(s3_secret_name, s3_region)
-            endpoints = json.loads(get_secret(s3_secret_name, s3_region))
-        except ClientError as e:
-            logging.warning(
-                f"Unable to retrieve aws secret: "
-                f"{GenericS3UploadJob.SERVICE_ENDPOINT_KEY}"
+    def upload_raw_data_folder(self, data_prefix, behavior_dir) -> None:
+        if not self.configs.compress_data:
+            # Upload non-behavior data to s3
+            upload_to_s3(
+                directory_to_upload=self.configs.data_source,
+                s3_bucket=self.configs.s3_bucket,
+                s3_prefix=data_prefix,
+                dryrun=self.configs.dry_run,
+                excluded=behavior_dir,
             )
-            logging.debug(e.response)
-            endpoints = {}
-        return endpoints
+        else:
+            logging.info("Compressing raw data folder: ")
+            zc = ZipCompressor(display_progress_bar=True)
+            compressed_data_folder_name = (
+                os.path.basename(self.configs.data_source) + ".zip"
+            )
+            with tempfile.TemporaryDirectory() as td:
+                output_zip_folder = os.path.join(
+                    td, compressed_data_folder_name
+                )
+                zc.compress_dir(self.configs.data_source, output_zip_folder)
+                copy_to_s3(
+                    file_to_upload=output_zip_folder,
+                    s3_bucket=self.configs.s3_bucket,
+                    s3_prefix=self.configs.modality,
+                    dryrun=self.configs.dry_run,
+                )
 
     def compress_and_upload_behavior_data(self):
         """Uploads the behavior directory. Attempts to encrypt the video
         files."""
         behavior_dir = self.configs.behavior_dir
         if behavior_dir:
-            encryption_key = get_secret(
-                self.VIDEO_ENCRYPTION_KEY_NAME, self.configs.s3_region
+            video_compressor = VideoCompressor(
+                encryption_key=self.configs.secrets.video_encryption_password
             )
-            video_compressor = VideoCompressor(encryption_key=encryption_key)
             s3_behavior_prefix = "/".join(
                 [self.s3_prefix, self.BEHAVIOR_S3_PREFIX]
             )
@@ -184,48 +177,14 @@ class GenericS3UploadJob:
                 dryrun=self.configs.dry_run,
             )
 
-    def _get_codeocean_client(self) -> Optional[CodeOceanClient]:
-        """Constructs a codeocean client. Will try to check if the api token
-        is set as an environment variable. If not set, then tries to retrieve
-        it from aws secrets manager. Otherwise, logs a warning and returns
-        None."""
-
-        codeocean_domain = self.configs.service_endpoints.get(
-            self.CODEOCEAN_DOMAIN_KEY
-        )
-        # Try to see if api token is set by an env var
-        co_api_token = os.getenv(self.CODEOCEAN_TOKEN_KEY_ENV)
-        # If not set by an env var, check if it's stored in aws secrets
-        if co_api_token is None:
-            try:
-                s3_secret_name = self.CODEOCEAN_TOKEN_KEY
-                get_secret(s3_secret_name, self.configs.s3_region)
-                token_key_val = json.loads(
-                    get_secret(s3_secret_name, self.configs.s3_region)
-                )
-                co_api_token = token_key_val.get(self.CODEOCEAN_READ_WRITE_KEY)
-            except ClientError as e:
-                logging.warning(
-                    f"Unable to retrieve aws secret: "
-                    f"{self.CODEOCEAN_TOKEN_KEY}"
-                )
-                logging.debug(e.response)
-        if co_api_token and codeocean_domain:
-            codeocean_client = CodeOceanClient(
-                domain=codeocean_domain, token=co_api_token
-            )
-        else:
-            codeocean_client = None
-        return codeocean_client
-
     def _codeocean_trigger_capsule_parameters(self):
         """Generate parameters to run code ocean capsule."""
 
         return {
             "trigger_codeocean_job": {
-                "job_type": self.CODEOCEAN_JOB_TYPE,
-                "capsule_id": self.configs.service_endpoints.get(
-                    self.CODEOCEAN_CAPSULE_KEY
+                "job_type": self.configs.modality,
+                "capsule_id": (
+                    self.configs.service_endpoints.codeocean_trigger_capsule_id
                 ),
                 "bucket": self.configs.s3_bucket,
                 "prefix": self.s3_prefix,
@@ -236,11 +195,14 @@ class GenericS3UploadJob:
         """Triggers the codeocean capsule. Logs a warning if the endpoints
         are not configured."""
 
-        capsule_id = self.configs.service_endpoints.get(
-            self.CODEOCEAN_CAPSULE_KEY
+        capsule_id = (
+            self.configs.service_endpoints.codeocean_trigger_capsule_id
         )
 
-        codeocean_client = self._get_codeocean_client()
+        codeocean_client = CodeOceanClient(
+            domain=self.configs.service_endpoints.codeocean_domain,
+            token=self.configs.secrets.codeocean_api_token,
+        )
         if codeocean_client and capsule_id:
             parameters = self._codeocean_trigger_capsule_parameters()
             parameter_list = [json.dumps(parameters)]
@@ -329,50 +291,6 @@ class GenericS3UploadJob:
         args_dict["acq_date"] = self._parse_date(args_dict["acq_date"])
         args_dict["acq_time"] = self._parse_time(args_dict["acq_time"])
 
-    def _load_configs(self, args: list) -> argparse.Namespace:
-        """Parses sys args using argparse and resolves the service
-        endpoints."""
-
-        description = (
-            "Uploads a data folder to s3 with a formatted file name. "
-            "Also attaches metadata and registers asset to Code Ocean."
-        )
-        additional_info = (
-            "It's possible to define multiple jobs in a csv file. "
-            "Run: \n\tpython -m aind_data_transfer.jobs.s3_upload_job --help "
-            "--jobs-csv-file\nfor more info."
-        )
-
-        parser = argparse.ArgumentParser(
-            description=description,
-            epilog=additional_info,
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-        )
-        parser.add_argument("-d", "--data-source", required=True, type=str)
-        parser.add_argument("-b", "--s3-bucket", required=True, type=str)
-        parser.add_argument("-s", "--subject-id", required=True, type=str)
-        parser.add_argument("-m", "--modality", required=True, type=str)
-        parser.add_argument("-a", "--acq-date", required=True, type=str)
-        parser.add_argument("-t", "--acq-time", required=True, type=str)
-        parser.add_argument("-v", "--behavior-dir", required=False, type=str)
-        parser.add_argument("-x", "--metadata-dir", required=False, type=str)
-        parser.add_argument(
-            "-e", "--service-endpoints", required=False, type=json.loads
-        )
-        parser.add_argument("-r", "--s3-region", required=False, type=str)
-        parser.add_argument("--dry-run", action="store_true")
-        parser.add_argument("--metadata-dir-force", action="store_true")
-        parser.set_defaults(dry_run=False)
-        parser.set_defaults(metadata_dir_force=False)
-        parser.set_defaults(s3_region=self.S3_DEFAULT_REGION)
-        job_args = parser.parse_args(args)
-        if job_args.service_endpoints is None:
-            job_args.service_endpoints = self._get_endpoints(
-                job_args.s3_region
-            )
-        self._parse_date_time(job_args)
-        return job_args
-
     def run_job(self) -> None:
         """Uploads data folder to s3, then attempts to upload metadata to s3
         and trigger the codeocean capsule."""
@@ -385,14 +303,7 @@ class GenericS3UploadJob:
             self.compress_and_upload_behavior_data()
             behavior_dir = Path(behavior_dir) / "*"
 
-        # Upload non-behavior data to s3
-        upload_to_s3(
-            directory_to_upload=self.configs.data_source,
-            s3_bucket=self.configs.s3_bucket,
-            s3_prefix=data_prefix,
-            dryrun=self.configs.dry_run,
-            excluded=behavior_dir,
-        )
+        self.upload_raw_data_folder(data_prefix, behavior_dir)
 
         # Optionally upload the data in the metadata directory to s3
         metadata_dir = self.configs.metadata_dir
