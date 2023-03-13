@@ -250,7 +250,6 @@ def main():
     bucket = args.bucket
     n_failed_uploads = -1
     trigger_code_ocean = args.trigger_code_ocean
-    capsule_id = pipeline_config["co_capsule_id"]
 
     s3_path = args.s3_path
     if s3_path is None:
@@ -310,6 +309,8 @@ def main():
         job_configs["trigger_codeocean_job"] = get_smartspim_config(
             job_configs["trigger_codeocean_job"], pipeline_config
         )
+
+        capsule_id = pipeline_config["co_capsule_id"]
 
         try:
             co_cred = CodeOceanCredentials().credentials
