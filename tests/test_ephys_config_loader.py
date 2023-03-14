@@ -125,7 +125,7 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "region": "us-west-2",
                 "video_encryption_password": "secret_name_for_vid_password",
             },
-            "data": {"name": "openephys"},
+            "data": {"name": "openephys", "subject_id": "625463"},
             "clip_data_job": {"clip_kwargs": {}},
             "compress_data_job": {
                 "write_kwargs": {

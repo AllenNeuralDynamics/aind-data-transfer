@@ -2,7 +2,6 @@
 
 import argparse
 import csv
-import datetime
 import json
 import logging
 import os
@@ -18,6 +17,7 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
 
 from aind_data_transfer.transformations.metadata_creation import (
+    ProceduresMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
 )
@@ -141,16 +141,15 @@ class GenericS3UploadJob:
             "metadata_service_url"
         )
         if metadata_service_url:
-            subject_metadata = SubjectMetadata.ephys_job_to_subject(
-                metadata_service_url=metadata_service_url,
+            subject_metadata = SubjectMetadata.from_service(
+                domain=metadata_service_url,
                 subject_id=self.configs.subject_id,
             )
-            file_name = SubjectMetadata.output_file_name
+            file_name = subject_metadata.output_filename
             final_s3_prefix = "/".join([self.s3_prefix, file_name])
             with tempfile.TemporaryDirectory() as td:
                 tmp_file_name = os.path.join(td, file_name)
-                with open(tmp_file_name, "w") as fh:
-                    fh.write(json.dumps(subject_metadata, indent=4))
+                subject_metadata.write_to_json(tmp_file_name)
                 copy_to_s3(
                     file_to_upload=tmp_file_name,
                     s3_bucket=self.configs.s3_bucket,
@@ -163,20 +162,45 @@ class GenericS3UploadJob:
                 "Not able to get subject metadata."
             )
 
+    def upload_procedures_metadata(self) -> None:
+        """Retrieves procedures metadata from metadata service and copies it to
+        s3. Logs warning if unable to retrieve metadata from service."""
+        metadata_service_url = self.configs.service_endpoints.get(
+            "metadata_service_url"
+        )
+        if metadata_service_url:
+            procedures_metadata = ProceduresMetadata.from_service(
+                domain=metadata_service_url,
+                subject_id=self.configs.subject_id,
+            )
+            file_name = procedures_metadata.output_filename
+            final_s3_prefix = "/".join([self.s3_prefix, file_name])
+            with tempfile.TemporaryDirectory() as td:
+                tmp_file_name = os.path.join(td, file_name)
+                procedures_metadata.write_to_json(tmp_file_name)
+                copy_to_s3(
+                    file_to_upload=tmp_file_name,
+                    s3_bucket=self.configs.s3_bucket,
+                    s3_prefix=final_s3_prefix,
+                    dryrun=self.configs.dry_run,
+                )
+        else:
+            logging.warning(
+                "No metadata service url given. "
+                "Not able to get procedures metadata."
+            )
+
     def upload_data_description_metadata(self) -> None:
         """Builds basic data description and copies it to s3."""
 
-        data_description_metadata = (
-            RawDataDescriptionMetadata.get_data_description(
-                name=self.s3_prefix
-            )
+        data_description_metadata = RawDataDescriptionMetadata.from_inputs(
+            name=self.s3_prefix
         )
-        file_name = RawDataDescriptionMetadata.output_file_name
+        file_name = data_description_metadata.output_filename
         final_s3_prefix = "/".join([self.s3_prefix, file_name])
         with tempfile.TemporaryDirectory() as td:
             tmp_file_name = os.path.join(td, file_name)
-            with open(tmp_file_name, "w") as fh:
-                fh.write(data_description_metadata.json(**{"indent": 4}))
+            data_description_metadata.write_to_json(tmp_file_name)
             copy_to_s3(
                 file_to_upload=tmp_file_name,
                 s3_bucket=self.configs.s3_bucket,
@@ -268,17 +292,11 @@ class GenericS3UploadJob:
     def s3_prefix(self):
         """Constructs the s3_prefix from configs."""
 
-        # Validate date and time strings
-        try:
-            datetime.strptime(
-                self.configs.acq_date + " " + self.configs.acq_time,
-                "%Y-%m-%d %H-%M-%S",
-            )
-        except ValueError:
-            raise ValueError(
-                "Incorrect data format, acq_date should be "
-                "yyyy-MM-dd and acq_time should be HH-mm-SS"
-            )
+        # The date and time strings are already validated upstream
+        datetime.strptime(
+            self.configs.acq_date + " " + self.configs.acq_time,
+            "%Y-%m-%d %H-%M-%S",
+        )
 
         return "_".join(
             [
@@ -420,6 +438,17 @@ class GenericS3UploadJob:
             or (self.configs.metadata_dir_force is False)
         ):
             self.upload_subject_metadata()
+
+        # Create procedures.json file if metadata service url is provided
+        # Will not upload if procedures.json in user defined metadata folder
+        # and force command present. Assumes aind-metadata-service is source of
+        # truth by default.
+        if (
+            (user_defined_metadata_files is None)
+            or ("procedures.json" not in user_defined_metadata_files)
+            or (self.configs.metadata_dir_force is False)
+        ):
+            self.upload_procedures_metadata()
 
         # Register to code ocean if url is provided
         self.trigger_codeocean_capsule()
