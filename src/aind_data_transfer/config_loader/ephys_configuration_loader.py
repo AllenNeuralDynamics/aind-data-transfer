@@ -114,18 +114,31 @@ class EphysJobConfigurationLoader:
         raw_data_folder = Path(configs["endpoints"]["raw_data_dir"]).name
 
         dest_data_dir = configs["endpoints"]["dest_data_dir"]
-        if dest_data_dir is None and re.match(
+        reg_match_subject_datetime = re.match(
             EphysReaders.SourceRegexPatterns.subject_datetime.value,
             raw_data_folder,
-        ):
+        )
+        reg_match_ecephys_subject_datetime = re.match(
+            EphysReaders.SourceRegexPatterns.ecephys_subject_datetime.value,
+            raw_data_folder,
+        )
+        if dest_data_dir is None and reg_match_subject_datetime is not None:
             configs["endpoints"]["dest_data_dir"] = (
                 "ecephys_" + raw_data_folder
             )
-        if dest_data_dir is None and re.match(
-            EphysReaders.SourceRegexPatterns.ecephys_subject_datetime.value,
-            raw_data_folder,
+            if configs["data"].get("subject_id") is None:
+                configs["data"][
+                    "subject_id"
+                ] = reg_match_subject_datetime.group(1)
+        if (
+            dest_data_dir is None
+            and reg_match_ecephys_subject_datetime is not None
         ):
             configs["endpoints"]["dest_data_dir"] = raw_data_folder
+            if configs["data"].get("subject_id") is None:
+                configs["data"][
+                    "subject_id"
+                ] = reg_match_subject_datetime.group(1)
 
         if configs["endpoints"]["s3_prefix"] is None:
             dest_data_folder = Path(configs["endpoints"]["dest_data_dir"]).name

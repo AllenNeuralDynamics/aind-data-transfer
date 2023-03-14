@@ -166,9 +166,12 @@ def run_job(args):  # noqa: C901
         logging.info("Creating subject.json file.")
         metadata_url = job_configs["endpoints"]["metadata_service_url"]
         subject_id = job_configs["data"].get("subject_id")
-        subject_instance = SubjectMetadata.from_service(
-            subject_id=subject_id, domain=metadata_url
-        )
+        if subject_id:
+            subject_instance = SubjectMetadata.from_service(
+                subject_id=subject_id, domain=metadata_url
+            )
+        else:
+            subject_instance = None
         if subject_instance is not None:
             subject_instance.write_to_json(dest_data_dir)
             logging.info("Finished creating subject.json file.")
@@ -177,11 +180,12 @@ def run_job(args):  # noqa: C901
 
         # Procedures metadata
         logging.info("Creating procedures.json file.")
-        metadata_url = job_configs["endpoints"]["metadata_service_url"]
-        subject_id = job_configs["data"].get("subject_id")
-        procedures_instance = ProceduresMetadata.from_service(
-            subject_id=subject_id, domain=metadata_url
-        )
+        if subject_id:
+            procedures_instance = ProceduresMetadata.from_service(
+                subject_id=subject_id, domain=metadata_url
+            )
+        else:
+            procedures_instance = None
         if procedures_instance is not None:
             procedures_instance.write_to_json(dest_data_dir)
             logging.info("Finished creating procedures.json file.")
