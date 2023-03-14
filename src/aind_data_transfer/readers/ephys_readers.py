@@ -25,9 +25,9 @@ class EphysReaders:
     class SourceRegexPatterns(Enum):
         """Enum for regex patterns the source folder name should match"""
 
-        subject_datetime = r"\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+        subject_datetime = r"(\d+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})"
         ecephys_subject_datetime = (
-            r"ecephys_\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            r"ecephys_(\d+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})"
         )
 
     @staticmethod
