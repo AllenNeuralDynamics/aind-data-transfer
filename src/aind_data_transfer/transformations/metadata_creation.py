@@ -7,8 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple, Type
 
-from requests.exceptions import JSONDecodeError, ConnectionError
-
 import aind_data_schema.base
 from aind_data_schema.data_description import (
     Funding,
@@ -21,6 +19,7 @@ from aind_data_schema.subject import Subject
 from aind_metadata_service.client import AindMetadataServiceClient
 from pydantic import validate_model
 from requests import Response
+from requests.exceptions import ConnectionError, JSONDecodeError
 
 from aind_data_transfer import __version__ as aind_data_transfer_version
 
@@ -174,23 +173,24 @@ class ServiceMetadataCreation(MetadataCreation):
                 contents = response_json["data"]
             # Multiple items were found
             elif status_code == 300:
-                logging.warning(response_json["message"])
+                logging.warning(f"{cls.__name__}: {response_json['message']}")
                 contents = response_json["data"][0]
             # The data retrieved is invalid
             elif status_code == 406:
-                logging.warning(response_json["message"])
+                logging.warning(f"{cls.__name__}: {response_json['message']}")
                 contents = response_json["data"]
             # Connected to the service, but no data was found
             elif status_code == 404:
-                logging.warning(response_json["message"])
+                logging.warning(f"{cls.__name__}: {response_json['message']}")
                 contents = json.loads(cls._model().construct().json())
             # A serious error happened. Build a default model.
             else:
-                logging.error(response_json["message"])
+                logging.error(f"{cls.__name__}: {response_json['message']}")
                 contents = json.loads(cls._model().construct().json())
         except (ConnectionError, JSONDecodeError) as e:
             logging.error(
-                f"An error occured connecting to metadata service: {e}"
+                f"{cls.__name__}: An error occurred connecting to metadata "
+                f"service: {e}"
             )
             contents = json.loads(cls._model().construct().json())
         return cls(model_obj=contents)
@@ -227,7 +227,6 @@ class SubjectMetadata(ServiceMetadataCreation):
 
 
 class ProceduresMetadata(ServiceMetadataCreation):
-
     @staticmethod
     def _model() -> Type[aind_data_schema.base.AindCoreModel]:
         """AindDataSchema model"""
@@ -327,7 +326,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
         name: str,
         institution: Optional[Institution] = Institution.AIND,
         funding_source: Optional[Tuple] = (
-                Funding(funder=Institution.AIND.value),
+            Funding(funder=Institution.AIND.value),
         ),
     ):
         """

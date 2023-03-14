@@ -213,7 +213,9 @@ class TestSubjectMetadata(unittest.TestCase):
         ).model_obj
 
         expected_subject = self.successful_response_message["data"]
-        mock_log_warn.assert_called_once_with("Multiple Items Found.")
+        mock_log_warn.assert_called_once_with(
+            "SubjectMetadata: Multiple Items Found."
+        )
         self.assertEqual(expected_subject, actual_subject)
 
     @patch("logging.warning")
@@ -243,7 +245,7 @@ class TestSubjectMetadata(unittest.TestCase):
 
         expected_subject = self.successful_response_message["data"]
         mock_log_warn.assert_called_once_with(
-            "Validation Errors: Errors here!"
+            "SubjectMetadata: Validation Errors: Errors here!"
         )
         self.assertEqual(expected_subject, actual_subject)
 
@@ -272,7 +274,9 @@ class TestSubjectMetadata(unittest.TestCase):
         expected_subject = Subject.construct().dict()
         is_model_valid = actual_subject.validate_obj()
 
-        mock_log_err.assert_called_once_with("Internal Server Error.")
+        mock_log_err.assert_called_once_with(
+            "SubjectMetadata: Internal Server Error."
+        )
         mock_log_warn.assert_called_once_with(
             "Validation Errors: 5 validation errors for Subject\nspecies\n  "
             "field required (type=value_error.missing)\nsubject_id\n  "
@@ -304,8 +308,8 @@ class TestSubjectMetadata(unittest.TestCase):
         expected_subject = Subject.construct().dict()
 
         mock_log_err.assert_called_once_with(
-            "An error occured connecting to metadata service: Unable to "
-            "connect"
+            "SubjectMetadata: An error occurred connecting to metadata "
+            "service: Unable to connect"
         )
         self.assertEqual(expected_subject, actual_subject)
 
