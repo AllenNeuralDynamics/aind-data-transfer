@@ -13,7 +13,7 @@ from aind_data_transfer.transformations.ephys_compressors import (
 from aind_data_transfer.transformations.imaging_compressors import (
     ImagingCompressors,
 )
-from aind_data_transfer.transformations.video_compressors import (
+from aind_data_transfer.transformations.generic_compressors import (
     VideoCompressor,
 )
 
