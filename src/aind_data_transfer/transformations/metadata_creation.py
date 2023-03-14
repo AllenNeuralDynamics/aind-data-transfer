@@ -22,7 +22,7 @@ from aind_metadata_service.client import AindMetadataServiceClient
 from pydantic import validate_model
 from requests import Response
 
-import aind_data_transfer
+from aind_data_transfer import __version__ as aind_data_transfer_version
 
 
 class MetadataCreation(ABC):
@@ -183,7 +183,7 @@ class ServiceMetadataCreation(MetadataCreation):
             # Connected to the service, but no data was found
             elif status_code == 404:
                 logging.warning(response_json["message"])
-                contents = response_json["data"]
+                contents = json.loads(cls._model().construct().json())
             # A serious error happened. Build a default model.
             else:
                 logging.error(response_json["message"])
@@ -297,7 +297,7 @@ class ProcessingMetadata(MetadataCreation):
         """
         data_processing_instance = DataProcess(
             name=process_name.value,
-            version=aind_data_transfer.__version__,
+            version=aind_data_transfer_version,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=input_location,
