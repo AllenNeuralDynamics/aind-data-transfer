@@ -100,7 +100,7 @@ class GenericS3UploadJob:
         None
 
         """
-        if not self.configs.compress_data:
+        if not self.configs.compress_raw_data:
             # Upload non-behavior data to s3
             upload_to_s3(
                 directory_to_upload=self.configs.data_source,
