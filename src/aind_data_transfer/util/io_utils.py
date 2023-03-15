@@ -63,6 +63,7 @@ class TiffReader(DataReader):
             filepath: the path to the Tiff
             refs_dir: the directory to write the temporary references file used by kerchunk
         """
+        filepath = str(filepath)
         super().__init__(filepath)
         refs = tiff_to_zarr(filepath)
         # This file needs to be readable by all nodes
