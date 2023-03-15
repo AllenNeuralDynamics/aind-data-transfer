@@ -26,7 +26,7 @@ def _write_test_tiffs(folder, n=1):
         a = np.ones(IM_SHAPE, dtype=IM_DTYPE)
         path = os.path.join(folder, f"data_{i}.tif")
         paths.append(path)
-        tifffile.imwrite(path, a)
+        tifffile.imwrite(path, a, imagej=True)
     return paths
 
 
@@ -47,10 +47,16 @@ class TestTiffReader(unittest.TestCase):
         self._image_dir = Path(__file__).parent / "resources/imaging/data/tiff"
         self._image_dir.mkdir(parents=True, exist_ok=True)
         self._image_path = _write_test_tiffs(self._image_dir, n=1)[0]
-        self._reader = TiffReader(self._image_path)
+        # Create a unique directory for each test case, since the TiffReader will
+        # create a references file with the same name and the tests run concurrently.
+        # If you don't do this, you will get an exception saying the references file
+        # already exists.
+        self._refs_dir = tempfile.TemporaryDirectory()
+        self._reader = TiffReader(self._image_path, refs_dir=self._refs_dir.name)
 
     def tearDown(self) -> None:
         self._reader.close()
+        self._refs_dir.cleanup()
         shutil.rmtree(self._image_dir)
 
     def test_get_filepath(self):
@@ -155,10 +161,12 @@ class TestDataReaderFactor(unittest.TestCase):
     def test_create_hdf5reader(self):
         reader = DataReaderFactory().create(self._h5_path)
         self.assertIsInstance(reader, ImarisReader)
+        reader.close()
 
     def test_create_tiffreader(self):
         reader = DataReaderFactory().create(self._tiff_path)
         self.assertIsInstance(reader, TiffReader)
+        reader.close()
 
 
 if __name__ == "__main__":

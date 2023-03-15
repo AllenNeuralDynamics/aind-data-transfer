@@ -55,7 +55,14 @@ class DataReader(ABC):
 
 
 class TiffReader(DataReader):
-    def __init__(self, filepath):
+    def __init__(self, filepath: str, refs_dir: str = os.getcwd()):
+        """
+        Class constructor
+
+        Args:
+            filepath: the path to the Tiff
+            refs_dir: the directory to write the temporary references file used by kerchunk
+        """
         super().__init__(filepath)
         refs = tiff_to_zarr(filepath)
         # This file needs to be readable by all nodes
@@ -63,7 +70,7 @@ class TiffReader(DataReader):
         # working directory since the code will likely
         # be run from a location accessible by all nodes.
         self._refs_file = os.path.join(
-            os.getcwd(),
+            refs_dir,
             f"references-{Path(filepath).name}.json"
         )
         if os.path.isfile(self._refs_file):
