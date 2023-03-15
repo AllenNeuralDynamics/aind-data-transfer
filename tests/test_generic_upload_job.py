@@ -181,6 +181,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
             "s3_region": "us-west-2",
             "service_endpoints": json.loads(self.fake_endpoints_str),
             "dry_run": True,
+            "compress_raw_data": False,
             "behavior_dir": None,
             "metadata_dir": None,
             "metadata_dir_force": False,
@@ -512,7 +513,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
     @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
     @patch("tempfile.TemporaryDirectory")
     @patch(
-        "aind_data_transfer.transformations.video_compressors."
+        "aind_data_transfer.transformations.generic_compressors."
         "VideoCompressor.compress_all_videos_in_dir"
     )
     @patch("shutil.copy")
