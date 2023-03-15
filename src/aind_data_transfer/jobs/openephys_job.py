@@ -150,7 +150,7 @@ def run_job(args):  # noqa: C901
         code_url = job_configs["endpoints"]["code_repo_location"]
         parameters = job_configs
         processing_instance = ProcessingMetadata.from_inputs(
-            process_name=ProcessName.EPHYS_PREPROCESSING,
+            process_name=ProcessName.EPHYS_PREPROCESSING.value,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=str(input_location),
