@@ -17,7 +17,7 @@ from aind_data_transfer.transcode.ome_zarr import write_files, write_folder
 def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
     for i in range(n):
         a = np.ones(shape, dtype=np.uint16)
-        tifffile.imwrite(os.path.join(folder, f"data_{i}.tif"), a)
+        tifffile.imwrite(os.path.join(folder, f"data_{i}.tif"), a, imagej=True)
 
 
 def _write_test_h5(folder, n=4, shape=(64, 128, 128)):

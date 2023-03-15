@@ -20,6 +20,7 @@ transcode_job:
 #  chunk_shape: [1, 1, 512, 256, 256]  # remove this field if you want automatic chunking
   resume: false  # resume processing if previous job failed
   n_levels: 8
+  voxsize:
   exclude: []
   submit_args: {
     nodes: 1,
@@ -36,4 +37,4 @@ transcode_job:
   }
 create_ng_link_job:
   vmin: 0
-  vmax: 500
+  vmax: 1000
