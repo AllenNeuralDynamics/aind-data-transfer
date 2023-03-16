@@ -15,6 +15,7 @@ class ImagingReaders:
     class Readers(Enum):
         """Enum for readers."""
 
+        dispim = "diSPIM"
         exaspim = "exaSPIM"
         mesospim = "mesoSPIM"
         generic = "micr"
@@ -29,6 +30,9 @@ class ImagingReaders:
         )
         mesospim_acquisition = (
             r"mesoSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
+        )
+        dispim_acquisition = (
+            r"diSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
         )
 
     @staticmethod
@@ -59,6 +63,11 @@ class ImagingReaders:
             is not None
         ):
             return ImagingReaders.Readers.mesospim.value
+        elif (
+            re.search(ImagingReaders.Readers.dispim.value, input_dir)
+            is not None
+        ):
+            return ImagingReaders.Readers.dispim.value
         else:
             return ImagingReaders.Readers.generic.value
 
