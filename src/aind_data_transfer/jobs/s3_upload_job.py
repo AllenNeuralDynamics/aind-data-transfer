@@ -83,7 +83,9 @@ class GenericS3UploadJob:
             endpoints = {}
         return endpoints
 
-    def upload_raw_data_folder(self, data_prefix, behavior_dir) -> None:
+    def upload_raw_data_folder(self,
+                               data_prefix: str,
+                               behavior_dir: Path) -> None:
         """
         Uploads the raw data folder to s3. Will compress first if that config
         is set.
@@ -102,12 +104,16 @@ class GenericS3UploadJob:
         """
         if not self.configs.compress_raw_data:
             # Upload non-behavior data to s3
+            if behavior_dir is not None:
+                behavior_dir_excluded = Path(behavior_dir) / "*"
+            else:
+                behavior_dir_excluded = None
             upload_to_s3(
                 directory_to_upload=self.configs.data_source,
                 s3_bucket=self.configs.s3_bucket,
                 s3_prefix=data_prefix,
                 dryrun=self.configs.dry_run,
-                excluded=behavior_dir,
+                excluded=behavior_dir_excluded,
             )
         else:
             logging.info("Compressing raw data folder: ")
@@ -447,7 +453,7 @@ class GenericS3UploadJob:
         behavior_dir = self.configs.behavior_dir
         if behavior_dir is not None:
             self.compress_and_upload_behavior_data()
-            behavior_dir = Path(behavior_dir) / "*"
+            # behavior_dir = Path(behavior_dir) / "*"
 
         # Upload non-behavior data to s3
         self.upload_raw_data_folder(data_prefix, behavior_dir)

@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
+from unittest import mock
+from unittest.mock import MagicMock, patch
 
 from aind_data_transfer.readers.ephys_readers import EphysReaders
 from aind_data_transfer.transformations.ephys_compressors import (
@@ -14,7 +16,7 @@ from aind_data_transfer.transformations.imaging_compressors import (
     ImagingCompressors,
 )
 from aind_data_transfer.transformations.generic_compressors import (
-    VideoCompressor,
+    VideoCompressor, ZipCompressor
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -121,13 +123,30 @@ class TestImagingCompressors(unittest.TestCase):
             ImagingCompressors.get_compressor("Made up name")
 
 
-class TestVideoCompressor(unittest.TestCase):
+class TestGenericCompressor(unittest.TestCase):
     """Tests VideoCompressor class methods"""
 
     def test_video_compressor_creation(self):
         """Tests VideoCompressor default is set correctly"""
         video_compressor = VideoCompressor()
         self.assertEqual(video_compressor.compression_level, 5)
+
+    @patch("pyminizip.compress_multiple")
+    def test_zip_compressor(self, mock_zip: MagicMock):
+        zc = ZipCompressor()
+        input_dir = RESOURCES_DIR / "v0.6.x_neuropixels_multiexp_multistream" / "Videos"
+        output_dir = RESOURCES_DIR
+        foobar1 = ([
+            str(input_dir / "a_video_file.avi"),
+            str(input_dir / "another_video_file.avi"),
+            str(input_dir /"video_ref.csv")])
+        foobar2 = ([
+            str(input_dir),
+            str(input_dir),
+            str(input_dir)])
+        zc.compress_dir(input_dir=input_dir, output_dir=output_dir)
+        mock_zip.assert_called_once_with(foobar1, foobar2, RESOURCES_DIR, None, 5)
+
 
 
 if __name__ == "__main__":
