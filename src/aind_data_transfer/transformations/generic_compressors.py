@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from tqdm import tqdm
 
 import pyminizip
@@ -29,14 +29,52 @@ class ZipCompressor:
         self.encryption_key = encryption_key
         self.display_progress_bar = display_progress_bar
 
-    def compress_dir(self, input_dir, output_dir):
+    @staticmethod
+    def _update_tqdm(pbar):
+        def foobar(x):
+            return pbar.update(x)
+        return foobar
+
+    def compress_dir(self,
+                     input_dir: Path,
+                     output_dir: Path,
+                     skip_dirs: Optional[List[Path]] = None):
+        """
+        Compress the contents of the input folder and save it as a zipped
+        folder in an output directory. Can optionally provide a list of
+        subdirectories and files to ignore (no wildcard support yet).
+        Parameters
+        ----------
+        input_dir : Path
+          The location of the folder to compress
+        output_dir : Path
+          The location where to save the zipped folder
+        skip_dirs : Optional[List[Path]]
+          An optional list of directories or files that will be ignored
+
+        Returns
+        -------
+        None
+
+        """
+
+        def skip_path(path_to_check, list_of_paths) -> bool:
+            if list_of_paths is None:
+                return False
+            else:
+                for path in list_of_paths:
+                    if str(path_to_check).startswith(str(path)):
+                        return True
+                return False
+
         file_names = []
         file_prefixes = []
         for root, dirs, files in os.walk(input_dir):
             for file in files:
                 raw_file_path = os.path.join(root, file)
-                file_names.append(raw_file_path)
-                file_prefixes.append(root)
+                if not skip_path(raw_file_path, list_of_paths=skip_dirs):
+                    file_names.append(raw_file_path)
+                    file_prefixes.append(root)
         total_file_count = len(file_names)
         pbar = tqdm(total=total_file_count,
                     disable=(not self.display_progress_bar))
@@ -46,7 +84,7 @@ class ZipCompressor:
             str(output_dir),
             self.encryption_key,
             self.compression_level,
-            lambda x: pbar.update(x)
+            self._update_tqdm(pbar)
         )
         pbar.close()
         return None

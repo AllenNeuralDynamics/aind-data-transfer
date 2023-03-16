@@ -594,6 +594,42 @@ class TestGenericS3UploadJob(unittest.TestCase):
             excluded=(Path("some_behavior_dir") / "*"),
         )
 
+    @patch.dict(
+        os.environ,
+        ({f"{GenericS3UploadJob.CODEOCEAN_TOKEN_KEY_ENV}": "abc-12345"}),
+    )
+    @patch.object(GenericS3UploadJob, "upload_raw_data_folder")
+    @patch.object(GenericS3UploadJob, "upload_subject_metadata")
+    @patch.object(GenericS3UploadJob, "upload_procedures_metadata")
+    @patch.object(GenericS3UploadJob, "upload_data_description_metadata")
+    @patch.object(GenericS3UploadJob, "trigger_codeocean_capsule")
+    @patch.object(GenericS3UploadJob, "compress_and_upload_behavior_data")
+    def test_run_job_with_compress(
+        self,
+        mock_compress_and_upload_behavior: MagicMock,
+        mock_trigger_codeocean_capsule: MagicMock,
+        mock_upload_data_description_metadata: MagicMock,
+        mock_upload_procedures_metadata: MagicMock,
+        mock_upload_subject_metadata: MagicMock,
+        mock_upload_raw_data_folder: MagicMock,
+    ) -> None:
+        """Tests that the run_job method triggers all the sub jobs."""
+
+        job = GenericS3UploadJob(self.args1)
+        job.configs.behavior_dir = "some_behavior_dir"
+        job.run_job()
+        data_prefix = "/".join([job.s3_prefix, job.configs.modality])
+
+        mock_compress_and_upload_behavior.assert_called_once()
+        mock_trigger_codeocean_capsule.assert_called_once()
+        mock_upload_data_description_metadata.assert_called_once()
+        mock_upload_subject_metadata.assert_called_once()
+        mock_upload_procedures_metadata.assert_called_once()
+        mock_upload_raw_data_folder.assert_called_once_with(
+            data_prefix=data_prefix,
+            behavior_dir=Path("some_behavior_dir/*"),
+        )
+
 
 class TestGenericS3UploadJobList(unittest.TestCase):
     """Unit tests for methods in GenericS3UploadJobs class."""
