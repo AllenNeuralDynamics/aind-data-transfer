@@ -137,28 +137,7 @@ class EphysCompressors:
             ):
                 rec_to_compress = read_block["recording"]
             else:
-                (
-                    lsb_value,
-                    median_values,
-                ) = EphysCompressors._get_median_and_lsb(
-                    read_block["recording"],
-                    num_chunks_per_segment=num_chunks_per_segment,
-                    chunk_size=chunk_size,
-                    disable_tqdm=disable_tqdm,
-                )
-                dtype = read_block["recording"].get_dtype()
-                rec_to_compress = spre.scale(
-                    read_block["recording"],
-                    gain=1.0,
-                    offset=-median_values,
-                    dtype=dtype,
-                )
-                rec_to_compress = spre.scale(
-                    rec_to_compress, gain=1.0 / lsb_value, dtype=dtype
-                )
-                rec_to_compress.set_channel_gains(
-                    rec_to_compress.get_channel_gains() * lsb_value
-                )
+                rec_to_compress = spre.correct_lsb(read_block["recording"])
             yield (
                 {
                     "scaled_recording": rec_to_compress,
