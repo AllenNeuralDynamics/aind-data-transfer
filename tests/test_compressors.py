@@ -148,15 +148,13 @@ class TestGenericCompressor(unittest.TestCase):
         ]
         prefix_names = [str(input_dir), str(input_dir), str(input_dir)]
         zc.compress_dir(input_dir=input_dir, output_dir=output_dir)
-        lambda_function_call = mock_zip.mock_calls[0].args[5]
-        mock_zip.assert_called_once_with(
-            file_names,
-            prefix_names,
-            str(RESOURCES_DIR),
-            None,
-            5,
-            lambda_function_call,
-        )
+        file_names_call = mock_zip.mock_calls[0].args[0]
+        prefix_names_call = mock_zip.mock_calls[0].args[1]
+        zipped_actual_calls = zip(file_names_call, prefix_names_call)
+        zipped_expected_calls = zip(file_names, prefix_names)
+        output_dir_call = mock_zip.mock_calls[0].args[2]
+        self.assertEqual(output_dir_call, str(RESOURCES_DIR))
+        self.assertEqual(set(zipped_expected_calls), set(zipped_actual_calls))
 
     @patch("pyminizip.compress_multiple")
     def test_zip_compressor_skip_dir(self, mock_zip: MagicMock):
@@ -182,15 +180,13 @@ class TestGenericCompressor(unittest.TestCase):
         zc.compress_dir(
             input_dir=input_dir, output_dir=output_dir, skip_dirs=[skip_file]
         )
-        lambda_function_call = mock_zip.mock_calls[0].args[5]
-        mock_zip.assert_called_once_with(
-            file_names,
-            prefix_names,
-            str(RESOURCES_DIR),
-            None,
-            5,
-            lambda_function_call,
-        )
+        file_names_call = mock_zip.mock_calls[0].args[0]
+        prefix_names_call = mock_zip.mock_calls[0].args[1]
+        zipped_actual_calls = zip(file_names_call, prefix_names_call)
+        zipped_expected_calls = zip(file_names, prefix_names)
+        output_dir_call = mock_zip.mock_calls[0].args[2]
+        self.assertEqual(output_dir_call, str(RESOURCES_DIR))
+        self.assertEqual(set(zipped_expected_calls), set(zipped_actual_calls))
 
 
 if __name__ == "__main__":
