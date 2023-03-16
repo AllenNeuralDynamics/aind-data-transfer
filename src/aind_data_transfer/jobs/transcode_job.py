@@ -170,7 +170,7 @@ def main():
             "Will wait for job to terminate before continuing execution"
         )
 
-    zarr_out = dest_data_dir + "/" + raw_image_dir_name
+    zarr_out = dest_data_dir + "/" + raw_image_dir_name + ".zarr"
     if job_configs["jobs"]["transcode"]:
         job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs)
         submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
