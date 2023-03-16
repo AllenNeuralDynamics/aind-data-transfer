@@ -1,18 +1,21 @@
+"""Module for basic compression classes."""
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional, List
-from tqdm import tqdm
+from typing import List, Optional
 
 import pyminizip
+from tqdm import tqdm
 
 
 class ZipCompressor:
+    """Class to handle basic zip compression."""
+
     def __init__(
-            self,
-            compression_level: int = 5,
-            encryption_key: Optional[str] = None,
-            display_progress_bar: bool = False
+        self,
+        compression_level: int = 5,
+        encryption_key: Optional[str] = None,
+        display_progress_bar: bool = False,
     ) -> None:
         """
         Creates a video compressor with compression level and encryption key
@@ -29,16 +32,12 @@ class ZipCompressor:
         self.encryption_key = encryption_key
         self.display_progress_bar = display_progress_bar
 
-    @staticmethod
-    def _update_tqdm(pbar):
-        def foobar(x):
-            return pbar.update(x)
-        return foobar
-
-    def compress_dir(self,
-                     input_dir: Path,
-                     output_dir: Path,
-                     skip_dirs: Optional[List[Path]] = None):
+    def compress_dir(
+        self,
+        input_dir: Path,
+        output_dir: Path,
+        skip_dirs: Optional[List[Path]] = None,
+    ):
         """
         Compress the contents of the input folder and save it as a zipped
         folder in an output directory. Can optionally provide a list of
@@ -58,7 +57,9 @@ class ZipCompressor:
 
         """
 
+        # TODO: There's probably a more efficient way than this
         def skip_path(path_to_check, list_of_paths) -> bool:
+            """Utility method to check whether to skip a path"""
             if list_of_paths is None:
                 return False
             else:
@@ -76,15 +77,16 @@ class ZipCompressor:
                     file_names.append(raw_file_path)
                     file_prefixes.append(root)
         total_file_count = len(file_names)
-        pbar = tqdm(total=total_file_count,
-                    disable=(not self.display_progress_bar))
+        pbar = tqdm(
+            total=total_file_count, disable=(not self.display_progress_bar)
+        )
         pyminizip.compress_multiple(
             file_names,
             file_prefixes,
             str(output_dir),
             self.encryption_key,
             self.compression_level,
-            self._update_tqdm(pbar)
+            lambda x: pbar.update(x),
         )
         pbar.close()
         return None

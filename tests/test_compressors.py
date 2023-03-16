@@ -1,22 +1,22 @@
 import os
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
-from unittest import mock
-from unittest.mock import MagicMock, patch
 
 from aind_data_transfer.readers.ephys_readers import EphysReaders
 from aind_data_transfer.transformations.ephys_compressors import (
     EphysCompressors,
 )
+from aind_data_transfer.transformations.generic_compressors import (
+    VideoCompressor,
+    ZipCompressor,
+)
 from aind_data_transfer.transformations.imaging_compressors import (
     ImagingCompressors,
-)
-from aind_data_transfer.transformations.generic_compressors import (
-    VideoCompressor, ZipCompressor
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -133,20 +133,64 @@ class TestGenericCompressor(unittest.TestCase):
 
     @patch("pyminizip.compress_multiple")
     def test_zip_compressor(self, mock_zip: MagicMock):
+        """Tests zip compression. No subdirectories or files skipped."""
         zc = ZipCompressor()
-        input_dir = RESOURCES_DIR / "v0.6.x_neuropixels_multiexp_multistream" / "Videos"
+        input_dir = (
+            RESOURCES_DIR
+            / "v0.6.x_neuropixels_multiexp_multistream"
+            / "Videos"
+        )
         output_dir = RESOURCES_DIR
-        foobar1 = ([
+        file_names = [
             str(input_dir / "a_video_file.avi"),
             str(input_dir / "another_video_file.avi"),
-            str(input_dir /"video_ref.csv")])
-        foobar2 = ([
-            str(input_dir),
-            str(input_dir),
-            str(input_dir)])
+            str(input_dir / "video_ref.csv"),
+        ]
+        prefix_names = [str(input_dir), str(input_dir), str(input_dir)]
         zc.compress_dir(input_dir=input_dir, output_dir=output_dir)
-        mock_zip.assert_called_once_with(foobar1, foobar2, RESOURCES_DIR, None, 5)
+        lambda_function_call = mock_zip.mock_calls[0].args[5]
+        mock_zip.assert_called_once_with(
+            file_names,
+            prefix_names,
+            str(RESOURCES_DIR),
+            None,
+            5,
+            lambda_function_call,
+        )
 
+    @patch("pyminizip.compress_multiple")
+    def test_zip_compressor_skip_dir(self, mock_zip: MagicMock):
+        """Tests zip compression. One file skipped."""
+        zc = ZipCompressor()
+        input_dir = (
+            RESOURCES_DIR
+            / "v0.6.x_neuropixels_multiexp_multistream"
+            / "Videos"
+        )
+        skip_file = (
+            RESOURCES_DIR
+            / "v0.6.x_neuropixels_multiexp_multistream"
+            / "Videos"
+            / "a_video_file.avi"
+        )
+        output_dir = RESOURCES_DIR
+        file_names = [
+            str(input_dir / "another_video_file.avi"),
+            str(input_dir / "video_ref.csv"),
+        ]
+        prefix_names = [str(input_dir), str(input_dir)]
+        zc.compress_dir(
+            input_dir=input_dir, output_dir=output_dir, skip_dirs=[skip_file]
+        )
+        lambda_function_call = mock_zip.mock_calls[0].args[5]
+        mock_zip.assert_called_once_with(
+            file_names,
+            prefix_names,
+            str(RESOURCES_DIR),
+            None,
+            5,
+            lambda_function_call,
+        )
 
 
 if __name__ == "__main__":
