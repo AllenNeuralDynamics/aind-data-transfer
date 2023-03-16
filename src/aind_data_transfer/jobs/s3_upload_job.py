@@ -16,13 +16,14 @@ from typing import List, Optional
 from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
 
+from aind_data_transfer.transformations.generic_compressors import (
+    VideoCompressor,
+    ZipCompressor,
+)
 from aind_data_transfer.transformations.metadata_creation import (
     ProceduresMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
-)
-from aind_data_transfer.transformations.generic_compressors import (
-    VideoCompressor, ZipCompressor
 )
 from aind_data_transfer.util.s3_utils import (
     copy_to_s3,
@@ -83,9 +84,9 @@ class GenericS3UploadJob:
             endpoints = {}
         return endpoints
 
-    def upload_raw_data_folder(self,
-                               data_prefix: str,
-                               behavior_dir: Path) -> None:
+    def upload_raw_data_folder(
+        self, data_prefix: str, behavior_dir: Optional[Path] = None
+    ) -> None:
         """
         Uploads the raw data folder to s3. Will compress first if that config
         is set.
@@ -102,12 +103,15 @@ class GenericS3UploadJob:
         None
 
         """
+        # The behavior directory will be handled in a separate process even
+        # if it's a subdirectory of the raw data source.
+        if behavior_dir is not None:
+            behavior_dir_excluded = Path(behavior_dir) / "*"
+        else:
+            behavior_dir_excluded = None
+
         if not self.configs.compress_raw_data:
             # Upload non-behavior data to s3
-            if behavior_dir is not None:
-                behavior_dir_excluded = Path(behavior_dir) / "*"
-            else:
-                behavior_dir_excluded = None
             upload_to_s3(
                 directory_to_upload=self.configs.data_source,
                 s3_bucket=self.configs.s3_bucket,
@@ -119,13 +123,18 @@ class GenericS3UploadJob:
             logging.info("Compressing raw data folder: ")
             zc = ZipCompressor(display_progress_bar=True)
             compressed_data_folder_name = (
-                os.path.basename(self.configs.data_source) + ".zip"
+                str(os.path.basename(self.configs.data_source)) + ".zip"
             )
+            skip_dirs = None if behavior_dir is None else [behavior_dir]
             with tempfile.TemporaryDirectory() as td:
                 output_zip_folder = os.path.join(
                     td, compressed_data_folder_name
                 )
-                zc.compress_dir(self.configs.data_source, output_zip_folder)
+                zc.compress_dir(
+                    input_dir=self.configs.data_source,
+                    output_dir=Path(output_zip_folder),
+                    skip_dirs=skip_dirs,
+                )
                 copy_to_s3(
                     file_to_upload=output_zip_folder,
                     s3_bucket=self.configs.s3_bucket,
@@ -453,10 +462,12 @@ class GenericS3UploadJob:
         behavior_dir = self.configs.behavior_dir
         if behavior_dir is not None:
             self.compress_and_upload_behavior_data()
-            # behavior_dir = Path(behavior_dir) / "*"
 
         # Upload non-behavior data to s3
-        self.upload_raw_data_folder(data_prefix, behavior_dir)
+        behavior_path = None if behavior_dir is None else Path(behavior_dir)
+        self.upload_raw_data_folder(
+            data_prefix=data_prefix, behavior_dir=Path(behavior_path)
+        )
 
         # Optionally upload the data in the metadata directory to s3
         metadata_dir = self.configs.metadata_dir
@@ -552,7 +563,7 @@ class GenericS3UploadJobList:
         parser.add_argument(
             "--compress-raw-data",
             action="store_true",
-            help=help_message_compress_raw_data
+            help=help_message_compress_raw_data,
         )
         parser.set_defaults(dry_run=False)
         parser.set_defaults(compress_raw_data=False)
