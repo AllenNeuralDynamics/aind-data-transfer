@@ -74,8 +74,11 @@ class ZipCompressor:
             for file in files:
                 raw_file_path = os.path.join(root, file)
                 if not skip_path(raw_file_path, list_of_paths=skip_dirs):
+                    prefix = str(root).replace(str(input_dir.parent), "", 1)[
+                        1:
+                    ]
                     file_names.append(raw_file_path)
-                    file_prefixes.append(root)
+                    file_prefixes.append(prefix)
         total_file_count = len(file_names)
         pbar = tqdm(
             total=total_file_count, disable=(not self.display_progress_bar)
