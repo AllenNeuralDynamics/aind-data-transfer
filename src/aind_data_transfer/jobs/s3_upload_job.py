@@ -132,7 +132,7 @@ class GenericS3UploadJob:
                     td, compressed_data_folder_name
                 )
                 zc.compress_dir(
-                    input_dir=self.configs.data_source,
+                    input_dir=Path(self.configs.data_source),
                     output_dir=Path(output_zip_folder),
                     skip_dirs=skip_dirs,
                 )
