@@ -146,7 +146,7 @@ class TestGenericCompressor(unittest.TestCase):
             str(input_dir / "another_video_file.avi"),
             str(input_dir / "video_ref.csv"),
         ]
-        prefix_names = [str(input_dir), str(input_dir), str(input_dir)]
+        prefix_names = [str("Videos"), str("Videos"), str("Videos")]
         zc.compress_dir(input_dir=input_dir, output_dir=output_dir)
         file_names_call = mock_zip.mock_calls[0].args[0]
         prefix_names_call = mock_zip.mock_calls[0].args[1]
@@ -176,7 +176,7 @@ class TestGenericCompressor(unittest.TestCase):
             str(input_dir / "another_video_file.avi"),
             str(input_dir / "video_ref.csv"),
         ]
-        prefix_names = [str(input_dir), str(input_dir)]
+        prefix_names = [str("Videos"), str("Videos")]
         zc.compress_dir(
             input_dir=input_dir, output_dir=output_dir, skip_dirs=[skip_file]
         )
