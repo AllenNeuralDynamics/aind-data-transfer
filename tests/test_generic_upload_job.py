@@ -570,7 +570,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         mock_copy_to_s3.assert_called_once_with(
             file_to_upload=str(Path("tmp_dir/some_dir.zip")),
             s3_bucket="some_s3_bucket",
-            s3_prefix="ecephys",
+            s3_prefix="some_prefix/some_dir.zip",
             dryrun=True,
         )
 

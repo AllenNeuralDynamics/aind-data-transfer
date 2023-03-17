@@ -125,6 +125,7 @@ class GenericS3UploadJob:
             compressed_data_folder_name = (
                 str(os.path.basename(self.configs.data_source)) + ".zip"
             )
+            s3_prefix = "/".join([data_prefix, compressed_data_folder_name])
             skip_dirs = None if behavior_dir is None else [behavior_dir]
             with tempfile.TemporaryDirectory() as td:
                 output_zip_folder = os.path.join(
@@ -138,7 +139,7 @@ class GenericS3UploadJob:
                 copy_to_s3(
                     file_to_upload=output_zip_folder,
                     s3_bucket=self.configs.s3_bucket,
-                    s3_prefix=self.configs.modality,
+                    s3_prefix=s3_prefix,
                     dryrun=self.configs.dry_run,
                 )
 
