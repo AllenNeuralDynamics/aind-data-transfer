@@ -563,7 +563,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
         job = GenericS3UploadJob(compress_data_args)
         job.upload_raw_data_folder(data_prefix="some_prefix")
         mock_compress.assert_called_once_with(
-            input_dir="some_dir",
+            input_dir=Path("some_dir"),
             output_dir=Path("tmp_dir/some_dir.zip"),
             skip_dirs=None,
         )
