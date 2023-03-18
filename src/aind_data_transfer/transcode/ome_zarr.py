@@ -78,7 +78,7 @@ def write_files(
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
 
-        tile_name = Path(impath).stem
+        tile_name = Path(impath).stem + ".zarr"
 
         if not overwrite and _tile_exists(output, tile_name, n_levels):
             LOGGER.info(f"Skipping tile {tile_name}, already exists.")
