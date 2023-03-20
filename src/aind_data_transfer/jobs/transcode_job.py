@@ -13,6 +13,7 @@ from aind_data_transfer.config_loader.imaging_configuration_loader import (
 )
 from aind_data_transfer.readers.imaging_readers import ImagingReaders
 from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
+from aind_data_transfer.writers.imaging_writers import ExASPIMWriter
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
@@ -109,6 +110,9 @@ def _build_ome_zar_cmd(
         job_cmd += f" --exclude {exclusions}"
     if "resume" in job_opts and job_opts["resume"]:
         job_cmd += " --resume"
+    if "voxsize" in job_opts and job_opts["voxsize"] != "":
+        voxsize = job_opts["voxsize"]
+        job_cmd += f" --voxsize {voxsize}"
     return job_cmd
 
 
@@ -151,8 +155,9 @@ def main():
         # remove trailing slash
         dest_data_dir = dest_data_dir[:-1]
 
+    reader = ImagingReaders.get_reader_name(data_src_dir)
     raw_image_dir = ImagingReaders.get_raw_data_dir(
-        ImagingReaders.get_reader_name(data_src_dir), data_src_dir
+        reader, data_src_dir
     )
 
     LOGGER.info(f"Transferring data to {dest_data_dir}")
@@ -165,7 +170,7 @@ def main():
             "Will wait for job to terminate before continuing execution"
         )
 
-    zarr_out = dest_data_dir + "/" + raw_image_dir_name
+    zarr_out = dest_data_dir + "/" + raw_image_dir_name + ".zarr"
     if job_configs["jobs"]["transcode"]:
         job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs)
         submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
@@ -186,6 +191,16 @@ def main():
             LOGGER.error(
                 f"Creating neuroglancer link failed; {output_json} was not created"
             )
+
+    if job_configs["jobs"]["create_metadata"]:
+        if reader == ImagingReaders.Readers.exaspim.value:
+            metadata_service_url = job_configs["endpoints"]["metadata_service_url"]
+            writer = ExASPIMWriter(data_src_dir, metadata_service_url)
+            writer.write_subject(data_src_dir)
+            writer.write_data_description(data_src_dir)
+            writer.write_procedures(data_src_dir)
+        else:
+            LOGGER.error(f"Fetching metadata not implemented for {reader}")
 
     if job_configs["jobs"]["upload_aux_files"]:
         LOGGER.info("Uploading auxiliary data")

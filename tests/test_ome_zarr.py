@@ -17,7 +17,7 @@ from aind_data_transfer.transcode.ome_zarr import write_files, write_folder
 def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
     for i in range(n):
         a = np.ones(shape, dtype=np.uint16)
-        tifffile.imwrite(os.path.join(folder, f"data_{i}.tif"), a)
+        tifffile.imwrite(os.path.join(folder, f"data_{i}.tif"), a, imagej=True)
 
 
 def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
@@ -182,7 +182,7 @@ class TestOmeZarr(unittest.TestCase):
         z = zarr.open(out_zarr, "r")
 
         # Test group for each written image
-        expected_keys = {"data_0", "data_1", "data_2", "data_3"}
+        expected_keys = {"data_0.zarr", "data_1.zarr", "data_2.zarr", "data_3.zarr"}
         actual_keys = set(z.keys())
         self.assertEqual(expected_keys, actual_keys)
 
@@ -225,7 +225,7 @@ class TestOmeZarr(unittest.TestCase):
         z = zarr.open(out_zarr, "r")
 
         # Test that all images were written except exclusion
-        expected_keys = {"data_0", "data_1", "data_2", "data_3"}
+        expected_keys = {"data_0.zarr", "data_1.zarr", "data_2.zarr", "data_3.zarr"}
         actual_keys = set(z.keys())
         self.assertEqual(expected_keys, actual_keys)
 

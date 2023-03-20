@@ -32,7 +32,14 @@ def get_secret(secret_name, region_name):
     return secret
 
 
-def upload_to_s3(directory_to_upload, s3_bucket, s3_prefix, dryrun):
+def upload_to_s3(
+        directory_to_upload,
+        s3_bucket,
+        s3_prefix,
+        dryrun,
+        excluded=None,
+        included=None,
+):
     # Upload to s3
     if platform.system() == "Windows":
         shell = True
@@ -42,22 +49,16 @@ def upload_to_s3(directory_to_upload, s3_bucket, s3_prefix, dryrun):
     # TODO: Use s3transfer library instead of subprocess?
     logging.info("Uploading to s3.")
     aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
+    base_command = ["aws", "s3", "sync", directory_to_upload, aws_dest]
+
+    if excluded:
+        base_command.extend(["--exclude", excluded])
+    if included:
+        base_command.extend(["--include", included])
     if dryrun:
-        subprocess.run(
-            [
-                "aws",
-                "s3",
-                "sync",
-                directory_to_upload,
-                aws_dest,
-                "--dryrun",
-            ],
-            shell=shell,
-        )
-    else:
-        subprocess.run(
-            ["aws", "s3", "sync", directory_to_upload, aws_dest], shell=shell
-        )
+        base_command.append("--dryrun")
+    subprocess.run(base_command, shell=shell)
+
     logging.info("Finished uploading to s3.")
 
 

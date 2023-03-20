@@ -4,15 +4,22 @@ import json
 import os
 import unittest
 from pathlib import Path
-from unittest import mock
+from unittest.mock import MagicMock, call, mock_open, patch
 
-import requests
-from aind_data_schema import Processing, RawDataDescription
+from aind_data_schema import (
+    Procedures,
+    Processing,
+    RawDataDescription,
+    Subject,
+)
+from aind_data_schema.processing import ProcessName
+from requests import ConnectionError, Response
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
 )
 from aind_data_transfer.transformations.metadata_creation import (
+    ProceduresMetadata,
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
@@ -34,15 +41,17 @@ class TestProcessingMetadata(unittest.TestCase):
 
     conf_file_path = CONFIGS_DIR / "ephys_upload_job_test_configs.yml"
     args = ["-c", str(conf_file_path)]
-    loaded_configs = EphysJobConfigurationLoader().load_configs(args)
 
-    def test_create_processing_metadata(self) -> None:
-        """
-        Tests that the processing metadata is created correctly.
+    @patch(
+        "aind_data_transfer.config_loader.ephys_configuration_loader."
+        "EphysJobConfigurationLoader._get_endpoints"
+    )
+    def test_create_processing_metadata(self, mock_get_endpoints) -> None:
+        """Tests that the processing metadata is created correctly."""
 
-        Returns:
+        mock_get_endpoints.return_value = {"codeocean_trigger_capsule": None}
 
-        """
+        loaded_configs = EphysJobConfigurationLoader().load_configs(self.args)
 
         start_date_time = datetime.datetime.fromisoformat(
             "2020-10-20T00:00:00.000+00:00"
@@ -54,9 +63,10 @@ class TestProcessingMetadata(unittest.TestCase):
         output_location = "some_output_location"
         code_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
-        parameters = self.loaded_configs
+        parameters = loaded_configs
 
-        processing_instance = ProcessingMetadata.ephys_job_to_processing(
+        processing_metadata = ProcessingMetadata.from_inputs(
+            process_name=ProcessName.EPHYS_PREPROCESSING,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=input_location,
@@ -68,13 +78,19 @@ class TestProcessingMetadata(unittest.TestCase):
         # Hack to get match version to be the same as in the example file
         expected_processing_instance_json["data_processes"][0][
             "version"
-        ] = processing_instance.data_processes[0].version
+        ] = processing_metadata.model_obj["data_processes"][0]["version"]
 
         expected_processing_instance = Processing.parse_obj(
             expected_processing_instance_json
         )
 
-        self.assertEqual(expected_processing_instance, processing_instance)
+        self.assertEqual(
+            expected_processing_instance, processing_metadata.model_obj
+        )
+        self.assertEqual(Processing, processing_metadata._model())
+        self.assertEqual(
+            "processing.json", processing_metadata.output_filename
+        )
 
 
 class TestSubjectMetadata(unittest.TestCase):
@@ -119,13 +135,22 @@ class TestSubjectMetadata(unittest.TestCase):
         ),
     }
 
-    @mock.patch("requests.get")
+    @patch("os.path.isdir")
+    @patch("builtins.open", new_callable=mock_open())
+    @patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
+    @patch("logging.info")
     def test_successful_response(
-        self, mock_api_get: unittest.mock.MagicMock
+        self,
+        mock_log_info: MagicMock,
+        mock_api_get: MagicMock,
+        mock_open: MagicMock,
+        mock_os: MagicMock,
     ) -> None:
         """Tests parsing successful response from metadata service."""
 
-        successful_response = requests.Response()
+        successful_response = Response()
         successful_response.status_code = 200
         successful_response._content = json.dumps(
             self.successful_response_message
@@ -133,52 +158,79 @@ class TestSubjectMetadata(unittest.TestCase):
 
         mock_api_get.return_value = successful_response
 
-        actual_subject = SubjectMetadata.ephys_job_to_subject(
-            metadata_service_url="http://a-fake-url",
-            filepath="ecephys_632269_2022-10-10_16-13-22",
+        actual_subject = SubjectMetadata.from_service(
+            "632269", "http://a-fake-url"
         )
+        is_model_valid = actual_subject.validate_obj()
+        # Mock writing out to a directory
+        mock_os.side_effect = [True, False]
+        actual_subject.write_to_json(Path("/some_path/"))
+        actual_subject.write_to_json(Path("/some_path/subject2.json"))
 
         expected_subject = self.successful_response_message["data"]
 
-        self.assertEqual(expected_subject, actual_subject)
+        mock_log_info.assert_called_once_with("Model is valid.")
+        mock_open.assert_has_calls(
+            [
+                call(Path("/some_path/subject.json"), "w"),
+                call().__enter__(),
+                call()
+                .__enter__()
+                .write(json.dumps(expected_subject, indent=3, default=str)),
+                call().__exit__(None, None, None),
+                call(Path("/some_path/subject2.json"), "w"),
+                call().__enter__(),
+                call()
+                .__enter__()
+                .write(json.dumps(expected_subject, indent=3, default=str)),
+                call().__exit__(None, None, None),
+            ]
+        )
+        self.assertEqual(expected_subject, actual_subject.model_obj)
+        self.assertTrue(is_model_valid)
 
-    @mock.patch("logging.warning")
-    @mock.patch("requests.get")
+    @patch("logging.warning")
+    @patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
     def test_multiple_response_warning(
         self,
-        mock_api_get: unittest.mock.MagicMock,
-        mock_log_warn: unittest.mock.MagicMock,
+        mock_api_get: MagicMock,
+        mock_log_warn: MagicMock,
     ) -> None:
         """Tests parsing multiples subjects from metadata service."""
 
-        multiple_response = requests.Response()
-        multiple_response.status_code = 418
+        multiple_response = Response()
+        multiple_response.status_code = 300
         multiple_response._content = json.dumps(
             self.multiple_subjects_response
         ).encode("utf-8")
 
         mock_api_get.return_value = multiple_response
 
-        actual_subject = SubjectMetadata.ephys_job_to_subject(
-            metadata_service_url="http://a-fake-url",
-            filepath="ecephys_632269_2022-10-10_16-13-22",
-        )
+        actual_subject = SubjectMetadata.from_service(
+            "632269", "http://a-fake-url"
+        ).model_obj
 
         expected_subject = self.successful_response_message["data"]
-        mock_log_warn.assert_called_once_with("Multiple Items Found.")
+        mock_log_warn.assert_called_once_with(
+            "SubjectMetadata: Multiple Items Found."
+        )
         self.assertEqual(expected_subject, actual_subject)
 
-    @mock.patch("logging.warning")
-    @mock.patch("requests.get")
+    @patch("logging.warning")
+    @patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
     def test_invalid_response_warning(
         self,
-        mock_api_get: unittest.mock.MagicMock,
-        mock_log_warn: unittest.mock.MagicMock,
+        mock_api_get: MagicMock,
+        mock_log_warn: MagicMock,
     ) -> None:
         """Tests parsing invalid Subject from metadata service."""
 
-        invalid_response = requests.Response()
-        invalid_response.status_code = 418
+        invalid_response = Response()
+        invalid_response.status_code = 406
         msg = self.successful_response_message
         msg["message"] = "Validation Errors: Errors here!"
         invalid_response._content = json.dumps(
@@ -187,38 +239,79 @@ class TestSubjectMetadata(unittest.TestCase):
 
         mock_api_get.return_value = invalid_response
 
-        actual_subject = SubjectMetadata.ephys_job_to_subject(
-            metadata_service_url="http://a-fake-url",
-            filepath="ecephys_632269_2022-10-10_16-13-22",
-        )
+        actual_subject = SubjectMetadata.from_service(
+            "632269", "http://a-fake-url"
+        ).model_obj
 
         expected_subject = self.successful_response_message["data"]
         mock_log_warn.assert_called_once_with(
-            "Validation Errors: Errors here!"
+            "SubjectMetadata: Validation Errors: Errors here!"
         )
         self.assertEqual(expected_subject, actual_subject)
 
-    @mock.patch("logging.error")
-    @mock.patch("requests.get")
+    @patch("logging.warning")
+    @patch("logging.error")
+    @patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
+    def test_server_response_warning(
+        self,
+        mock_api_get: MagicMock,
+        mock_log_err: MagicMock,
+        mock_log_warn: MagicMock,
+    ) -> None:
+        """Tests parsing server error response from metadata service."""
+
+        err_response = Response()
+        err_response.status_code = 500
+        err_message = {"message": "Internal Server Error.", "data": None}
+        err_response._content = json.dumps(err_message).encode("utf-8")
+        mock_api_get.return_value = err_response
+
+        actual_subject = SubjectMetadata.from_service(
+            "632269", "http://a-fake-url"
+        )
+        expected_subject = Subject.construct().dict()
+        is_model_valid = actual_subject.validate_obj()
+
+        mock_log_err.assert_called_once_with(
+            "SubjectMetadata: Internal Server Error."
+        )
+        mock_log_warn.assert_called_once_with(
+            "Validation Errors: 5 validation errors for Subject\nspecies\n  "
+            "field required (type=value_error.missing)\nsubject_id\n  "
+            "field required (type=value_error.missing)\nsex\n  "
+            "field required (type=value_error.missing)\ndate_of_birth\n  "
+            "field required (type=value_error.missing)\ngenotype\n  "
+            "field required (type=value_error.missing)"
+        )
+        self.assertEqual(expected_subject, actual_subject.model_obj)
+        self.assertEqual("subject.json", actual_subject.output_filename)
+        self.assertFalse(is_model_valid)
+
+    @patch("logging.error")
+    @patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
+    )
     def test_no_response_warning(
         self,
-        mock_api_get: unittest.mock.MagicMock,
-        mock_log_err: unittest.mock.MagicMock,
+        mock_api_get: MagicMock,
+        mock_log_err: MagicMock,
     ) -> None:
         """Tests parsing no response from metadata service."""
 
-        no_response = requests.Response()
-        no_response.status_code = 500
+        mock_api_get.side_effect = ConnectionError("Unable to connect")
 
-        mock_api_get.return_value = no_response
+        actual_subject = SubjectMetadata.from_service(
+            "632269", "http://a-fake-url"
+        ).model_obj
+        expected_subject = Subject.construct().dict()
 
-        actual_subject = SubjectMetadata.ephys_job_to_subject(
-            metadata_service_url="http://a-fake-url",
-            filepath="ecephys_632269_2022-10-10_16-13-22",
+        mock_log_err.assert_called_once_with(
+            "SubjectMetadata: An error occurred connecting to metadata "
+            "service: Unable to connect"
         )
-
-        mock_log_err.assert_called_once_with("No data retrieved!")
-        self.assertIsNone(actual_subject)
+        self.assertEqual(expected_subject, actual_subject)
 
 
 class TestDataDescriptionMetadata(unittest.TestCase):
@@ -227,14 +320,9 @@ class TestDataDescriptionMetadata(unittest.TestCase):
     def test_create_data_description_metadata(self) -> None:
         """
         Tests that the data description metadata is created correctly.
-
-        Returns:
-
         """
-        data_description_instance = (
-            RawDataDescriptionMetadata.get_data_description(
-                name="ecephys_0000_2022-10-20_16-30-01"
-            )
+        data_description = RawDataDescriptionMetadata.from_inputs(
+            name="ecephys_0000_2022-10-20_16-30-01"
         )
 
         expected_data_description_instance = RawDataDescription.parse_obj(
@@ -242,8 +330,134 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         )
 
         self.assertEqual(
-            expected_data_description_instance, data_description_instance
+            expected_data_description_instance, data_description.model_obj
         )
+        self.assertEqual(RawDataDescription, data_description._model())
+        self.assertEqual(
+            "data_description.json", data_description.output_filename
+        )
+
+
+class TestProceduresMetadata(unittest.TestCase):
+    """Tests methods in the ProceduresMetadata class."""
+
+    successful_response_message = {
+        "message": "Valid Model.",
+        "data": {
+            "describedBy": (
+                "https://raw.githubusercontent.com/AllenNeuralDynamics/"
+                "aind-data-schema/main/src/aind_data_schema/procedures.py"
+            ),
+            "schema_version": "0.6.1",
+            "subject_id": "436083",
+            "subject_procedures": [
+                {
+                    "start_date": "2019-01-09",
+                    "end_date": "2019-01-09",
+                    "experimenter_full_name": "NSB-000",
+                    "iacuc_protocol": "1804",
+                    "animal_weight_prior": 21.3,
+                    "animal_weight_post": 23.0,
+                    "weight_unit": "gram",
+                    "anaesthesia": {
+                        "type": "isoflurane",
+                        "duration": None,
+                        "level": "Select...",
+                    },
+                    "notes": None,
+                    "injection_materials": None,
+                    "recovery_time": None,
+                    "injection_duration": 10,
+                    "workstation_id": "SWS 6",
+                    "instrument_id": "NJ#6",
+                    "injection_coordinate_ml": -2.3,
+                    "injection_coordinate_ap": -2.3,
+                    "injection_coordinate_depth": 2.6,
+                    "injection_coordinate_unit": "millimeter",
+                    "injection_coordinate_reference": None,
+                    "bregma_to_lambda_distance": None,
+                    "bregma_to_lambda_unit": "millimeter",
+                    "injection_angle": 0.0,
+                    "injection_angle_unit": "degree",
+                    "injection_hemisphere": "Left",
+                    "procedure_type": "Nanoject injection",
+                    "injection_volume": 200.0,
+                    "injection_volume_unit": "nanoliter",
+                    "injection_type": "Nanoject (Pressure)",
+                },
+                {
+                    "start_date": "2019-01-09",
+                    "end_date": "2019-01-09",
+                    "experimenter_full_name": "NSB-000",
+                    "iacuc_protocol": "1804",
+                    "animal_weight_prior": 21.3,
+                    "animal_weight_post": 23.0,
+                    "weight_unit": "gram",
+                    "anaesthesia": {"type": "isoflurane", "level": "1.5"},
+                    "notes": None,
+                    "procedure_type": "Headframe",
+                    "headframe_type": "CAM-style",
+                    "headframe_part_number": "0160-100-10 Rev A",
+                    "headframe_material": None,
+                    "well_part_number": None,
+                    "well_type": "CAM-style",
+                },
+                {
+                    "start_date": "2019-01-09",
+                    "end_date": "2019-01-09",
+                    "experimenter_full_name": "NSB-000",
+                    "iacuc_protocol": "1804",
+                    "animal_weight_prior": 21.3,
+                    "animal_weight_post": 23.0,
+                    "weight_unit": "gram",
+                    "anaesthesia": {"type": "isoflurane", "level": "1.5"},
+                    "notes": None,
+                    "procedure_type": "Craniotomy",
+                    "craniotomy_type": "Visual Cortex",
+                    "craniotomy_hemisphere": "Left",
+                    "craniotomy_coordinates_ml": 2.8,
+                    "craniotomy_coordinates_ap": 1.3,
+                    "craniotomy_coordinates_unit": "millimeter",
+                    "craniotomy_coordinates_reference": None,
+                    "bregma_to_lambda_distance": None,
+                    "bregma_to_lambda_unit": "millimeter",
+                    "craniotomy_size": 5.0,
+                    "craniotomy_size_unit": "millimeter",
+                    "implant_part_number": None,
+                    "dura_removed": True,
+                    "protective_material": None,
+                    "workstation_id": "SWS 6",
+                    "recovery_time": None,
+                },
+            ],
+            "specimen_procedures": None,
+            "notes": None,
+        },
+    }
+
+    @patch(
+        "aind_metadata_service.client.AindMetadataServiceClient.get_procedures"
+    )
+    def test_procedures_from_service(self, mock_api_get: MagicMock):
+        """Tests that the procedures is generated from service call."""
+
+        successful_response = Response()
+        successful_response.status_code = 200
+        successful_response._content = json.dumps(
+            self.successful_response_message
+        ).encode("utf-8")
+
+        mock_api_get.return_value = successful_response
+
+        procedures = ProceduresMetadata.from_service(
+            "436083", "http://a-fake-url"
+        )
+
+        expected_subject = self.successful_response_message["data"]
+
+        self.assertEqual(expected_subject, procedures.model_obj)
+        self.assertEqual(Procedures, procedures._model())
+        self.assertEqual("procedures.json", procedures.output_filename)
 
 
 if __name__ == "__main__":

@@ -78,7 +78,7 @@ def write_files(
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
 
-        tile_name = Path(impath).stem
+        tile_name = Path(impath).stem + ".zarr"
 
         if not overwrite and _tile_exists(output, tile_name, n_levels):
             LOGGER.info(f"Skipping tile {tile_name}, already exists.")
@@ -292,7 +292,7 @@ def _compute_chunks(reader, target_size_mb):
 
 
 def _create_pyramid(
-    data: Union[NDArray, dask.array.Array], n_lvls: int
+    data: Union[NDArray, dask.array.Array], n_lvls: int, chunks: tuple
 ) -> List[Union[NDArray, dask.array.Array]]:
     """
     Create a lazy multiscale image pyramid using data as the full-resolution layer.
@@ -310,6 +310,7 @@ def _create_pyramid(
         windowed_mean,  # func
         (2,) * data.ndim,  # scale factors
         preserve_dtype=True,
+        chunks=chunks
     )[:n_lvls]
     return [arr.data for arr in pyramid]
 
@@ -331,11 +332,11 @@ def _get_or_create_pyramid(reader, n_levels, chunks):
                 f"Computing them instead..."
             )
             pyramid = _create_pyramid(
-                reader.as_dask_array(chunks=chunks), n_levels
+                reader.as_dask_array(chunks=chunks), n_levels, chunks
             )
     else:
         pyramid = _create_pyramid(
-            reader.as_dask_array(chunks=chunks), n_levels
+            reader.as_dask_array(chunks=chunks), n_levels, chunks
         )
 
     return pyramid

@@ -64,9 +64,7 @@ def get_images(
     if exclude is None:
         exclude = []
     image_paths = collect_filepaths(
-        image_folder,
-        recursive=recursive,
-        include_exts=include_exts,
+        image_folder, recursive=recursive, include_exts=include_exts,
     )
 
     exclude_paths = set()
@@ -190,7 +188,7 @@ def create_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
         try:
             if verbose:
                 print(f"Creating new directory: {dest_dir}")
-            os.makedirs(dest_dir)
+            os.makedirs(dest_dir, mode=0o777)
         except OSError as e:
             raise
 
@@ -433,17 +431,32 @@ def get_status_filename_data(dataset_path: PathLike) -> list:
         Text file content.
     """
     STATUS_FILENAME = "DATASET_STATUS.txt"
-
     file_content = []
 
-    filename_path = [
-        dataset_path.joinpath(f)
-        for f in os.listdir(dataset_path)
-        if f == STATUS_FILENAME
-        and os.path.isfile(os.path.join(dataset_path, f))
-    ]
-    if not len(filename_path):
-        return []
+    if os.path.isdir(dataset_path):
 
-    file_content = read_text_to_list(filename_path[0])
+        filename_path = [
+            dataset_path.joinpath(f)
+            for f in os.listdir(dataset_path)
+            if f == STATUS_FILENAME
+            and os.path.isfile(os.path.join(dataset_path, f))
+        ]
+        if not len(filename_path):
+            return []
+
+        file_content = read_text_to_list(filename_path[0])
+
     return file_content
+
+
+def any_hdf5(filepaths: List[str]) -> bool:
+    """
+    Checks if any filepaths are HDF5-based, e.g., ".h5", ".ims"
+
+    Args:
+        filepaths: a list of filepath strings
+
+    Returns:
+        True if any files are HDF5-based, else False
+    """
+    return any(fp.endswith((".h5", ".ims")) for fp in filepaths)

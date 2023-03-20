@@ -15,8 +15,10 @@ class ImagingReaders:
     class Readers(Enum):
         """Enum for readers."""
 
+        dispim = "diSPIM"
         exaspim = "exaSPIM"
         mesospim = "mesoSPIM"
+        generic = "micr"
 
     readers = [member.value for member in Readers]
 
@@ -24,10 +26,13 @@ class ImagingReaders:
         """Enum for regex patterns the source folder name should match"""
 
         exaspim_acquisition = (
-            r"exaSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            r"exaSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
         )
         mesospim_acquisition = (
-            r"mesoSPIM_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            r"mesoSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
+        )
+        dispim_acquisition = (
+            r"diSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
         )
 
     @staticmethod
@@ -58,10 +63,13 @@ class ImagingReaders:
             is not None
         ):
             return ImagingReaders.Readers.mesospim.value
+        elif (
+            re.search(ImagingReaders.Readers.dispim.value, input_dir)
+            is not None
+        ):
+            return ImagingReaders.Readers.dispim.value
         else:
-            raise Exception(
-                f"An appropriate readers could not be created for {input_dir}"
-            )
+            return ImagingReaders.Readers.generic.value
 
 
 class SmartSPIMReader:
@@ -73,10 +81,10 @@ class SmartSPIMReader:
         # regex expressions for not structured smartspim datasets
         capture_date_regex = r"(20[0-9]{2}([0-9][0-9]{1})([0-9][0-9]{1}))"
         capture_time_regex = r"(_(\d{2})_(\d{2})_(\d{2})_)"
-        capture_mouse_id = r"(_(\d{7}|\d{6}))"
+        capture_mouse_id = r"(_(\d+|[a-zA-Z]*\d+)$)"
 
         # Regular expression for smartspim datasets
-        smartspim_regex = r"SmartSPIM_(\d{7}|\d{6})_(20\d{2}-(\d\d{1})-(\d\d{1}))_((\d{2})-(\d{2})-(\d{2}))"
+        smartspim_regex = r"SmartSPIM_(\d+|[a-zA-Z]*\d+)_(20\d{2}-(\d\d{1})-(\d\d{1}))_((\d{2})-(\d{2})-(\d{2}))"
 
         # Regex expressions for inner folders inside root
         regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"

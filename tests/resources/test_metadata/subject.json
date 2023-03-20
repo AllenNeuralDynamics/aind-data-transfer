@@ -1,0 +1,22 @@
+{
+   "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/site-packages/aind_data_schema/subject.py",
+   "schema_version": "0.2.1",
+   "species": "Mus musculus",
+   "subject_id": "643054",
+   "sex": "Female",
+   "date_of_birth": "2022-07-20",
+   "genotype": "Drd1a-Cre/wt;RCL-somBiPoles_mCerulean-WPRE/wt",
+   "mgi_allele_ids": null,
+   "background_strain": null,
+   "source": null,
+   "restrictions": null,
+   "breeding_group": "Drd1a-Cre;RCL-somBiPoles_mCerulean-WPRE(ND)",
+   "maternal_id": "630883",
+   "maternal_genotype": "RCL-somBiPoles_mCerulean-WPRE/wt",
+   "paternal_id": "624640",
+   "paternal_genotype": "Drd1a-Cre/wt",
+   "light_cycle": null,
+   "home_cage_enrichment": null,
+   "wellness_reports": null,
+   "notes": null
+}

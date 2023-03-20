@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from aind_codeocean_api.codeocean import CodeOceanClient
+from aind_data_schema.processing import ProcessName
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
@@ -19,6 +20,7 @@ from aind_data_transfer.transformations.ephys_compressors import (
     EphysCompressors,
 )
 from aind_data_transfer.transformations.metadata_creation import (
+    ProceduresMetadata,
     ProcessingMetadata,
     SubjectMetadata,
 )
@@ -147,7 +149,8 @@ def run_job(args):  # noqa: C901
 
         code_url = job_configs["endpoints"]["code_repo_location"]
         parameters = job_configs
-        processing_instance = ProcessingMetadata.ephys_job_to_processing(
+        processing_instance = ProcessingMetadata.from_inputs(
+            process_name=ProcessName.EPHYS_PREPROCESSING.value,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=str(input_location),
@@ -156,27 +159,38 @@ def run_job(args):  # noqa: C901
             parameters=parameters,
             notes=None,
         )
-
-        file_path = dest_data_dir / ProcessingMetadata.output_file_name
-        with open(file_path, "w") as f:
-            contents = processing_instance.json(**{"indent": 4})
-            f.write(contents)
+        processing_instance.write_to_json(dest_data_dir)
         logging.info("Finished creating processing.json file.")
 
         # Subject metadata
         logging.info("Creating subject.json file.")
         metadata_url = job_configs["endpoints"]["metadata_service_url"]
         subject_id = job_configs["data"].get("subject_id")
-        subject_instance = SubjectMetadata.ephys_job_to_subject(
-            metadata_url, subject_id, dest_data_dir.name
-        )
-        s_file_path = dest_data_dir / SubjectMetadata.output_file_name
+        if subject_id:
+            subject_instance = SubjectMetadata.from_service(
+                subject_id=subject_id, domain=metadata_url
+            )
+        else:
+            subject_instance = None
         if subject_instance is not None:
-            with open(s_file_path, "w") as f:
-                f.write(json.dumps(subject_instance, indent=4))
+            subject_instance.write_to_json(dest_data_dir)
             logging.info("Finished creating subject.json file.")
         else:
             logging.warning("No subject.json file created!")
+
+        # Procedures metadata
+        logging.info("Creating procedures.json file.")
+        if subject_id:
+            procedures_instance = ProceduresMetadata.from_service(
+                subject_id=subject_id, domain=metadata_url
+            )
+        else:
+            procedures_instance = None
+        if procedures_instance is not None:
+            procedures_instance.write_to_json(dest_data_dir)
+            logging.info("Finished creating procedures.json file.")
+        else:
+            logging.warning("No procedures.json file created!")
 
     # Upload to s3
     if platform.system() == "Windows":
