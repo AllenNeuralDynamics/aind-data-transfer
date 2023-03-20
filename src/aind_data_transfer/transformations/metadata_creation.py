@@ -227,6 +227,8 @@ class SubjectMetadata(ServiceMetadataCreation):
 
 
 class ProceduresMetadata(ServiceMetadataCreation):
+    """Class to manage building the procedures metadata"""
+
     @staticmethod
     def _model() -> Type[aind_data_schema.base.AindCoreModel]:
         """AindDataSchema model"""
@@ -255,6 +257,8 @@ class ProceduresMetadata(ServiceMetadataCreation):
 
 
 class ProcessingMetadata(MetadataCreation):
+    """Class to manage building the processing metadata"""
+
     @staticmethod
     def _model() -> Type[aind_data_schema.base.AindCoreModel]:
         """AindDataSchema model"""

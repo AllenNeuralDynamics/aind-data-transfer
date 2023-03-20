@@ -16,13 +16,14 @@ from typing import List, Optional
 from aind_codeocean_api.codeocean import CodeOceanClient
 from botocore.exceptions import ClientError
 
+from aind_data_transfer.transformations.generic_compressors import (
+    VideoCompressor,
+    ZipCompressor,
+)
 from aind_data_transfer.transformations.metadata_creation import (
     ProceduresMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
-)
-from aind_data_transfer.transformations.video_compressors import (
-    VideoCompressor,
 )
 from aind_data_transfer.util.s3_utils import (
     copy_to_s3,
@@ -82,6 +83,65 @@ class GenericS3UploadJob:
             logging.debug(e.response)
             endpoints = {}
         return endpoints
+
+    def upload_raw_data_folder(
+        self, data_prefix: str, behavior_dir: Optional[Path] = None
+    ) -> None:
+        """
+        Uploads the raw data folder to s3. Will compress first if that config
+        is set.
+        Parameters
+        ----------
+        data_prefix : str
+          base prefix of where the data will be uploaded.
+        behavior_dir : Path
+          If behavior is not None and is a subdirectory of data_source, then
+          it will be ignored and handled elsewhere.
+
+        Returns
+        -------
+        None
+
+        """
+        # The behavior directory will be handled in a separate process even
+        # if it's a subdirectory of the raw data source.
+        if behavior_dir is not None:
+            behavior_dir_excluded = Path(behavior_dir) / "*"
+        else:
+            behavior_dir_excluded = None
+
+        if not self.configs.compress_raw_data:
+            # Upload non-behavior data to s3
+            upload_to_s3(
+                directory_to_upload=self.configs.data_source,
+                s3_bucket=self.configs.s3_bucket,
+                s3_prefix=data_prefix,
+                dryrun=self.configs.dry_run,
+                excluded=behavior_dir_excluded,
+            )
+        else:
+            logging.info("Compressing raw data folder: ")
+            zc = ZipCompressor(display_progress_bar=True)
+            compressed_data_folder_name = (
+                str(os.path.basename(self.configs.data_source)) + ".zip"
+            )
+            s3_prefix = "/".join([data_prefix, compressed_data_folder_name])
+            skip_dirs = None if behavior_dir is None else [behavior_dir]
+            with tempfile.TemporaryDirectory() as td:
+                output_zip_folder = os.path.join(
+                    td, compressed_data_folder_name
+                )
+                zc.compress_dir(
+                    input_dir=Path(self.configs.data_source),
+                    output_dir=Path(output_zip_folder),
+                    skip_dirs=skip_dirs,
+                )
+                copy_to_s3(
+                    file_to_upload=output_zip_folder,
+                    s3_bucket=self.configs.s3_bucket,
+                    s3_prefix=s3_prefix,
+                    dryrun=self.configs.dry_run,
+                )
 
     def compress_and_upload_behavior_data(self):
         """Uploads the behavior directory. Attempts to encrypt the video
@@ -379,8 +439,10 @@ class GenericS3UploadJob:
         )
         parser.add_argument("-r", "--s3-region", required=False, type=str)
         parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--compress-raw-data", action="store_true")
         parser.add_argument("--metadata-dir-force", action="store_true")
         parser.set_defaults(dry_run=False)
+        parser.set_defaults(compress_raw_data=False)
         parser.set_defaults(metadata_dir_force=False)
         parser.set_defaults(s3_region=self.S3_DEFAULT_REGION)
         job_args = parser.parse_args(args)
@@ -401,15 +463,11 @@ class GenericS3UploadJob:
         behavior_dir = self.configs.behavior_dir
         if behavior_dir is not None:
             self.compress_and_upload_behavior_data()
-            behavior_dir = Path(behavior_dir) / "*"
 
         # Upload non-behavior data to s3
-        upload_to_s3(
-            directory_to_upload=self.configs.data_source,
-            s3_bucket=self.configs.s3_bucket,
-            s3_prefix=data_prefix,
-            dryrun=self.configs.dry_run,
-            excluded=behavior_dir,
+        behavior_path = None if behavior_dir is None else Path(behavior_dir)
+        self.upload_raw_data_folder(
+            data_prefix=data_prefix, behavior_dir=Path(behavior_path)
         )
 
         # Optionally upload the data in the metadata directory to s3
@@ -489,6 +547,9 @@ class GenericS3UploadJobList:
         help_message_dry_run = (
             "Tests the upload without actually uploading the files."
         )
+        help_message_compress_raw_data = (
+            "Zip raw data folder before uploading."
+        )
         parser = argparse.ArgumentParser()
         parser.add_argument(
             "-j",
@@ -500,7 +561,13 @@ class GenericS3UploadJobList:
         parser.add_argument(
             "--dry-run", action="store_true", help=help_message_dry_run
         )
+        parser.add_argument(
+            "--compress-raw-data",
+            action="store_true",
+            help=help_message_compress_raw_data,
+        )
         parser.set_defaults(dry_run=False)
+        parser.set_defaults(compress_raw_data=False)
         job_args = parser.parse_args(args)
         return job_args
 
@@ -550,6 +617,8 @@ class GenericS3UploadJobList:
             # Add dry-run command if set in command line.
             if self.configs.dry_run:
                 res.append("--dry-run")
+            if self.configs.compress_raw_data:
+                res.append("--compress-raw-data")
             param_list.append(res)
         return param_list
 
