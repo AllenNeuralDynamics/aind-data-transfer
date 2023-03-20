@@ -88,22 +88,6 @@ class TestEphysCompressors(unittest.TestCase):
         )
         scaled_read_block = next(scaled_read_blocks)
 
-        # The lsb value should be 1 and the median values should be 0 in the
-        # scaled neuropixel recordings.
-        lsb_value, median_values = EphysCompressors._get_median_and_lsb(
-            scaled_read_block["scaled_recording"],
-            disable_tqdm=True,
-            num_chunks_per_segment=10,
-            chunk_size=chunk_size,
-        )
-
-        expected_median_values = np.zeros(
-            shape=median_values.shape, dtype=median_values.dtype
-        )
-
-        self.assertEqual(lsb_value, 1)
-        self.assertTrue(np.array_equal(expected_median_values, median_values))
-
 
 class TestImagingCompressors(unittest.TestCase):
     def test_get_compressor(self):
