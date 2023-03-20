@@ -181,6 +181,7 @@ class TestGenericS3UploadJob(unittest.TestCase):
             "s3_region": "us-west-2",
             "service_endpoints": json.loads(self.fake_endpoints_str),
             "dry_run": True,
+            "compress_raw_data": False,
             "behavior_dir": None,
             "metadata_dir": None,
             "metadata_dir_force": False,
@@ -510,9 +511,73 @@ class TestGenericS3UploadJob(unittest.TestCase):
         self.assertEqual(set(expected_files_found), set(actual_files_found))
 
     @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
+    def test_upload_raw_data_folder(
+        self,
+        mock_upload_to_s3: MagicMock,
+    ) -> None:
+        """Tests raw data directory is uploaded correctly."""
+
+        job = GenericS3UploadJob(self.args1)
+        job.upload_raw_data_folder(data_prefix="some_prefix")
+        job.upload_raw_data_folder(
+            data_prefix="some_prefix2", behavior_dir=Path("behavior_dir")
+        )
+
+        mock_upload_to_s3.assert_has_calls(
+            [
+                call(
+                    directory_to_upload="some_dir",
+                    s3_bucket="some_s3_bucket",
+                    s3_prefix="some_prefix",
+                    dryrun=True,
+                    excluded=None,
+                ),
+                call(
+                    directory_to_upload="some_dir",
+                    s3_bucket="some_s3_bucket",
+                    s3_prefix="some_prefix2",
+                    dryrun=True,
+                    excluded=Path("behavior_dir/*"),
+                ),
+            ]
+        )
+
+    @patch("aind_data_transfer.jobs.s3_upload_job.copy_to_s3")
     @patch("tempfile.TemporaryDirectory")
     @patch(
-        "aind_data_transfer.transformations.video_compressors."
+        "aind_data_transfer.transformations.generic_compressors."
+        "ZipCompressor.compress_dir"
+    )
+    def test_upload_raw_data_folder_with_compression(
+        self,
+        mock_compress: MagicMock,
+        mocked_tempdir: MagicMock,
+        mock_copy_to_s3: MagicMock,
+    ) -> None:
+        """Tests raw data directory is compressed and uploaded correctly."""
+
+        compress_data_args = self.args1 + ["--compress-raw-data"]
+
+        mocked_tempdir.return_value.__enter__ = lambda _: "tmp_dir"
+
+        job = GenericS3UploadJob(compress_data_args)
+        job.upload_raw_data_folder(data_prefix="some_prefix")
+        mock_compress.assert_called_once_with(
+            input_dir=Path("some_dir"),
+            output_dir=Path("tmp_dir/some_dir.zip"),
+            skip_dirs=None,
+        )
+        mock_copy_to_s3.assert_called_once_with(
+            file_to_upload=str(Path("tmp_dir/some_dir.zip")),
+            s3_bucket="some_s3_bucket",
+            s3_prefix="some_prefix/some_dir.zip",
+            dryrun=True,
+        )
+
+    @patch("aind_data_transfer.jobs.s3_upload_job.upload_to_s3")
+    @patch("tempfile.TemporaryDirectory")
+    @patch(
+        "aind_data_transfer.transformations.generic_compressors."
         "VideoCompressor.compress_all_videos_in_dir"
     )
     @patch("shutil.copy")
@@ -593,6 +658,42 @@ class TestGenericS3UploadJob(unittest.TestCase):
             excluded=(Path("some_behavior_dir") / "*"),
         )
 
+    @patch.dict(
+        os.environ,
+        ({f"{GenericS3UploadJob.CODEOCEAN_TOKEN_KEY_ENV}": "abc-12345"}),
+    )
+    @patch.object(GenericS3UploadJob, "upload_raw_data_folder")
+    @patch.object(GenericS3UploadJob, "upload_subject_metadata")
+    @patch.object(GenericS3UploadJob, "upload_procedures_metadata")
+    @patch.object(GenericS3UploadJob, "upload_data_description_metadata")
+    @patch.object(GenericS3UploadJob, "trigger_codeocean_capsule")
+    @patch.object(GenericS3UploadJob, "compress_and_upload_behavior_data")
+    def test_run_job_with_compress(
+        self,
+        mock_compress_and_upload_behavior: MagicMock,
+        mock_trigger_codeocean_capsule: MagicMock,
+        mock_upload_data_description_metadata: MagicMock,
+        mock_upload_procedures_metadata: MagicMock,
+        mock_upload_subject_metadata: MagicMock,
+        mock_upload_raw_data_folder: MagicMock,
+    ) -> None:
+        """Tests that the run_job method triggers all the sub jobs."""
+
+        job = GenericS3UploadJob(self.args1)
+        job.configs.behavior_dir = "some_behavior_dir"
+        job.run_job()
+        data_prefix = "/".join([job.s3_prefix, job.configs.modality])
+
+        mock_compress_and_upload_behavior.assert_called_once()
+        mock_trigger_codeocean_capsule.assert_called_once()
+        mock_upload_data_description_metadata.assert_called_once()
+        mock_upload_subject_metadata.assert_called_once()
+        mock_upload_procedures_metadata.assert_called_once()
+        mock_upload_raw_data_folder.assert_called_once_with(
+            data_prefix=data_prefix,
+            behavior_dir=Path("some_behavior_dir"),
+        )
+
 
 class TestGenericS3UploadJobList(unittest.TestCase):
     """Unit tests for methods in GenericS3UploadJobs class."""
@@ -671,7 +772,12 @@ class TestGenericS3UploadJobList(unittest.TestCase):
 
         mock_job.run_job.return_value = lambda: print("Ran Job!")
 
-        args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE), "--dry-run"]
+        args = [
+            "-j",
+            str(self.PATH_TO_EXAMPLE_CSV_FILE),
+            "--dry-run",
+            "--compress-raw-data",
+        ]
         jobs = GenericS3UploadJobList(args=args)
 
         params_0 = jobs.job_param_list[0]
