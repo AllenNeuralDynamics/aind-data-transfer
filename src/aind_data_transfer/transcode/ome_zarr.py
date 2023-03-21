@@ -26,6 +26,8 @@ logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
+DEFAULT_N_RETRIES = 10
+
 
 def write_files(
     image_paths: list,
@@ -152,7 +154,7 @@ def write_files(
         )
         if jobs:
             LOGGER.info("Computing dask arrays...")
-            arrs = dask.persist(*jobs)
+            arrs = dask.persist(*jobs, retries=DEFAULT_N_RETRIES)
             wait(arrs)
         write_time = time.time() - t0
 
