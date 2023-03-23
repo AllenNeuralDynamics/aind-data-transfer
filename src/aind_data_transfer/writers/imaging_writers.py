@@ -3,14 +3,13 @@ import os
 import re
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Tuple, Union, List
 
 from aind_data_schema import Funding, RawDataDescription, Subject
-from aind_data_schema.data_description import Institution, Group, Modality
 from aind_data_schema.imaging import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
-from aind_data_transfer.readers.imaging_readers import SmartSPIMReader, ImagingReaders
+from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
 from aind_data_transfer.util import file_utils
 
 PathLike = Union[str, Path]
@@ -43,7 +42,7 @@ def digest_asi_line(line: str) -> datetime:
     datetime
         A date that could be parsed from a string
     """
-
+    
     if line.isspace():
         return None
     else:
@@ -55,7 +54,11 @@ def digest_asi_line(line: str) -> datetime:
     hms = [int(i) for i in hms.split(b":")]
     if ampm == b"PM":
         hms[0] += 12
+        if hms[0] == 24:
+            hms[0] = 0
+
     ymdhms = ymd + hms
+    
     dtime = datetime(*ymdhms)
     ymd = date(*ymd)
     hms = time(*hms)
@@ -112,7 +115,7 @@ def get_scale(lc_mdata) -> tile.Scale3dTransform:
     return scale
 
 
-def make_acq_tiles(lc_mdata: bytes, filter_mapping: dict):
+def make_acq_tiles(lc_mdata: bytes, filter_mapping:dict):
     """
     Makes metadata for the acquired tiles of
     the dataset
@@ -130,22 +133,22 @@ def make_acq_tiles(lc_mdata: bytes, filter_mapping: dict):
     """
 
     channels = {}
-
+    
     wavelength_line = None
     tiles_line = None
 
     for idx_line in range(len(lc_mdata)):
-
+        
         if "Wavelength" in str(lc_mdata[idx_line]):
             wavelength_line = idx_line + 1
-
+        
         elif "Skip" in str(lc_mdata[idx_line]):
             tiles_line = idx_line + 1
 
     tiles = []
 
     if wavelength_line and tiles_line:
-        for idx, l in enumerate(lc_mdata[wavelength_line : tiles_line - 1]):
+        for idx, l in enumerate(lc_mdata[wavelength_line:tiles_line-1]):
             wavelength, powerl, powerr = [float(j) for j in l.split()]
 
             channel = tile.Channel(
@@ -263,7 +266,7 @@ class SmartSPIMWriter:
         date_time_obj = datetime.strptime(
             date_str + time_str, "%Y%m%d%H_%M_%S"
         )
-
+        
         date_fmt = "%Y-%m-%d"
         date_str = date_time_obj.strftime(date_fmt)
 
@@ -360,8 +363,8 @@ class SmartSPIMWriter:
                 maternal_genotype=data["maternal_genotype"],
                 paternal_id=data["paternal_id"],
                 paternal_genotype=data["paternal_genotype"],
-                light_cycle=data["light_cycle"],
-                home_cage_enrichment=data["home_cage_enrichment"],
+                # light_cycle=data["light_cycle"],
+                # home_cage_enrichment=data["home_cage_enrichment"],
                 wellness_reports=data["wellness_reports"],
                 notes=data["notes"],
             )
@@ -376,7 +379,10 @@ class SmartSPIMWriter:
                 f"Mouse {mouse_id} does not have subject information - res status: {response.status_code}"
             )
 
-    def __get_excitation_emission_waves(self, dataset_path: PathLike) -> dict:
+    def __get_excitation_emission_waves(
+        self,
+        dataset_path: PathLike
+    ) -> dict:
         """
         Gets the excitation and emission waves for
         the existing channels within a dataset
@@ -435,9 +441,7 @@ class SmartSPIMWriter:
 
         asi_file = original_dataset_path.joinpath("ASI_logging.txt")
         mdata_file = original_dataset_path.joinpath("metadata.txt")
-        filter_mapping = self.__get_excitation_emission_waves(
-            original_dataset_path
-        )
+        filter_mapping = self.__get_excitation_emission_waves(original_dataset_path)
 
         with open(mdata_file, "rb") as file:
             lc_mdata = file.readlines()
@@ -459,7 +463,9 @@ class SmartSPIMWriter:
             ),
             axes=[
                 acquisition.Axis(
-                    name="X", dimension=2, direction="Left_to_right",
+                    name="X",
+                    dimension=2,
+                    direction="Left_to_right",
                 ),
                 acquisition.Axis(
                     name="Y", dimension=1, direction="Posterior_to_anterior"
@@ -632,153 +638,3 @@ class SmartSPIMWriter:
                 )
 
         return new_dataset_paths, ignored_datasets
-
-
-class ExASPIMWriter:
-    __regexes = ImagingReaders.SourceRegexPatterns
-
-    def __init__(self, dataset_path: PathLike, metadata_domain: str):
-        """
-        Class constructor.
-
-        Parameters
-        ------------------------
-        dataset_path: PathLike
-            path to the top-level folder of the ExASPIM dataset
-
-        metadata_domain: str
-            Metadata domain
-
-        """
-        self.__dataset_path = dataset_path
-        self.__mouse_id, self.__acq_date = self.__parse_dataset(dataset_path)
-        self.__metadata_service = AindMetadataServiceClient(metadata_domain)
-
-    def __parse_dataset(self, dataset_path) -> Tuple[str, datetime]:
-        """
-        Parses mouse ID and acquisition date from the dataset path.
-
-        Parameters
-        ------------------------
-        dataset_path: PathLike
-            path to the top-level folder of the ExASPIM dataset
-
-        Returns
-        ------------------------
-        Tuple
-            the mouse ID string and datetime object
-        """
-        dataset_name = Path(dataset_path).stem
-
-        m = re.match(self.__regexes.exaspim_acquisition.value, dataset_name)
-        if not m:
-            raise Exception(f"Dataset name does not follow convention: {dataset_name}")
-
-        mouse_id = m.group(1)
-
-        # creation date
-        c_year = m.group(2)
-        c_month = m.group(3)
-        c_day = m.group(4)
-        c_hour = m.group(5)
-        c_min = m.group(6)
-        c_sec = m.group(7)
-
-        date_obj = datetime.strptime(
-            f"{c_year}-{c_month}-{c_day}-{c_hour}-{c_min}-{c_sec}",
-            "%Y-%m-%d-%H-%M-%S"
-        )
-
-        return mouse_id, date_obj
-
-    def write_subject(self, output: PathLike) -> None:
-        """
-        Creates the subject.json file.
-
-        Parameters
-        ------------------------
-        output: PathLike
-            directory to write the subject.json file
-        """
-        response = self.__metadata_service.get_subject(self.__mouse_id)
-
-        if response.status_code == 200:
-            data = response.json()["data"]
-
-            subject = Subject(
-                species=data["species"],
-                subject_id=data["subject_id"],
-                sex=data["sex"],
-                date_of_birth=data["date_of_birth"],
-                genotype=data["genotype"],
-                mgi_allele_ids=data["mgi_allele_ids"],
-                background_strain=data["background_strain"],
-                source=data["source"],
-                rrid=data["rrid"],
-                restrictions=data["restrictions"],
-                breeding_group=data["breeding_group"],
-                maternal_id=data["maternal_id"],
-                maternal_genotype=data["maternal_genotype"],
-                paternal_id=data["paternal_id"],
-                paternal_genotype=data["paternal_genotype"],
-                light_cycle=data["light_cycle"],
-                home_cage_enrichment=data["home_cage_enrichment"],
-                wellness_reports=data["wellness_reports"],
-                notes=data["notes"],
-            )
-
-            with open(os.path.join(output, "subject.json"), "w") as f:
-                f.write(subject.json(indent=3))
-
-        else:
-            logger.error(
-                f"Mouse {self.__mouse_id} does not have subject information - res status: {response.status_code}"
-            )
-
-    def write_procedures(self, output: PathLike) -> None:
-        """
-        Creates the procedures.json file
-
-        Parameters
-        ------------------------
-        output: PathLike
-            directory to write the procedures.json file
-        """
-        response = self.__metadata_service.get_procedures(self.__mouse_id)
-
-        if response.status_code == 200:
-            # FIXME: not clear what a valid response looks like yet
-            data = response.json()["data"]
-            logger.warning(f"Procedures metadata found but parsing is not yet implemented: {data}")
-        else:
-            logger.error(
-                f"Mouse {self.__mouse_id} does not have procedures information - res status: {response.status_code}"
-            )
-
-    def write_data_description(self, output: PathLike) -> None:
-        """
-        Creates the data_description.json file.
-
-        Parameters
-        ------------------------
-        output: PathLike
-            directory to write the data_description.json file
-
-        """
-        # Creating data description
-        data_description = RawDataDescription(
-            modality=Modality.EXASPIM.value,
-            subject_id=self.__mouse_id,
-            creation_date=date(
-                self.__acq_date.year, self.__acq_date.month, self.__acq_date.day
-            ),
-            creation_time=time(
-                self.__acq_date.hour, self.__acq_date.minute, self.__acq_date.second
-            ),
-            institution=Institution.AIND.value,
-            group=Group.MSMA.value,
-            funding_source=[Funding(funder=Institution.AIND.value)],
-        )
-
-        with open(os.path.join(output, "data_description.json"), "w") as f:
-            f.write(data_description.json(indent=3))

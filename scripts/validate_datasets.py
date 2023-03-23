@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 os.environ[
     "PATH"
-] = f"/home/svc_aind_upload/sci_comp_team/SmartSPIM/exitftool/Image-ExifTool-12.57:{os.environ['PATH']}"
+] = f"/allen/aind/scratch/camilo.laiton/exitftool/Image-ExifTool-12.57:{os.environ['PATH']}"
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -206,8 +206,22 @@ def get_images_channel(channel_dict: dict) -> int:
     return n_images
 
 
-def get_image_metadata(image_paths: PathLike) -> List[dict]:
+def get_image_metadata(image_paths: List[PathLike]) -> List[dict]:
+    """
+    Retrieves image metadata for all the
+    images included in the list
 
+    Parameters
+    ----------
+    image_paths: List[PathLike]
+        List with the paths of the images
+    
+    Returns
+    ----------
+    List[dict]
+        List with the metadata of each
+        image
+    """
     with exiftool.ExifToolHelper() as et:
         metadata = et.get_metadata(image_paths)
 
@@ -269,6 +283,30 @@ def _validate_rows(args_dict: dict) -> bool:
 def validate_metadata_parallel(
     channel_path: str, channel_dict: dict, file_format: str, bit_depth: int
 ) -> bool:
+    """
+    Validates image metadata using parallel processing
+
+    Parameters
+    ----------
+    channel_path: str
+        Path where the channel is stored
+
+    channel_dict: dict
+        Dicitonary with the channel folder structure
+        pointing to row/col/tile.png
+    
+    file_format: str
+        Expected file format of the images
+    
+    bit_depth: int
+        Expected bit depth of the images
+    
+    Returns
+    ----------
+    bool
+        False if the channel has no issues with tiles,
+        True otherwise.
+    """
     workers = multiprocessing.cpu_count()
     logger.info(f"N CPUs {workers}")
     rows_per_worker = 1
@@ -334,6 +372,31 @@ def validate_metadata_parallel(
 def validate_metadata(
     channel_path: str, channel_dict: dict, file_format: str, bit_depth: int
 ) -> bool:
+    """
+    Validates image metadata
+
+    Parameters
+    ----------
+    channel_path: str
+        Path where the channel is stored
+
+    channel_dict: dict
+        Dicitonary with the channel folder structure
+        pointing to row/col/tile.png
+    
+    file_format: str
+        Expected file format of the images
+    
+    bit_depth: int
+        Expected bit depth of the images
+    
+    Returns
+    ----------
+    bool
+        False if the channel has no issues with tiles,
+        True otherwise.
+    """
+
     workers = multiprocessing.cpu_count()
     logger.info(f"N CPU cores: {workers}")
     rows_per_worker = 1
