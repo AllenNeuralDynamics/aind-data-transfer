@@ -448,6 +448,27 @@ def get_status_filename_data(dataset_path: PathLike) -> list:
 
     return file_content
 
+def read_json_as_dict(filepath: str) -> dict:
+    """
+    Reads a json as dictionary.
+    Parameters
+    ------------------------
+    filepath: PathLike
+        Path where the json is located.
+    Returns
+    ------------------------
+    dict:
+        Dictionary with the data the json has.
+    """
+
+    dictionary = {}
+
+    if os.path.exists(filepath):
+        with open(filepath) as json_file:
+            dictionary = json.load(json_file)
+
+    return dictionary
+
 
 def any_hdf5(filepaths: List[str]) -> bool:
     """
