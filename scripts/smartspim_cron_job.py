@@ -428,9 +428,13 @@ def main():
     config_file_path = config_param.args["config_file"]
     config = get_default_config(config_file_path)
 
+    # Code ocean credentials
     os.environ["CODEOCEAN_CREDENTIALS_PATH"] = config[
         "codeocean_credentials_path"
     ]
+
+    # Exiftool path for image validation
+    os.environ["PATH"] = f"{config['exiftool_path']}:{os.environ['PATH']}"
 
     # Get raw smartspim folders with processing_manifest.json
     root_folder = Path(config["root_folder"])
@@ -449,7 +453,7 @@ def main():
     # List of datasets with its pipeline configuration
     pending_datasets_config = get_upload_datasets(
         dataset_folder=root_folder,
-        config_path="derivatives/processing_manifest.json"
+        config_path="derivatives/processing_manifest.json" # Pointing to this folder due to data conventions
     )
 
     # Uploading datasets using the HPC
@@ -469,7 +473,7 @@ def main():
 
     logger.info(f"Uploading {pending_datasets}")
 
-    for dataset in pending_datasets:
+    for dataset in pending_datasets_config:
         dataset["co_capsule_id"] = co_capsule_id
         dataset_path = Path(root_folder).joinpath(dataset["path"])
         dataset_name = dataset_path.stem
