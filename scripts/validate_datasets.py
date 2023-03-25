@@ -14,10 +14,6 @@ from typing import List, Union
 import exiftool
 from tqdm import tqdm
 
-os.environ[
-    "PATH"
-] = f"/allen/aind/scratch/camilo.laiton/exitftool/Image-ExifTool-12.57:{os.environ['PATH']}"
-
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s : %(message)s",
@@ -490,18 +486,15 @@ def validate_dataset(
     return True
 
 
-def main():
+def usage_example():
     """
-    Nothing fancy, but a script that check the status
-    of each dataset in terms of # of tiles.
+    Usage example function. Please, provide your paths!
     """
 
-    BASE_PATH = Path("/allen/aind/stage/SmartSPIM")
-    # BASE_PATH = Path("/net/aind.vast01/aind/SmartSPIM_Data/")
-    # DATASET_PATH = BASE_PATH.joinpath("SmartSPIM_643634_2023-02-10_12-48-15/SmartSPIM")
-    # DATASET_PATH = BASE_PATH.joinpath("SmartSPIM_AK015_2023-02-22_02-02-29/SmartSPIM")
+    BASE_PATH = Path("BASE_PATH")
+    DATASET_PATH = BASE_PATH.joinpath("DATASET_PATH")
 
-    error_dataset_paths = "/net/aind.vast01/aind/SmartSPIM_Data/dataset_errors_SmartSPIM_DATA_folder.txt"
+    error_dataset_paths = "PATH_TO_OUTPUT_LOG_ERRORS.txt"
 
     search_datasets = True
     validate_mdata = False
@@ -547,6 +540,12 @@ def main():
     join_lists = datasets_with_problems + check_paths
     txt = "\n".join(join_lists)
     save_string_to_txt(txt, error_dataset_paths)
+
+def main():
+    """
+    Usage example
+    """
+    usage_example()
 
 
 if __name__ == "__main__":
