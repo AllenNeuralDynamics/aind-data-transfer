@@ -144,11 +144,6 @@ def run_local_job(
     return n_failed_uploads
 
 
-# Check dataset status
-STATUS = ["PENDING", "UPLOADED"]
-STATUS_FILENAME = "DATASET_STATUS.txt"
-
-
 def get_smartspim_config(job_config: dict, pipeline_config: dict) -> dict:
     def get_key(job_cnf, key):
         if key in pipeline_config:
@@ -160,6 +155,121 @@ def get_smartspim_config(job_config: dict, pipeline_config: dict) -> dict:
         job_config = get_key(job_config, step)
 
     return job_config
+
+def pre_upload_smartspim(args:dict):
+    """
+    Steps that need to be performed
+    before uploading data to the cloud
+
+    Parameters
+    ----------
+    args: dict
+        Dictionary with the script
+        arguments
+    """
+    input_path = args.input
+
+    processing_manifest_path = "derivatives/processing_manifest.json"
+    dataset_config_path = Path(input_path).joinpath(processing_manifest_path)
+    msg = f"uploading"
+
+    file_utils.update_json_key(
+        json_path=dataset_config_path,
+        key="dataset_status",
+        new_value=msg
+    )
+
+def post_upload_smartspim(
+    args: dict,
+    s3_path:str,
+    n_failed_uploads: int
+):
+    """
+    Post upload function for the smartspim
+    datasets
+
+    Parameters
+    ----------
+    args: dict
+        Dictionary with the script
+        arguments
+    
+    s3_path: str
+        s3 path where the data was
+        uploaded
+    
+    n_failed_uploads: int
+        Number of failed uploads
+    """
+
+    if not n_failed_uploads:
+
+        # Unpackaging args for easy code reading
+        input_path = args.input
+        bucket = args.bucket
+        trigger_code_ocean = args.trigger_code_ocean
+        pipeline_config = None
+        if len(args.pipeline_config):
+            pipeline_config = args.pipeline_config.replace("[token]", '"')
+            pipeline_config = json.loads(pipeline_config)
+
+        # Updating dataset_status in processing manifest
+        now_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+        processing_manifest_path = "derivatives/processing_manifest.json"
+        dataset_config_path = Path(input_path).joinpath(processing_manifest_path)
+        msg = f"uploaded - Upload time: {now_datetime} - Bucket: {bucket}"
+
+        file_utils.update_json_key(
+            json_path=dataset_config_path,
+            key="dataset_status",
+            new_value=msg
+        )
+
+        # Triggering code ocean if necessary
+        if trigger_code_ocean and pipeline_config:
+            logger.info(f"Triggering code ocean {pipeline_config}")
+            asset_name = PurePath(s3_path).stem
+
+            job_configs = {
+                "trigger_codeocean_job": {
+                    "job_type": "smartspim",
+                    "bucket": bucket,
+                    "prefix": asset_name,
+                }
+            }
+
+            job_configs["trigger_codeocean_job"] = get_smartspim_config(
+                job_configs["trigger_codeocean_job"], pipeline_config
+            )
+
+            capsule_id = pipeline_config["co_capsule_id"]
+
+            try:
+                co_cred = CodeOceanCredentials().credentials
+
+                co_api = CodeOceanClient(
+                    domain=co_cred["domain"], token=co_cred["token"]
+                )
+
+                run_response = co_api.run_capsule(
+                    capsule_id=capsule_id,
+                    data_assets=[],
+                    parameters=[json.dumps(job_configs)],
+                )
+                logger.info(f"Run response: {run_response.json()}")
+
+            except ValueError as err:
+                logger.error(f"Error communicating with Code Ocean API {err}")
+
+        else:
+            logger.warning(
+                "Code ocean was not triggered. If this is an error, check your parameters"
+            )
+    
+    else:
+        logger.error(f"n failed uploads: {n_failed_uploads}. Please, validate.")
+        logger.error(f"Skipping code ocean execution!")
 
 
 def main():
@@ -227,6 +337,12 @@ def main():
         help="directories to exclude from upload",
     )
     parser.add_argument(
+        "--type_spim",
+        type=str,
+        default="",
+        help='Type of SPIM dataset. e.g., SmartSPIM, ExASPIM, diSPIM...',
+    )
+    parser.add_argument(
         "--trigger_code_ocean",
         default=False,
         action="store_true",
@@ -241,15 +357,11 @@ def main():
 
     args = parser.parse_args()
 
-    pipeline_config = None
-    if len(args.pipeline_config):
-        pipeline_config = args.pipeline_config.replace("[token]", '"')
-        pipeline_config = json.loads(pipeline_config)
-
     input_path = args.input
     bucket = args.bucket
     n_failed_uploads = -1
     trigger_code_ocean = args.trigger_code_ocean
+    type_spim = args.type_spim.casefold()
 
     s3_path = args.s3_path
     if s3_path is None:
@@ -260,6 +372,14 @@ def main():
     logger.info(f"Will upload to {args.bucket}/{s3_path}")
 
     t0 = time.time()
+
+    # pre_upload processes
+    if type_spim == "smartspim":
+        pre_upload_smartspim(
+            args
+        )
+
+    # Uploading data
     if args.cluster:
         n_failed_uploads = run_cluster_job(
             input_dir=input_path,
@@ -287,51 +407,12 @@ def main():
 
     logger.info(f"Upload done. Took {time.time() - t0}s ")
 
-    if not n_failed_uploads:
-        now_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        file_utils.write_list_to_txt(
-            str(PurePath(input_path).joinpath(STATUS_FILENAME)),
-            ["UPLOADED", f"Upload time: {now_datetime}", f"Bucket: {bucket}"],
-        )
-
-    if trigger_code_ocean and pipeline_config and not n_failed_uploads:
-        logger.info(f"Triggering code ocean {pipeline_config}")
-        asset_name = PurePath(s3_path).stem
-
-        job_configs = {
-            "trigger_codeocean_job": {
-                "job_type": "smartspim",
-                "bucket": bucket,
-                "prefix": asset_name,
-            }
-        }
-
-        job_configs["trigger_codeocean_job"] = get_smartspim_config(
-            job_configs["trigger_codeocean_job"], pipeline_config
-        )
-
-        capsule_id = pipeline_config["co_capsule_id"]
-
-        try:
-            co_cred = CodeOceanCredentials().credentials
-
-            co_api = CodeOceanClient(
-                domain=co_cred["domain"], token=co_cred["token"]
-            )
-
-            run_response = co_api.run_capsule(
-                capsule_id=capsule_id,
-                data_assets=[],
-                parameters=[json.dumps(job_configs)],
-            )
-            logger.info(f"Run response: {run_response.json()}")
-
-        except ValueError as err:
-            logger.error(f"Error communicating with Code Ocean API {err}")
-
-    else:
-        logger.warning(
-            "Code ocean was not triggered. If this is an error, check your parameters"
+    # Different post processing executions for spim data
+    if type_spim == "smartspim":
+        post_upload_smartspim(
+            args,
+            s3_path,
+            n_failed_uploads
         )
 
 

@@ -5,7 +5,8 @@ import re
 import shutil
 import subprocess
 from pathlib import Path, PurePath, PurePosixPath
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Any
+import yaml
 
 from aind_data_transfer.util.io_utils import DataReaderFactory
 
@@ -469,6 +470,111 @@ def read_json_as_dict(filepath: str) -> dict:
 
     return dictionary
 
+def save_dict_as_json(filename: str, dictionary: dict) -> None:
+    """
+    Saves a dictionary as a json file.
+    Parameters
+    ------------------------
+    filename: str
+        Name of the json file.
+    dictionary: dict
+        Dictionary that will be saved as json.
+    """
+
+    if dictionary is None:
+        dictionary = {}
+
+    with open(filename, "w") as json_file:
+        json.dump(dictionary, json_file, indent=4)
+
+
+def update_json_key(
+    json_path: PathLike,
+    key:Any,
+    new_value: Any
+):
+    """
+    Updates a key of a json
+
+    Parameters
+    ----------
+    json_path: PathLike
+        Path where the json is located
+    
+    key: Any
+        Attribute to modify
+    
+    new_value: Any
+        New value to add
+    
+    Raises
+    ----------
+    FileNotFoundError
+        If the file does not exist, a file not found
+        error is thrown.
+    """
+
+    json_path = str(json_path)
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"{json_path} does not exist!")
+
+    json_data = file_utils.read_json_as_dict(
+        json_path
+    )
+
+    json_data[key] = new_value
+    file_utils.save_dict_as_json(
+        json_path,
+        json_data
+    )
+
+def write_dict_to_yaml(dictionary: dict, filename: PathLike) -> None:
+    """
+    Writes a dictionary to a YAML file.
+
+    Parameters
+    ------------------------
+    dictionary: dict
+        Dictionary with the data to be written.
+
+    filename: PathLike
+        Path where the YAML will be saved
+    """
+
+    with open(filename, "w") as outfile:
+        yaml.dump(dictionary, outfile, default_flow_style=False)
+
+def helper_validate_key_dict(
+    dictionary: dict,
+    key:Any,
+    default_return:Any=None
+) -> Any:
+    """
+    Helper function that validates if a key is
+    in a dictionary
+    Parameters
+    ----------
+    dictionary: dict
+        Dictionary from which we want to extract
+        the value of a key
+    key: Any
+        Key of the dictionary
+    
+    default_return: Any
+        Default return of the function
+        if the key does not exist.
+        Default None
+    
+    Returns
+    ---------
+    Any
+        Value of the key in the
+        dictionary
+    """
+    if key in dictionary:
+        return dictionary[key]
+
+    return default_return
 
 def any_hdf5(filepaths: List[str]) -> bool:
     """
