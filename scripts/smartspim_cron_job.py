@@ -1,13 +1,22 @@
-from argschema import ArgSchema, ArgSchemaParser
-import os
-import yaml
-from pathlib import Path
-import logging
 import json
-from typing import Tuple, Union, List
+import logging
+import os
+import sys
+import time
+import warnings
+from datetime import datetime
+from pathlib import Path
+from typing import Tuple, Union, Optional
+
+import s3_upload
+import yaml
+from argschema import ArgSchema, ArgSchemaParser
+from argschema.fields import Dict, InputFile, Int, List, Str
+from validate_datasets import validate_dataset
 
 from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
 from aind_data_transfer.util import file_utils
+from aind_data_transfer.writers.imaging_writers import SmartSPIMWriter
 
 warnings.filterwarnings("ignore")
 
@@ -71,14 +80,6 @@ class CopyDatasets(ArgSchema):
         },
     )
 
-    organize_smartspim_datasets = List(
-        Dict(),
-        required=True,
-        metadata={
-            "description": "Datasets that will be organized and uploaded"
-        },
-    )
-
     dest_data_dir = Str(
         required=False,
         metadata={
@@ -96,6 +97,17 @@ class CopyDatasets(ArgSchema):
         required=True,
         metadata={"description": "Number of threads to upload data"},
         dump_default=1,
+    )
+
+    exiftool_path = Str(
+        required=True,
+        metadata={"description": "Path to exiftool"},
+    )
+
+    info_manager_path = Str(
+        required=False,
+        metadata={"description": "Path to output status of smartspim datasets"},
+        dump_default=None
     )
 
 
@@ -128,11 +140,35 @@ def get_default_config(filename: str) -> dict:
 def get_smartspim_folders_with_file(
     root_folder:PathLike,
     search_file:str
-) -> Tuple[List[str]]:
-    raw_smartspim_datasets = SmartSPIMReader.read_raw_smartspim_folders(
-        dataset_folder
-    )
+) -> Tuple[List]:
+    """
+    Get the smartspim folder that
+    contain the search filename in
+    the top level directory.
+
+    Parameters
+    ----------
+    root_folder: PathLike
+        Path to the root folder where
+        the smartspim datasets are located
+    
+    search_file: str
+        Filename to search
+    
+    Returns
+    ----------
+    Tuple[List[str]]
+        Returns a tuple with two
+        positions. The first one corresponds
+        to the smartspim datasets that contain
+        the provided filename, while the second
+        one provides the rejected datasets
+    """
+
     root_folder = Path(root_folder)
+    raw_smartspim_datasets = SmartSPIMReader.read_raw_smartspim_folders(
+        root_folder
+    )
 
     raw_datasets_accepted = []
     raw_datasets_rejected = []
@@ -182,26 +218,31 @@ def organize_datasets(
         with the pipeline configuration of those
         datasets
     """
+    new_dataset_paths = []
+    ready_datasets = []
 
-    if datasets:
+    if isinstance(datasets, list):
         for dataset in datasets:
             dataset_path = Path(root_folder).joinpath(dataset)
 
             if not os.path.isdir(dataset_path):
+                logger.info(f"Dataset {dataset_path} does not exist.")
                 continue
 
             logger.info(f"Validating dataset {dataset_path}")
             
             if validate_dataset(dataset_path):
+                
+                json_path_config = dataset_path.joinpath(config_filename)
 
                 # Reading `processing_manifest.json`
                 dataset_config = file_utils.read_json_as_dict(
-                    dataset_path.joinpath(config_filename)
+                    json_path_config
                 )
 
                 if "dataset_status" not in dataset_config:
                     logger.error(
-                        f"Ignoring dataset {dataset_path}, it does not have the dataset status attribute."
+                        f"Ignoring dataset {dataset_path}, it does not have the dataset status attribute or json does not exist."
                     )
                 
                 elif dataset_config["dataset_status"].casefold() == "pending":
@@ -236,7 +277,7 @@ def get_smartspim_default_config() -> dict:
     for the smartspim pipeline
     """
     return {
-        "stitching": {"co_folder": "scratch", "channel": "0"},
+        "stitching": {"co_folder": "scratch", "channel": "Ex_488_Em_525", "resolution": {"x":"1.8", "y":"1.8", "z":"2.0"}},
         "registration": {"channels": ["Ex_488_Em_525"], "input_scale": "3"},
         # 'segmentation': {
         #     'channels': ['Ex_488_Em_525'],
@@ -268,37 +309,37 @@ def build_pipeline_config(
     
     new_config = default_config.copy()
 
-    stitching_channel = helper_validate_key_dict(
+    stitching_config = file_utils.helper_validate_key_dict(
         provided_config,
-        "stitching_channel"
+        "stitching"
     )
 
-    cell_segmentation_channels = helper_validate_key_dict(
+    cell_segmentation_channels = file_utils.helper_validate_key_dict(
         provided_config,
         "cell_segmentation_channels"
     )
 
-    ccf_registration_channels = helper_validate_key_dict(
+    ccf_registration_channels = file_utils.helper_validate_key_dict(
         provided_config,
         "ccf_registration_channels"
     )
 
     # Setting stitching channel
-    if stitching_channel is not None:
-        new_config["stitching"]["channel"] = stitching_channel
+    if stitching_config is not None:
+        new_config["stitching"]["channel"] = stitching_config["channel"]
+        new_config["stitching"]["resolution"]["x"] = str(stitching_config["resolution"]["x"])
+        new_config["stitching"]["resolution"]["y"] = str(stitching_config["resolution"]["y"])
+        new_config["stitching"]["resolution"]["z"] = str(stitching_config["resolution"]["z"])
     
     else:
         default_ch = new_config["stitching"]["channel"]
-        logger.info(f"Using default stitching channel {default_ch}")
+        x_res = new_config["stitching"]["resolution"]["x"]
+        y_res = new_config["stitching"]["resolution"]["y"]
+        z_res = new_config["stitching"]["resolution"]["z"]
 
-    # Setting cell segmentation channels
-    if cell_segmentation_channels is not None:
-        new_config["segmentation"]["channels"] = cell_segmentation_channels
+        res = f"x={x_res} um, y={y_res} um and z={z_res} um"
+        logger.info(f"Using default stitching channel {default_ch} and resolution {res}")
 
-    else:
-        default_ch = new_config["segmentation"]["channels"]
-        logger.info(f"Using default segmentation channel {default_ch}")
-    
     # Setting CCF registration
     if ccf_registration_channels is not None:
         new_config["registration"]["channels"] = ccf_registration_channels
@@ -306,13 +347,22 @@ def build_pipeline_config(
     else:
         default_ch = new_config["registration"]["channels"]
         logger.info(f"Using default registration channel {default_ch}")
+
+    # Setting cell segmentation channels
+    if cell_segmentation_channels is not None:
+        new_config["segmentation"] = {}
+        new_config["segmentation"]["channels"] = cell_segmentation_channels
+
+    else:
+        logger.info(f"No segmentation!")
     
     return new_config
 
 def get_upload_datasets(
     dataset_folder: PathLike,
-    config_path: PathLike
-) -> List[dict]:
+    config_path: PathLike,
+    info_manager_path:Optional[PathLike]=None
+) -> List:
     """
     This function gets the datasets and
     classifies them in pending, uploaded
@@ -342,28 +392,32 @@ def get_upload_datasets(
         for the datasets 
     """
 
+    # Lists for classifying datasets
     pending_datasets = []
     uploading_datasets = []
     uploaded_datasets = []
     warning_datasets = []
 
+    # List of pending datasets with pipeline configuration
+    # built just like code ocean accepts it
     pending_datasets_config = []
     default_pipeline_config = get_smartspim_default_config()
 
+    # Get smartspim datasets that match data conventions
     dataset_folder = Path(dataset_folder)
-    # Get smartspim datasets
     smartspim_datasets = SmartSPIMReader.read_smartspim_folders(dataset_folder)
 
     # Checking status
     for dataset in smartspim_datasets:
         dataset_path = dataset_folder.joinpath(dataset)
 
+        # Reading config json
         dataset_config = file_utils.read_json_as_dict(
             dataset_path.joinpath(config_path)
         )
-        dataset_path = str(dataset_path)
 
-        dataset_status = helper_validate_key_dict(dataset_config, "dataset_status")
+        dataset_path = str(dataset_path)
+        dataset_status = file_utils.helper_validate_key_dict(dataset_config, "dataset_status")
 
         if dataset_status is None:
             warning_datasets.append(dataset_path)
@@ -373,11 +427,11 @@ def get_upload_datasets(
         dataset_status = dataset_status.casefold()
 
         # Getting pipeline configuration to dataset
-        pipeline_processing = helper_validate_key_dict(dataset_config, "pipeline_processing")
+        pipeline_processing = file_utils.helper_validate_key_dict(dataset_config, "pipeline_processing")
 
         if dataset_status == "pending" and pipeline_processing is not None:
+            # Datasets to upload
             pending_datasets.append(dataset_path)
-
             pending_datasets_config.append(
                 {
                     "path": dataset_path,
@@ -389,12 +443,16 @@ def get_upload_datasets(
             )
         
         elif dataset_status == "uploading":
+            # Datasets that are currently being uploaded
             uploading_datasets.append(dataset_path)
-            
-        elif dataset_status == "uploaded":
+        
+        # Using in instead of == since I add the upload time and s3 path
+        elif "uploaded" in dataset_status:
+            # Uploaded datasets
             uploaded_datasets.append(dataset_path)
 
         else:
+            # Datasets that have issues
             warning_datasets.append(dataset_path)
 
     info_manager = {
@@ -405,8 +463,8 @@ def get_upload_datasets(
         "warning": warning_datasets,
     }
 
-    info_manager_path = dataset_folder.joinpath("info_manager.yaml")
-    write_dict_to_yaml(info_manager, info_manager_path)
+    info_manager_path = info_manager_path if info_manager_path is not None else dataset_folder.joinpath("status_smartspim_datasets.yaml")
+    file_utils.write_dict_to_yaml(info_manager, info_manager_path)
 
     return pending_datasets_config
 
@@ -440,9 +498,11 @@ def main():
     root_folder = Path(config["root_folder"])
 
     raw_datasets_ready, raw_datasets_rejected = get_smartspim_folders_with_file(
-        root_folder=root_folder
+        root_folder=root_folder,
         search_file="processing_manifest.json"
     )
+
+    logger.info(f"Raw datasets rejected: {raw_datasets_rejected}")
 
     new_dataset_paths, ready_datasets = organize_datasets(
         root_folder,
@@ -450,11 +510,16 @@ def main():
         config["metadata_service_domain"],
     )
 
+    processing_manifest_path = "derivatives/processing_manifest.json"
     # List of datasets with its pipeline configuration
     pending_datasets_config = get_upload_datasets(
         dataset_folder=root_folder,
-        config_path="derivatives/processing_manifest.json" # Pointing to this folder due to data conventions
+        config_path=processing_manifest_path, # Pointing to this folder due to data conventions
+        info_manager_path=config["info_manager_path"]
     )
+
+    print(pending_datasets_config)
+    exit()
 
     # Uploading datasets using the HPC
     sys.argv = [""]
@@ -474,8 +539,10 @@ def main():
     logger.info(f"Uploading {pending_datasets}")
 
     for dataset in pending_datasets_config:
+        # Adding the CO capsule to the dataset config
         dataset["co_capsule_id"] = co_capsule_id
-        dataset_path = Path(root_folder).joinpath(dataset["path"])
+
+        dataset_path = dataset["path"]
         dataset_name = dataset_path.stem
 
         if os.path.isdir(dataset_path):
@@ -519,20 +586,19 @@ def main():
                 s3_upload.main()
 
                 now_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                file_utils.write_list_to_txt(
-                    str(dataset_path.joinpath(STATUS_FILENAME)),
-                    [
-                        "UPLOADED",
-                        f"Upload time: {now_datetime}",
-                        f"Bucket: {s3_bucket}",
-                    ],
+                dataset_config_path = Path(dataset_path).joinpath(config_path)
+                msg = f"uploaded - Upload time: {now_datetime} - Bucket: {s3_bucket}"
+
+                file_utils.update_json_key(
+                    json_path=dataset_config_path,
+                    key="dataset_status",
+                    new_value=msg
                 )
 
         else:
             logger.warning(f"Path {dataset_path} does not exist. Ignoring...")
 
     pending_datasets = get_upload_datasets(root_folder)
-
 
 
 if __name__ == "__main__":

@@ -3,13 +3,14 @@ import os
 import re
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import Tuple, Union, List, Any
+from typing import List, Tuple, Union, Any
 
 from aind_data_schema import Funding, RawDataDescription, Subject
+from aind_data_schema.data_description import Institution, Group, Modality
 from aind_data_schema.imaging import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
-from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
+from aind_data_transfer.readers.imaging_readers import SmartSPIMReader, ImagingReaders
 from aind_data_transfer.util import file_utils
 
 PathLike = Union[str, Path]
@@ -182,40 +183,6 @@ def make_acq_tiles(lc_mdata: bytes, filter_mapping:dict):
     return tiles
 
 
-def helper_validate_key_dict(
-    dictionary: dict,
-    key:Any,
-    default_return:Any=None
-) -> Any:
-    """
-    Helper function that validates if a key is
-    in a dictionary
-
-    Parameters
-    ----------
-    dictionary: dict
-        Dictionary from which we want to extract
-        the value of a key
-
-    key: Any
-        Key of the dictionary
-    
-    default_return: Any
-        Default return of the function
-        if the key does not exist.
-        Default None
-    
-    Returns
-    ---------
-    Any
-        Value of the key in the
-        dictionary
-    """
-    if key in dictionary:
-        return dictionary[key]
-
-    return default_return
-
 class SmartSPIMWriter:
     """This class contains the methods to write smartspim data."""
 
@@ -346,10 +313,10 @@ class SmartSPIMWriter:
         else:
             institution = dataset_info["institution"]
 
-        funding_source = helper_validate_key_dict(dictionary=dataset_info, key="funding_source", default_return=institution)
-        project_name = helper_validate_key_dict(dictionary=dataset_info, key="project")
-        project_id = helper_validate_key_dict(dictionary=dataset_info, key="project_id")
-        group = helper_validate_key_dict(dictionary=dataset_info, key="group", default_return="MSMA")
+        funding_source = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="funding_source", default_return=institution)
+        project_name = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="project")
+        project_id = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="project_id")
+        group = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="group", default_return="MSMA")
 
         # Creating data description
         data_description = RawDataDescription(
@@ -497,11 +464,11 @@ class SmartSPIMWriter:
         session_end_time = get_session_end(asi_file)
 
         # Validating data in config
-        instrument_id = helper_validate_key_dict(dictionary=dataset_info, key="instrument_id")
-        experimenter_full_name = helper_validate_key_dict(dictionary=dataset_info, key="experimenter")
-        local_storage_directory = helper_validate_key_dict(dictionary=dataset_info, key="local_storage_directory")
-        immersion_medium = helper_validate_key_dict(dictionary=dataset_info["immersion"], key="medium")
-        immersion_ri = helper_validate_key_dict(dictionary=dataset_info["immersion"], key="refractive_index")
+        instrument_id = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="instrument_id")
+        experimenter_full_name = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="experimenter")
+        local_storage_directory = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="local_storage_directory")
+        immersion_medium = file_utils.helper_validate_key_dict(dictionary=dataset_info["immersion"], key="medium")
+        immersion_ri = file_utils.helper_validate_key_dict(dictionary=dataset_info["immersion"], key="refractive_index")
 
         # Giving the specific error of what is missing
         if instrument_id is None:
@@ -632,7 +599,7 @@ class SmartSPIMWriter:
             dataset_path = dataset_info["path"]
 
             if os.path.isdir(dataset_path):
-                logger.info(f"Organizing: {dataset_path}\n")
+                logger.info(f"\nOrganizing: {dataset_path}")
                 (
                     new_dataset_path,
                     parsed_data,
@@ -709,12 +676,15 @@ class ExASPIMWriter:
     def __init__(self, dataset_path: PathLike, metadata_domain: str):
         """
         Class constructor.
+
         Parameters
         ------------------------
         dataset_path: PathLike
             path to the top-level folder of the ExASPIM dataset
+
         metadata_domain: str
             Metadata domain
+
         """
         self.__dataset_path = dataset_path
         self.__mouse_id, self.__acq_date = self.__parse_dataset(dataset_path)
@@ -723,10 +693,12 @@ class ExASPIMWriter:
     def __parse_dataset(self, dataset_path) -> Tuple[str, datetime]:
         """
         Parses mouse ID and acquisition date from the dataset path.
+
         Parameters
         ------------------------
         dataset_path: PathLike
             path to the top-level folder of the ExASPIM dataset
+
         Returns
         ------------------------
         Tuple
@@ -758,6 +730,7 @@ class ExASPIMWriter:
     def write_subject(self, output: PathLike) -> None:
         """
         Creates the subject.json file.
+
         Parameters
         ------------------------
         output: PathLike
@@ -801,6 +774,7 @@ class ExASPIMWriter:
     def write_procedures(self, output: PathLike) -> None:
         """
         Creates the procedures.json file
+
         Parameters
         ------------------------
         output: PathLike
@@ -820,10 +794,12 @@ class ExASPIMWriter:
     def write_data_description(self, output: PathLike) -> None:
         """
         Creates the data_description.json file.
+
         Parameters
         ------------------------
         output: PathLike
             directory to write the data_description.json file
+
         """
         # Creating data description
         data_description = RawDataDescription(
