@@ -1,3 +1,5 @@
+import re
+from enum import Enum
 from typing import Union, List
 
 import dask.array as da
@@ -5,6 +7,7 @@ import numpy as np
 
 
 class Deinterleave:
+
     @staticmethod
     def deinterleave(
         a: Union[da.Array, np.ndarray],
@@ -39,7 +42,37 @@ class Deinterleave:
         return channels
 
 
+class ChannelParser:
+
+    class RegexPatterns(Enum):
+        channel_pattern = r"ch_([0-9_]{3,})\."
+
+    @staticmethod
+    def parse_channel_names(filepath: str):
+        """
+        Parse the channel wavelengths from a filepath
+
+        Parameters
+        ----------
+        filepath: str
+          the path to the interleaved image
+
+        Returns
+        -------
+        List of channel wavelength strings, e.g., ["488", "561"]
+        """
+        m = re.search(ChannelParser.RegexPatterns.channel_pattern.value, filepath)
+        if m is None:
+            raise ValueError(f"file name does not match channel pattern: {filepath}")
+        wavelengths = m.group(1).strip().split("_")
+        return wavelengths
+
+
 if __name__ == "__main__":
+    path = "/home/cameron.arshadi/data/tile_X_0002_Y_0000_Z_0000_ch_488_561_688.tiff"
+    names = ChannelParser.parse_channel_names(path)
+    print(names)
+
     a = da.zeros(shape=(384, 128, 128), dtype=int)
     num_channels = 3
     a[1::num_channels, ...] = 1
@@ -48,3 +81,5 @@ if __name__ == "__main__":
     for c in channels:
         print(c.sum().compute())
         print(c.shape)
+
+    print(dict(zip(names, channels)))
