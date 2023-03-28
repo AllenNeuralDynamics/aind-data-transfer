@@ -27,7 +27,7 @@ class Deinterleave:
         -------
         List of dask or numpy arrays representing each deinterleaved channel
         """
-        if not a.shape[axis] % num_channels == 0:
+        if a.shape[axis] % num_channels != 0:
             raise Exception(
                 f"axis {axis} with shape {a.shape[axis]} not divisible by {num_channels}"
             )
