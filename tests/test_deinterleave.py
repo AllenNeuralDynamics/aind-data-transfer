@@ -3,7 +3,7 @@ import unittest
 import dask.array as da
 import numpy as np
 
-from src.aind_data_transfer.transformations.deinterleave import Deinterleave
+from aind_data_transfer.transformations.deinterleave import Deinterleave
 
 
 def _create_interleaved_array(shape, num_channels, array_type):
