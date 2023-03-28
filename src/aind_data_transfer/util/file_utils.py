@@ -5,7 +5,8 @@ import re
 import shutil
 import subprocess
 from pathlib import Path, PurePath, PurePosixPath
-from typing import List, Optional, Tuple, Union, Any
+from typing import Any, List, Optional, Tuple, Union
+
 import yaml
 
 from aind_data_transfer.util.io_utils import DataReaderFactory
@@ -65,7 +66,9 @@ def get_images(
     if exclude is None:
         exclude = []
     image_paths = collect_filepaths(
-        image_folder, recursive=recursive, include_exts=include_exts,
+        image_folder,
+        recursive=recursive,
+        include_exts=include_exts,
     )
 
     exclude_paths = set()
@@ -282,7 +285,6 @@ def move_folders_or_files(
             if mode == "move":
                 shutil.move(str(move_path), str(dest_path))
             elif mode == "copy":
-
                 dest_copy_path = dest_path.joinpath(element)
 
                 if os.path.isdir(move_path):
@@ -359,7 +361,6 @@ def save_dict_as_json(
 
 
 def execute_command(command: str, print_command: bool = False) -> None:
-
     """
     Execute a shell command.
 
@@ -435,7 +436,6 @@ def get_status_filename_data(dataset_path: PathLike) -> list:
     file_content = []
 
     if os.path.isdir(dataset_path):
-
         filename_path = [
             dataset_path.joinpath(f)
             for f in os.listdir(dataset_path)
@@ -448,6 +448,7 @@ def get_status_filename_data(dataset_path: PathLike) -> list:
         file_content = read_text_to_list(filename_path[0])
 
     return file_content
+
 
 def read_json_as_dict(filepath: str) -> dict:
     """
@@ -470,6 +471,7 @@ def read_json_as_dict(filepath: str) -> dict:
 
     return dictionary
 
+
 def save_dict_as_json(filename: str, dictionary: dict) -> None:
     """
     Saves a dictionary as a json file.
@@ -488,11 +490,7 @@ def save_dict_as_json(filename: str, dictionary: dict) -> None:
         json.dump(dictionary, json_file, indent=4)
 
 
-def update_json_key(
-    json_path: PathLike,
-    key:Any,
-    new_value: Any
-):
+def update_json_key(json_path: PathLike, key: Any, new_value: Any):
     """
     Updates a key of a json
 
@@ -500,13 +498,13 @@ def update_json_key(
     ----------
     json_path: PathLike
         Path where the json is located
-    
+
     key: Any
         Attribute to modify
-    
+
     new_value: Any
         New value to add
-    
+
     Raises
     ----------
     FileNotFoundError
@@ -518,15 +516,11 @@ def update_json_key(
     if not os.path.exists(json_path):
         raise FileNotFoundError(f"{json_path} does not exist!")
 
-    json_data = file_utils.read_json_as_dict(
-        json_path
-    )
+    json_data = read_json_as_dict(json_path)
 
     json_data[key] = new_value
-    file_utils.save_dict_as_json(
-        json_path,
-        json_data
-    )
+    save_dict_as_json(json_path, json_data)
+
 
 def write_dict_to_yaml(dictionary: dict, filename: PathLike) -> None:
     """
@@ -544,10 +538,9 @@ def write_dict_to_yaml(dictionary: dict, filename: PathLike) -> None:
     with open(filename, "w") as outfile:
         yaml.dump(dictionary, outfile, default_flow_style=False)
 
+
 def helper_validate_key_dict(
-    dictionary: dict,
-    key:Any,
-    default_return:Any=None
+    dictionary: dict, key: Any, default_return: Any = None
 ) -> Any:
     """
     Helper function that validates if a key is
@@ -559,12 +552,12 @@ def helper_validate_key_dict(
         the value of a key
     key: Any
         Key of the dictionary
-    
+
     default_return: Any
         Default return of the function
         if the key does not exist.
         Default None
-    
+
     Returns
     ---------
     Any
@@ -575,6 +568,7 @@ def helper_validate_key_dict(
         return dictionary[key]
 
     return default_return
+
 
 def any_hdf5(filepaths: List[str]) -> bool:
     """

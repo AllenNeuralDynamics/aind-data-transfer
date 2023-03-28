@@ -3,14 +3,17 @@ import os
 import re
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import List, Tuple, Union, Any
+from typing import Any, List, Tuple, Union
 
 from aind_data_schema import Funding, RawDataDescription, Subject
-from aind_data_schema.data_description import Institution, Group, Modality
+from aind_data_schema.data_description import Group, Institution, Modality
 from aind_data_schema.imaging import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
-from aind_data_transfer.readers.imaging_readers import SmartSPIMReader, ImagingReaders
+from aind_data_transfer.readers.imaging_readers import (
+    ImagingReaders,
+    SmartSPIMReader,
+)
 from aind_data_transfer.util import file_utils
 
 PathLike = Union[str, Path]
@@ -43,7 +46,7 @@ def digest_asi_line(line: str) -> datetime:
     datetime
         A date that could be parsed from a string
     """
-    
+
     if line.isspace():
         return None
     else:
@@ -59,7 +62,7 @@ def digest_asi_line(line: str) -> datetime:
             hms[0] = 0
 
     ymdhms = ymd + hms
-    
+
     dtime = datetime(*ymdhms)
     ymd = date(*ymd)
     hms = time(*hms)
@@ -116,7 +119,7 @@ def get_scale(lc_mdata) -> tile.Scale3dTransform:
     return scale
 
 
-def make_acq_tiles(lc_mdata: bytes, filter_mapping:dict):
+def make_acq_tiles(lc_mdata: bytes, filter_mapping: dict):
     """
     Makes metadata for the acquired tiles of
     the dataset
@@ -134,22 +137,21 @@ def make_acq_tiles(lc_mdata: bytes, filter_mapping:dict):
     """
 
     channels = {}
-    
+
     wavelength_line = None
     tiles_line = None
 
     for idx_line in range(len(lc_mdata)):
-        
         if "Wavelength" in str(lc_mdata[idx_line]):
             wavelength_line = idx_line + 1
-        
+
         elif "Skip" in str(lc_mdata[idx_line]):
             tiles_line = idx_line + 1
 
     tiles = []
 
     if wavelength_line and tiles_line:
-        for idx, l in enumerate(lc_mdata[wavelength_line:tiles_line-1]):
+        for idx, l in enumerate(lc_mdata[wavelength_line : tiles_line - 1]):
             wavelength, powerl, powerr = [float(j) for j in l.split()]
 
             channel = tile.Channel(
@@ -267,7 +269,7 @@ class SmartSPIMWriter:
         date_time_obj = datetime.strptime(
             date_str + time_str, "%Y%m%d%H_%M_%S"
         )
-        
+
         date_fmt = "%Y-%m-%d"
         date_str = date_time_obj.strftime(date_fmt)
 
@@ -313,10 +315,20 @@ class SmartSPIMWriter:
         else:
             institution = dataset_info["institution"]
 
-        funding_source = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="funding_source", default_return=institution)
-        project_name = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="project")
-        project_id = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="project_id")
-        group = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="group", default_return="MSMA")
+        funding_source = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info,
+            key="funding_source",
+            default_return=institution,
+        )
+        project_name = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="project"
+        )
+        project_id = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="project_id"
+        )
+        group = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="group", default_return="MSMA"
+        )
 
         # Creating data description
         data_description = RawDataDescription(
@@ -394,10 +406,7 @@ class SmartSPIMWriter:
                 f"Mouse {mouse_id} does not have subject information - res status: {response.status_code}"
             )
 
-    def __get_excitation_emission_waves(
-        self,
-        dataset_path: PathLike
-    ) -> dict:
+    def __get_excitation_emission_waves(self, dataset_path: PathLike) -> dict:
         """
         Gets the excitation and emission waves for
         the existing channels within a dataset
@@ -407,7 +416,7 @@ class SmartSPIMWriter:
         dataset_path: PathLike
             Path where the channels of the dataset
             are stored
-        
+
         Returns
         ------------
         dict
@@ -456,7 +465,9 @@ class SmartSPIMWriter:
 
         asi_file = original_dataset_path.joinpath("ASI_logging.txt")
         mdata_file = original_dataset_path.joinpath("metadata.txt")
-        filter_mapping = self.__get_excitation_emission_waves(original_dataset_path)
+        filter_mapping = self.__get_excitation_emission_waves(
+            original_dataset_path
+        )
 
         with open(mdata_file, "rb") as file:
             lc_mdata = file.readlines()
@@ -464,11 +475,21 @@ class SmartSPIMWriter:
         session_end_time = get_session_end(asi_file)
 
         # Validating data in config
-        instrument_id = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="instrument_id")
-        experimenter_full_name = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="experimenter")
-        local_storage_directory = file_utils.helper_validate_key_dict(dictionary=dataset_info, key="local_storage_directory")
-        immersion_medium = file_utils.helper_validate_key_dict(dictionary=dataset_info["immersion"], key="medium")
-        immersion_ri = file_utils.helper_validate_key_dict(dictionary=dataset_info["immersion"], key="refractive_index")
+        instrument_id = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="instrument_id"
+        )
+        experimenter_full_name = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="experimenter"
+        )
+        local_storage_directory = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="local_storage_directory"
+        )
+        immersion_medium = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["immersion"], key="medium"
+        )
+        immersion_ri = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["immersion"], key="refractive_index"
+        )
 
         # Giving the specific error of what is missing
         if instrument_id is None:
@@ -479,7 +500,7 @@ class SmartSPIMWriter:
 
         if immersion_medium is None:
             raise ValueError("Immersion medium not provided in manifest")
-        
+
         if immersion_ri is None:
             raise ValueError("Immersion ri not provided in manifest")
 
@@ -708,7 +729,9 @@ class ExASPIMWriter:
 
         m = re.match(self.__regexes.exaspim_acquisition.value, dataset_name)
         if not m:
-            raise Exception(f"Dataset name does not follow convention: {dataset_name}")
+            raise Exception(
+                f"Dataset name does not follow convention: {dataset_name}"
+            )
 
         mouse_id = m.group(1)
 
@@ -722,7 +745,7 @@ class ExASPIMWriter:
 
         date_obj = datetime.strptime(
             f"{c_year}-{c_month}-{c_day}-{c_hour}-{c_min}-{c_sec}",
-            "%Y-%m-%d-%H-%M-%S"
+            "%Y-%m-%d-%H-%M-%S",
         )
 
         return mouse_id, date_obj
@@ -785,7 +808,9 @@ class ExASPIMWriter:
         if response.status_code == 200:
             # FIXME: not clear what a valid response looks like yet
             data = response.json()["data"]
-            logger.warning(f"Procedures metadata found but parsing is not yet implemented: {data}")
+            logger.warning(
+                f"Procedures metadata found but parsing is not yet implemented: {data}"
+            )
         else:
             logger.error(
                 f"Mouse {self.__mouse_id} does not have procedures information - res status: {response.status_code}"
@@ -806,10 +831,14 @@ class ExASPIMWriter:
             modality=Modality.EXASPIM.value,
             subject_id=self.__mouse_id,
             creation_date=date(
-                self.__acq_date.year, self.__acq_date.month, self.__acq_date.day
+                self.__acq_date.year,
+                self.__acq_date.month,
+                self.__acq_date.day,
             ),
             creation_time=time(
-                self.__acq_date.hour, self.__acq_date.minute, self.__acq_date.second
+                self.__acq_date.hour,
+                self.__acq_date.minute,
+                self.__acq_date.second,
             ),
             institution=Institution.AIND.value,
             group=Group.MSMA.value,

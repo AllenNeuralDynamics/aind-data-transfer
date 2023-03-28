@@ -156,34 +156,8 @@ def get_smartspim_config(job_config: dict, pipeline_config: dict) -> dict:
 
     return job_config
 
-def pre_upload_smartspim(args:dict):
-    """
-    Steps that need to be performed
-    before uploading data to the cloud
 
-    Parameters
-    ----------
-    args: dict
-        Dictionary with the script
-        arguments
-    """
-    input_path = args.input
-
-    processing_manifest_path = "derivatives/processing_manifest.json"
-    dataset_config_path = Path(input_path).joinpath(processing_manifest_path)
-    msg = f"uploading"
-
-    file_utils.update_json_key(
-        json_path=dataset_config_path,
-        key="dataset_status",
-        new_value=msg
-    )
-
-def post_upload_smartspim(
-    args: dict,
-    s3_path:str,
-    n_failed_uploads: int
-):
+def post_upload_smartspim(args: dict, s3_path: str, n_failed_uploads: int):
     """
     Post upload function for the smartspim
     datasets
@@ -193,22 +167,22 @@ def post_upload_smartspim(
     args: dict
         Dictionary with the script
         arguments
-    
+
     s3_path: str
         s3 path where the data was
         uploaded
-    
+
     n_failed_uploads: int
         Number of failed uploads
     """
 
     if not n_failed_uploads:
-
         # Unpackaging args for easy code reading
         input_path = args.input
         bucket = args.bucket
         trigger_code_ocean = args.trigger_code_ocean
         pipeline_config = None
+
         if len(args.pipeline_config):
             pipeline_config = args.pipeline_config.replace("[token]", '"')
             pipeline_config = json.loads(pipeline_config)
@@ -217,13 +191,13 @@ def post_upload_smartspim(
         now_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
         processing_manifest_path = "derivatives/processing_manifest.json"
-        dataset_config_path = Path(input_path).joinpath(processing_manifest_path)
+        dataset_config_path = PurePath(input_path).joinpath(
+            processing_manifest_path
+        )
         msg = f"uploaded - Upload time: {now_datetime} - Bucket: {bucket}"
 
         file_utils.update_json_key(
-            json_path=dataset_config_path,
-            key="dataset_status",
-            new_value=msg
+            json_path=dataset_config_path, key="dataset_status", new_value=msg
         )
 
         # Triggering code ocean if necessary
@@ -240,7 +214,8 @@ def post_upload_smartspim(
             }
 
             job_configs["trigger_codeocean_job"] = get_smartspim_config(
-                job_configs["trigger_codeocean_job"], pipeline_config
+                job_configs["trigger_codeocean_job"],
+                pipeline_config["pipeline_processing"],
             )
 
             capsule_id = pipeline_config["co_capsule_id"]
@@ -266,19 +241,27 @@ def post_upload_smartspim(
             logger.warning(
                 "Code ocean was not triggered. If this is an error, check your parameters"
             )
-    
+
     else:
-        logger.error(f"n failed uploads: {n_failed_uploads}. Please, validate.")
+        logger.error(
+            f"n failed uploads: {n_failed_uploads}. Please, validate."
+        )
         logger.error(f"Skipping code ocean execution!")
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i", "--input", type=str, help="folder or file to upload",
+        "-i",
+        "--input",
+        type=str,
+        help="folder or file to upload",
     )
     parser.add_argument(
-        "-b", "--bucket", type=str, help="s3 bucket",
+        "-b",
+        "--bucket",
+        type=str,
+        help="s3 bucket",
     )
     parser.add_argument(
         "--s3_path",
@@ -340,7 +323,7 @@ def main():
         "--type_spim",
         type=str,
         default="",
-        help='Type of SPIM dataset. e.g., SmartSPIM, ExASPIM, diSPIM...',
+        help="Type of SPIM dataset. e.g., SmartSPIM, ExASPIM, diSPIM...",
     )
     parser.add_argument(
         "--trigger_code_ocean",
@@ -373,12 +356,6 @@ def main():
 
     t0 = time.time()
 
-    # pre_upload processes
-    if type_spim == "smartspim":
-        pre_upload_smartspim(
-            args
-        )
-
     # Uploading data
     if args.cluster:
         n_failed_uploads = run_cluster_job(
@@ -409,11 +386,7 @@ def main():
 
     # Different post processing executions for spim data
     if type_spim == "smartspim":
-        post_upload_smartspim(
-            args,
-            s3_path,
-            n_failed_uploads
-        )
+        post_upload_smartspim(args, s3_path, n_failed_uploads)
 
 
 if __name__ == "__main__":
