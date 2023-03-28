@@ -1,70 +1,24 @@
-# SmartSPIM datasets that need to be organized
-# and generate metadata
-organize_smartspim_datasets:
-  -
-    path: "RAW_DATASET_NAME"
-    data_description:
-      project: 
-      project_id: 
-      institution: AIND
-    adquisition:
-      instrument_id: 
-      experimenter:
-      immersion:
-        medium:
-        refractive_index:
-      local_storage_directory:
-    stitching:
-      co_folder: "scratch"
-      stitch_channel: "0" # Check the order of the channels TODO change to string
-    registration:
-      channel: "Ex_488_Em_525.zarr"
-      input_scale: "3"
-    segmentation:
-      channel: "Ex_488_Em_525"
-      input_scale: "0"
-      chunksize: "500"
-  -
-    path: "RAW_DATASET_NAME_2"
-    data_description:
-      project: 
-      project_id: 
-      institution: AIND
-    adquisition:
-      instrument_id: 
-      experimenter:
-      immersion:
-        medium:
-        refractive_index:
-      local_storage_directory:
-    stitching:
-      co_folder: "scratch"
-      stitch_channel: "0" # Check the order of the channels TODO change to string
-    registration:
-      channel: "Ex_488_Em_525.zarr"
-      input_scale: "3"
-    segmentation:
-      channel: "Ex_488_Em_525"
-      input_scale: "0"
-      chunksize: "250"
-
-# Parameters to upload organized smartspim datasets
+# This configuration allows to upload smartspim datasets
+# automatically by using a processing_manifest.json located
+# in the row level directory of the dataset
 transfer_type:
-  type: "HPC" # LOCAL
-  hpc_account: ""
-  logs_folder: ""
-  conda_env: ""
-  hpc_queue: ""
-  tasks_per_node: 
-  nodes: 
-  cpus_per_task: 
-  mem_per_cpu: 
-  walltime: ""
-  mail_user: ""
-metadata_service_domain: ""
-codeocean_credentials_path: ""
-co_capsule_id: "" # Code Ocean capsule ID for smartspim pipeline
-root_folder: "" # Folder where smartspim datasets are located
-dest_data_dir: # Defaults to the raw_data_dir folder name
-s3_bucket: aind-open-data # S3 bucket
-nthreads: 20
+  type: "HPC" # string - HPC or LOCAL
+  hpc_account: "" # string - HPC account to upload data
+  logs_folder: "" # string - Logs folder
+  conda_env: "" # string - Path to conda environment
+  hpc_queue: "" # string - HPC queue name
+  tasks_per_node: # integer - task per node
+  nodes: # integer - number of nodes
+  cpus_per_task: # integer - cpus per task
+  mem_per_cpu: # integer - max memory per cpu
+  walltime: "" # string - wallime in format hh:mm:ss
+  mail_user: "" # string - email to send notification of hpc job
+metadata_service_domain: "" # string - host of metadata service
+codeocean_credentials_path: "" # string - path to code ocean credentials
+co_capsule_id: "" # string - Code Ocean capsule ID for smartspim pipeline
+root_folder: "" # string - Folder where smartspim datasets are located
+dest_data_dir: "" # string - prefix to where the data will be uploaded
+s3_bucket: "" # string - S3 bucket where the data will be uploaded
+nthreads: # integer - Number of threads. Only works with local option
+exiftool_path: "" # string - path to exitftool tool to validate images
+info_manager_path: "" # string - path to output information about dataset status per dataset
