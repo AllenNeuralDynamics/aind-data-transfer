@@ -356,7 +356,7 @@ def build_pipeline_config(provided_config: dict, default_config: dict) -> dict:
 
     # Setting cell segmentation channels
     if cell_segmentation_channels is not None:
-        new_config["segmentation"] = {}
+        new_config["segmentation"] = {'input_scale': '0', 'chunksize': '500'}
         new_config["segmentation"]["channels"] = cell_segmentation_channels
 
     else:
