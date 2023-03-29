@@ -42,6 +42,7 @@ class ChannelParser:
 
     class RegexPatterns(Enum):
         channel_pattern = r"ch_([0-9_]{3,})\."
+        tile_xyz_pattern = r"tile_X_\d{4}_Y_\d{4}_Z_\d{4}"
 
     @staticmethod
     def parse_channel_names(filepath: str):
@@ -63,11 +64,32 @@ class ChannelParser:
         wavelengths = m.group(1).strip().split("_")
         return wavelengths
 
+    @staticmethod
+    def parse_tile_xyz_loc(filepath: str):
+        """
+        Parse the tile XYZ prefix from the filepath
+
+        Parameters
+        ----------
+        filepath: str
+          the path to the interleaved image
+
+        Returns
+        -------
+        the tile coordinate prefix, e.g., "tile_X_0000_Y_0001_Z_0002"
+        """
+        m = re.search(ChannelParser.RegexPatterns.tile_xyz_pattern.value, filepath)
+        if m is None:
+            raise ValueError(f"file name does not match tile pattern: {filepath}")
+        return m.group(0)
+
 
 if __name__ == "__main__":
     path = "/home/cameron.arshadi/data/tile_X_0002_Y_0000_Z_0000_ch_488_561_688.tiff"
     names = ChannelParser.parse_channel_names(path)
+    xyz_loc = ChannelParser.parse_tile_xyz_loc(path)
     print(names)
+    print(xyz_loc)
 
     a = da.zeros(shape=(384, 128, 128), dtype=int)
     num_channels = 3

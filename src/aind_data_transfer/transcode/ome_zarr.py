@@ -21,6 +21,7 @@ from aind_data_transfer.util.io_utils import (
     ImarisReader,
     MissingDatasetError,
 )
+from aind_data_transfer.transformations.deinterleave import ChannelParser, Deinterleave
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
@@ -78,19 +79,13 @@ def write_files(
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
 
-        tile_name = Path(impath).stem + ".zarr"
-
-        if not overwrite and _tile_exists(output, tile_name, n_levels):
-            LOGGER.info(f"Skipping tile {tile_name}, already exists.")
-            continue
-
-        tile_metrics = {
-            "tile": Path(impath).absolute(),
-        }
         try:
-            tile_metrics.update(storage_options["params"])
-        except KeyError:
-            LOGGER.warning("compression parameters will not be logged")
+            channel_names = ChannelParser.parse_channel_names(impath)
+            LOGGER.info(f"parsed channel wavelengths: {channel_names}")
+            interleaved = len(channel_names) > 1
+        except ValueError:
+            interleaved = False
+        LOGGER.info(f"Data is interleaved: {interleaved}")
 
         # Create readers, but don't construct dask array
         # until we know the optimal chunk shape.
@@ -99,10 +94,9 @@ def write_files(
         # TODO: pass units to zarr writer
         if voxel_size is None:
             try:
-                voxel_size, unit = reader.get_voxel_size()
+                voxel_size, _ = reader.get_voxel_size()
             except Exception:
                 voxel_size = [1.0, 1.0, 1.0]
-                unit = "um"
         LOGGER.info(f"Using voxel size: {voxel_size}")
         physical_pixel_sizes = PhysicalPixelSizes(
             Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
@@ -111,10 +105,6 @@ def write_files(
         # Attempt to parse tile origin
         origin = _parse_origin(reader)
 
-        # We determine the chunk size before creating the dask array since
-        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
-        # causes memory use to grow (unbounded?) during the zarr write step.
-        # See https://github.com/dask/dask/issues/5105.
         if chunk_shape is None:
             chunks = _compute_chunks(reader, chunk_size)
         else:
@@ -124,7 +114,11 @@ def write_files(
             f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB"
         )
 
-        tile_metrics["chunks"] = chunks
+        tile_metrics = {"chunks": chunks}
+        try:
+            tile_metrics.update(storage_options["params"])
+        except KeyError:
+            LOGGER.warning("compression parameters will not be logged")
 
         # Get the chunk dimensions that exist in the original, un-padded image
         reader_chunks = chunks[len(chunks) - len(reader.get_shape()) :]
@@ -134,45 +128,114 @@ def write_files(
         for i in range(len(pyramid)):
             pyramid[i] = ensure_array_5d(pyramid[i])
 
-        LOGGER.info(f"{pyramid[0]}")
+        LOGGER.info(pyramid[0])
 
-        LOGGER.info("Starting write...")
-        t0 = time.time()
-        jobs = writer.write_multiscale(
-            pyramid=pyramid,
-            image_name=tile_name,
-            physical_pixel_sizes=physical_pixel_sizes,
-            translation=origin,
-            channel_names=None,
-            channel_colors=None,
-            scale_factor=(scale_factor,) * 3,
-            chunks=chunks,
-            storage_options=storage_options,
-            compute_dask=False,
-        )
-        if jobs:
-            LOGGER.info("Computing dask arrays...")
-            arrs = dask.persist(*jobs)
-            wait(arrs)
-        write_time = time.time() - t0
+        if interleaved:
+            deinterleaved_pyramids = [[] for _ in range(len(channel_names))]
+            for res in pyramid:
+                channels = Deinterleave.deinterleave(res, len(channel_names), axis=2)
+                for i, c in enumerate(channels):
+                    deinterleaved_pyramids[i].append(c)
 
-        _populate_metrics(
-            tile_metrics,
-            tile_name,
-            output,
-            _get_bytes(pyramid),
-            write_time,
-            n_levels,
-            pyramid[0].shape,
-            pyramid[0].dtype,
-        )
+            for channel_name, channel_pyramid in zip(channel_names, deinterleaved_pyramids):
+                tile_prefix = ChannelParser.parse_tile_xyz_loc(impath)
+                tile_name = tile_prefix + f"_ch_{channel_name}" + ".zarr"
+                LOGGER.info(f"new tile name: {tile_name}")
 
-        LOGGER.info(
-            f"Finished writing tile {tile_name}.\n"
-            f"Took {write_time}s. {tile_metrics['write_bps'] / (1024 ** 2)} MiB/s"
-        )
+                if not overwrite and _tile_exists(output, tile_name, n_levels):
+                    LOGGER.info(f"Skipping tile {tile_name}, already exists.")
+                    continue
 
-        all_metrics.append(tile_metrics)
+                tile_metrics["tile"] = tile_name
+
+                LOGGER.info(f"{channel_pyramid[0]}")
+
+                LOGGER.info("Starting write...")
+                t0 = time.time()
+                jobs = writer.write_multiscale(
+                    pyramid=channel_pyramid,
+                    image_name=tile_name,
+                    physical_pixel_sizes=physical_pixel_sizes,
+                    translation=origin,
+                    channel_names=None,
+                    channel_colors=None,
+                    scale_factor=(scale_factor,) * 3,
+                    chunks=chunks,
+                    storage_options=storage_options,
+                    compute_dask=False,
+                )
+                if jobs:
+                    LOGGER.info("Computing dask arrays...")
+                    arrs = dask.persist(*jobs)
+                    wait(arrs)
+                write_time = time.time() - t0
+
+                _populate_metrics(
+                    tile_metrics,
+                    tile_name,
+                    output,
+                    _get_bytes(channel_pyramid),
+                    write_time,
+                    n_levels,
+                    channel_pyramid[0].shape,
+                    channel_pyramid[0].dtype,
+                )
+
+                LOGGER.info(
+                    f"Finished writing tile {tile_name}.\n"
+                    f"Took {write_time}s. {tile_metrics['write_bps'] / (1024 ** 2)} MiB/s"
+                )
+
+                all_metrics.append(tile_metrics)
+        else:
+            tile_name = Path(impath).stem + ".zarr"
+            LOGGER.info(f"new tile name: {tile_name}")
+
+            if not overwrite and _tile_exists(output, tile_name, n_levels):
+                LOGGER.info(f"Skipping tile {tile_name}, already exists.")
+                continue
+
+            tile_metrics["tile"] = tile_name
+
+            LOGGER.info(f"{pyramid[0]}")
+
+            LOGGER.info("Starting write...")
+            t0 = time.time()
+            jobs = writer.write_multiscale(
+                pyramid=pyramid,
+                image_name=tile_name,
+                physical_pixel_sizes=physical_pixel_sizes,
+                translation=origin,
+                channel_names=None,
+                channel_colors=None,
+                scale_factor=(scale_factor,) * 3,
+                chunks=chunks,
+                storage_options=storage_options,
+                compute_dask=False,
+            )
+            if jobs:
+                LOGGER.info("Computing dask arrays...")
+                arrs = dask.persist(*jobs)
+                wait(arrs)
+            write_time = time.time() - t0
+
+            _populate_metrics(
+                tile_metrics,
+                tile_name,
+                output,
+                _get_bytes(pyramid),
+                write_time,
+                n_levels,
+                pyramid[0].shape,
+                pyramid[0].dtype,
+            )
+
+            LOGGER.info(
+                f"Finished writing tile {tile_name}.\n"
+                f"Took {write_time}s. {tile_metrics['write_bps'] / (1024 ** 2)} MiB/s"
+            )
+
+            all_metrics.append(tile_metrics)
 
         reader.close()
 
