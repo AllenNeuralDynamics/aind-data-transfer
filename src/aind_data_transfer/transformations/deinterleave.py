@@ -30,10 +30,6 @@ class Deinterleave:
         -------
         List of dask or numpy arrays representing each deinterleaved channel
         """
-        if a.shape[axis] % num_channels != 0:
-            raise Exception(
-                f"axis {axis} with shape {a.shape[axis]} not divisible by {num_channels}"
-            )
         channels = []
         for offset in range(num_channels):
             s = [slice(None)] * a.ndim
