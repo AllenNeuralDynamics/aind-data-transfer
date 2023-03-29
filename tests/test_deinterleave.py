@@ -3,7 +3,7 @@ import unittest
 import dask.array as da
 import numpy as np
 
-from aind_data_transfer.transformations.deinterleave import Deinterleave
+from src.aind_data_transfer.transformations.deinterleave import Deinterleave
 
 
 def _create_interleaved_array(shape, num_channels, array_type):
@@ -24,6 +24,7 @@ class TestDeinterleave(unittest.TestCase):
         num_channels = 3
         a = _create_interleaved_array((384, 32, 32), num_channels, "dask")
         channels = Deinterleave.deinterleave(a, num_channels, axis=0)
+        self.assertEqual(len(channels), 3)
         expected_shape = (128, 32, 32)
         for i, c in enumerate(channels):
             self.assertEqual(c.shape, expected_shape)
@@ -33,6 +34,7 @@ class TestDeinterleave(unittest.TestCase):
         num_channels = 3
         a = _create_interleaved_array((384, 32, 32), num_channels, "numpy")
         channels = Deinterleave.deinterleave(a, num_channels, axis=0)
+        self.assertEqual(len(channels), 3)
         expected_shape = (128, 32, 32)
         for i, c in enumerate(channels):
             self.assertEqual(c.shape, expected_shape)
@@ -41,6 +43,9 @@ class TestDeinterleave(unittest.TestCase):
     def test_bad_shape(self):
         num_channels = 2
         a = _create_interleaved_array((257, 32, 32), num_channels, "numpy")
-        with self.assertRaises(Exception) as e:
-            _ = Deinterleave.deinterleave(a, num_channels, axis=0)
-        self.assertEqual(str(e.exception), "axis 0 with shape 257 not divisible by 2")
+        channels = Deinterleave.deinterleave(a, num_channels, axis=0)
+        self.assertEqual(len(channels), 2)
+        expected_shape_ch0 = (129, 32, 32)
+        expected_shape_ch1 = (128, 32, 32)
+        self.assertEqual(channels[0].shape, expected_shape_ch0)
+        self.assertEqual(channels[1].shape, expected_shape_ch1)
