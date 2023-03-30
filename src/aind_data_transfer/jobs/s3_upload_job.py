@@ -467,7 +467,7 @@ class GenericS3UploadJob:
         # Upload non-behavior data to s3
         behavior_path = None if behavior_dir is None else Path(behavior_dir)
         self.upload_raw_data_folder(
-            data_prefix=data_prefix, behavior_dir=Path(behavior_path)
+            data_prefix=data_prefix, behavior_dir=behavior_path
         )
 
         # Optionally upload the data in the metadata directory to s3
