@@ -13,7 +13,11 @@ from aind_data_transfer.config_loader.imaging_configuration_loader import (
 )
 from aind_data_transfer.readers.imaging_readers import ImagingReaders
 from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
-from aind_data_transfer.writers.imaging_writers import ExASPIMWriter
+from aind_data_transfer.transformations.metadata_creation import (
+    SubjectMetadata,
+    ProceduresMetadata,
+    RawDataDescriptionMetadata,
+)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
@@ -156,9 +160,7 @@ def main():
         dest_data_dir = dest_data_dir[:-1]
 
     reader = ImagingReaders.get_reader_name(data_src_dir)
-    raw_image_dir = ImagingReaders.get_raw_data_dir(
-        reader, data_src_dir
-    )
+    raw_image_dir = ImagingReaders.get_raw_data_dir(reader, data_src_dir)
 
     LOGGER.info(f"Transferring data to {dest_data_dir}")
 
@@ -193,14 +195,32 @@ def main():
             )
 
     if job_configs["jobs"]["create_metadata"]:
-        if reader == ImagingReaders.Readers.exaspim.value:
-            metadata_service_url = job_configs["endpoints"]["metadata_service_url"]
-            writer = ExASPIMWriter(data_src_dir, metadata_service_url)
-            writer.write_subject(data_src_dir)
-            writer.write_data_description(data_src_dir)
-            writer.write_procedures(data_src_dir)
-        else:
-            LOGGER.error(f"Fetching metadata not implemented for {reader}")
+        metadata_service_url = job_configs["endpoints"]["metadata_service_url"]
+        subject_id = job_configs["data"]["subject_id"]
+        subject_metadata = SubjectMetadata.from_service(
+            domain=metadata_service_url,
+            subject_id=subject_id,
+        )
+        subject_metadata.write_to_json(
+            os.path.join(data_src_dir, subject_metadata.output_filename)
+        )
+
+        procedures_metadata = ProceduresMetadata.from_service(
+            domain=metadata_service_url,
+            subject_id=subject_id,
+        )
+        procedures_metadata.write_to_json(
+            os.path.join(data_src_dir, procedures_metadata.output_filename)
+        )
+
+        data_description_metadata = RawDataDescriptionMetadata.from_inputs(
+            name=Path(data_src_dir).name
+        )
+        data_description_metadata.write_to_json(
+            os.path.join(
+                data_src_dir, data_description_metadata.output_filename
+            )
+        )
 
     if job_configs["jobs"]["upload_aux_files"]:
         LOGGER.info("Uploading auxiliary data")
