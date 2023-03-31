@@ -1,6 +1,7 @@
 import os
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 from numcodecs import Blosc
@@ -10,11 +11,12 @@ from aind_data_transfer.readers.ephys_readers import EphysReaders
 from aind_data_transfer.transformations.ephys_compressors import (
     EphysCompressors,
 )
+from aind_data_transfer.transformations.generic_compressors import (
+    VideoCompressor,
+    ZipCompressor,
+)
 from aind_data_transfer.transformations.imaging_compressors import (
     ImagingCompressors,
-)
-from aind_data_transfer.transformations.video_compressors import (
-    VideoCompressor,
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -86,22 +88,6 @@ class TestEphysCompressors(unittest.TestCase):
         )
         scaled_read_block = next(scaled_read_blocks)
 
-        # The lsb value should be 1 and the median values should be 0 in the
-        # scaled neuropixel recordings.
-        lsb_value, median_values = EphysCompressors._get_median_and_lsb(
-            scaled_read_block["scaled_recording"],
-            disable_tqdm=True,
-            num_chunks_per_segment=10,
-            chunk_size=chunk_size,
-        )
-
-        expected_median_values = np.zeros(
-            shape=median_values.shape, dtype=median_values.dtype
-        )
-
-        self.assertEqual(lsb_value, 1)
-        self.assertTrue(np.array_equal(expected_median_values, median_values))
-
 
 class TestImagingCompressors(unittest.TestCase):
     def test_get_compressor(self):
@@ -121,13 +107,70 @@ class TestImagingCompressors(unittest.TestCase):
             ImagingCompressors.get_compressor("Made up name")
 
 
-class TestVideoCompressor(unittest.TestCase):
+class TestGenericCompressor(unittest.TestCase):
     """Tests VideoCompressor class methods"""
 
     def test_video_compressor_creation(self):
         """Tests VideoCompressor default is set correctly"""
         video_compressor = VideoCompressor()
         self.assertEqual(video_compressor.compression_level, 5)
+
+    @patch("pyminizip.compress_multiple")
+    def test_zip_compressor(self, mock_zip: MagicMock):
+        """Tests zip compression. No subdirectories or files skipped."""
+        zc = ZipCompressor()
+        input_dir = (
+            RESOURCES_DIR
+            / "v0.6.x_neuropixels_multiexp_multistream"
+            / "Videos"
+        )
+        output_dir = RESOURCES_DIR
+        file_names = [
+            str(input_dir / "a_video_file.avi"),
+            str(input_dir / "another_video_file.avi"),
+            str(input_dir / "video_ref.csv"),
+        ]
+        prefix_names = [str("Videos"), str("Videos"), str("Videos")]
+        zc.compress_dir(input_dir=input_dir, output_dir=output_dir)
+        file_names_call = mock_zip.mock_calls[0].args[0]
+        prefix_names_call = mock_zip.mock_calls[0].args[1]
+        zipped_actual_calls = zip(file_names_call, prefix_names_call)
+        zipped_expected_calls = zip(file_names, prefix_names)
+        output_dir_call = mock_zip.mock_calls[0].args[2]
+        self.assertEqual(output_dir_call, str(RESOURCES_DIR))
+        self.assertEqual(set(zipped_expected_calls), set(zipped_actual_calls))
+
+    @patch("pyminizip.compress_multiple")
+    def test_zip_compressor_skip_dir(self, mock_zip: MagicMock):
+        """Tests zip compression. One file skipped."""
+        zc = ZipCompressor()
+        input_dir = (
+            RESOURCES_DIR
+            / "v0.6.x_neuropixels_multiexp_multistream"
+            / "Videos"
+        )
+        skip_file = (
+            RESOURCES_DIR
+            / "v0.6.x_neuropixels_multiexp_multistream"
+            / "Videos"
+            / "a_video_file.avi"
+        )
+        output_dir = RESOURCES_DIR
+        file_names = [
+            str(input_dir / "another_video_file.avi"),
+            str(input_dir / "video_ref.csv"),
+        ]
+        prefix_names = [str("Videos"), str("Videos")]
+        zc.compress_dir(
+            input_dir=input_dir, output_dir=output_dir, skip_dirs=[skip_file]
+        )
+        file_names_call = mock_zip.mock_calls[0].args[0]
+        prefix_names_call = mock_zip.mock_calls[0].args[1]
+        zipped_actual_calls = zip(file_names_call, prefix_names_call)
+        zipped_expected_calls = zip(file_names, prefix_names)
+        output_dir_call = mock_zip.mock_calls[0].args[2]
+        self.assertEqual(output_dir_call, str(RESOURCES_DIR))
+        self.assertEqual(set(zipped_expected_calls), set(zipped_actual_calls))
 
 
 if __name__ == "__main__":
