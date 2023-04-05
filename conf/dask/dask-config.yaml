@@ -1,0 +1,37 @@
+# See https://github.com/dask/dask/blob/main/docs/source/configuration.rst
+# for the full list of options
+distributed:
+  comm:
+    retry:
+      count: 0
+    timeouts:
+      connect: 30s
+      tcp: 30s
+  nanny:
+    pre-spawn-environ:
+      MALLOC_TRIM_THRESHOLD_: 0
+      OMP_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+  scheduler:
+    active-memory-manager:
+      interval: 2s
+      measure: optimistic
+      start: true
+    allowed-failures: 10
+    unknown-task-duration: 500ms
+    work-stealing: true
+    work-stealing-interval: 100ms
+    worker-saturation: 1.1
+  worker:
+    lifetime:
+      duration: null
+      restart: false
+      stagger: 0s
+    memory:
+      pause: 0.85
+      rebalance:
+        measure: optimistic
+      spill: 0.8
+      target: 0.7
+      terminate: 0.95
