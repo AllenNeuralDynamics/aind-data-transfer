@@ -3,229 +3,266 @@ data transfer jobs."""
 
 import json
 import logging
-import os
-from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import boto3
 from botocore.exceptions import ClientError
 
-
-class EnvVarKeys(Enum):
-    """Class used to keep a list of the environment variables a user can set.
-    For example, if in a bash shell:
-    AIND_DATA_TRANSFER_ENDPOINTS='{"codeocean_domain":"some_domain"}'
-    then, in a python shell:
-    job_endpoints = JobEndpoints()
-    print(job_endpoints.codeocean_domain)
-    will display "some_domain".
-    """
-
-    # Env var that can be used to define a json string of endpoint defs
-    AIND_DATA_TRANSFER_ENDPOINTS = "AIND_DATA_TRANSFER_ENDPOINTS"
-
-    # Env var that can be used to define a json string of secrets defs
-    AIND_DATA_TRANSFER_SECRETS = "AIND_DATA_TRANSFER_SECRETS"
+from pydantic import BaseSettings, Field, SecretStr, FilePath, DirectoryPath
+from aind_data_schema.data_description import Modality, ExperimentType
+from datetime import datetime
+import argparse
+from pathlib import Path
+import re
 
 
-class JobConfigResolver(ABC):
-    """Abstract class to contain methods that are used in the parameter store
-    resolver to retrieve endpoints and the secrets store manager."""
+class BasicJobEndpoints(BaseSettings):
+    aws_param_name: Optional[str] = Field(default=None, repr=False)
 
-    @abstractmethod
-    def _download_params_from_aws(self):
-        """Child classes will need to define a way to retrieve data from aws"""
-        pass
+    codeocean_domain: str = Field(...)
+    codeocean_trigger_capsule_id: str = Field(...)
+    codeocean_trigger_capsule_version: Optional[str] = Field(None)
+    metadata_service_domain: str = Field(...)
+    aind_data_transfer_repo_location: str = Field(...)
+    video_encryption_password: Optional[SecretStr] = Field(None)
+    codeocean_api_token: Optional[SecretStr] = Field(None)
 
-    def _endpoint_config_names(self):
-        """Get a list of the class attributes that need to be resolved"""
-        return [
-            class_attr
-            for class_attr in dir(self)
-            if (
-                (not class_attr.startswith("_"))
-                and (not callable(getattr(self, class_attr)))
-            )
-        ]
+    class Config:
+        """This class will add custom sourcing from aws."""
 
-    def _resolve_from_dict(self, param_dict: Optional[dict]) -> bool:
-        """
-        Loops through the endpoints. If it isn't set yet, such as during the
-        class constructor, then this method will check if it can be set by
-        a dictionary. Returns a bool to let the user know whether all the
-        parameters are set.
+        @staticmethod
+        def settings_from_aws(param_name: Optional[str]):  # noqa: C901
+            """
+            Curried function that returns a function to retrieve creds from aws
+            Parameters
+            ----------
+            param_name : Name of the credentials we wish to retrieve
+            Returns
+            -------
+            A function that retrieves the credentials.
+            """
 
-        Parameters
-        ----------
-        param_dict : Optional[dict]
-          The input dictionary where the parameter might be contained
+            def get_param_from_aws(
+                aws_param_name, aws_ssm_client, with_decryption=False
+            ) -> Dict[str, Any]:
+                try:
+                    param_from_store = aws_ssm_client.get_parameter(
+                        Name=aws_param_name, WithDecryption=with_decryption
+                    )
+                    param_string = param_from_store["Parameter"]["Value"]
+                    params = json.loads(param_string)
+                except ClientError as e:
+                    logging.warning(
+                        f"Unable to retrieve parameters from aws: {e.response}"
+                    )
+                    params = {}
+                return params
 
-        Returns
-        -------
-        bool
-          True if all the parameters. False if some parameters are not set.
+            def set_settings(_: BaseSettings) -> Dict[str, Any]:
+                """
+                A simple settings source that loads from aws secrets manager
+                """
+                ssm_client = boto3.client("ssm")
+                params_from_aws = get_param_from_aws(
+                    aws_param_name=param_name, aws_ssm_client=ssm_client
+                )
+                if params_from_aws.get("video_encryption_password_path"):
+                    video_encrypt_pwd = get_param_from_aws(
+                        aws_ssm_client=ssm_client,
+                        aws_param_name=params_from_aws.get(
+                            "video_encryption_password_path"
+                        ),
+                        with_decryption=True,
+                    )
+                    params_from_aws[
+                        "video_encryption_password"
+                    ] = video_encrypt_pwd.get("password")
+                    if params_from_aws.get("video_encryption_password_path"):
+                        del params_from_aws["video_encryption_password_path"]
+                if params_from_aws.get("codeocean_api_token_path"):
+                    co_api_token = get_param_from_aws(
+                        aws_ssm_client=ssm_client,
+                        aws_param_name=params_from_aws.get(
+                            "codeocean_api_token_path"
+                        ),
+                        with_decryption=True,
+                    )
+                    params_from_aws["codeocean_api_token"] = (
+                        co_api_token.get("CODEOCEAN_READWRITE_TOKEN")
+                    )
+                    if params_from_aws.get("codeocean_api_token_path"):
+                        del params_from_aws["codeocean_api_token_path"]
 
-        """
-        endpoint_names = self._endpoint_config_names()
-        all_params_set = True
-        for class_attr in endpoint_names:
-            # If not explicitly set, check env vars
-            if getattr(self, class_attr) is None and param_dict is None:
-                all_params_set = False
-            elif (
-                getattr(self, class_attr) is None
-                and class_attr not in param_dict.keys()
-            ):
-                all_params_set = False
-            elif getattr(self, class_attr) is None:
-                self.__setattr__(class_attr, param_dict.get(class_attr))
-        return all_params_set
+                ssm_client.close()
+                return params_from_aws
 
-    def _resolve_endpoint_configs(self, env_var_name: str) -> None:
-        """
-        If the endpoints are not defined in the class constructor, then this
-        method will try to resolve the endpoints by checking if they can be
-        pulled from an environment variable json string. It will then attempt
-        to download a json string from aws to parse.
-        Parameters
-        ----------
-        env_var_name : str
-          Name of the environment variable to check
+            return set_settings
 
-        Returns
-        -------
-        None
-          The attributes are modified in place
-        """
-        # Try to load from env vars if not set
-        env_vars_string = os.getenv(env_var_name)
-        env_vars = (
-            None if env_vars_string is None else json.loads(env_vars_string)
-        )
-        # Try to resolve from env var
-        all_params_set = self._resolve_from_dict(env_vars)
-        # Try to resolve from aws
-        if all_params_set is False:
-            param_from_aws = self._download_params_from_aws()
-            all_params_set = self._resolve_from_dict(param_from_aws)
-
-        if all_params_set is False:
-            logging.warning("Not all endpoints are configured.")
-
-        return None
+        @classmethod
+        def customise_sources(
+            cls,
+            init_settings,
+            env_settings,
+            file_secret_settings,
+        ):
+            """Class method to return custom sources."""
+            aws_param_name = init_settings.init_kwargs.get("aws_param_name")
+            if aws_param_name:
+                return (
+                    init_settings,
+                    env_settings,
+                    file_secret_settings,
+                    cls.settings_from_aws(param_name=aws_param_name),
+                )
+            else:
+                return (
+                    init_settings,
+                    env_settings,
+                    file_secret_settings,
+                )
 
 
-class JobEndpoints(JobConfigResolver):
-    """This class handles configuring common service endpoints in the jobs."""
+class BasicUploadJobConfigs(BasicJobEndpoints):
 
-    _DEFAULT_PARAMETER_STORE_KEY_NAME = "/aind/data/transfer/endpoints"
-    _ENV_VAR_NAME = EnvVarKeys.AIND_DATA_TRANSFER_ENDPOINTS.value
+    s3_bucket: str = Field(
+        ...,
+        description="Bucket where data will be uploaded",
+        title="S3 Bucket",
+    )
+    experiment_type: ExperimentType = Field(
+        ..., description="Experiment type", title="Experiment Type"
+    )
+    modality: Modality = Field(
+        ..., description="Data collection modality", title="Modality"
+    )
+    subject_id: str = Field(..., description="Subject ID", title="Subject ID")
+    acq_datetime: datetime = Field(
+        ...,
+        description="Date and time of data acquisition",
+        title="Acquisition Datetime",
+    )
+    data_source: DirectoryPath = Field(
+        ...,
+        description="Location of raw data to be uploaded",
+        title="Data Source",
+    )
+    behavior_dir: Optional[DirectoryPath] = Field(
+        None,
+        description="Directory of behavior data",
+        title="Behavior Directory",
+    )
+    metadata_dir: Optional[DirectoryPath] = Field(
+        None, description="Directory of metadata", title="Metadata Directory"
+    )
+    extra_configs: Optional[FilePath] = Field(
+        None,
+        description="Location of additional configuration file",
+        title="Extra Configs",
+    )
+    metadata_dir_force: bool = Field(
+        default=False,
+        description=(
+            "Whether to override metadata from service with metadata in "
+            "optional metadata directory"
+        ),
+        title="Metadata Directory Force",
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="Perform a dry-run of data upload",
+        title="Dry Run",
+    )
+    compress_raw_data: bool = Field(
+        default=False,
+        description="Run compression on data",
+        title="Compress Raw Data",
+    )
 
-    def __init__(
-        self,
-        param_store: Optional[str] = _DEFAULT_PARAMETER_STORE_KEY_NAME,
-        codeocean_domain: Optional[str] = None,
-        codeocean_trigger_capsule_id: Optional[str] = None,
-        codeocean_trigger_capsule_version: Optional[str] = None,
-        metadata_service_domain: Optional[str] = None,
-        aind_data_transfer_repo_location: Optional[str] = None,
-    ) -> None:
-        """
-        Constructor for JobEndpoints class.
-        Parameters
-        ----------
-        param_store : Optional[str]
-          Name of the parameter store in aws where the parameters might be
-          kept. Defaults to what's defined in _DEFAULT_PARAMETER_STORE_KEY_NAME
-        codeocean_domain : Optional[str]
-          Domain name for code ocean service. Defaults to None.
-        codeocean_trigger_capsule_id : Optional[str]
-          Capsule ID for primary capsule in code ocean to trigger. Defaults to
-          None.
-        codeocean_trigger_capsule_version : Optional[str]
-          Version number of the primary capsule in code ocean to trigger.
-          Defaults to None.
-        metadata_service_domain : Optional[str]
-          Domain name for aind-metadata-service. Defaults to None.
-        aind_data_transfer_repo_location : Optional[str]
-          Name where the aind-data-transfer library code is stored. Defaults
-          to None.
-        """
-        self.__param_store = param_store
-        self.codeocean_domain = codeocean_domain
-        self.codeocean_trigger_capsule_id = codeocean_trigger_capsule_id
-        self.codeocean_trigger_capsule_version = (
-            codeocean_trigger_capsule_version
-        )
-        self.metadata_service_domain = metadata_service_domain
-        self.aind_data_transfer_repo_location = (
-            aind_data_transfer_repo_location
-        )
-        self._resolve_endpoint_configs(self._ENV_VAR_NAME)
+    @classmethod
+    def from_args(cls, args: list):
+        """Adds ability to construct settings from a list of arguments."""
 
-    def _download_params_from_aws(self):
-        """Attempt to download the endpoints from an aws parameter store"""
-        ssm_client = boto3.client("ssm")
+        def _help_message(key: str) -> str:
+            return BasicUploadJobConfigs.schema()["properties"][key]["description"]
+
+        def _parse_date(date: str) -> str:
+            """Parses date string to %YYYY-%MM-%DD format"""
+            stripped_date = date.strip()
+            pattern = r"^\d{4}-\d{2}-\d{2}$"
+            pattern2 = r"^\d{1,2}/\d{1,2}/\d{4}$"
+            if re.match(pattern, stripped_date):
+                parsed_date = datetime.strptime(stripped_date, "%Y-%m-%d")
+                return parsed_date.strftime("%Y-%m-%d")
+            elif re.match(pattern2, stripped_date):
+                parsed_date = datetime.strptime(stripped_date, "%m/%d/%Y")
+                return parsed_date.strftime("%Y-%m-%d")
+            else:
+                raise ValueError(
+                    "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
+                )
+
+        def _parse_time(time: str) -> str:
+            """Parses time string to "%HH-%MM-%SS format"""
+            stripped_time = time.strip()
+            pattern = r"^\d{1,2}-\d{1,2}-\d{1,2}$"
+            pattern2 = r"^\d{1,2}:\d{1,2}:\d{1,2}$"
+            if re.match(pattern, stripped_time):
+                parsed_time = datetime.strptime(stripped_time, "%H-%M-%S")
+                return parsed_time.strftime("%H:%M:%S")
+            elif re.match(pattern2, stripped_time):
+                parsed_time = datetime.strptime(stripped_time, "%H:%M:%S")
+                return parsed_time.strftime("%H:%M:%S")
+            else:
+                raise ValueError(
+                    "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
+                )
+
+        parser = argparse.ArgumentParser()
+        # Required
+        parser.add_argument("-a", "--acq-date", required=True, type=str, help="Date data was acquired, yyyy-MM-dd or dd/MM/yyyy")
+        parser.add_argument("-b", "--s3-bucket", required=True, type=str, help=_help_message("s3_bucket"))
+        parser.add_argument("-d", "--data-source", required=True, type=str, help=_help_message("data_source"))
+        parser.add_argument("-e", "--experiment-type", required=True, type=str, help=_help_message("experiment_type"))
+        parser.add_argument("-m", "--modality", required=True, type=str, help=_help_message("modality"))
+        parser.add_argument("-p", "--endpoints-parameters", required=True, type=str, help="Either a string that can be parsed as a json object or a name that points to an aws parameter store location")
+        parser.add_argument("-s", "--subject-id", required=True, type=str, help=_help_message("subject_id"))
+        parser.add_argument("-t", "--acq-time", required=True, type=str, help="Time data was acquired, HH-mm-ss or HH:mm:ss")
+        # Optional
+        parser.add_argument("-c", "--extra-configs", required=False, type=str, help=_help_message("extra_configs"))
+        parser.add_argument("-v", "--behavior-dir", required=False, type=str, help=_help_message("behavior_dir"))
+        parser.add_argument("-x", "--metadata-dir", required=False, type=str, help=_help_message("metadata_dir"))
+        parser.add_argument("--dry-run", action="store_true", help=_help_message("dry_run"))
+        parser.add_argument("--compress-raw-data", action="store_true", help=_help_message("compress_raw_data"))
+        parser.add_argument("--metadata-dir-force", action="store_true", help=_help_message("metadata_dir_force"))
+        parser.set_defaults(dry_run=False)
+        parser.set_defaults(compress_raw_data=False)
+        parser.set_defaults(metadata_dir_force=False)
+        job_args = parser.parse_args(args)
+        date_str = _parse_date(job_args.acq_date)
+        time_str = _parse_time(job_args.acq_time)
+        acq_datetime = datetime.fromisoformat(f"{date_str}T{time_str}")
+        behavior_dir = None if job_args.behavior_dir is None else Path(job_args.behavior_dir)
+        metadata_dir = None if job_args.metadata_dir is None else Path(job_args.metadata_dir)
+        extra_configs = None if job_args.extra_configs is None else Path(job_args.extra_configs)
+        # The user can define the endpoints explicitly as an object that can be
+        # parsed with json.loads()
         try:
-            param_from_store = ssm_client.get_parameter(
-                Name=self.__param_store
-            )
-            param_string = param_from_store["Parameter"]["Value"]
-            params = json.loads(param_string)
-        except ClientError as e:
-            logging.warning(
-                f"Unable to retrieve parameters from aws: {e.response}"
-            )
-            params = None
-        finally:
-            ssm_client.close()
-        return params
-
-
-class JobSecrets(JobConfigResolver):
-    """This class handles configuring common secrets used in the jobs."""
-
-    _DEFAULT_SECRETS_NAME = "/aind/data/transfer/secrets"
-    _ENV_VAR_NAME = EnvVarKeys.AIND_DATA_TRANSFER_SECRETS.value
-
-    def __init__(
-        self,
-        secrets_name: Optional[str] = _DEFAULT_SECRETS_NAME,
-        video_encryption_password: Optional[str] = None,
-        codeocean_api_token: Optional[str] = None,
-    ):
-        """
-        Constructor for JobSecrets class.
-        Parameters
-        ----------
-        secrets_name : Optional[str]
-          Name of the secret in aws secrets manager where the secret might be
-          kept. Defaults to what's defined in _DEFAULT_SECRETS_NAME
-        video_encryption_password : Optional[str]
-          The video encryption password.
-        codeocean_api_token : Optional[str]
-          An api token to be used to interface with the Code Ocean service.
-        """
-        self.__secrets_name = secrets_name
-        self.video_encryption_password = video_encryption_password
-        self.codeocean_api_token = codeocean_api_token
-        self._resolve_endpoint_configs(self._ENV_VAR_NAME)
-
-    def _download_params_from_aws(self):
-        """Attempt to download the endpoints from an aws secrets manager"""
-        sm_client = boto3.client("secretsmanager")
-        try:
-            secret_from_aws = sm_client.get_secret_value(
-                SecretId=self.__secrets_name
-            )
-            secret_as_string = secret_from_aws["SecretString"]
-            secrets = json.loads(secret_as_string)
-        except ClientError as e:
-            logging.warning(
-                f"Unable to retrieve parameters from aws: {e.response}"
-            )
-            secrets = None
-        finally:
-            sm_client.close()
-        return secrets
+            params_from_json = BasicJobEndpoints.parse_obj(json.loads(job_args.endpoints_parameters))
+            param_dict = params_from_json.dict()
+        # If the endpoints are not defined explicitly, then we can check if
+        # the input defines an aws parameter store name
+        except json.decoder.JSONDecodeError:
+            param_dict = {"aws_param_name": job_args.endpoints_parameters}
+        return cls(s3_bucket=job_args.s3_bucket,
+                   data_source=Path(job_args.data_source),
+                   subject_id=job_args.subject_id,
+                   modality=Modality(job_args.modality),
+                   experiment_type=ExperimentType(job_args.experiment_type),
+                   acq_datetime=acq_datetime,
+                   behavior_dir=behavior_dir,
+                   metadata_dir=metadata_dir,
+                   extra_configs=extra_configs,
+                   dry_run=job_args.dry_run,
+                   compress_raw_data=job_args.compress_raw_data,
+                   metadata_dir_force=job_args.metadata_dir_force,
+                   **param_dict)
