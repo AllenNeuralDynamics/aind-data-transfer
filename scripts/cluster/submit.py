@@ -7,13 +7,10 @@ import argparse
 import collections
 import datetime
 import os
+import shutil
 import string
 import time
 from pathlib import Path
-
-import yaml
-
-from config import DASK_CONF_FILE
 
 
 class SlurmTemplate(string.Template):
@@ -54,31 +51,17 @@ def write_slurm_scripts(args, run_info):
         cpus_per_task=args.cpus_per_task,
         mem_per_cpu=args.mem_per_cpu,
         tmp_space=args.tmp_space,
+        dask_conf_file=run_info.dask_conf_file
     )
     os.chmod(script_path, 0o755)
 
 
-def write_dask_config(args, run_info, deployment="slurm"):
-    config = {}
-    if deployment == "slurm":
-        config['distributed'] = {
-            'worker': {
-                'memory': {
-                    "target": args.worker_memory_target,
-                    "spill": args.worker_memory_spill,
-                    "pause": args.worker_memory_pause,
-                    "terminate": args.worker_memory_terminate
-                }
-            }
-        }
-    else:
-        raise ValueError("Only Slurm is currently supported")
-    # Save a carbon copy to the run directory
-    with open(run_info.dask_conf_file, "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
-    # Now save the file actually used by Dask
-    with open(DASK_CONF_FILE, "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
+def copy_dask_config(run_info):
+    conf_file = Path(__file__).parent.parent.parent / "conf/dask/dask-config.yaml"
+    assert conf_file.is_file()
+    # Copy to the run directory.
+    # The DASK_CONFIG environment variable is set to this path
+    shutil.copyfile(conf_file, run_info.dask_conf_file)
 
 
 RunInfo = collections.namedtuple(
@@ -211,30 +194,6 @@ def parse_args():
         "This should be fast, node-local storage.",
     )
     parser.add_argument(
-        "--worker_memory_target",
-        type=float,
-        default=0.6,
-        help="fraction of managed memory where Dask workers start spilling to disk"
-    )
-    parser.add_argument(
-        "--worker_memory_spill",
-        type=float,
-        default=0.7,
-        help="fraction of process memory where Dask workers start spilling to disk"
-    )
-    parser.add_argument(
-        "--worker_memory_pause",
-        type=float,
-        default=0.8,
-        help="fraction of process memory at which we pause Dask worker threads"
-    )
-    parser.add_argument(
-        "--worker_memory_terminate",
-        type=float,
-        default=0.95,
-        help="fraction of process memory at which we terminate the Dask worker"
-    )
-    parser.add_argument(
         "--wait",
         default=False,
         action="store_true",
@@ -256,7 +215,7 @@ def main():
     else:
         raise ValueError("Only Slurm is currently supported")
 
-    write_dask_config(args, run_info, args.deployment)
+    copy_dask_config(run_info)
 
     if args.task == "generate-and-launch-run":
         cmd = f"sbatch "
