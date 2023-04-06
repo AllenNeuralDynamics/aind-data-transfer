@@ -229,31 +229,30 @@ def organize_datasets(
                 logger.info(f"Dataset {dataset_path} does not exist.")
                 continue
 
-            logger.info(f"Validating dataset {dataset_path}")
+            json_path_config = dataset_path.joinpath(config_filename)
+            logger.info(f"Reading {json_path_config}")
 
-            if validate_dataset(dataset_path):
-                json_path_config = dataset_path.joinpath(config_filename)
+            # Reading `processing_manifest.json`
+            dataset_config = file_utils.read_json_as_dict(json_path_config)
 
-                # Reading `processing_manifest.json`
-                dataset_config = file_utils.read_json_as_dict(json_path_config)
+            if "dataset_status" not in dataset_config:
+                logger.error(
+                    f"Ignoring dataset {dataset_path}, it does not have the dataset status attribute or json does not exist."
+                )
 
-                if "dataset_status" not in dataset_config:
-                    logger.error(
-                        f"Ignoring dataset {dataset_path}, it does not have the dataset status attribute or json does not exist."
-                    )
-
-                elif dataset_config["dataset_status"].casefold() == "pending":
+            elif dataset_config["dataset_status"].casefold() == "pending":
+                logger.info(f"Validating dataset {dataset_path}")
+                if validate_dataset(dataset_path):
                     dataset_config["path"] = dataset_path
                     ready_datasets.append(dataset_config)
 
                 else:
-                    logger.error(
-                        f"Ignoring dataset {dataset_path}, it does not have the PENDING tag in dataset_status."
+                    logger.info(
+                        f"Dataset {dataset_path} has problems in tiles!\n"
                     )
-
             else:
-                logger.info(
-                    f"Dataset f{dataset['path']} has problems in tiles!\n"
+                logger.error(
+                    f"Ignoring dataset {dataset_path}, it does not have the PENDING tag in dataset_status."
                 )
 
         # Organizing smartspim folders
@@ -356,7 +355,7 @@ def build_pipeline_config(provided_config: dict, default_config: dict) -> dict:
 
     # Setting cell segmentation channels
     if cell_segmentation_channels is not None:
-        new_config["segmentation"] = {'input_scale': '0', 'chunksize': '500'}
+        new_config["segmentation"] = {"input_scale": "0", "chunksize": "500"}
         new_config["segmentation"]["channels"] = cell_segmentation_channels
 
     else:

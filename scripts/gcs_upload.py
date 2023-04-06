@@ -11,9 +11,16 @@ from pathlib import PurePath
 
 import numpy as np
 from google.cloud.storage import Blob
-from aind_data_transfer.gcs import create_client, GCSUploader
-from aind_data_transfer.util.file_utils import collect_filepaths, make_cloud_paths
-from aind_data_transfer.util.dask_utils import log_dashboard_address, get_client
+
+from aind_data_transfer.gcs import GCSUploader, create_client
+from aind_data_transfer.util.dask_utils import (
+    get_client,
+    log_dashboard_address,
+)
+from aind_data_transfer.util.file_utils import (
+    collect_filepaths,
+    make_cloud_paths,
+)
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 logger = logging.getLogger(__name__)

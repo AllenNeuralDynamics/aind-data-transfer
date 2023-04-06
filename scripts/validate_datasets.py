@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import List, Union
 
 import exiftool
+from argschema import ArgSchema, ArgSchemaParser
+from argschema.fields import Boolean, InputDir
 from tqdm import tqdm
 
 logging.basicConfig(
@@ -31,6 +33,30 @@ PathLike = Union[Path, str]
 
 POST_PATH_NEW_CONV = "SmartSPIM"
 POST_PATH_OLD_CONV = ""
+
+
+class ValidationParameters(ArgSchema):
+    """
+    Validation parameters
+    """
+
+    path = InputDir(
+        required=True,
+        metadata={
+            "description": "Path where the channels of the dataset are located."
+        },
+    )
+
+    val_mdata = Boolean(
+        required=False,
+        metadata={
+            "description": """
+            Validated the metadata for each of the images.
+            Validates file format and bit depth.
+            """
+        },
+        dump_default=False,
+    )
 
 
 class SmartSPIMReader:
@@ -75,7 +101,6 @@ class SmartSPIMReader:
             datasets = os.listdir(path)
 
             for dataset in datasets:
-
                 dataconvention_match = re.match(
                     SmartSPIMReader.RegexPatterns.smartspim_regex.value,
                     dataset,
@@ -211,7 +236,7 @@ def get_image_metadata(image_paths: List[PathLike]) -> List[dict]:
     ----------
     image_paths: List[PathLike]
         List with the paths of the images
-    
+
     Returns
     ----------
     List[dict]
@@ -290,13 +315,13 @@ def validate_metadata_parallel(
     channel_dict: dict
         Dicitonary with the channel folder structure
         pointing to row/col/tile.png
-    
+
     file_format: str
         Expected file format of the images
-    
+
     bit_depth: int
         Expected bit depth of the images
-    
+
     Returns
     ----------
     bool
@@ -308,7 +333,6 @@ def validate_metadata_parallel(
     rows_per_worker = 1
 
     for col_name, rows in channel_dict.items():
-
         n_rows = len(rows)
 
         if n_rows < workers:
@@ -349,13 +373,16 @@ def validate_metadata_parallel(
         res = []
 
         with multiprocessing.Pool(workers) as pool:
-            results = pool.imap(_validate_rows, args, chunksize=1,)
+            results = pool.imap(
+                _validate_rows,
+                args,
+                chunksize=1,
+            )
 
             for pos in results:
                 res.append(pos)
 
         for res_idx in range(len(res)):
-
             if not res[res_idx]:
                 logger.error(
                     f"Dataset with format or bit depth issues found by worker {res_idx}"
@@ -379,13 +406,13 @@ def validate_metadata(
     channel_dict: dict
         Dicitonary with the channel folder structure
         pointing to row/col/tile.png
-    
+
     file_format: str
         Expected file format of the images
-    
+
     bit_depth: int
         Expected bit depth of the images
-    
+
     Returns
     ----------
     bool
@@ -398,7 +425,6 @@ def validate_metadata(
     rows_per_worker = 1
 
     for col_name, rows in channel_dict.items():
-
         for row_name, images in rows.items():
             print(f"Validating: {col_name}/{row_name}")
             start_date = datetime.now()
@@ -433,7 +459,7 @@ def validate_dataset(
 ) -> bool:
     """
     Validates a dataset
-    
+
     Parameters
     ------------
     dataset_path: PathLike
@@ -450,7 +476,6 @@ def validate_dataset(
     images_per_channel = []
 
     for channel_name, image_paths in dataset_structure.items():
-
         n_images = get_images_channel(image_paths)
         images_per_channel.append(n_images)
         logger.info(f"Channel {channel_name} has {n_images} images")
@@ -541,11 +566,26 @@ def usage_example():
     txt = "\n".join(join_lists)
     save_string_to_txt(txt, error_dataset_paths)
 
+
 def main():
     """
-    Usage example
+    Main function to execute individual dataset validation
     """
-    usage_example()
+    # usage_example()
+    mod = ArgSchemaParser(schema_type=ValidationParameters)
+    args = mod.args
+
+    # Unpacking parameters
+    path = args["path"]
+    validate_mdata = args["val_mdata"]
+
+    logger.info(f"Validating {path}")
+
+    if validate_dataset(dataset_path=path, validate_mdata=validate_mdata):
+        logger.info(f"Dataset {path} is valid.")
+
+    else:
+        logger.error(f"Dataset {path} has problems with tiles.")
 
 
 if __name__ == "__main__":

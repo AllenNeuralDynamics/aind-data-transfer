@@ -12,7 +12,6 @@ import time
 from pathlib import Path
 
 import yaml
-
 from config import DASK_CONF_FILE
 
 
@@ -61,13 +60,13 @@ def write_slurm_scripts(args, run_info):
 def write_dask_config(args, run_info, deployment="slurm"):
     config = {}
     if deployment == "slurm":
-        config['distributed'] = {
-            'worker': {
-                'memory': {
+        config["distributed"] = {
+            "worker": {
+                "memory": {
                     "target": args.worker_memory_target,
                     "spill": args.worker_memory_spill,
                     "pause": args.worker_memory_pause,
-                    "terminate": args.worker_memory_terminate
+                    "terminate": args.worker_memory_terminate,
                 }
             }
         }
@@ -214,25 +213,25 @@ def parse_args():
         "--worker_memory_target",
         type=float,
         default=0.6,
-        help="fraction of managed memory where Dask workers start spilling to disk"
+        help="fraction of managed memory where Dask workers start spilling to disk",
     )
     parser.add_argument(
         "--worker_memory_spill",
         type=float,
         default=0.7,
-        help="fraction of process memory where Dask workers start spilling to disk"
+        help="fraction of process memory where Dask workers start spilling to disk",
     )
     parser.add_argument(
         "--worker_memory_pause",
         type=float,
         default=0.8,
-        help="fraction of process memory at which we pause Dask worker threads"
+        help="fraction of process memory at which we pause Dask worker threads",
     )
     parser.add_argument(
         "--worker_memory_terminate",
         type=float,
         default=0.95,
-        help="fraction of process memory at which we terminate the Dask worker"
+        help="fraction of process memory at which we terminate the Dask worker",
     )
     parser.add_argument(
         "--wait",
