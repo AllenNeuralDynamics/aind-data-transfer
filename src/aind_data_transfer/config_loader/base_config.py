@@ -1,22 +1,27 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
 
+import argparse
 import json
 import logging
-from typing import Optional, Dict, Any
+import re
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import boto3
+from aind_data_schema.data_description import (
+    ExperimentType,
+    Modality,
+    build_data_name,
+)
 from botocore.exceptions import ClientError
-
-from pydantic import BaseSettings, Field, SecretStr, FilePath, DirectoryPath
-from aind_data_schema.data_description import Modality, ExperimentType
-from datetime import datetime
-import argparse
-from pathlib import Path
-import re
+from pydantic import BaseSettings, DirectoryPath, Field, FilePath, SecretStr
 
 
 class BasicJobEndpoints(BaseSettings):
+    """Endpoints that define the services to read/write from"""
+
     aws_param_name: Optional[str] = Field(default=None, repr=False)
 
     codeocean_domain: str = Field(...)
@@ -45,6 +50,7 @@ class BasicJobEndpoints(BaseSettings):
             def get_param_from_aws(
                 aws_param_name, aws_ssm_client, with_decryption=False
             ) -> Dict[str, Any]:
+                """Pull parameter from AWS Parameter Store"""
                 try:
                     param_from_store = aws_ssm_client.get_parameter(
                         Name=aws_param_name, WithDecryption=with_decryption
@@ -87,8 +93,8 @@ class BasicJobEndpoints(BaseSettings):
                         ),
                         with_decryption=True,
                     )
-                    params_from_aws["codeocean_api_token"] = (
-                        co_api_token.get("CODEOCEAN_READWRITE_TOKEN")
+                    params_from_aws["codeocean_api_token"] = co_api_token.get(
+                        "CODEOCEAN_READWRITE_TOKEN"
                     )
                     if params_from_aws.get("codeocean_api_token_path"):
                         del params_from_aws["codeocean_api_token_path"]
@@ -123,6 +129,7 @@ class BasicJobEndpoints(BaseSettings):
 
 
 class BasicUploadJobConfigs(BasicJobEndpoints):
+    """Configuration for the basic upload job"""
 
     s3_bucket: str = Field(
         ...,
@@ -146,6 +153,15 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Location of raw data to be uploaded",
         title="Data Source",
     )
+    temp_directory: Optional[DirectoryPath] = Field(
+        default=None,
+        description=(
+            "As default, the file systems temporary directory will be used as "
+            "an intermediate location to store the compressed data before "
+            "being uploaded to s3"
+        ),
+        title="Temp directory",
+    )
     behavior_dir: Optional[DirectoryPath] = Field(
         None,
         description="Directory of behavior data",
@@ -158,6 +174,11 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         None,
         description="Location of additional configuration file",
         title="Extra Configs",
+    )
+    log_level: str = Field(
+        default="WARNING",
+        description="Logging level. Default is WARNING.",
+        title="Log Level",
     )
     metadata_dir_force: bool = Field(
         default=False,
@@ -178,12 +199,23 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         title="Compress Raw Data",
     )
 
+    @property
+    def s3_prefix(self):
+        return build_data_name(
+            label=f"{self.experiment_type.value}_{self.subject_id}",
+            creation_date=self.acq_datetime.date(),
+            creation_time=self.acq_datetime.time(),
+        )
+
     @classmethod
     def from_args(cls, args: list):
         """Adds ability to construct settings from a list of arguments."""
 
         def _help_message(key: str) -> str:
-            return BasicUploadJobConfigs.schema()["properties"][key]["description"]
+            """Construct help message from field description"""
+            return BasicUploadJobConfigs.schema()["properties"][key][
+                "description"
+            ]
 
         def _parse_date(date: str) -> str:
             """Parses date string to %YYYY-%MM-%DD format"""
@@ -219,21 +251,114 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
 
         parser = argparse.ArgumentParser()
         # Required
-        parser.add_argument("-a", "--acq-date", required=True, type=str, help="Date data was acquired, yyyy-MM-dd or dd/MM/yyyy")
-        parser.add_argument("-b", "--s3-bucket", required=True, type=str, help=_help_message("s3_bucket"))
-        parser.add_argument("-d", "--data-source", required=True, type=str, help=_help_message("data_source"))
-        parser.add_argument("-e", "--experiment-type", required=True, type=str, help=_help_message("experiment_type"))
-        parser.add_argument("-m", "--modality", required=True, type=str, help=_help_message("modality"))
-        parser.add_argument("-p", "--endpoints-parameters", required=True, type=str, help="Either a string that can be parsed as a json object or a name that points to an aws parameter store location")
-        parser.add_argument("-s", "--subject-id", required=True, type=str, help=_help_message("subject_id"))
-        parser.add_argument("-t", "--acq-time", required=True, type=str, help="Time data was acquired, HH-mm-ss or HH:mm:ss")
+        parser.add_argument(
+            "-a",
+            "--acq-date",
+            required=True,
+            type=str,
+            help="Date data was acquired, yyyy-MM-dd or dd/MM/yyyy",
+        )
+        parser.add_argument(
+            "-b",
+            "--s3-bucket",
+            required=True,
+            type=str,
+            help=_help_message("s3_bucket"),
+        )
+        parser.add_argument(
+            "-d",
+            "--data-source",
+            required=True,
+            type=str,
+            help=_help_message("data_source"),
+        )
+        parser.add_argument(
+            "-e",
+            "--experiment-type",
+            required=True,
+            type=str,
+            help=_help_message("experiment_type"),
+        )
+        parser.add_argument(
+            "-m",
+            "--modality",
+            required=True,
+            type=str,
+            help=_help_message("modality"),
+        )
+        parser.add_argument(
+            "-p",
+            "--endpoints-parameters",
+            required=True,
+            type=str,
+            help=(
+                "Either a string that can be parsed as a json object or a name"
+                " that points to an aws parameter store location"
+            ),
+        )
+        parser.add_argument(
+            "-s",
+            "--subject-id",
+            required=True,
+            type=str,
+            help=_help_message("subject_id"),
+        )
+        parser.add_argument(
+            "-t",
+            "--acq-time",
+            required=True,
+            type=str,
+            help="Time data was acquired, HH-mm-ss or HH:mm:ss",
+        )
         # Optional
-        parser.add_argument("-c", "--extra-configs", required=False, type=str, help=_help_message("extra_configs"))
-        parser.add_argument("-v", "--behavior-dir", required=False, type=str, help=_help_message("behavior_dir"))
-        parser.add_argument("-x", "--metadata-dir", required=False, type=str, help=_help_message("metadata_dir"))
-        parser.add_argument("--dry-run", action="store_true", help=_help_message("dry_run"))
-        parser.add_argument("--compress-raw-data", action="store_true", help=_help_message("compress_raw_data"))
-        parser.add_argument("--metadata-dir-force", action="store_true", help=_help_message("metadata_dir_force"))
+        parser.add_argument(
+            "-c",
+            "--extra-configs",
+            required=False,
+            type=str,
+            help=_help_message("extra_configs"),
+        )
+        parser.add_argument(
+            "-l",
+            "--log-level",
+            required=False,
+            type=str,
+            help=_help_message("log_level"),
+        )
+        parser.add_argument(
+            "-n",
+            "--temp-directory",
+            required=False,
+            type=str,
+            help=_help_message("temp_directory"),
+        )
+        parser.add_argument(
+            "-v",
+            "--behavior-dir",
+            required=False,
+            type=str,
+            help=_help_message("behavior_dir"),
+        )
+        parser.add_argument(
+            "-x",
+            "--metadata-dir",
+            required=False,
+            type=str,
+            help=_help_message("metadata_dir"),
+        )
+        parser.add_argument(
+            "--dry-run", action="store_true", help=_help_message("dry_run")
+        )
+        parser.add_argument(
+            "--compress-raw-data",
+            action="store_true",
+            help=_help_message("compress_raw_data"),
+        )
+        parser.add_argument(
+            "--metadata-dir-force",
+            action="store_true",
+            help=_help_message("metadata_dir_force"),
+        )
         parser.set_defaults(dry_run=False)
         parser.set_defaults(compress_raw_data=False)
         parser.set_defaults(metadata_dir_force=False)
@@ -241,28 +366,60 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         date_str = _parse_date(job_args.acq_date)
         time_str = _parse_time(job_args.acq_time)
         acq_datetime = datetime.fromisoformat(f"{date_str}T{time_str}")
-        behavior_dir = None if job_args.behavior_dir is None else Path(job_args.behavior_dir)
-        metadata_dir = None if job_args.metadata_dir is None else Path(job_args.metadata_dir)
-        extra_configs = None if job_args.extra_configs is None else Path(job_args.extra_configs)
+        behavior_dir = (
+            None
+            if job_args.behavior_dir is None
+            else Path(job_args.behavior_dir)
+        )
+        metadata_dir = (
+            None
+            if job_args.metadata_dir is None
+            else Path(job_args.metadata_dir)
+        )
+        temp_directory = (
+            None
+            if job_args.temp_directory is None
+            else Path(job_args.temp_directory)
+        )
+        extra_configs = (
+            None
+            if job_args.extra_configs is None
+            else Path(job_args.extra_configs)
+        )
+        log_level = (
+            BasicUploadJobConfigs.schema()["properties"]["log_level"][
+                "default"
+            ]
+            if job_args.log_level is None
+            else job_args.log_level
+        )
         # The user can define the endpoints explicitly as an object that can be
         # parsed with json.loads()
         try:
-            params_from_json = BasicJobEndpoints.parse_obj(json.loads(job_args.endpoints_parameters))
-            param_dict = params_from_json.dict()
+            params_from_json = BasicJobEndpoints.parse_obj(
+                json.loads(job_args.endpoints_parameters)
+            )
+            endpoints_param_dict = params_from_json.dict()
         # If the endpoints are not defined explicitly, then we can check if
         # the input defines an aws parameter store name
         except json.decoder.JSONDecodeError:
-            param_dict = {"aws_param_name": job_args.endpoints_parameters}
-        return cls(s3_bucket=job_args.s3_bucket,
-                   data_source=Path(job_args.data_source),
-                   subject_id=job_args.subject_id,
-                   modality=Modality(job_args.modality),
-                   experiment_type=ExperimentType(job_args.experiment_type),
-                   acq_datetime=acq_datetime,
-                   behavior_dir=behavior_dir,
-                   metadata_dir=metadata_dir,
-                   extra_configs=extra_configs,
-                   dry_run=job_args.dry_run,
-                   compress_raw_data=job_args.compress_raw_data,
-                   metadata_dir_force=job_args.metadata_dir_force,
-                   **param_dict)
+            endpoints_param_dict = {
+                "aws_param_name": job_args.endpoints_parameters
+            }
+        return cls(
+            s3_bucket=job_args.s3_bucket,
+            data_source=Path(job_args.data_source),
+            subject_id=job_args.subject_id,
+            modality=Modality(job_args.modality),
+            experiment_type=ExperimentType(job_args.experiment_type),
+            acq_datetime=acq_datetime,
+            behavior_dir=behavior_dir,
+            temp_directory=temp_directory,
+            metadata_dir=metadata_dir,
+            extra_configs=extra_configs,
+            dry_run=job_args.dry_run,
+            compress_raw_data=job_args.compress_raw_data,
+            metadata_dir_force=job_args.metadata_dir_force,
+            log_level=log_level,
+            **endpoints_param_dict,
+        )
