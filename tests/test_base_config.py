@@ -2,7 +2,7 @@
 import json
 import os
 import unittest
-from datetime import datetime
+from datetime import date, time
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
@@ -88,7 +88,7 @@ class TestJobEndpointsConfigs(unittest.TestCase):
             },
         ]
         job_endpoints = BasicJobEndpoints(
-            aws_param_name="some_param_store_name"
+            aws_param_store_name="some_param_store_name"
         )
         self.assertEqual("some_domain", job_endpoints.codeocean_domain)
         self.assertEqual(
@@ -123,7 +123,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         "EXPERIMENT_TYPE": "confocal",
         "MODALITY": "ECEPHYS",
         "SUBJECT_ID": "12345",
-        "ACQ_DATETIME": "2020-10-10T10:10:10",
+        "ACQ_DATE": "2020-10-10",
+        "ACQ_TIME": "10:10:10",
         "DATA_SOURCE": str(DATA_DIR),
         "DRY_RUN": "true",
     }
@@ -167,8 +168,12 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(Modality.ECEPHYS, basic_job_configs.modality)
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime.fromisoformat("2020-10-10T10:10:10"),
-            basic_job_configs.acq_datetime,
+            date.fromisoformat("2020-10-10"),
+            basic_job_configs.acq_date,
+        )
+        self.assertEqual(
+            time.fromisoformat("10:10:10"),
+            basic_job_configs.acq_time,
         )
         self.assertEqual(DATA_DIR, basic_job_configs.data_source)
         self.assertTrue(basic_job_configs.dry_run)
@@ -242,8 +247,12 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(Modality.OPHYS, basic_job_configs.modality)
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime.fromisoformat("2022-10-10T13:24:01"),
-            basic_job_configs.acq_datetime,
+            date.fromisoformat("2022-10-10"),
+            basic_job_configs.acq_date,
+        )
+        self.assertEqual(
+            time.fromisoformat("13:24:01"),
+            basic_job_configs.acq_time,
         )
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
@@ -330,8 +339,12 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(Modality.OPHYS, basic_job_configs.modality)
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime.fromisoformat("2022-10-10T13:24:01"),
-            basic_job_configs.acq_datetime,
+            date.fromisoformat("2022-10-10"),
+            basic_job_configs.acq_date,
+        )
+        self.assertEqual(
+            time.fromisoformat("13:24:01"),
+            basic_job_configs.acq_time,
         )
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
@@ -377,6 +390,44 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             json.dumps(custom_endpoints),
         ]
 
+        test_malformed_date_args = [
+            "-d",
+            str(DATA_DIR),
+            "-b",
+            "some_bucket",
+            "-s",
+            "12345",
+            "-e",
+            "SmartSPIM",
+            "-m",
+            "OPHYS",
+            "-a",
+            "12/12/20225",
+            "-t",
+            "13:24:01",
+            "-p",
+            json.dumps(custom_endpoints),
+        ]
+
+        test_malformed_time_args = [
+            "-d",
+            str(DATA_DIR),
+            "-b",
+            "some_bucket",
+            "-s",
+            "12345",
+            "-e",
+            "SmartSPIM",
+            "-m",
+            "OPHYS",
+            "-a",
+            "10/10/2022",
+            "-t",
+            "121:20:20",
+            "-p",
+            json.dumps(custom_endpoints),
+        ]
+
         basic_job_configs = BasicUploadJobConfigs.from_args(test_req_args)
         self.assertEqual("some_domain", basic_job_configs.codeocean_domain)
         self.assertEqual(
@@ -400,8 +451,12 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(Modality.OPHYS, basic_job_configs.modality)
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime.fromisoformat("2022-10-10T13:24:01"),
-            basic_job_configs.acq_datetime,
+            date.fromisoformat("2022-10-10"),
+            basic_job_configs.acq_date,
+        )
+        self.assertEqual(
+            time.fromisoformat("13:24:01"),
+            basic_job_configs.acq_time,
         )
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
@@ -413,6 +468,12 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertIsNone(basic_job_configs.metadata_dir)
         self.assertEqual("WARNING", basic_job_configs.log_level)
         self.assertFalse(mock_client.called)
+
+        with self.assertRaises(ValueError):
+            BasicUploadJobConfigs.from_args(test_malformed_date_args)
+
+        with self.assertRaises(ValueError):
+            BasicUploadJobConfigs.from_args(test_malformed_time_args)
 
 
 if __name__ == "__main__":

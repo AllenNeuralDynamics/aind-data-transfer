@@ -5,7 +5,7 @@ import argparse
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -22,7 +22,7 @@ from pydantic import BaseSettings, DirectoryPath, Field, FilePath, SecretStr
 class BasicJobEndpoints(BaseSettings):
     """Endpoints that define the services to read/write from"""
 
-    aws_param_name: Optional[str] = Field(default=None, repr=False)
+    aws_param_store_name: Optional[str] = Field(default=None, repr=False)
 
     codeocean_domain: str = Field(...)
     codeocean_trigger_capsule_id: str = Field(...)
@@ -48,12 +48,13 @@ class BasicJobEndpoints(BaseSettings):
             """
 
             def get_param_from_aws(
-                aws_param_name, aws_ssm_client, with_decryption=False
+                aws_param_store_name, aws_ssm_client, with_decryption=False
             ) -> Dict[str, Any]:
                 """Pull parameter from AWS Parameter Store"""
                 try:
                     param_from_store = aws_ssm_client.get_parameter(
-                        Name=aws_param_name, WithDecryption=with_decryption
+                        Name=aws_param_store_name,
+                        WithDecryption=with_decryption,
                     )
                     param_string = param_from_store["Parameter"]["Value"]
                     params = json.loads(param_string)
@@ -70,12 +71,12 @@ class BasicJobEndpoints(BaseSettings):
                 """
                 ssm_client = boto3.client("ssm")
                 params_from_aws = get_param_from_aws(
-                    aws_param_name=param_name, aws_ssm_client=ssm_client
+                    aws_param_store_name=param_name, aws_ssm_client=ssm_client
                 )
                 if params_from_aws.get("video_encryption_password_path"):
                     video_encrypt_pwd = get_param_from_aws(
                         aws_ssm_client=ssm_client,
-                        aws_param_name=params_from_aws.get(
+                        aws_param_store_name=params_from_aws.get(
                             "video_encryption_password_path"
                         ),
                         with_decryption=True,
@@ -88,7 +89,7 @@ class BasicJobEndpoints(BaseSettings):
                 if params_from_aws.get("codeocean_api_token_path"):
                     co_api_token = get_param_from_aws(
                         aws_ssm_client=ssm_client,
-                        aws_param_name=params_from_aws.get(
+                        aws_param_store_name=params_from_aws.get(
                             "codeocean_api_token_path"
                         ),
                         with_decryption=True,
@@ -112,13 +113,15 @@ class BasicJobEndpoints(BaseSettings):
             file_secret_settings,
         ):
             """Class method to return custom sources."""
-            aws_param_name = init_settings.init_kwargs.get("aws_param_name")
-            if aws_param_name:
+            aws_param_store_name = init_settings.init_kwargs.get(
+                "aws_param_store_name"
+            )
+            if aws_param_store_name:
                 return (
                     init_settings,
                     env_settings,
                     file_secret_settings,
-                    cls.settings_from_aws(param_name=aws_param_name),
+                    cls.settings_from_aws(param_name=aws_param_store_name),
                 )
             else:
                 return (
@@ -143,10 +146,13 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         ..., description="Data collection modality", title="Modality"
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
-    acq_datetime: datetime = Field(
+    acq_date: date = Field(
+        ..., description="Date data was acquired", title="Acquisition Date"
+    )
+    acq_time: time = Field(
         ...,
-        description="Date and time of data acquisition",
-        title="Acquisition Datetime",
+        description="Time of day data was acquired",
+        title="Acquisition Time",
     )
     data_source: DirectoryPath = Field(
         ...,
@@ -203,9 +209,37 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
     def s3_prefix(self):
         return build_data_name(
             label=f"{self.experiment_type.value}_{self.subject_id}",
-            creation_date=self.acq_datetime.date(),
-            creation_time=self.acq_datetime.time(),
+            creation_date=self.acq_date,
+            creation_time=self.acq_time,
         )
+
+    @staticmethod
+    def parse_date(date_str: str) -> date:
+        """Parses date string to %YYYY-%MM-%DD format"""
+        pattern = r"^\d{4}-\d{2}-\d{2}$"
+        pattern2 = r"^\d{1,2}/\d{1,2}/\d{4}$"
+        if re.match(pattern, date_str):
+            return date.fromisoformat(date_str)
+        elif re.match(pattern2, date_str):
+            return datetime.strptime(date_str, "%m/%d/%Y").date()
+        else:
+            raise ValueError(
+                "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
+            )
+
+    @staticmethod
+    def parse_time(time_str: str) -> time:
+        """Parses time string to "%HH-%MM-%SS format"""
+        pattern = r"^\d{1,2}-\d{1,2}-\d{1,2}$"
+        pattern2 = r"^\d{1,2}:\d{1,2}:\d{1,2}$"
+        if re.match(pattern, time_str):
+            return datetime.strptime(time_str, "%H-%M-%S").time()
+        elif re.match(pattern2, time_str):
+            return time.fromisoformat(time_str)
+        else:
+            raise ValueError(
+                "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
+            )
 
     @classmethod
     def from_args(cls, args: list):
@@ -216,38 +250,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             return BasicUploadJobConfigs.schema()["properties"][key][
                 "description"
             ]
-
-        def _parse_date(date: str) -> str:
-            """Parses date string to %YYYY-%MM-%DD format"""
-            stripped_date = date.strip()
-            pattern = r"^\d{4}-\d{2}-\d{2}$"
-            pattern2 = r"^\d{1,2}/\d{1,2}/\d{4}$"
-            if re.match(pattern, stripped_date):
-                parsed_date = datetime.strptime(stripped_date, "%Y-%m-%d")
-                return parsed_date.strftime("%Y-%m-%d")
-            elif re.match(pattern2, stripped_date):
-                parsed_date = datetime.strptime(stripped_date, "%m/%d/%Y")
-                return parsed_date.strftime("%Y-%m-%d")
-            else:
-                raise ValueError(
-                    "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
-                )
-
-        def _parse_time(time: str) -> str:
-            """Parses time string to "%HH-%MM-%SS format"""
-            stripped_time = time.strip()
-            pattern = r"^\d{1,2}-\d{1,2}-\d{1,2}$"
-            pattern2 = r"^\d{1,2}:\d{1,2}:\d{1,2}$"
-            if re.match(pattern, stripped_time):
-                parsed_time = datetime.strptime(stripped_time, "%H-%M-%S")
-                return parsed_time.strftime("%H:%M:%S")
-            elif re.match(pattern2, stripped_time):
-                parsed_time = datetime.strptime(stripped_time, "%H:%M:%S")
-                return parsed_time.strftime("%H:%M:%S")
-            else:
-                raise ValueError(
-                    "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
-                )
 
         parser = argparse.ArgumentParser()
         # Required
@@ -363,9 +365,8 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         parser.set_defaults(compress_raw_data=False)
         parser.set_defaults(metadata_dir_force=False)
         job_args = parser.parse_args(args)
-        date_str = _parse_date(job_args.acq_date)
-        time_str = _parse_time(job_args.acq_time)
-        acq_datetime = datetime.fromisoformat(f"{date_str}T{time_str}")
+        acq_date = BasicUploadJobConfigs.parse_date(job_args.acq_date)
+        acq_time = BasicUploadJobConfigs.parse_time(job_args.acq_time)
         behavior_dir = (
             None
             if job_args.behavior_dir is None
@@ -404,7 +405,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         # the input defines an aws parameter store name
         except json.decoder.JSONDecodeError:
             endpoints_param_dict = {
-                "aws_param_name": job_args.endpoints_parameters
+                "aws_param_store_name": job_args.endpoints_parameters
             }
         return cls(
             s3_bucket=job_args.s3_bucket,
@@ -412,7 +413,8 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             subject_id=job_args.subject_id,
             modality=Modality(job_args.modality),
             experiment_type=ExperimentType(job_args.experiment_type),
-            acq_datetime=acq_datetime,
+            acq_date=acq_date,
+            acq_time=acq_time,
             behavior_dir=behavior_dir,
             temp_directory=temp_directory,
             metadata_dir=metadata_dir,
