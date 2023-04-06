@@ -302,7 +302,8 @@ def organize_datasets(
 
         # Organizing smartspim folders
         smartSPIM_writer = SmartSPIMWriter(
-            dataset_paths=ready_datasets, metadata_domain=metadata_service,
+            dataset_paths=ready_datasets,
+            metadata_domain=metadata_service,
         )
 
         (
