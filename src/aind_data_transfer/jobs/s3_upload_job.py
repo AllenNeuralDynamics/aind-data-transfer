@@ -4,7 +4,7 @@ import argparse
 import csv
 import logging
 import sys
-from typing import List
+from typing import Any, List, Optional
 
 from aind_data_transfer.config_loader.base_config import BasicJobEndpoints
 from aind_data_transfer.jobs.basic_job import BasicJob, BasicUploadJobConfigs
@@ -56,6 +56,16 @@ class GenericS3UploadJobList:
         job_args = parser.parse_args(args)
         return job_args
 
+    @staticmethod
+    def _clean_csv_entry(csv_key: str, csv_value: Optional[str]) -> Any:
+        """Tries to set the default value for optional settings if the csv
+        entry is blank."""
+        if csv_value is None or csv_value == "" or csv_value == " ":
+            clean_val = BasicUploadJobConfigs.__fields__[csv_key].default
+        else:
+            clean_val = csv_value.strip()
+        return clean_val
+
     def _create_job_config_list(self) -> List[BasicJob]:
         """Reads in the csv file and outputs a list of Job Configs."""
         job_list = list()
@@ -65,7 +75,9 @@ class GenericS3UploadJobList:
             reader = csv.DictReader(csvfile, skipinitialspace=True)
             for row in reader:
                 cleaned_row = {
-                    k.strip().replace("-", "_"): v.strip()
+                    k.strip().replace("-", "_"): self._clean_csv_entry(
+                        k.strip().replace("-", "_"), v
+                    )
                     for k, v in row.items()
                 }
                 cleaned_row["acq_date"] = BasicUploadJobConfigs.parse_date(

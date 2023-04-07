@@ -34,6 +34,13 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         / "jobs_list.csv"
     )
 
+    PATH_TO_EXAMPLE_CSV_FILE2 = (
+        Path(os.path.dirname(os.path.realpath(__file__)))
+        / "resources"
+        / "test_configs"
+        / "jobs_list2.csv"
+    )
+
     @patch("boto3.client")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob.run_job")
     def test_load_configs(
@@ -109,6 +116,39 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         mock_run_job.assert_has_calls([call(), call(), call(), call()])
         self.assertEqual(2, len(jobs.job_list))
         self.assertEqual(2, len(dry_run_jobs.job_list))
+
+    @patch("boto3.client")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob.run_job")
+    def test_load_configs2(
+        self, mock_run_job: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """Tests configs are loaded correctly."""
+        mock_resp1 = {
+            "Parameter": {"Value": self.EXAMPLE_PARAM_STORE_RESPONSE}
+        }
+        mock_resp2 = {
+            "Parameter": {"Value": json.dumps({"password": "some_password"})}
+        }
+        mock_resp3 = {
+            "Parameter": {
+                "Value": json.dumps(
+                    {"CODEOCEAN_READWRITE_TOKEN": "some_token"}
+                )
+            }
+        }
+
+        mock_client.return_value.get_parameter.side_effect = [
+            mock_resp1,
+            mock_resp2,
+            mock_resp3,
+        ]
+
+        args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE2)]
+        jobs = GenericS3UploadJobList(args=args)
+
+        self.assertFalse(jobs.job_list[0].configs.dry_run)
+        self.assertFalse(jobs.job_list[0].configs.compress_raw_data)
+        jobs.run_job()
 
 
 if __name__ == "__main__":

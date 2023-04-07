@@ -169,15 +169,17 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         title="Temp directory",
     )
     behavior_dir: Optional[DirectoryPath] = Field(
-        None,
+        default=None,
         description="Directory of behavior data",
         title="Behavior Directory",
     )
     metadata_dir: Optional[DirectoryPath] = Field(
-        None, description="Directory of metadata", title="Metadata Directory"
+        default=None,
+        description="Directory of metadata",
+        title="Metadata Directory",
     )
     extra_configs: Optional[FilePath] = Field(
-        None,
+        default=None,
         description="Location of additional configuration file",
         title="Extra Configs",
     )
@@ -389,9 +391,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             else Path(job_args.extra_configs)
         )
         log_level = (
-            BasicUploadJobConfigs.schema()["properties"]["log_level"][
-                "default"
-            ]
+            BasicUploadJobConfigs.__fields__["log_level"].default
             if job_args.log_level is None
             else job_args.log_level
         )
