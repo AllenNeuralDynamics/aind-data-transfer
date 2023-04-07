@@ -31,6 +31,12 @@ class BasicJob:
     def __init__(self, job_configs: BasicUploadJobConfigs):
         """Init with job_configs"""
         self.configs = job_configs
+        self._instance_logger = (
+            logging.getLogger(__name__)
+            .getChild(self.__class__.__name__)
+            .getChild(str(id(self)))
+        )
+        self._instance_logger.setLevel(job_configs.log_level)
 
     def _check_if_s3_location_exists(self):
         """Check if the s3 bucket and prefix already exists. If so, raise an
@@ -78,7 +84,7 @@ class BasicJob:
         # Otherwise, we'll store the compressed folder in a temp directory
         # and upload it along with the other files
         else:
-            logging.info("Compressing raw data folder: ")
+            self._instance_logger.info("Compressing raw data folder: ")
             zc = ZipCompressor(display_progress_bar=True)
             compressed_data_folder_name = (
                 str(os.path.basename(self.configs.data_source)) + ".zip"
@@ -155,6 +161,7 @@ class BasicJob:
                 for file in files:
                     raw_file_path = os.path.join(root, file)
                     new_file_path = os.path.join(new_behavior_dir, file)
+                    os.makedirs(os.path.dirname(new_file_path), exist_ok=True)
                     shutil.copy(raw_file_path, new_file_path)
             video_compressor.compress_all_videos_in_dir(new_behavior_dir)
         return None
@@ -185,8 +192,9 @@ class BasicJob:
             domain=self.configs.codeocean_domain,
         )
         if self.configs.dry_run:
-            logging.info(
-                f"Would have ran capsule with params: {trigger_capsule_params}"
+            self._instance_logger.info(
+                f"(dryrun) Would have ran capsule with params: "
+                f"{trigger_capsule_params}"
             )
         else:
             response = co_client.run_capsule(
@@ -194,7 +202,9 @@ class BasicJob:
                 data_assets=[],
                 parameters=[json.dumps(trigger_capsule_params)],
             )
-            logging.info(f"Code Ocean Response: {response.json()}")
+            self._instance_logger.info(
+                f"Code Ocean Response: {response.json()}"
+            )
         return None
 
     def run_job(self):

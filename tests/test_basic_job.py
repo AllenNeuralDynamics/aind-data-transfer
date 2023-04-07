@@ -279,13 +279,17 @@ class TestBasicJob(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("os.makedirs")
     @patch("shutil.copy")
     @patch(
         "aind_data_transfer.transformations.generic_compressors."
         "VideoCompressor.compress_all_videos_in_dir"
     )
     def test_encrypt_behavior_dir(
-        self, mock_compress: MagicMock, mock_copy: MagicMock
+        self,
+        mock_compress: MagicMock,
+        mock_copy: MagicMock,
+        mock_mkdirs: MagicMock,
     ):
         """Tests that the video files in the behavior dir are encypted."""
         basic_job_configs = BasicUploadJobConfigs()
@@ -310,6 +314,13 @@ class TestBasicJob(unittest.TestCase):
             any_order=True,
         )
         mock_compress.assert_called_once_with(Path("some_dir/behavior"))
+        mock_mkdirs.assert_has_calls(
+            [
+                call("some_dir/behavior", exist_ok=True),
+                call("some_dir/behavior", exist_ok=True),
+                call("some_dir/behavior", exist_ok=True),
+            ]
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
@@ -330,10 +341,8 @@ class TestBasicJob(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_codeocean_api.codeocean.CodeOceanClient.run_capsule")
-    @patch("logging.info")
     def test_trigger_codeocean_capsule(
         self,
-        mock_log_info: MagicMock,
         mock_run_capsule: MagicMock,
     ):
         """Tests code ocean capsule is triggered"""
@@ -352,23 +361,6 @@ class TestBasicJob(unittest.TestCase):
         basic_job.configs.dry_run = False
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._trigger_codeocean_pipeline()
-
-        mock_log_info.assert_has_calls(
-            [
-                call(
-                    "Would have ran capsule with params: "
-                    "{'trigger_codeocean_job': "
-                    "{'job_type': 'confocal', "
-                    "'capsule_id': 'some_capsule_id', "
-                    "'bucket': 'some_bucket', "
-                    "'prefix': 'confocal_12345_2020-10-10_10-10-10'}}"
-                ),
-                call(
-                    "Code Ocean Response: "
-                    "{'Message': 'triggered a code ocean capsule'}"
-                ),
-            ]
-        )
 
         mock_run_capsule.assert_called_once_with(
             capsule_id="some_capsule_id",

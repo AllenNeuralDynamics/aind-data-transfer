@@ -149,6 +149,7 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         self.assertFalse(jobs.job_list[0].configs.dry_run)
         self.assertFalse(jobs.job_list[0].configs.compress_raw_data)
         jobs.run_job()
+        mock_run_job.assert_called_once()
 
 
 if __name__ == "__main__":
