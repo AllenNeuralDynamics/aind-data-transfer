@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Tuple, Union
 
 from aind_data_schema import Funding, RawDataDescription, Subject
+from aind_data_schema.data_description import ExperimentType, Modality, Institution, Group
 from aind_data_schema.imaging import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
@@ -301,7 +302,8 @@ class SmartSPIMWriter:
 
         # Creating data description
         data_description = RawDataDescription(
-            modality="smartspim",
+            modality=[Modality.SPIM],
+            experiment_type=ExperimentType.SMARTSPIM,
             subject_id=parsed_data["mouse_id"],
             creation_date=date(
                 mouse_date.year, mouse_date.month, mouse_date.day
@@ -309,8 +311,9 @@ class SmartSPIMWriter:
             creation_time=time(
                 mouse_date.hour, mouse_date.minute, mouse_date.second
             ),
-            institution=dataset_info["institution"],
-            group="MSMA",
+            # Parses the attribute name to an institution...
+            institution=Institution(dataset_info["institution"]),
+            group=Group.MSMA,
             project_name=dataset_info["project"],
             project_id=dataset_info["project_id"],
             funding_source=[Funding(funder=dataset_info["institution"])],
@@ -359,8 +362,6 @@ class SmartSPIMWriter:
                 maternal_genotype=data["maternal_genotype"],
                 paternal_id=data["paternal_id"],
                 paternal_genotype=data["paternal_genotype"],
-                light_cycle=data["light_cycle"],
-                home_cage_enrichment=data["home_cage_enrichment"],
                 wellness_reports=data["wellness_reports"],
                 notes=data["notes"],
             )

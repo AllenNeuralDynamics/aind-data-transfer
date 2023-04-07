@@ -1,0 +1,4 @@
+data-source, s3-bucket, subject-id, experiment-type, modality, acq-date, acq-time, aws_param_store_name, behavior-dir, metadata-dir, dry-run
+tests/resources/v0.6.x_neuropixels_multiexp_multistream, some_bucket, 123454, ecephys, ecephys, 2020-10-10, 14-10-10, /some/aws/param/store/name
+tests/resources/v0.6.x_neuropixels_multiexp_multistream, some_bucket, 123456, ecephys, ecephys, 2020-10-11, 13-10-10, /some/aws/param/store/name, tests/resources/v0.6.x_neuropixels_multiexp_multistream/Videos,,true
+tests/resources/v0.6.x_neuropixels_multiexp_multistream, some_bucket, 123456, ecephys, ecephys, 2020-10-11, 13-10-10, /some/aws/param/store/name, tests/resources/v0.6.x_neuropixels_multiexp_multistream/Videos, tests/resources/test_metadata

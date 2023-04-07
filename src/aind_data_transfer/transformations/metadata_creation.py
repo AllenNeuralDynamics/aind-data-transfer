@@ -5,12 +5,13 @@ import os
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, Type
+from typing import List, Optional, Tuple, Type
 
 import aind_data_schema.base
 from aind_data_schema.data_description import (
     Funding,
     Institution,
+    Modality,
     RawDataDescription,
 )
 from aind_data_schema.procedures import Procedures
@@ -328,9 +329,10 @@ class RawDataDescriptionMetadata(MetadataCreation):
     def from_inputs(
         cls,
         name: str,
+        modality: List[Modality],
         institution: Optional[Institution] = Institution.AIND,
         funding_source: Optional[Tuple] = (
-            Funding(funder=Institution.AIND.value),
+            Funding(funder=Institution.AIND.value.abbreviation),
         ),
     ):
         """
@@ -340,6 +342,8 @@ class RawDataDescriptionMetadata(MetadataCreation):
         ----------
         name : str
           Name of the raw data
+        modality : List[Modality]
+          Modalities of experiment data
         institution : Optional[Institution]
           Primary Institution. Defaults to AIND.
         funding_source : Optional[Tuple]
@@ -351,9 +355,11 @@ class RawDataDescriptionMetadata(MetadataCreation):
             if isinstance(funding_source, tuple)
             else funding_source
         )
-        data_description_instance = RawDataDescription.from_name(
-            name,
+        basic_settings = RawDataDescription.parse_name(name=name)
+        data_description_instance = RawDataDescription(
             institution=institution,
+            modality=modality,
             funding_source=funding_source_list,
+            **basic_settings,
         )
         return cls(model_obj=data_description_instance.dict())
