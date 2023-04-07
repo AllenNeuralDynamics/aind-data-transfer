@@ -149,7 +149,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         self.assertFalse(jobs.job_list[0].configs.dry_run)
         self.assertFalse(jobs.job_list[0].configs.compress_raw_data)
         jobs.run_job()
-        mock_run_job.assert_called_once()
+        # There are three jobs defined in the csv file
+        mock_run_job.assert_has_calls([call(), call(), call()])
 
 
 if __name__ == "__main__":
