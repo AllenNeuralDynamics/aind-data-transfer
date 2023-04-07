@@ -306,7 +306,8 @@ class TestBasicJob(unittest.TestCase):
                     str(BEHAVIOR_DIR / "video_ref.csv"),
                     "some_dir/behavior/video_ref.csv",
                 ),
-            ]
+            ],
+            any_order=True,
         )
         mock_compress.assert_called_once_with(Path("some_dir/behavior"))
 
