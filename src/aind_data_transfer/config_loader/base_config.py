@@ -207,6 +207,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
 
     @property
     def s3_prefix(self):
+        """Construct s3_prefix from configs."""
         return build_data_name(
             label=f"{self.experiment_type.value}_{self.subject_id}",
             creation_date=self.acq_date,

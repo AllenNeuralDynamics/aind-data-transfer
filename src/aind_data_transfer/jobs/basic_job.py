@@ -1,3 +1,5 @@
+"""Module to define and potentially run a BasicJob."""
+
 import glob
 import json
 import logging
@@ -24,10 +26,15 @@ from aind_data_transfer.util.s3_utils import upload_to_s3
 
 
 class BasicJob:
+    """Class that defines a basic upload job."""
+
     def __init__(self, job_configs: BasicUploadJobConfigs):
+        """Init with job_configs"""
         self.configs = job_configs
 
     def _check_if_s3_location_exists(self):
+        """Check if the s3 bucket and prefix already exists. If so, raise an
+        error."""
         s3_client = boto3.client("s3")
         try:
             results = s3_client.list_objects_v2(
@@ -45,7 +52,9 @@ class BasicJob:
             )
         return None
 
-    def _compress_raw_data(self, temp_dir):
+    def _compress_raw_data(self, temp_dir: Path) -> None:
+        """If compress data is set to False, the data will be uploaded to s3.
+        Otherwise, it will be zipped, stored in temp_dir and uploaded later."""
 
         if self.configs.behavior_dir is not None:
             behavior_dir_excluded = self.configs.behavior_dir / "*"
@@ -92,7 +101,9 @@ class BasicJob:
             )
         return None
 
-    def _compile_metadata(self, temp_dir):
+    def _compile_metadata(self, temp_dir: Path) -> None:
+        """Compile metadata files. Keeps the data in the temp_dir before
+        uploading to s3."""
 
         # Get metadata from service
         subject_metadata = SubjectMetadata.from_service(
@@ -130,7 +141,9 @@ class BasicJob:
                     shutil.copyfile(file_path, new_path)
         return None
 
-    def _encrypt_behavior_dir(self, temp_dir):
+    def _encrypt_behavior_dir(self, temp_dir: Path) -> None:
+        """Encrypt the data in the behavior directory. Keeps the data in the
+        temp_dir before uploading to s3."""
         if self.configs.behavior_dir:
             encryption_key = (
                 self.configs.video_encryption_password.get_secret_value()
@@ -146,7 +159,8 @@ class BasicJob:
             video_compressor.compress_all_videos_in_dir(new_behavior_dir)
         return None
 
-    def _upload_to_s3(self, temp_dir):
+    def _upload_to_s3(self, temp_dir: Path) -> None:
+        """Upload the data to s3."""
         upload_to_s3(
             directory_to_upload=temp_dir,
             s3_bucket=self.configs.s3_bucket,
@@ -156,6 +170,7 @@ class BasicJob:
         return None
 
     def _trigger_codeocean_pipeline(self):
+        """Trigger the codeocean pipeline."""
         # Legacy way we set up parameters...
         trigger_capsule_params = {
             "trigger_codeocean_job": {
@@ -183,14 +198,16 @@ class BasicJob:
         return None
 
     def run_job(self):
+        """Runs the job. Creates a temp directory to compile the files before
+        uploading."""
         self._check_if_s3_location_exists()
         with tempfile.TemporaryDirectory(
             dir=self.configs.temp_directory
         ) as td:
-            self._compress_raw_data(Path(td))
-            self._encrypt_behavior_dir(Path(td))
-            self._compile_metadata(Path(td))
-            self._upload_to_s3(Path(td))
+            self._compress_raw_data(temp_dir=Path(td))
+            self._encrypt_behavior_dir(temp_dir=Path(td))
+            self._compile_metadata(temp_dir=Path(td))
+            self._upload_to_s3(temp_dir=Path(td))
             self._trigger_codeocean_pipeline()
 
 
