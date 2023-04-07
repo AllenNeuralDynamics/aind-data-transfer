@@ -14,6 +14,8 @@ from aind_data_schema.device import SizeUnit
 from aind_data_schema.imaging.acquisition import AxisName, Immersion
 from pydantic import Field
 
+from aind_data_transfer.util import file_utils
+
 
 class Status(Enum):
     """Dataset status"""
@@ -148,6 +150,9 @@ class ProcessingManifest(AindModel):
 if __name__ == "__main__":
     # print(ProcessingManifest.schema_json(indent=2))
     # print(ProcessingManifest.schema())
+
+    output_path = "processing_manifest.json"
+
     processing_manifest_example = ProcessingManifest(
         specimen_id="000000",
         dataset_status=DatasetStatus(status="pending"),
@@ -181,5 +186,10 @@ if __name__ == "__main__":
         ),
     )
 
-    with open("processing_manifest.json", "w") as f:
+    with open(output_path, "w") as f:
         f.write(processing_manifest_example.json(indent=3))
+
+    # reading back the json
+    json_data = file_utils.read_json_as_dict(output_path)
+    model = ProcessingManifest(**json_data)
+    print(model.json())

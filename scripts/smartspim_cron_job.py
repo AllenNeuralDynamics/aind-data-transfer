@@ -508,6 +508,59 @@ def pre_upload_smartspim(
     logger.info(f"Updating state to 'uploading'")
 
 
+def provide_folder_permissions(
+    root_folder: PathLike,
+    paths: list,
+    permissions: Optional[str] = "755",
+    depth: Optional[int] = 2,
+):
+    """
+    Provides 755 permission in the folder.
+    This fixes a known bug in the VAST system
+    where folder are created with 000 permissions.
+
+    Parameters
+    -----------
+    root_folder: PathLike
+        Root folder where the datasets are located
+
+    paths: List[PathLike]
+        List with the paths to the folder that
+        the permissions will be updated
+
+    permissions: Optional[str]
+        Permission that will be given via chmod
+
+    depth: Optional[int]
+        Depth to look for folders
+    """
+    oct_permissions = int(permissions, 8)
+    depth = 2
+
+    for path in paths:
+        dataset_path = f"{root_folder}/{path}"
+        curr_permissions = oct(os.stat(dataset_path).st_mode)[-3:]
+
+        if curr_permissions != permissions:
+            logger.info(
+                f"Updating permissions for {dataset_path} from {curr_permissions} to {permissions}"
+            )
+            os.chmod(dataset_path, oct_permissions)
+            idx_depth = 0
+            for root, dirs, files in os.walk(dataset_path):
+                # First level
+                if idx_depth <= depth:
+                    for dir_folder in dirs:
+                        # Updating permissions in subfolder
+                        subfolder = os.path.join(root, dir_folder)
+                        os.chmod(subfolder, oct_permissions)
+
+                else:
+                    break
+
+                idx_depth += 1
+
+
 def main():
     """
     Main to execute the smartspim job
@@ -542,6 +595,10 @@ def main():
         raw_datasets_rejected,
     ) = get_smartspim_folders_with_file(
         root_folder=root_folder, search_file="processing_manifest.json"
+    )
+
+    provide_folder_permissions(
+        root_folder=root_folder, paths=raw_datasets_ready, permissions="755"
     )
 
     logger.info(f"Raw datasets rejected: {raw_datasets_rejected}")
