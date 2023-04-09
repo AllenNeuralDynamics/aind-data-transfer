@@ -80,10 +80,10 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         jobs = GenericS3UploadJobList(args=args)
         dry_run_jobs = GenericS3UploadJobList(args=dry_run_args)
 
-        self.assertFalse(jobs.job_list[0].configs.dry_run)
-        self.assertTrue(dry_run_jobs.job_list[0].configs.dry_run)
-        self.assertFalse(jobs.job_list[0].configs.compress_raw_data)
-        self.assertTrue(dry_run_jobs.job_list[0].configs.compress_raw_data)
+        self.assertFalse(jobs.job_list[0].job_configs.dry_run)
+        self.assertTrue(dry_run_jobs.job_list[0].job_configs.dry_run)
+        self.assertFalse(jobs.job_list[0].job_configs.compress_raw_data)
+        self.assertTrue(dry_run_jobs.job_list[0].job_configs.compress_raw_data)
         jobs.run_job()
         dry_run_jobs.run_job()
 
@@ -146,8 +146,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE2)]
         jobs = GenericS3UploadJobList(args=args)
 
-        self.assertFalse(jobs.job_list[0].configs.dry_run)
-        self.assertFalse(jobs.job_list[0].configs.compress_raw_data)
+        self.assertFalse(jobs.job_list[0].job_configs.dry_run)
+        self.assertFalse(jobs.job_list[0].job_configs.compress_raw_data)
         jobs.run_job()
         # There are three jobs defined in the csv file
         mock_run_job.assert_has_calls([call(), call(), call()])

@@ -42,7 +42,7 @@ class TestEphysReaders(unittest.TestCase):
     ]
 
     def test_read(self):
-        openephys_reader = EphysReaders.Readers.openephys.name
+        openephys_reader = EphysReaders.Readers.OPENEPHYS.name
         read_blocks = EphysReaders.get_read_blocks(
             openephys_reader, self.open_ephys_dir
         )

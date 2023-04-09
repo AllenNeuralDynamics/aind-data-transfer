@@ -120,7 +120,7 @@ class TestBasicJob(unittest.TestCase):
         )
 
         # With a Behavior directory defined
-        basic_job.configs.behavior_dir = BEHAVIOR_DIR
+        basic_job.job_configs.behavior_dir = BEHAVIOR_DIR
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
         mock_upload.assert_has_calls(
@@ -358,7 +358,7 @@ class TestBasicJob(unittest.TestCase):
         basic_job._trigger_codeocean_pipeline()
 
         # With dry-run to False
-        basic_job.configs.dry_run = False
+        basic_job.job_configs.dry_run = False
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._trigger_codeocean_pipeline()
 
