@@ -313,7 +313,9 @@ class ProcessingMetadata(MetadataCreation):
         processing_instance = Processing(
             data_processes=[data_processing_instance]
         )
-        return cls(model_obj=processing_instance.dict())
+        # Do this to use enum strings instead of classes in dict representation
+        contents = json.loads(processing_instance.json())
+        return cls(model_obj=contents)
 
 
 class RawDataDescriptionMetadata(MetadataCreation):
@@ -362,4 +364,6 @@ class RawDataDescriptionMetadata(MetadataCreation):
             funding_source=funding_source_list,
             **basic_settings,
         )
-        return cls(model_obj=data_description_instance.dict())
+        # Do this to use enum strings instead of classes in dict representation
+        contents = json.loads(data_description_instance.json())
+        return cls(model_obj=contents)

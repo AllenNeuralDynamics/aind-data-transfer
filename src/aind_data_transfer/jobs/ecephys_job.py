@@ -1,3 +1,5 @@
+"""Module to define ecephys upload job"""
+
 import shutil
 import sys
 from pathlib import Path
@@ -15,6 +17,7 @@ from aind_data_transfer.writers.ephys_writers import EphysWriters
 
 
 class EcephysJob(BasicJob):
+    """Class to define methods needed to compress and upload ecephys job"""
     def __init__(self, job_configs: EcephysConfigs):
         super().__init__(job_configs)
         self.job_configs = job_configs
@@ -34,7 +37,7 @@ class EcephysJob(BasicJob):
           Desired location for clipped data set
         stream_gen : dict
           A dict with
-            'data': np.memmap(dat file),
+            'data': memmap(dat file),
               'relative_path_name': path name of raw data
                 to new dir correctly
               'n_chan': number of channels.
@@ -73,7 +76,7 @@ class EcephysJob(BasicJob):
 
     def _compress_raw_data(self, temp_dir: Path) -> None:
         """If compress data is set to False, the data will be uploaded to s3.
-        Otherwise, it will be compress to zarr, stored in temp_dir and
+        Otherwise, it will be compressed to zarr, stored in temp_dir, and
         uploaded later."""
 
         if self.job_configs.behavior_dir is not None:
@@ -139,7 +142,7 @@ class EcephysJob(BasicJob):
                 output_dir=compressed_data_path,
                 max_windows_filename_len=self.job_configs.compress_max_windows_filename_len,
                 output_format=self.job_configs.compress_write_output_format,
-                job_kwargs=self.job_configs.compressor_kwargs,
+                job_kwargs=self.job_configs.compress_job_save_kwargs,
             )
             self._instance_logger.info("Finished compressing source data.")
 

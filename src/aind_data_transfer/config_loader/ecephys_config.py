@@ -1,3 +1,4 @@
+"""Module that defines extra configs Ecephys  compression requires."""
 from aind_data_schema.data_description import ExperimentType
 from aind_data_schema.processing import ProcessName
 from pydantic import Field
@@ -8,6 +9,7 @@ from aind_data_transfer.transformations.ephys_compressors import CompressorName
 
 
 class EcephysConfigs(BasicUploadJobConfigs):
+    """Extra configs for Ecephys upload job."""
 
     # Override these values from the base settings
     experiment_type: ExperimentType = Field(
@@ -68,13 +70,12 @@ class EcephysConfigs(BasicUploadJobConfigs):
         description="Argurments to be used for the compressor.",
         title="Compressor Kwargs",
     )
-    compress_write_n_jobs: int = Field(
-        default=-1,
+    compress_job_save_kwargs: dict = Field(
+        default={"n_jobs": -1},  # -1 to use all available cpu cores.
         description=(
-            "Number of CPUs to be used during the compression process. -1 "
-            "defaults to all available cpus."
+            "Arguments for recording save method."
         ),
-        title="Compress Write N Jobs",
+        title="Compress Job Save Kwargs",
     )
     compress_chunk_duration: str = Field(
         default="1s",

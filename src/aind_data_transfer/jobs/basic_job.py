@@ -62,7 +62,8 @@ class BasicJob:
 
     def _compress_raw_data(self, temp_dir: Path) -> None:
         """If compress data is set to False, the data will be uploaded to s3.
-        Otherwise, it will be zipped, stored in temp_dir and uploaded later."""
+        Otherwise, it will be zipped, stored in temp_dir, and uploaded
+        later."""
 
         if self.job_configs.behavior_dir is not None:
             behavior_dir_excluded = self.job_configs.behavior_dir / "*"
@@ -140,18 +141,21 @@ class BasicJob:
         )
         data_description_metadata.write_to_json(data_description_file_name)
 
-        processing_file_name = temp_dir / procedures_metadata.output_filename
         processing_end_time = datetime.now(timezone.utc)
         processing_metadata = ProcessingMetadata.from_inputs(
-            process_name=self.job_configs.process_name.value,
+            process_name=self.job_configs.process_name,
             start_date_time=process_start_time,
             end_date_time=processing_end_time,
             input_location=str(self.job_configs.data_source),
-            output_location=f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}",
+            output_location=(
+                f"s3://{self.job_configs.s3_bucket}/"
+                f"{self.job_configs.s3_prefix}"
+            ),
             code_url=self.job_configs.aind_data_transfer_repo_location,
             parameters=self.job_configs.dict(),
             notes=None,
         )
+        processing_file_name = temp_dir / processing_metadata.output_filename
         processing_metadata.write_to_json(processing_file_name)
 
         # Check user defined metadata
