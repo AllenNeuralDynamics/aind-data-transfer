@@ -6,9 +6,10 @@ import logging
 import sys
 from typing import Any, List, Optional
 
+from aind_data_schema.data_description import ExperimentType
+
 from aind_data_transfer.config_loader.base_config import BasicJobEndpoints
 from aind_data_transfer.jobs.basic_job import BasicJob, BasicUploadJobConfigs
-from aind_data_schema.data_description import ExperimentType
 
 
 class GenericS3UploadJobList:
@@ -114,13 +115,27 @@ class GenericS3UploadJobList:
                 ):
                     # Conditional imports aren't ideal, but this will avoid
                     # installing unnecessary dependencies for non-ephys uploads
-                    from aind_data_transfer.config_loader.ecephys_config import (
-                        EcephysConfigs,
-                    )
-                    from aind_data_transfer.jobs.ecephys_job import EcephysJob
 
-                    configs_from_row = EcephysConfigs(**cleaned_row)
-                    new_job = EcephysJob(job_configs=configs_from_row)
+                    ecephys_upload_job_configs_class = getattr(
+                        __import__(
+                            "aind_data_transfer.config_loader.ecephys_config",
+                            fromlist=["EcephysUploadJobConfigs"],
+                        ),
+                        "EcephysUploadJobConfigs",
+                    )
+
+                    ecephys_job_class = getattr(
+                        __import__(
+                            "aind_data_transfer.jobs.ecephys_job",
+                            fromlist=["EcephysJob"],
+                        ),
+                        "EcephysJob",
+                    )
+
+                    configs_from_row = ecephys_upload_job_configs_class(
+                        **cleaned_row
+                    )
+                    new_job = ecephys_job_class(job_configs=configs_from_row)
                 else:
                     configs_from_row = BasicUploadJobConfigs(**cleaned_row)
                     new_job = BasicJob(job_configs=configs_from_row)

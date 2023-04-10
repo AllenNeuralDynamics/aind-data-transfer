@@ -5,6 +5,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from warnings import warn
 
 import yaml
 from botocore.exceptions import ClientError
@@ -12,6 +13,13 @@ from numcodecs import Blosc
 
 from aind_data_transfer.readers.ephys_readers import EphysReaders
 from aind_data_transfer.util.s3_utils import get_secret
+
+warn(
+    f"The module {__name__} is deprecated and will be removed in future "
+    f"versions.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class EphysJobConfigurationLoader:

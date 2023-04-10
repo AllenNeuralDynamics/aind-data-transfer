@@ -8,7 +8,7 @@ from aind_data_transfer.readers.ephys_readers import DataReader
 from aind_data_transfer.transformations.ephys_compressors import CompressorName
 
 
-class EcephysConfigs(BasicUploadJobConfigs):
+class EcephysUploadJobConfigs(BasicUploadJobConfigs):
     """Extra configs for Ecephys upload job."""
 
     # Override these values from the base settings
@@ -62,19 +62,17 @@ class EcephysConfigs(BasicUploadJobConfigs):
     )
     compressor_name: CompressorName = Field(
         default=CompressorName.WAVPACK,
-        description=(f"Type of compressor to use."),
+        description="Type of compressor to use.",
         title="Compressor Name.",
     )
     compressor_kwargs: dict = Field(
         default={"level": 3},
-        description="Argurments to be used for the compressor.",
+        description="Arguments to be used for the compressor.",
         title="Compressor Kwargs",
     )
     compress_job_save_kwargs: dict = Field(
         default={"n_jobs": -1},  # -1 to use all available cpu cores.
-        description=(
-            "Arguments for recording save method."
-        ),
+        description="Arguments for recording save method.",
         title="Compress Job Save Kwargs",
     )
     compress_chunk_duration: str = Field(

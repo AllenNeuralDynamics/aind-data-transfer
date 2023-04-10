@@ -6,11 +6,16 @@ from pathlib import Path
 
 from numpy import memmap
 
-from aind_data_transfer.config_loader.ecephys_config import EcephysConfigs
+from aind_data_transfer.config_loader.ecephys_config import (
+    EcephysUploadJobConfigs,
+)
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.readers.ephys_readers import EphysReaders
 from aind_data_transfer.transformations.ephys_compressors import (
     EphysCompressors,
+)
+from aind_data_transfer.util.npopto_correction import (
+    correct_np_opto_electrode_locations,
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
 from aind_data_transfer.writers.ephys_writers import EphysWriters
@@ -18,7 +23,9 @@ from aind_data_transfer.writers.ephys_writers import EphysWriters
 
 class EcephysJob(BasicJob):
     """Class to define methods needed to compress and upload ecephys job"""
-    def __init__(self, job_configs: EcephysConfigs):
+
+    def __init__(self, job_configs: EcephysUploadJobConfigs):
+        """Class constructor"""
         super().__init__(job_configs)
         self.job_configs = job_configs
 
@@ -79,6 +86,11 @@ class EcephysJob(BasicJob):
         Otherwise, it will be compressed to zarr, stored in temp_dir, and
         uploaded later."""
 
+        # Correct NP-opto electrode positions:
+        # correction is skipped if Neuropix-PXI version > 0.4.0
+        # It'd be nice if the original data wasn't modified.
+        correct_np_opto_electrode_locations(self.job_configs.data_source)
+
         if self.job_configs.behavior_dir is not None:
             behavior_dir_excluded = self.job_configs.behavior_dir / "*"
         else:
@@ -133,14 +145,18 @@ class EcephysJob(BasicJob):
             )
             scaled_read_blocks = EphysCompressors.scale_read_blocks(
                 read_blocks=read_blocks,
-                num_chunks_per_segment=self.job_configs.scale_num_chunks_per_segment,
+                num_chunks_per_segment=(
+                    self.job_configs.scale_num_chunks_per_segment
+                ),
                 chunk_size=self.job_configs.scale_chunk_size,
             )
             EphysWriters.compress_and_write_block(
                 read_blocks=scaled_read_blocks,
                 compressor=compressor,
                 output_dir=compressed_data_path,
-                max_windows_filename_len=self.job_configs.compress_max_windows_filename_len,
+                max_windows_filename_len=(
+                    self.job_configs.compress_max_windows_filename_len
+                ),
                 output_format=self.job_configs.compress_write_output_format,
                 job_kwargs=self.job_configs.compress_job_save_kwargs,
             )
@@ -151,6 +167,6 @@ class EcephysJob(BasicJob):
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
-    job_configs_from_main = EcephysConfigs.from_args(sys_args)
+    job_configs_from_main = EcephysUploadJobConfigs.from_args(sys_args)
     job = EcephysJob(job_configs=job_configs_from_main)
     job.run_job()

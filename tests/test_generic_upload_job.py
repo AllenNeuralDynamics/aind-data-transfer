@@ -82,7 +82,7 @@ class TestGenericS3UploadJobList(unittest.TestCase):
 
         self.assertFalse(jobs.job_list[0].job_configs.dry_run)
         self.assertTrue(dry_run_jobs.job_list[0].job_configs.dry_run)
-        self.assertFalse(jobs.job_list[0].job_configs.compress_raw_data)
+        self.assertTrue(jobs.job_list[0].job_configs.compress_raw_data)
         self.assertTrue(dry_run_jobs.job_list[0].job_configs.compress_raw_data)
         jobs.run_job()
         dry_run_jobs.run_job()
@@ -146,11 +146,19 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE2)]
         jobs = GenericS3UploadJobList(args=args)
 
+        # Default compress_raw_data should be false for non-ephys jobs
         self.assertFalse(jobs.job_list[0].job_configs.dry_run)
         self.assertFalse(jobs.job_list[0].job_configs.compress_raw_data)
+        # Default compress_raw_data should be true for ephys data
+        self.assertFalse(jobs.job_list[1].job_configs.dry_run)
+        self.assertTrue(jobs.job_list[1].job_configs.compress_raw_data)
+        self.assertTrue(jobs.job_list[2].job_configs.dry_run)
+        self.assertTrue(jobs.job_list[2].job_configs.compress_raw_data)
+        self.assertFalse(jobs.job_list[3].job_configs.dry_run)
+        self.assertTrue(jobs.job_list[3].job_configs.compress_raw_data)
         jobs.run_job()
         # There are three jobs defined in the csv file
-        mock_run_job.assert_has_calls([call(), call(), call()])
+        mock_run_job.assert_has_calls([call(), call(), call(), call()])
 
 
 if __name__ == "__main__":
