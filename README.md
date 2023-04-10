@@ -115,7 +115,7 @@ Optional Flags
 ```
 metadata_dir_force: Default is false. If true, the metadata in the metadata folder will be regarded as the source of truth vs. the metadata pulled from aind_metadata_service
 dry_run: Default is false. If set to true, it will perform a dry-run of the upload portion and not actually upload anything.
-compress_raw_data: Default is false. If set to true, the data in the data_source path will be compressed into a zip file before being uploaded to S3.
+compress_raw_data: If experiment_type is ecephys, default is true. Else, default is false. If set to true, the data in the data_source path will be compressed into a zip file before being uploaded to S3.
 ```
 
 After creating the csv file, you can run through the jobs with
