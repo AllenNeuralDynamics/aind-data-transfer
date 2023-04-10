@@ -1,3 +1,4 @@
+import glob
 import json
 import logging
 import os
@@ -509,10 +510,7 @@ def pre_upload_smartspim(
 
 
 def provide_folder_permissions(
-    root_folder: PathLike,
-    paths: list,
-    permissions: Optional[str] = "755",
-    depth: Optional[int] = 2,
+    root_folder: PathLike, paths: list, permissions: Optional[str] = "755"
 ):
     """
     Provides 755 permission in the folder.
@@ -531,11 +529,13 @@ def provide_folder_permissions(
     permissions: Optional[str]
         Permission that will be given via chmod
 
-    depth: Optional[int]
-        Depth to look for folders
     """
+
     oct_permissions = int(permissions, 8)
-    depth = 2
+
+    def helper_update_permissions(list_folders):
+        for list_folder in list_folders:
+            os.chmod(list_folder, oct_permissions)
 
     for path in paths:
         dataset_path = f"{root_folder}/{path}"
@@ -546,19 +546,15 @@ def provide_folder_permissions(
                 f"Updating permissions for {dataset_path} from {curr_permissions} to {permissions}"
             )
             os.chmod(dataset_path, oct_permissions)
-            idx_depth = 0
-            for root, dirs, files in os.walk(dataset_path):
-                # First level
-                if idx_depth <= depth:
-                    for dir_folder in dirs:
-                        # Updating permissions in subfolder
-                        subfolder = os.path.join(root, dir_folder)
-                        os.chmod(subfolder, oct_permissions)
 
-                else:
-                    break
+            # Updating first level
+            first_level_folders = glob.glob(f"{dataset_path}/*/")
+            second_level_folders = glob.glob(f"{dataset_path}/*/*/")
+            third_level_folders = glob.glob(f"{dataset_path}/*/*/*/")
 
-                idx_depth += 1
+            helper_update_permissions(first_level_folders)
+            helper_update_permissions(second_level_folders)
+            helper_update_permissions(third_level_folders)
 
 
 def main():

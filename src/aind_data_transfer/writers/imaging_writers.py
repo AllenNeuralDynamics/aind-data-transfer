@@ -6,7 +6,12 @@ from pathlib import Path
 from typing import Any, List, Tuple, Union
 
 from aind_data_schema import Funding, RawDataDescription, Subject
-from aind_data_schema.data_description import Group, Institution, Modality
+from aind_data_schema.data_description import (
+    ExperimentType,
+    Group,
+    Institution,
+    Modality,
+)
 from aind_data_schema.imaging import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
@@ -332,7 +337,7 @@ class SmartSPIMWriter:
 
         # Creating data description
         data_description = RawDataDescription(
-            modality="smartspim",
+            modality=[Modality.SPIM],
             subject_id=parsed_data["mouse_id"],
             creation_date=date(
                 mouse_date.year, mouse_date.month, mouse_date.day
@@ -345,6 +350,7 @@ class SmartSPIMWriter:
             project_name=project_name,
             project_id=project_id,
             funding_source=[Funding(funder=funding_source)],
+            experiment_type=ExperimentType.SMARTSPIM,
         )
 
         data_description_path = str(
@@ -482,13 +488,20 @@ class SmartSPIMWriter:
             dictionary=dataset_info, key="experimenter"
         )
         local_storage_directory = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info, key="local_storage_directory"
+            dictionary=dataset_info, key="local_storage"
         )
-        immersion_medium = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info["immersion"], key="medium"
+        chamber_immersion_medium = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["chamber_immersion"], key="medium"
         )
-        immersion_ri = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info["immersion"], key="refractive_index"
+        chamber_immersion_ri = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["chamber_immersion"],
+            key="refractive_index",
+        )
+        sample_immersion_medium = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["sample_immersion"], key="medium"
+        )
+        sample_immersion_ri = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["sample_immersion"], key="refractive_index"
         )
 
         # Giving the specific error of what is missing
@@ -498,11 +511,13 @@ class SmartSPIMWriter:
         if experimenter_full_name is None:
             raise ValueError("Experimenter full name not provided in manifest")
 
-        if immersion_medium is None:
-            raise ValueError("Immersion medium not provided in manifest")
+        if chamber_immersion_medium is None:
+            raise ValueError(
+                "Chamber immersion medium not provided in manifest"
+            )
 
-        if immersion_ri is None:
-            raise ValueError("Immersion ri not provided in manifest")
+        if chamber_immersion_ri is None:
+            raise ValueError("Chamber immersion ri not provided in manifest")
 
         acquisition_model = acquisition.Acquisition(
             specimen_id="",
@@ -514,8 +529,12 @@ class SmartSPIMWriter:
             local_storage_directory=local_storage_directory,
             external_storage_directory="",
             chamber_immersion=acquisition.Immersion(
-                medium=immersion_medium,
-                refractive_index=immersion_ri,
+                medium=chamber_immersion_medium,
+                refractive_index=chamber_immersion_ri,
+            ),
+            sample_immersion=acquisition.Immersion(
+                medium=sample_immersion_medium,
+                refractive_index=sample_immersion_ri,
             ),
             axes=[
                 acquisition.Axis(
