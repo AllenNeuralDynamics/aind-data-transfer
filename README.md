@@ -77,7 +77,7 @@ s3_bucket: S3 Bucket name
 experiment_type: One of [confocal, diSPIM, exaSPIM, ecephys, mesoscope, mesoSPIM, ophys, Other, SmartSPIM]
 modality: One of [ECEPHYS, SPIM, FIP, FMOST, HSFP, MRI, OPHYS]
 subject_id: ID of the subject
-acq_date: Format can be either yyyy-MM-dd or dd/MM/yyyy
+acq_date: Format can be either yyyy-MM-dd or MM/dd/yyyy
 acq_time: Format can be either HH:mm:ss or HH-mm-ss
 data_source: path to raw data folder
 ```
