@@ -3,13 +3,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
 
-from aind_data_transfer.readers.ephys_readers import EphysReaders
+from aind_data_transfer.readers.ephys_readers import EphysReaders, DataReader
 from aind_data_transfer.transformations.ephys_compressors import (
-    EphysCompressors,
+    EphysCompressors, CompressorName
 )
 from aind_data_transfer.transformations.generic_compressors import (
     VideoCompressor,
@@ -32,10 +31,10 @@ class TestEphysCompressors(unittest.TestCase):
         }
         wavpack_configs = {"level": 3}
         blosc = EphysCompressors.get_compressor(
-            EphysCompressors.Compressors.blosc.name, **blosc_configs
+            CompressorName.BLOSC.value, **blosc_configs
         )
         wavpack = EphysCompressors.get_compressor(
-            EphysCompressors.Compressors.wavpack.name, **wavpack_configs
+            CompressorName.WAVPACK.value, **wavpack_configs
         )
         expected_blosc = Blosc(
             cname="zstd", clevel=9, shuffle=Blosc.BITSHUFFLE
@@ -52,7 +51,7 @@ class TestEphysCompressors(unittest.TestCase):
         open_ephys_dir = (
             RESOURCES_DIR / "v0.6.x_neuropixels_multiexp_multistream"
         )
-        openephys_reader = EphysReaders.Readers.openephys.name
+        openephys_reader = DataReader.OPENEPHYS.value
         read_blocks = EphysReaders.get_read_blocks(
             openephys_reader, open_ephys_dir
         )
@@ -67,7 +66,7 @@ class TestEphysCompressors(unittest.TestCase):
         )
         # We expect the NI-DAQ scaled recordings to be the same as the original
         scaled_read_blocks = EphysCompressors.scale_read_blocks(
-            [read_block], disable_tqdm=True, chunk_size=chunk_size
+            [read_block], chunk_size=chunk_size
         )
         scaled_read_block = next(scaled_read_blocks)
         self.assertEqual(
@@ -84,7 +83,7 @@ class TestEphysCompressors(unittest.TestCase):
         )
         chunk_size = min(read_block["recording"].get_num_frames(0) - 1, 10000)
         scaled_read_blocks = EphysCompressors.scale_read_blocks(
-            [read_block], disable_tqdm=True, chunk_size=chunk_size
+            [read_block], chunk_size=chunk_size
         )
         scaled_read_block = next(scaled_read_blocks)
 

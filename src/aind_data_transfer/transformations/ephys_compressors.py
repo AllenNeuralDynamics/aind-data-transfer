@@ -2,14 +2,18 @@
 """
 from enum import Enum
 
-import numpy as np
-import spikeinterface.full as si
 import spikeinterface.preprocessing as spre
 from numcodecs import Blosc
-from tqdm import tqdm
 from wavpack_numcodecs import WavPack
 
 from aind_data_transfer.readers.ephys_readers import EphysReaders
+
+
+class CompressorName(Enum):
+    """Enum for compression algorithms a user can select"""
+
+    BLOSC = Blosc.codec_id
+    WAVPACK = "wavpack"
 
 
 class EphysCompressors:
@@ -17,13 +21,7 @@ class EphysCompressors:
     a read block by lsb and median values.
     """
 
-    class Compressors(Enum):
-        """Enum for compression algorithms a user can select"""
-
-        blosc = Blosc.codec_id
-        wavpack = "wavpack"
-
-    compressors = [member.value for member in Compressors]
+    compressors = [member.value for member in CompressorName]
 
     @staticmethod
     def get_compressor(compressor_name, **kwargs):
@@ -35,9 +33,9 @@ class EphysCompressors:
         Returns:
             An instantiated compressor class.
         """
-        if compressor_name == EphysCompressors.Compressors.blosc.name:
+        if compressor_name == CompressorName.BLOSC.value:
             return Blosc(**kwargs)
-        elif compressor_name == EphysCompressors.Compressors.wavpack.name:
+        elif compressor_name == CompressorName.WAVPACK.value:
             return WavPack(**kwargs)
         else:
             raise Exception(
@@ -50,7 +48,6 @@ class EphysCompressors:
         read_blocks,
         num_chunks_per_segment=100,
         chunk_size=10000,
-        disable_tqdm=False,
     ):
         """
         Scales a read_block. A read_block is dict of
@@ -59,8 +56,6 @@ class EphysCompressors:
             read_blocks (iterable): A generator of read_blocks
             num_chunks_per_segment (int):
             chunk_size (int):
-            disable_tqdm (boolean): Optionally disable a progress bar.
-              Defaults to False.
         Returns:
             A generated scaled_read_block. A dict of
             {'scaled_recording', 'block_index', 'stream_name'}.
@@ -75,9 +70,11 @@ class EphysCompressors:
             ):
                 rec_to_compress = read_block["recording"]
             else:
-                rec_to_compress = spre.correct_lsb(read_block["recording"], 
-                                                   num_chunks_per_segment=num_chunks_per_segment,
-                                                   chunk_size=chunk_size)
+                rec_to_compress = spre.correct_lsb(
+                    read_block["recording"],
+                    num_chunks_per_segment=num_chunks_per_segment,
+                    chunk_size=chunk_size,
+                )
             yield (
                 {
                     "scaled_recording": rec_to_compress,

@@ -6,6 +6,8 @@ import logging
 import sys
 from typing import Any, List, Optional
 
+from aind_data_schema.data_description import ExperimentType
+
 from aind_data_transfer.config_loader.base_config import BasicJobEndpoints
 from aind_data_transfer.jobs.basic_job import BasicJob, BasicUploadJobConfigs
 
@@ -107,9 +109,36 @@ class GenericS3UploadJobList:
                         param_store_name = cleaned_row["aws_param_store_name"]
                     del cleaned_row["aws_param_store_name"]
 
-                configs_from_row = BasicUploadJobConfigs(**cleaned_row)
-                # TODO: switch on experiment type from configs
-                new_job = BasicJob(job_configs=configs_from_row)
+                if (
+                    cleaned_row.get("experiment_type")
+                    == ExperimentType.ECEPHYS.value
+                ):
+                    # Conditional imports aren't ideal, but this will avoid
+                    # installing unnecessary dependencies for non-ephys uploads
+
+                    ecephys_upload_job_configs_class = getattr(
+                        __import__(
+                            "aind_data_transfer.config_loader.ecephys_config",
+                            fromlist=["EcephysUploadJobConfigs"],
+                        ),
+                        "EcephysUploadJobConfigs",
+                    )
+
+                    ecephys_job_class = getattr(
+                        __import__(
+                            "aind_data_transfer.jobs.ecephys_job",
+                            fromlist=["EcephysJob"],
+                        ),
+                        "EcephysJob",
+                    )
+
+                    configs_from_row = ecephys_upload_job_configs_class(
+                        **cleaned_row
+                    )
+                    new_job = ecephys_job_class(job_configs=configs_from_row)
+                else:
+                    configs_from_row = BasicUploadJobConfigs(**cleaned_row)
+                    new_job = BasicJob(job_configs=configs_from_row)
                 job_list.append(new_job)
         return job_list
 
@@ -122,12 +151,12 @@ class GenericS3UploadJobList:
             # TODO: Add switch on experiment type
             logging.info(
                 f"Running job {current_job_num} of {total_jobs} "
-                f"with params: {one_job.configs.dict()}"
+                f"with params: {one_job.job_configs.dict()}"
             )
             one_job.run_job()
             logging.info(
                 f"Finished job {current_job_num} of {total_jobs} "
-                f"with params: {one_job.configs.dict()}"
+                f"with params: {one_job.job_configs.dict()}"
             )
             current_job_num += 1
         logging.info("Finished all jobs!")
@@ -139,6 +168,7 @@ if __name__ == "__main__":
         job = GenericS3UploadJobList(sys_args)
     else:
         configs = BasicUploadJobConfigs.from_args(sys_args)
-        # TODO: switch based on experiment type.
+        # This is here for legacy purposes. In the future, all calls to
+        # s3_upload_job will require the jobs to be defined in csv file.
         job = BasicJob(job_configs=configs)
     job.run_job()

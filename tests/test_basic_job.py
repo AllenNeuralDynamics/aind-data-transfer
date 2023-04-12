@@ -5,6 +5,7 @@ import os
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
+from datetime import datetime
 
 from requests import Response
 
@@ -120,7 +121,7 @@ class TestBasicJob(unittest.TestCase):
         )
 
         # With a Behavior directory defined
-        basic_job.configs.behavior_dir = BEHAVIOR_DIR
+        basic_job.job_configs.behavior_dir = BEHAVIOR_DIR
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
         mock_upload.assert_has_calls(
@@ -217,8 +218,10 @@ class TestBasicJob(unittest.TestCase):
     )
     @patch("os.path.exists")
     @patch("shutil.copyfile")
+    @patch("aind_data_transfer.jobs.basic_job.datetime")
     def test_compile_metadata(
         self,
+        mock_datetime: MagicMock,
         mock_copyfile: MagicMock,
         mock_path_exists: MagicMock,
         mock_json_write: MagicMock,
@@ -226,6 +229,8 @@ class TestBasicJob(unittest.TestCase):
         mock_subject_service: MagicMock,
     ):
         """Tests that the metadata files are compiled correctly."""
+
+        mock_datetime.now.return_value = datetime(2023, 4, 9)
         mock_path_exists.return_value = True
         mock_subject_service.return_value = SubjectMetadata(
             model_obj=example_subject_instance_json
@@ -236,24 +241,29 @@ class TestBasicJob(unittest.TestCase):
 
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(Path("some_dir"))
+        basic_job._compile_metadata(Path("some_dir"),
+                                    process_start_time=datetime(2023, 4, 9))
 
         # Test where metadata directory is defined
         basic_job_configs.metadata_dir = METADATA_DIR
         basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(Path("some_dir"))
+        basic_job._compile_metadata(Path("some_dir"),
+                                    process_start_time=datetime(2023, 4, 9))
 
         # Test where metadata dir forced is true
         basic_job_configs.metadata_dir_force = True
         basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(Path("some_dir"))
+        basic_job._compile_metadata(Path("some_dir"),
+                                    process_start_time=datetime(2023, 4, 9))
 
         mock_json_write.assert_has_calls(
             [
                 call(Path("some_dir/subject.json")),
                 call(Path("some_dir/procedures.json")),
                 call(Path("some_dir/data_description.json")),
-            ]
+                call(Path("some_dir/processing.json")),
+            ],
+            any_order=True
         )
 
         mock_copyfile.assert_has_calls(
@@ -291,7 +301,7 @@ class TestBasicJob(unittest.TestCase):
         mock_copy: MagicMock,
         mock_mkdirs: MagicMock,
     ):
-        """Tests that the video files in the behavior dir are encypted."""
+        """Tests that the video files in the behavior dir are encrypted."""
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job_configs.behavior_dir = BEHAVIOR_DIR
@@ -358,7 +368,7 @@ class TestBasicJob(unittest.TestCase):
         basic_job._trigger_codeocean_pipeline()
 
         # With dry-run to False
-        basic_job.configs.dry_run = False
+        basic_job.job_configs.dry_run = False
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._trigger_codeocean_pipeline()
 
@@ -388,8 +398,10 @@ class TestBasicJob(unittest.TestCase):
         "aind_data_transfer.jobs.basic_job.BasicJob."
         "_trigger_codeocean_pipeline"
     )
+    @patch("aind_data_transfer.jobs.basic_job.datetime")
     def test_run_job(
         self,
+        mock_datetime: MagicMock,
         mock_trigger_pipeline: MagicMock,
         mock_upload_to_s3: MagicMock,
         mock_encrypt_behavior: MagicMock,
@@ -399,6 +411,8 @@ class TestBasicJob(unittest.TestCase):
         mock_tempfile: MagicMock,
     ):
         """Tests that the run_job executes all sub jobs"""
+
+        mock_datetime.now.return_value = datetime(2023, 4, 9)
 
         mock_tempfile.return_value.__enter__.return_value = (
             Path("some_dir") / "tmp"
@@ -415,7 +429,8 @@ class TestBasicJob(unittest.TestCase):
             temp_dir=(Path("some_dir") / "tmp")
         )
         mock_compile_metadata.assert_called_once_with(
-            temp_dir=(Path("some_dir") / "tmp")
+            temp_dir=(Path("some_dir") / "tmp"),
+            process_start_time=datetime(2023, 4, 9)
         )
         mock_encrypt_behavior.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
