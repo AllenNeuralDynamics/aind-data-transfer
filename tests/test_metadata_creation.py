@@ -86,7 +86,8 @@ class TestProcessingMetadata(unittest.TestCase):
         )
 
         self.assertEqual(
-            expected_processing_instance, processing_metadata.model_obj
+            json.loads(expected_processing_instance.json()),
+            processing_metadata.model_obj
         )
         self.assertEqual(Processing, processing_metadata._model())
         self.assertEqual(
@@ -329,7 +330,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         )
 
         self.assertEqual(
-            expected_data_description_instance.dict(),
+            json.loads(expected_data_description_instance.json()),
             data_description.model_obj,
         )
         self.assertEqual(RawDataDescription, data_description._model())

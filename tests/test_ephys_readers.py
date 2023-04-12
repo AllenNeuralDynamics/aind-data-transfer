@@ -3,7 +3,7 @@ import os
 import unittest
 from pathlib import Path
 
-from aind_data_transfer.readers.ephys_readers import EphysReaders
+from aind_data_transfer.readers.ephys_readers import EphysReaders, DataReader
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 RESOURCES_DIR = TEST_DIR / "resources"
@@ -42,7 +42,7 @@ class TestEphysReaders(unittest.TestCase):
     ]
 
     def test_read(self):
-        openephys_reader = EphysReaders.Readers.openephys.name
+        openephys_reader = DataReader.OPENEPHYS.value
         read_blocks = EphysReaders.get_read_blocks(
             openephys_reader, self.open_ephys_dir
         )

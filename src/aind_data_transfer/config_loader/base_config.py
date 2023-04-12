@@ -15,6 +15,7 @@ from aind_data_schema.data_description import (
     Modality,
     build_data_name,
 )
+from aind_data_schema.processing import ProcessName
 from botocore.exceptions import ClientError
 from pydantic import BaseSettings, DirectoryPath, Field, FilePath, SecretStr
 
@@ -158,6 +159,11 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         ...,
         description="Location of raw data to be uploaded",
         title="Data Source",
+    )
+    process_name: ProcessName = Field(
+        default=ProcessName.OTHER,
+        description="Type of processing performed on the raw data source.",
+        title="Process Name",
     )
     temp_directory: Optional[DirectoryPath] = Field(
         default=None,
