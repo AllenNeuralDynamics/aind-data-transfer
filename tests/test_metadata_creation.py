@@ -12,6 +12,7 @@ from aind_data_schema import (
     RawDataDescription,
     Subject,
 )
+from aind_data_schema.data_description import Modality
 from aind_data_schema.processing import ProcessName
 from requests import ConnectionError, Response
 
@@ -85,7 +86,8 @@ class TestProcessingMetadata(unittest.TestCase):
         )
 
         self.assertEqual(
-            expected_processing_instance, processing_metadata.model_obj
+            json.loads(expected_processing_instance.json()),
+            processing_metadata.model_obj
         )
         self.assertEqual(Processing, processing_metadata._model())
         self.assertEqual(
@@ -100,7 +102,7 @@ class TestSubjectMetadata(unittest.TestCase):
         "message": "Valid Model.",
         "data": {
             "describedBy": "https://github-location.org/subject.py",
-            "schema_version": "0.2.2",
+            "schema_version": "0.3.0",
             "species": "Mus musculus",
             "subject_id": "632269",
             "sex": "Female",
@@ -118,8 +120,6 @@ class TestSubjectMetadata(unittest.TestCase):
             "maternal_genotype": "Pvalb-IRES-Cre/wt",
             "paternal_id": "623236",
             "paternal_genotype": "RCL-somBiPoles_mCerulean-WPRE/wt",
-            "light_cycle": None,
-            "home_cage_enrichment": None,
             "wellness_reports": None,
             "notes": None,
         },
@@ -322,7 +322,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         Tests that the data description metadata is created correctly.
         """
         data_description = RawDataDescriptionMetadata.from_inputs(
-            name="ecephys_0000_2022-10-20_16-30-01"
+            name="diSPIM_12345_2022-02-21_16-30-01", modality=[Modality.SPIM]
         )
 
         expected_data_description_instance = RawDataDescription.parse_obj(
@@ -330,7 +330,8 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         )
 
         self.assertEqual(
-            expected_data_description_instance, data_description.model_obj
+            json.loads(expected_data_description_instance.json()),
+            data_description.model_obj,
         )
         self.assertEqual(RawDataDescription, data_description._model())
         self.assertEqual(
