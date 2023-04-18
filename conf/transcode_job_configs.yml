@@ -12,6 +12,7 @@ jobs: # Select which jobs to run
   create_metadata: true
 data:
   name: exaspim
+  subject_id:  # required
 transcode_job:
   compressor:
     compressor_name: blosc
