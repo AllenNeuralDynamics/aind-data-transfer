@@ -18,6 +18,7 @@ from aind_data_schema.data_description import (
 from aind_data_schema.processing import ProcessName
 from botocore.exceptions import ClientError
 from pydantic import BaseSettings, DirectoryPath, Field, FilePath, SecretStr
+from aind_data_access_api.secrets import get_secret, get_parameter
 
 
 class BasicJobEndpoints(BaseSettings):
@@ -48,63 +49,90 @@ class BasicJobEndpoints(BaseSettings):
             A function that retrieves the credentials.
             """
 
-            def get_param_from_aws(
-                aws_param_store_name, aws_ssm_client, with_decryption=False
-            ) -> Dict[str, Any]:
-                """Pull parameter from AWS Parameter Store"""
-                try:
-                    param_from_store = aws_ssm_client.get_parameter(
-                        Name=aws_param_store_name,
-                        WithDecryption=with_decryption,
-                    )
-                    param_string = param_from_store["Parameter"]["Value"]
-                    params = json.loads(param_string)
-                except ClientError as e:
-                    logging.warning(
-                        f"Unable to retrieve parameters from aws: {e.response}"
-                    )
-                    params = {}
-                return params
+            # def get_secret_from_aws(
+            #         aws_secret_name, aws_secret_client
+            # ):
+            #     try:
+            #         response = aws_secret_client.get_secret_value(SecretId=aws_secret_name)
+            #     finally:
+            #         aws_secret_client.close()
+            #     return json.loads(response["SecretString"])
+            #
+            # def get_param_from_aws(
+            #     aws_param_store_name, aws_ssm_client, with_decryption=False
+            # ) -> Dict[str, Any]:
+            #     """Pull parameter from AWS Parameter Store"""
+            #     try:
+            #         param_from_store = aws_ssm_client.get_parameter(
+            #             Name=aws_param_store_name,
+            #             WithDecryption=with_decryption,
+            #         )
+            #         param_string = param_from_store["Parameter"]["Value"]
+            #         params = json.loads(param_string)
+            #     except ClientError as e:
+            #         logging.warning(
+            #             f"Unable to retrieve parameters from aws: {e.response}"
+            #         )
+            #         params = {}
+            #     return params
 
             def set_settings(_: BaseSettings) -> Dict[str, Any]:
                 """
                 A simple settings source that loads from aws secrets manager
                 """
-                ssm_client = boto3.client("ssm")
-                params_from_aws = get_param_from_aws(
-                    aws_param_store_name=param_name, aws_ssm_client=ssm_client
-                )
+                params_from_aws = json.loads(get_parameter(param_name))
+                # ssm_client = boto3.client("ssm")
+                # params_from_aws = get_param_from_aws(
+                #     aws_param_store_name=param_name, aws_ssm_client=ssm_client
+                # )
                 if params_from_aws.get("video_encryption_password_path"):
-                    video_encrypt_pwd = get_param_from_aws(
-                        aws_ssm_client=ssm_client,
-                        aws_param_store_name=params_from_aws.get(
+                    # video_encrypt_pwd_name = params_from_aws.get("video_encryption_password")
+                    # if video_encrypt_pwd_name is not None:
+                    #     video_encrypt_pwd_path = video_encrypt_pwd_name.split('/')[-1]
+                    # else:
+                    #     video_encrypt_pwd_path = None
+                    video_encrypt_pwd = json.loads(get_parameter(params_from_aws.get(
                             "video_encryption_password_path"
                         ),
                         with_decryption=True,
-                    )
+                    ))
+                    # video_encrypt_pwd = get_param_from_aws(
+                    #     aws_ssm_client=ssm_client,
+                    #     aws_param_store_name=params_from_aws.get(
+                    #         "video_encryption_password_path"
+                    #     ),
+                    #     with_decryption=True,
+                    # )
                     params_from_aws[
                         "video_encryption_password"
                     ] = video_encrypt_pwd.get("password")
                     if params_from_aws.get("video_encryption_password_path"):
                         del params_from_aws["video_encryption_password_path"]
                 if params_from_aws.get("codeocean_api_token_path"):
-                    co_api_token = get_param_from_aws(
-                        aws_ssm_client=ssm_client,
-                        aws_param_store_name=params_from_aws.get(
+                    co_api_token = json.loads(get_parameter(
+                        params_from_aws.get(
                             "codeocean_api_token_path"
                         ),
                         with_decryption=True,
-                    )
+                    ))
+                    # co_api_token = get_param_from_aws(
+                    #     aws_ssm_client=ssm_client,
+                    #     aws_param_store_name=params_from_aws.get(
+                    #         "codeocean_api_token_path"
+                    #     ),
+                    #     with_decryption=True,
+                    # )
                     params_from_aws["codeocean_api_token"] = co_api_token.get(
                         "CODEOCEAN_READWRITE_TOKEN"
                     )
                     if params_from_aws.get("codeocean_api_token_path"):
                         del params_from_aws["codeocean_api_token_path"]
 
-                ssm_client.close()
+                # ssm_client.close()
                 return params_from_aws
 
             return set_settings
+
 
         @classmethod
         def customise_sources(
