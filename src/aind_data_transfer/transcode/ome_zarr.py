@@ -123,23 +123,15 @@ def write_files(
         # Get the chunk dimensions that exist in the original, un-padded image
         reader_chunks = chunks[len(chunks) - len(reader.get_shape()) :]
 
-        pyramid = _get_or_create_pyramid(reader, n_levels, reader_chunks)
-
-        for i in range(len(pyramid)):
-            pyramid[i] = ensure_array_5d(pyramid[i])
-
-        LOGGER.info(pyramid[0])
-
         if interleaved:
-            deinterleaved_pyramids = [[] for _ in range(len(channel_names))]
-            for res in pyramid:
-                channels = Deinterleave.deinterleave(res, len(channel_names), axis=2)
-                for i, c in enumerate(channels):
-                    deinterleaved_pyramids[i].append(c)
-
-            for channel_name, channel_pyramid in zip(channel_names, deinterleaved_pyramids):
+            channels = Deinterleave.deinterleave(
+                reader.as_dask_array(reader_chunks),
+                len(channel_names),
+                axis=0
+            )
+            for channel_idx, channel in enumerate(channels):
                 tile_prefix = ChannelParser.parse_tile_xyz_loc(impath)
-                tile_name = tile_prefix + f"_ch_{channel_name}" + ".zarr"
+                tile_name = tile_prefix + f"_ch_{channel_names[channel_idx]}" + ".zarr"
                 LOGGER.info(f"new tile name: {tile_name}")
 
                 if not overwrite and _tile_exists(output, tile_name, n_levels):
@@ -147,6 +139,9 @@ def write_files(
                     continue
 
                 tile_metrics["tile"] = tile_name
+
+                channel_pyramid = _create_pyramid(channel, n_levels, chunks=reader_chunks)
+                channel_pyramid = [ensure_array_5d(arr) for arr in channel_pyramid]
 
                 LOGGER.info(f"{channel_pyramid[0]}")
 
@@ -196,6 +191,9 @@ def write_files(
                 continue
 
             tile_metrics["tile"] = tile_name
+
+            pyramid = _get_or_create_pyramid(reader, n_levels, reader_chunks)
+            pyramid = [ensure_array_5d(arr) for arr in pyramid]
 
             LOGGER.info(f"{pyramid[0]}")
 
