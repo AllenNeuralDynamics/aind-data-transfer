@@ -42,7 +42,7 @@ class ChannelParser:
 
     class RegexPatterns(Enum):
         channel_pattern = r"ch_([0-9_]{3,})\."
-        tile_xyz_pattern = r"tile_X_\d{4}_Y_\d{4}_Z_\d{4}"
+        tile_xyz_pattern = r"([a-zA-Z0-9_]+)_X_\d{4}_Y_\d{4}_Z_\d{4}"
 
     @staticmethod
     def parse_channel_names(filepath: str):
