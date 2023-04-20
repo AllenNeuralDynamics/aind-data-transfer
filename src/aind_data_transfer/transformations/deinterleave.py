@@ -41,7 +41,7 @@ class Deinterleave:
 class ChannelParser:
 
     class RegexPatterns(Enum):
-        channel_pattern = r"ch_([0-9_]{3,})\."
+        channel_pattern = r"ch_([0-9_]{3,})(_cam(0|1))?\."
         tile_xyz_pattern = r"([a-zA-Z0-9_]+)_X_\d{4}_Y_\d{4}_Z_\d{4}"
 
     @staticmethod
@@ -85,7 +85,7 @@ class ChannelParser:
 
 
 if __name__ == "__main__":
-    path = "/home/cameron.arshadi/data/tile_X_0002_Y_0000_Z_0000_ch_488_561_688.tiff"
+    path = "/home/cameron.arshadi/data/tile_X_0002_Y_0000_Z_0000_ch_488_561_688_cam1.tiff"
     names = ChannelParser.parse_channel_names(path)
     xyz_loc = ChannelParser.parse_tile_xyz_loc(path)
     print(names)
