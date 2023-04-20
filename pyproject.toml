@@ -25,7 +25,8 @@ dependencies = [
     'aind-codeocean-api==0.1.0',
     'aind-data-schema==0.13.0',
     'aind-metadata-service[client]>=0.2.5',
-    'tqdm==4.64.1'
+    'tqdm==4.64.1',
+    'aind-data-access-api[secrets]'
 ]
 
 [project.optional-dependencies]
