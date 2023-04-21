@@ -93,9 +93,13 @@ class TestGenericS3UploadJobList(unittest.TestCase):
                 call().get_parameter(
                     Name="/some/aws/param/store/name", WithDecryption=False
                 ),
+                call().close(),
+                call("ssm"),
                 call().get_parameter(
                     Name="/path/to/password", WithDecryption=True
                 ),
+                call().close(),
+                call("ssm"),
                 call().get_parameter(
                     Name="/path/to/token", WithDecryption=True
                 ),
@@ -104,9 +108,13 @@ class TestGenericS3UploadJobList(unittest.TestCase):
                 call().get_parameter(
                     Name="/some/aws/param/store/name", WithDecryption=False
                 ),
+                call().close(),
+                call("ssm"),
                 call().get_parameter(
                     Name="/path/to/password", WithDecryption=True
                 ),
+                call().close(),
+                call("ssm"),
                 call().get_parameter(
                     Name="/path/to/token", WithDecryption=True
                 ),
