@@ -82,71 +82,68 @@ def write_files(
 
         # Create readers, but don't construct dask array
         # until we know the optimal chunk shape.
-        reader = DataReaderFactory().create(impath)
+        with DataReaderFactory().create(impath) as reader:
+            # TODO: pass units to zarr writer
+            if voxel_size is None:
+                try:
+                    voxel_size, _ = reader.get_voxel_size()
+                except Exception:
+                    voxel_size = [1.0, 1.0, 1.0]
+            LOGGER.info(f"Using voxel size: {voxel_size}")
+            physical_pixel_sizes = PhysicalPixelSizes(
+                Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
+            )
 
-        # TODO: pass units to zarr writer
-        if voxel_size is None:
+            # Attempt to parse tile origin
+            origin = _parse_origin(reader)
+
+            if chunk_shape is None:
+                chunks = _compute_chunks(reader, chunk_size)
+            else:
+                chunks = tuple(chunk_shape)
+
+            LOGGER.info(
+                f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB"
+            )
+
             try:
-                voxel_size, _ = reader.get_voxel_size()
-            except Exception:
-                voxel_size = [1.0, 1.0, 1.0]
-        LOGGER.info(f"Using voxel size: {voxel_size}")
-        physical_pixel_sizes = PhysicalPixelSizes(
-            Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
-        )
+                channel_names = ChannelParser.parse_channel_names(impath)
+                LOGGER.info(f"parsed channel wavelengths: {channel_names}")
+                interleaved = len(channel_names) > 1
+            except ValueError:
+                interleaved = False
+            LOGGER.info(f"Data is interleaved: {interleaved}")
 
-        # Attempt to parse tile origin
-        origin = _parse_origin(reader)
-
-        if chunk_shape is None:
-            chunks = _compute_chunks(reader, chunk_size)
-        else:
-            chunks = tuple(chunk_shape)
-
-        LOGGER.info(
-            f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB"
-        )
-
-        try:
-            channel_names = ChannelParser.parse_channel_names(impath)
-            LOGGER.info(f"parsed channel wavelengths: {channel_names}")
-            interleaved = len(channel_names) > 1
-        except ValueError:
-            interleaved = False
-        LOGGER.info(f"Data is interleaved: {interleaved}")
-
-        if interleaved:
-            LOGGER.info("Deinterleaving during write")
-            tile_metrics = _store_interleaved_file(
-                reader,
-                writer,
-                output,
-                channel_names,
-                n_levels,
-                scale_factor,
-                origin,
-                physical_pixel_sizes,
-                chunks,
-                overwrite,
-                storage_options
-            )
-            all_metrics.append(tile_metrics)
-        else:
-            tile_metrics = _store_file(
-                reader,
-                writer,
-                output,
-                n_levels,
-                scale_factor,
-                origin,
-                physical_pixel_sizes,
-                chunks,
-                overwrite,
-                storage_options
-            )
-            all_metrics.append(tile_metrics)
-
-        reader.close()
+            if interleaved:
+                LOGGER.info("Deinterleaving during write")
+                tile_metrics = _store_interleaved_file(
+                    reader,
+                    writer,
+                    output,
+                    channel_names,
+                    n_levels,
+                    scale_factor,
+                    origin,
+                    physical_pixel_sizes,
+                    chunks,
+                    overwrite,
+                    storage_options
+                )
+                all_metrics.append(tile_metrics)
+            else:
+                tile_metrics = _store_file(
+                    reader,
+                    writer,
+                    output,
+                    n_levels,
+                    scale_factor,
+                    origin,
+                    physical_pixel_sizes,
+                    chunks,
+                    overwrite,
+                    storage_options
+                )
+                all_metrics.append(tile_metrics)
 
     return all_metrics
 
