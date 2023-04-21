@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, List, Tuple
@@ -50,12 +51,20 @@ class DataReader(ABC):
     def get_itemsize(self) -> int:
         pass
 
+    @abstractmethod
+    def __enter__(self):
+        pass
+
+    @abstractmethod
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
     def get_filepath(self) -> str:
         return self.filepath
 
 
 class TiffReader(DataReader):
-    def __init__(self, filepath: str, refs_dir: str = os.getcwd()):
+    def __init__(self, filepath: str):
         """
         Class constructor
 
@@ -70,8 +79,9 @@ class TiffReader(DataReader):
         # in the cluster. I'm writing to the current
         # working directory since the code will likely
         # be run from a location accessible by all nodes.
+        self._temp_dir = tempfile.TemporaryDirectory(dir=os.getcwd())
         self._refs_file = os.path.join(
-            refs_dir,
+            self._temp_dir.name,
             f"references-{Path(filepath).name}.json"
         )
         if os.path.isfile(self._refs_file):
@@ -85,6 +95,12 @@ class TiffReader(DataReader):
             remote_protocol='file'
         )
         self._arr = zarr.open(fs.get_mapper(""), 'r')
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def as_dask_array(self, chunks=None):
         """Return the image stack as a Dask Array
@@ -145,9 +161,9 @@ class TiffReader(DataReader):
         """Close the file handle to free resources"""
         self._arr = None
         try:
-            os.remove(self._refs_file)
-        except OSError as e:
-            _LOGGER.error("Error: %s - %s." % (e.filename, e.strerror))
+            self._temp_dir.cleanup()
+        except Exception as e:
+            _LOGGER.error(f"Error removing references dir: {e}")
 
 
 class MissingDatasetError(Exception):
@@ -160,6 +176,12 @@ class ImarisReader(DataReader):
     def __init__(self, filepath):
         super().__init__(filepath)
         self.handle = h5py.File(self.filepath, mode="r")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def as_dask_array(self, data_path: str = DEFAULT_DATA_PATH, chunks=True) -> da.Array:
         """Return the image stack as a Dask Array
