@@ -58,6 +58,7 @@ class ChannelParser:
         -------
         List of channel wavelength strings, e.g., ["488", "561"]
         """
+        filepath = str(filepath)
         m = re.search(ChannelParser.RegexPatterns.channel_pattern.value, filepath)
         if m is None:
             raise ValueError(f"file name does not match channel pattern: {filepath}")
@@ -78,6 +79,7 @@ class ChannelParser:
         -------
         the tile coordinate prefix, e.g., "tile_X_0000_Y_0001_Z_0002"
         """
+        filepath = str(filepath)
         m = re.search(ChannelParser.RegexPatterns.tile_xyz_pattern.value, filepath)
         if m is None:
             raise ValueError(f"file name does not match tile pattern: {filepath}")
