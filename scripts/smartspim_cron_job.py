@@ -1,3 +1,9 @@
+"""
+Script that uploads smartspim datasets. It is designed
+to be automatic by using a processing_manifest.json
+inside of each dataset and a YAML configuration file
+located in the conf/ folder.
+"""
 import glob
 import json
 import logging
@@ -21,18 +27,28 @@ from aind_data_transfer.writers.imaging_writers import SmartSPIMWriter
 
 warnings.filterwarnings("ignore")
 
+CURR_DATE = datetime.now().strftime("%Y-%m-%d")
+LOGS_FOLDER = f"/allen/aind/scratch/camilo.laiton/.cronjob/logs_{CURR_DATE}"
+CURR_DATE_TIME = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+
+# Creates logs folder, if it does not exist
+file_utils.create_folder(LOGS_FOLDER)
+
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s : %(message)s",
     datefmt="%Y-%m-%d %H:%M",
     handlers=[
         logging.StreamHandler(),
-        # logging.FileHandler("test.log", "a"),
+        logging.FileHandler(
+            f"{LOGS_FOLDER}/smartspim_logs_{CURR_DATE_TIME}.log", "a"
+        ),
     ],
+    force=True,
 )
 logging.disable("DEBUG")
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 PathLike = Union[str, Path]
 
@@ -533,7 +549,17 @@ def provide_folder_permissions(
 
     oct_permissions = int(permissions, 8)
 
-    def helper_update_permissions(list_folders):
+    def helper_update_permissions(list_folders: list):
+        """
+        Helper function to update permissions
+        of a list of folders
+
+        Parameters
+        -----------
+        list_folders: list
+            List of strings with the paths to
+            the folders to update
+        """
         for list_folder in list_folders:
             os.chmod(list_folder, oct_permissions)
 
@@ -561,7 +587,6 @@ def main():
     """
     Main to execute the smartspim job
     """
-
     config_param = ArgSchemaParser(schema_type=ConfigFile)
 
     SUBMIT_HPC_PATH = (
@@ -597,7 +622,7 @@ def main():
         root_folder=root_folder, paths=raw_datasets_ready, permissions="755"
     )
 
-    logger.info(f"Raw datasets rejected: {raw_datasets_rejected}")
+    logger.warning(f"Raw datasets rejected: {raw_datasets_rejected}")
 
     new_dataset_paths, ready_datasets = organize_datasets(
         root_folder,

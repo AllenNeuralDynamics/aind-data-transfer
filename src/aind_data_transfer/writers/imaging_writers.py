@@ -597,12 +597,15 @@ class SmartSPIMWriter:
 
         # Creates the acquisition json
         if "acquisition" in dataset_info:
-            self.__create_acquisition(
-                parsed_data,
-                dataset_info["acquisition"],
-                original_dataset_path,
-                output_path,
-            )
+            try:
+                self.__create_acquisition(
+                    parsed_data,
+                    dataset_info["acquisition"],
+                    original_dataset_path,
+                    output_path,
+                )
+            except ValueError:
+                logger.error("Error creating acquisition schema")
         else:
             logger.error(
                 f"acquisition.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
