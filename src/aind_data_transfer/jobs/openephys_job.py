@@ -8,6 +8,7 @@ import sys
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
+from warnings import warn
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_data_schema.processing import ProcessName
@@ -29,6 +30,13 @@ from aind_data_transfer.util.npopto_correction import (
 )
 from aind_data_transfer.util.s3_utils import get_secret
 from aind_data_transfer.writers.ephys_writers import EphysWriters
+
+warn(
+    f"The module {__name__} is deprecated and will be removed in future "
+    f"versions.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 root_logger = logging.getLogger()
 

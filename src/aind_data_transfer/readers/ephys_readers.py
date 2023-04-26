@@ -5,15 +5,16 @@ import numpy as np
 from spikeinterface import extractors as se
 
 
+class DataReader(Enum):
+    """Enum for readers."""
+
+    OPENEPHYS = "openephys"
+
+
 class EphysReaders:
     """This class contains the methods to retrieve a reader."""
 
-    class Readers(Enum):
-        """Enum for readers."""
-
-        openephys = "openephys"
-
-    readers = [member.value for member in Readers]
+    readers = [member.value for member in DataReader]
 
     class RecordingBlockPrefixes(Enum):
         """Enum for types of recording blocks."""
@@ -43,7 +44,7 @@ class EphysReaders:
             {'recording', 'experiment_name', 'stream_name'}.
 
         """
-        if reader_name == EphysReaders.Readers.openephys.value:
+        if reader_name == DataReader.OPENEPHYS.value:
             nblocks = se.get_neo_num_blocks(reader_name, input_dir)
             stream_names, stream_ids = se.get_neo_streams(
                 reader_name, input_dir
