@@ -28,7 +28,13 @@ from aind_data_transfer.writers.imaging_writers import SmartSPIMWriter
 warnings.filterwarnings("ignore")
 
 CURR_DATE = datetime.now().strftime("%Y-%m-%d")
-LOGS_FOLDER = f"/allen/aind/scratch/camilo.laiton/.cronjob/logs_{CURR_DATE}"
+
+# Printing logs in .cronjob folder in my root folder structure
+file_path = Path(
+    os.path.dirname(os.path.realpath(__file__))
+).parent.parent.absolute()
+
+LOGS_FOLDER = f"{file_path}/.cronjob/logs_{CURR_DATE}"
 CURR_DATE_TIME = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
 # Creates logs folder, if it does not exist
