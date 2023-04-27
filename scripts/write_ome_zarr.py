@@ -2,22 +2,20 @@ import argparse
 import logging
 
 import google.cloud.exceptions
+
+# Importing this alone doesn't work on HPC
+# Must manually override HDF5_PLUGIN_PATH environment variable
+# in each Dask worker
+import hdf5plugin
 import pandas as pd
 from botocore.session import get_session
 from numcodecs import blosc
 
 from aind_data_transfer.gcs import create_client
 from aind_data_transfer.transcode.ome_zarr import write_files
-from aind_data_transfer.util.file_utils import *
 from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
-
-# Importing this alone doesn't work on HPC
-# Must manually override HDF5_PLUGIN_PATH environment variable
-# in each Dask worker
-import hdf5plugin
-
-
+from aind_data_transfer.util.file_utils import *
 
 blosc.use_threads = False
 
@@ -192,7 +190,7 @@ def main():
             "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
             "HDF5_USE_FILE_LOCKING": "FALSE",
             "OMP_NUM_THREADS": "1",
-            "MALLOC_TRIM_THRESHOLD_": "0"
+            "MALLOC_TRIM_THRESHOLD_": "0",
         }
     }
     client, _ = get_client(args.deployment, worker_options=worker_options)

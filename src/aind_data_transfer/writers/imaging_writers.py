@@ -1,12 +1,20 @@
+"""
+Imaging writers for the different data modalities
+"""
 import logging
 import os
 import re
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 from aind_data_schema import Funding, RawDataDescription, Subject
-from aind_data_schema.data_description import ExperimentType, Modality, Institution, Group
+from aind_data_schema.data_description import (
+    ExperimentType,
+    Group,
+    Institution,
+    Modality,
+)
 from aind_data_schema.imaging import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
@@ -55,7 +63,11 @@ def digest_asi_line(line: str) -> datetime:
     hms = [int(i) for i in hms.split(b":")]
     if ampm == b"PM":
         hms[0] += 12
+        if hms[0] == 24:
+            hms[0] = 0
+
     ymdhms = ymd + hms
+
     dtime = datetime(*ymdhms)
     ymd = date(*ymd)
     hms = time(*hms)
@@ -107,7 +119,7 @@ def get_scale(lc_mdata) -> tile.Scale3dTransform:
 
     line = lc_mdata[1]
     xy, z = line.split()[3:5]
-    scale = tile.Scale3dTransform(scale=[xy, xy, z])
+    scale = tile.Scale3dTransform(scale=[float(xy), float(xy), float(z)])
 
     return scale
 
@@ -135,7 +147,6 @@ def make_acq_tiles(lc_mdata: bytes, filter_mapping: dict):
     tiles_line = None
 
     for idx_line in range(len(lc_mdata)):
-
         if "Wavelength" in str(lc_mdata[idx_line]):
             wavelength_line = idx_line + 1
 
@@ -300,10 +311,33 @@ class SmartSPIMWriter:
 
         mouse_date = parsed_data["mouse_date"]
 
+        # Validating data_description args
+        institution = None
+
+        # Getting the institution
+        if "institution" not in dataset_info:
+            raise ValueError("Please, provide the institution in the manifest")
+        else:
+            institution = dataset_info["institution"]
+
+        funding_source = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info,
+            key="funding_source",
+            default_return=institution,
+        )
+        project_name = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="project"
+        )
+        project_id = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="project_id"
+        )
+        group = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="group", default_return="MSMA"
+        )
+
         # Creating data description
         data_description = RawDataDescription(
             modality=[Modality.SPIM],
-            experiment_type=ExperimentType.SMARTSPIM,
             subject_id=parsed_data["mouse_id"],
             creation_date=date(
                 mouse_date.year, mouse_date.month, mouse_date.day
@@ -311,12 +345,12 @@ class SmartSPIMWriter:
             creation_time=time(
                 mouse_date.hour, mouse_date.minute, mouse_date.second
             ),
-            # Parses the attribute name to an institution...
-            institution=Institution(dataset_info["institution"]),
-            group=Group.MSMA,
-            project_name=dataset_info["project"],
-            project_id=dataset_info["project_id"],
-            funding_source=[Funding(funder=dataset_info["institution"])],
+            institution=institution,
+            group=group,
+            project_name=project_name,
+            project_id=project_id,
+            funding_source=[Funding(funder=funding_source)],
+            experiment_type=ExperimentType.SMARTSPIM,
         )
 
         data_description_path = str(
@@ -386,7 +420,7 @@ class SmartSPIMWriter:
         dataset_path: PathLike
             Path where the channels of the dataset
             are stored
-        
+
         Returns
         ------------
         dict
@@ -409,7 +443,7 @@ class SmartSPIMWriter:
 
         return excitation_emission_channels
 
-    def __create_adquisition(
+    def __create_acquisition(
         self,
         parsed_data: dict,
         dataset_info: dict,
@@ -444,22 +478,67 @@ class SmartSPIMWriter:
 
         session_end_time = get_session_end(asi_file)
 
+        # Validating data in config
+        instrument_id = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="instrument_id"
+        )
+        experimenter_full_name = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="experimenter"
+        )
+        local_storage_directory = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info, key="local_storage"
+        )
+        chamber_immersion_medium = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["chamber_immersion"], key="medium"
+        )
+        chamber_immersion_ri = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["chamber_immersion"],
+            key="refractive_index",
+        )
+        sample_immersion_medium = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["sample_immersion"], key="medium"
+        )
+        sample_immersion_ri = file_utils.helper_validate_key_dict(
+            dictionary=dataset_info["sample_immersion"], key="refractive_index"
+        )
+
+        # Giving the specific error of what is missing
+        if instrument_id is None:
+            raise ValueError("Instrument id not provided in manifest")
+
+        if experimenter_full_name is None:
+            raise ValueError("Experimenter full name not provided in manifest")
+
+        if chamber_immersion_medium is None:
+            raise ValueError(
+                "Chamber immersion medium not provided in manifest"
+            )
+
+        if chamber_immersion_ri is None:
+            raise ValueError("Chamber immersion ri not provided in manifest")
+
         acquisition_model = acquisition.Acquisition(
             specimen_id="",
-            instrument_id=dataset_info["instrument_id"],
-            experimenter_full_name=dataset_info["experimenter"],
+            instrument_id=instrument_id,
+            experimenter_full_name=experimenter_full_name,
             subject_id=parsed_data["mouse_id"],
             session_start_time=parsed_data["mouse_date"],
             session_end_time=session_end_time,
-            local_storage_directory=dataset_info["local_storage_directory"],
+            local_storage_directory=local_storage_directory,
             external_storage_directory="",
             chamber_immersion=acquisition.Immersion(
-                medium=dataset_info["immersion"]["medium"],
-                refractive_index=dataset_info["immersion"]["refractive_index"],
+                medium=chamber_immersion_medium,
+                refractive_index=chamber_immersion_ri,
+            ),
+            sample_immersion=acquisition.Immersion(
+                medium=sample_immersion_medium,
+                refractive_index=sample_immersion_ri,
             ),
             axes=[
                 acquisition.Axis(
-                    name="X", dimension=2, direction="Left_to_right",
+                    name="X",
+                    dimension=2,
+                    direction="Left_to_right",
                 ),
                 acquisition.Axis(
                     name="Y", dimension=1, direction="Posterior_to_anterior"
@@ -514,17 +593,20 @@ class SmartSPIMWriter:
         # Creates the subject metadata json
         self.__create_subject(parsed_data["mouse_id"], output_path)
 
-        # Creates the adquisition json
-        if "adquisition" in dataset_info:
-            self.__create_adquisition(
-                parsed_data,
-                dataset_info["adquisition"],
-                original_dataset_path,
-                output_path,
-            )
+        # Creates the acquisition json
+        if "acquisition" in dataset_info:
+            try:
+                self.__create_acquisition(
+                    parsed_data,
+                    dataset_info["acquisition"],
+                    original_dataset_path,
+                    output_path,
+                )
+            except ValueError:
+                logger.error("Error creating acquisition schema")
         else:
             logger.error(
-                f"adquisition.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
+                f"acquisition.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
             )
 
     def prepare_datasets(
@@ -558,7 +640,7 @@ class SmartSPIMWriter:
             dataset_path = dataset_info["path"]
 
             if os.path.isdir(dataset_path):
-                logger.info(f"Processing: {dataset_path}\n")
+                logger.info(f"\nOrganizing: {dataset_path}")
                 (
                     new_dataset_path,
                     parsed_data,
@@ -604,11 +686,6 @@ class SmartSPIMWriter:
                         new_dataset_path.joinpath("derivatives"),
                         self.__regex_expressions.regex_files.value,
                         mode=mode,
-                    )
-
-                    file_utils.write_list_to_txt(
-                        new_dataset_path.joinpath("DATASET_STATUS.txt"),
-                        ["PENDING"],
                     )
 
                     new_dataset_paths.append(new_dataset_path)
