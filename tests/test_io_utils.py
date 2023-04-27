@@ -47,16 +47,10 @@ class TestTiffReader(unittest.TestCase):
         self._image_dir = Path(__file__).parent / "resources/imaging/data/tiff"
         self._image_dir.mkdir(parents=True, exist_ok=True)
         self._image_path = _write_test_tiffs(self._image_dir, n=1)[0]
-        # Create a unique directory for each test case, since the TiffReader will
-        # create a references file with the same name and the tests run concurrently.
-        # If you don't do this, you will get an exception saying the references file
-        # already exists.
-        self._refs_dir = tempfile.TemporaryDirectory()
-        self._reader = TiffReader(self._image_path, refs_dir=self._refs_dir.name)
+        self._reader = TiffReader(self._image_path)
 
     def tearDown(self) -> None:
         self._reader.close()
-        self._refs_dir.cleanup()
         shutil.rmtree(self._image_dir)
 
     def test_get_filepath(self):
