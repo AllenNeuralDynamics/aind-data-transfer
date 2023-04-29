@@ -336,6 +336,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
         funding_source: Optional[Tuple] = (
             Funding(funder=Institution.AIND.value.abbreviation),
         ),
+        investigators: Optional[List[str]] = None
     ):
         """
         Build a RawDataDescriptionMetadata instance using some basic
@@ -350,6 +351,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
           Primary Institution. Defaults to AIND.
         funding_source : Optional[Tuple]
           Tuple of funding sources. Defaults to (AIND)
+        investigators : Optional[List[str]]
 
         """
         funding_source_list = (
@@ -357,11 +359,13 @@ class RawDataDescriptionMetadata(MetadataCreation):
             if isinstance(funding_source, tuple)
             else funding_source
         )
+        investigators = [] if investigators is None else investigators
         basic_settings = RawDataDescription.parse_name(name=name)
         data_description_instance = RawDataDescription(
             institution=institution,
             modality=modality,
             funding_source=funding_source_list,
+            investigators=investigators,
             **basic_settings,
         )
         # Do this to use enum strings instead of classes in dict representation
