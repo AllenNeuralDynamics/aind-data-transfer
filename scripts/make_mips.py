@@ -8,20 +8,16 @@ from pathlib import Path
 import tifffile
 
 from aind_data_transfer.transcode.ome_zarr import _compute_chunks
-from aind_data_transfer.util.io_utils import DataReaderFactory
-from aind_data_transfer.util.file_utils import collect_filepaths, any_hdf5
 from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
+from aind_data_transfer.util.file_utils import any_hdf5, collect_filepaths
+from aind_data_transfer.util.io_utils import DataReaderFactory
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 _LOGGER = logging.getLogger(__name__)
 
 
-_AXES = {
-    "XY": 0,
-    "XZ": 1,
-    "YZ": 2
-}
+_AXES = {"XY": 0, "XZ": 1, "YZ": 2}
 
 
 def _parse_args():
@@ -31,11 +27,7 @@ def _parse_args():
         type=str,
         help="directory of images to transcode",
     )
-    parser.add_argument(
-        "--output",
-        type=str,
-        help="directory to output MIPs"
-    )
+    parser.add_argument("--output", type=str, help="directory to output MIPs")
     parser.add_argument(
         "--deployment",
         type=str,
@@ -48,26 +40,23 @@ def _parse_args():
         type=str,
         nargs="+",
         default=["XY", "XZ", "YZ"],
-        help="the projections to create"
+        help="the projections to create",
     )
     parser.add_argument(
         "--exclude",
         default=[],
         type=str,
         nargs="+",
-        help="filename patterns to exclude, e.g., \"*.tif\", \"*.memento\", etc"
+        help='filename patterns to exclude, e.g., "*.tif", "*.memento", etc',
     )
     parser.add_argument(
         "--overwrite",
         default=False,
         action="store_true",
-        help="Overwrite MIPs if they already exist on disk."
+        help="Overwrite MIPs if they already exist on disk.",
     )
     parser.add_argument(
-        "--chunk-size",
-        type=int,
-        default=128,
-        help="dask chunk size (MB)"
+        "--chunk-size", type=int, default=128, help="dask chunk size (MB)"
     )
     args = parser.parse_args()
     return args
@@ -96,7 +85,7 @@ def main():
     image_paths = collect_filepaths(
         args.input,
         recursive=True,
-        include_exts=DataReaderFactory().VALID_EXTENSIONS
+        include_exts=DataReaderFactory().VALID_EXTENSIONS,
     )
 
     exclude_paths = set()
@@ -116,16 +105,15 @@ def main():
     if any_hdf5(image_paths):
         os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
         worker_options["env"] = {
-                "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
-                "HDF5_USE_FILE_LOCKING": "FALSE"
-            }
+            "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
+            "HDF5_USE_FILE_LOCKING": "FALSE",
+        }
 
     client, _ = get_client(args.deployment, worker_options=worker_options)
 
     os.makedirs(args.output, exist_ok=True)
 
     for impath in image_paths:
-
         _LOGGER.info(f"Processing {impath}")
 
         reader = DataReaderFactory().create(impath)
@@ -140,7 +128,9 @@ def main():
         #  dask worker memory blows up if doing
         #  xy, xz, yz = dask.compute(arr.max(axis=0), arr.max(axis=1), arr.max(axis=2))
         for axis in args.axes:
-            project_and_write(arr, axis, args.output, tile_name, overwrite=args.overwrite)
+            project_and_write(
+                arr, axis, args.output, tile_name, overwrite=args.overwrite
+            )
 
 
 if __name__ == "__main__":

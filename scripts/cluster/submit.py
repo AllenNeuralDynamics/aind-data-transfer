@@ -51,13 +51,15 @@ def write_slurm_scripts(args, run_info):
         cpus_per_task=args.cpus_per_task,
         mem_per_cpu=args.mem_per_cpu,
         tmp_space=args.tmp_space,
-        dask_conf_file=run_info.dask_conf_file
+        dask_conf_file=run_info.dask_conf_file,
     )
     os.chmod(script_path, 0o755)
 
 
 def copy_dask_config(run_info):
-    conf_file = Path(__file__).parent.parent.parent / "conf/dask/dask-config.yaml"
+    conf_file = (
+        Path(__file__).parent.parent.parent / "conf/dask/dask-config.yaml"
+    )
     assert conf_file.is_file()
     # Copy to the run directory.
     # The DASK_CONFIG environment variable is set to this path

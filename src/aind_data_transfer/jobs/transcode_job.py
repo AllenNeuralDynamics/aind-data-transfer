@@ -11,6 +11,7 @@ from numcodecs import Blosc
 from aind_data_transfer.config_loader.imaging_configuration_loader import (
     ImagingJobConfigurationLoader,
 )
+from aind_data_schema.data_description import Modality
 from aind_data_transfer.readers.imaging_readers import ImagingReaders
 from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
 from aind_data_transfer.transformations.metadata_creation import (
@@ -214,7 +215,7 @@ def main():
         )
 
         data_description_metadata = RawDataDescriptionMetadata.from_inputs(
-            name=Path(data_src_dir).name
+            name=Path(data_src_dir).name, modality=[Modality.SPIM]
         )
         data_description_metadata.write_to_json(
             os.path.join(

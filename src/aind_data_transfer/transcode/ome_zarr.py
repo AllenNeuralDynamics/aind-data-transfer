@@ -20,7 +20,9 @@ from aind_data_transfer.util.io_utils import (
     DataReaderFactory,
     ImarisReader,
     MissingDatasetError,
+    DataReader
 )
+from aind_data_transfer.transformations.deinterleave import ChannelParser, Deinterleave
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ def write_files(
     image_paths: list,
     output: str,
     n_levels: int,
-    scale_factor: float,
+    scale_factor: int,
     overwrite: bool = True,
     chunk_size: float = 64,  # MB
     chunk_shape: tuple = None,
@@ -80,68 +82,227 @@ def write_files(
     for impath in image_paths:
         LOGGER.info(f"Writing tile {impath}")
 
-        tile_name = Path(impath).stem + ".zarr"
+        # Create readers, but don't construct dask array
+        # until we know the optimal chunk shape.
+        with DataReaderFactory().create(impath) as reader:
+            # TODO: pass units to zarr writer
+            if voxel_size is None:
+                try:
+                    voxel_size, _ = reader.get_voxel_size()
+                except Exception:
+                    voxel_size = [1.0, 1.0, 1.0]
+            LOGGER.info(f"Using voxel size: {voxel_size}")
+            physical_pixel_sizes = PhysicalPixelSizes(
+                Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
+            )
 
-        if not overwrite and _tile_exists(output, tile_name, n_levels):
+            # Attempt to parse tile origin
+            origin = _parse_origin(reader)
+
+            if chunk_shape is None:
+                chunks = _compute_chunks(reader, chunk_size)
+            else:
+                chunks = tuple(chunk_shape)
+
+            LOGGER.info(
+                f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB"
+            )
+
+            try:
+                channel_names = ChannelParser.parse_channel_names(impath)
+                LOGGER.info(f"parsed channel wavelengths: {channel_names}")
+                interleaved = len(channel_names) > 1
+            except ValueError:
+                interleaved = False
+            LOGGER.info(f"Data is interleaved: {interleaved}")
+
+            if interleaved:
+                LOGGER.info("Deinterleaving during write")
+                tile_metrics = _store_interleaved_file(
+                    reader,
+                    writer,
+                    output,
+                    channel_names,
+                    n_levels,
+                    scale_factor,
+                    origin,
+                    physical_pixel_sizes,
+                    chunks,
+                    overwrite,
+                    storage_options
+                )
+                all_metrics.append(tile_metrics)
+            else:
+                tile_metrics = _store_file(
+                    reader,
+                    writer,
+                    output,
+                    n_levels,
+                    scale_factor,
+                    origin,
+                    physical_pixel_sizes,
+                    chunks,
+                    overwrite,
+                    storage_options
+                )
+                all_metrics.append(tile_metrics)
+
+    return all_metrics
+
+
+def _store_file(
+        reader: DataReader,
+        writer: OmeZarrWriter,
+        output: str,
+        n_levels: int,
+        scale_factor: int,
+        origin: list,
+        physical_pixel_sizes: PhysicalPixelSizes,
+        chunks: tuple,
+        overwrite: bool,
+        storage_options: dict
+) -> dict:
+    """
+    Write an image to an existing Zarr store
+
+    Args:
+        reader: the reader for the image
+        writer: the OmeZarrWriter instance
+        output: the location of the output Zarr store (filesystem, s3, gs)
+        n_levels: number of downsampling levels
+        scale_factor: scale factor for downsampling in X, Y and Z
+        origin: the tile origin coordinates in ZYX order
+        physical_pixel_sizes: the voxel size of the image
+        chunks: the chunk shape
+        overwrite: whether to overwrite image groups that already exist
+        storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
+    Returns:
+        A list of metrics for each converted image
+    """
+    tile_name = Path(reader.get_filepath()).stem + ".zarr"
+    LOGGER.info(f"new tile name: {tile_name}")
+
+    tile_metrics = {"chunks": chunks, "tile": tile_name}
+    try:
+        tile_metrics.update(storage_options["params"])
+    except KeyError:
+        LOGGER.warning("compression parameters will not be logged")
+
+    if not overwrite and _tile_exists(output, tile_name, n_levels):
+        LOGGER.info(f"Skipping tile {tile_name}, already exists.")
+        return tile_metrics
+
+    # Get the chunk dimensions that exist in the original, un-padded image
+    reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
+
+    pyramid = _get_or_create_pyramid(reader, n_levels, reader_chunks)
+    pyramid = [ensure_array_5d(arr) for arr in pyramid]
+
+    LOGGER.info(f"{pyramid[0]}")
+
+    LOGGER.info("Starting write...")
+    t0 = time.time()
+    jobs = writer.write_multiscale(
+        pyramid=pyramid,
+        image_name=tile_name,
+        physical_pixel_sizes=physical_pixel_sizes,
+        translation=origin,
+        channel_names=None,
+        channel_colors=None,
+        scale_factor=(scale_factor,) * 3,
+        chunks=chunks,
+        storage_options=storage_options,
+        compute_dask=False,
+    )
+    if jobs:
+        LOGGER.info("Computing dask arrays...")
+        arrs = dask.persist(*jobs)
+        wait(arrs)
+    write_time = time.time() - t0
+
+    _populate_metrics(
+        tile_metrics,
+        tile_name,
+        output,
+        _get_bytes(pyramid),
+        write_time,
+        n_levels,
+        pyramid[0].shape,
+        pyramid[0].dtype,
+    )
+
+    LOGGER.info(
+        f"Finished writing tile {tile_name}.\n"
+        f"Took {write_time}s. {tile_metrics['write_bps'] / (1024 ** 2)} MiB/s"
+    )
+
+    return tile_metrics
+
+
+def _store_interleaved_file(
+        reader: DataReader,
+        writer: OmeZarrWriter,
+        output: str,
+        channel_names: list,
+        n_levels: int,
+        scale_factor: int,
+        origin: list,
+        physical_pixel_sizes: PhysicalPixelSizes,
+        chunks: tuple,
+        overwrite: bool,
+        storage_options: dict,
+) -> dict:
+    """
+    Write an image to an existing Zarr store
+
+    Args:
+        reader: the reader for the image
+        writer: the OmeZarrWriter instance
+        output: the location of the output Zarr store (filesystem, s3, gs)
+        channel_names: the wavelength string of each channel, e.g., ["488, "561","689"]
+        n_levels: number of downsampling levels to compute
+        scale_factor: scale factor for downsampling in X, Y and Z
+        origin: the tile origin coordinates in ZYX order
+        physical_pixel_sizes: the voxel size of the image
+        chunks: the chunk shape
+        overwrite: whether to overwrite image groups that already exist
+        storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
+    Returns:
+        A list of metrics for each converted image
+    """
+    tile_metrics = {"chunks": chunks}
+    try:
+        tile_metrics.update(storage_options["params"])
+    except KeyError:
+        LOGGER.warning("compression parameters will not be logged")
+
+    # Get the chunk dimensions that exist in the original, un-padded image
+    reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
+    channels = Deinterleave.deinterleave(
+        reader.as_dask_array(reader_chunks),
+        len(channel_names),
+        axis=0
+    )
+    for channel_idx, channel in enumerate(channels):
+        tile_prefix = ChannelParser.parse_tile_xyz_loc(reader.get_filepath())
+        tile_name = tile_prefix + f"_ch_{channel_names[channel_idx]}" + ".zarr"
+        LOGGER.info(f"new tile name: {tile_name}")
+
+        if not overwrite and _tile_exists(writer.store.path, tile_name, n_levels):
             LOGGER.info(f"Skipping tile {tile_name}, already exists.")
             continue
 
-        tile_metrics = {
-            "tile": Path(impath).absolute(),
-        }
-        try:
-            tile_metrics.update(storage_options["params"])
-        except KeyError:
-            LOGGER.warning("compression parameters will not be logged")
+        tile_metrics["tile"] = tile_name
 
-        # Create readers, but don't construct dask array
-        # until we know the optimal chunk shape.
-        reader = DataReaderFactory().create(impath)
+        channel_pyramid = _create_pyramid(channel, n_levels, chunks=reader_chunks)
+        channel_pyramid = [ensure_array_5d(arr) for arr in channel_pyramid]
 
-        # TODO: pass units to zarr writer
-        if voxel_size is None:
-            try:
-                voxel_size, unit = reader.get_voxel_size()
-            except Exception:
-                voxel_size = [1.0, 1.0, 1.0]
-                unit = "um"
-        LOGGER.info(f"Using voxel size: {voxel_size}")
-        physical_pixel_sizes = PhysicalPixelSizes(
-            Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
-        )
-
-        # Attempt to parse tile origin
-        origin = _parse_origin(reader)
-
-        # We determine the chunk size before creating the dask array since
-        # rechunking an existing dask array, e.g, data = data.rechunk(chunks),
-        # causes memory use to grow (unbounded?) during the zarr write step.
-        # See https://github.com/dask/dask/issues/5105.
-        if chunk_shape is None:
-            chunks = _compute_chunks(reader, chunk_size)
-        else:
-            chunks = tuple(chunk_shape)
-
-        LOGGER.info(
-            f"chunks: {chunks}, {np.product(chunks) * reader.get_itemsize() / (1024 ** 2)} MiB"
-        )
-
-        tile_metrics["chunks"] = chunks
-
-        # Get the chunk dimensions that exist in the original, un-padded image
-        reader_chunks = chunks[len(chunks) - len(reader.get_shape()) :]
-
-        pyramid = _get_or_create_pyramid(reader, n_levels, reader_chunks)
-
-        for i in range(len(pyramid)):
-            pyramid[i] = ensure_array_5d(pyramid[i])
-
-        LOGGER.info(f"{pyramid[0]}")
+        LOGGER.info(f"{channel_pyramid[0]}")
 
         LOGGER.info("Starting write...")
         t0 = time.time()
         jobs = writer.write_multiscale(
-            pyramid=pyramid,
+            pyramid=channel_pyramid,
             image_name=tile_name,
             physical_pixel_sizes=physical_pixel_sizes,
             translation=origin,
@@ -162,11 +323,11 @@ def write_files(
             tile_metrics,
             tile_name,
             output,
-            _get_bytes(pyramid),
+            _get_bytes(channel_pyramid),
             write_time,
             n_levels,
-            pyramid[0].shape,
-            pyramid[0].dtype,
+            channel_pyramid[0].shape,
+            channel_pyramid[0].dtype,
         )
 
         LOGGER.info(
@@ -174,18 +335,14 @@ def write_files(
             f"Took {write_time}s. {tile_metrics['write_bps'] / (1024 ** 2)} MiB/s"
         )
 
-        all_metrics.append(tile_metrics)
-
-        reader.close()
-
-    return all_metrics
+    return tile_metrics
 
 
 def write_folder(
     input: str,
     output: str,
     n_levels: int,
-    scale_factor: float,
+    scale_factor: int,
     overwrite: bool = True,
     chunk_size: float = 64,  # MB
     chunk_shape: tuple = None,
