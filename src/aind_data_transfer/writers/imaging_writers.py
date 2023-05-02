@@ -8,6 +8,7 @@ from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any, List, Tuple, Union
 
+import chardet
 from aind_data_schema import Funding, RawDataDescription, Subject
 from aind_data_schema.data_description import (
     ExperimentType,
@@ -101,39 +102,200 @@ def get_session_end(asi_file) -> datetime:
     return result
 
 
-def get_scale(lc_mdata) -> tile.Scale3dTransform:
+def get_line_indices_metadata_file(lines: bytes) -> dict:
     """
-    Get scales metadata
+    Get the index location in the text file
+    where each block of metadata information
+    starts
 
     Parameters
     -----------
-    lc_mdata: List[bytes]
-        List with bytes containing the
-        scale information
+    lines: bytes
+        Bytes with the metadata information
+        taken from the text file
 
     Returns
     -----------
-    aind_data_schema.imaging.tile.Scale3dTransform
-        Scales for the imaging data
+    dict
+        Dictionary with the indices of
+        each block of metadata
+    """
+    indices = {
+        "info_start": None,
+        "wavelength_start": None,
+        "tile_acquisition_start": None,
+    }
+
+    total_lines = len(lines)
+
+    for idx_line in range(total_lines):
+        splited_line = lines[idx_line].rstrip().split("\t")
+
+        if "Obj" in splited_line:
+            indices["info_start"] = idx_line
+
+        if "Wavelength" in splited_line:
+            indices["wavelength_start"] = idx_line
+
+        if "Exposure" in splited_line:
+            indices["tile_acquisition_start"] = idx_line
+            break
+
+    return indices
+
+
+def get_session_config(lines: List[str]) -> dict:
+    """
+    Gets the session config
+
+    Parameters
+    -----------
+    lines: List[str]
+        List with the lines of the
+        metadata file
+
+    Returns
+    -----------
+    Dictionary with the parsed data
+    """
+    # Get objective magnification
+    objective_regex = r"\d+\.?\d*"  # "(\d+\.?\d*)(x|X)" to get with X
+
+    data = {}
+    lines_splited = lines[1].rstrip().split("\t")
+
+    # Getting first line metadata
+    obj = lines_splited[0]
+    v_res = float(lines_splited[1])
+    um_per_pix = float(lines_splited[2])
+    z_step = float(lines_splited[3])
+    scanning = lines_splited[4]
+    sampling = lines_splited[5]
+    destripe = lines_splited[6]
+    z_block = int(lines_splited[7])
+
+    data["obj_name"] = obj
+    data["obj_magnification"] = re.findall(objective_regex, obj)[0]
+    data["v_res"] = v_res
+    data["µm/pix"] = um_per_pix
+    data["z_step_um"] = z_step
+    data["scanning"] = scanning
+    data["sampling"] = sampling
+    data["destripe"] = destripe
+    data["z_block"] = z_block
+
+    return data
+
+
+def get_wavelength_config(lines: List[str], start_index: int, end_index: int):
+    """
+    Gets the wavelength config
+
+    Parameters
+    -----------
+    lines: List[str]
+        List with the lines of the
+        metadata file
+
+    start_index: int
+        Index with the line where
+        we'll parse the data
+
+    end_index: int
+        Index with the line where
+        we'll finish
+
+    Returns
+    -----------
+    Dictionary with the parsed data
+    """
+    wavelengths = {}
+    for line in lines[start_index:end_index]:
+        line_splited = line.rstrip().split("\t")
+
+        try:
+            wavelength = int(line_splited[0])
+            power_l = float(line_splited[1])
+            power_r = float(line_splited[2])
+
+            wavelengths[wavelength] = {}
+            wavelengths[wavelength]["power_left"] = power_l
+            wavelengths[wavelength]["power_right"] = power_r
+
+        except ValueError as err:
+            logger.error(
+                f"An error ocurred while parsing {line_splited} Traceback: {err}"
+            )
+    return wavelengths
+
+
+def get_tile_info(lines: List[str], start_index: int):
+    """
+    Gets the tile config
+
+    Parameters
+    -----------
+    lines: List[str]
+        List with the lines of the
+        metadata file
+
+    start_index: int
+        Index with the line where
+        we'll parse the data
+
+    Returns
+    -----------
+    Dictionary with the parsed data
     """
 
-    line = lc_mdata[1]
-    xy, z = line.split()[3:5]
-    scale = tile.Scale3dTransform(scale=[float(xy), float(xy), float(z)])
+    data = {}
+    ite = 0
 
-    return scale
+    for line in lines[start_index:]:
+        splited_line = line.rstrip().split("\t")
+        line_elements = len(splited_line)
+
+        if not line_elements or (line_elements == 1 and splited_line[0] == ""):
+            # End of file when reading from bucket
+            break
+
+        name = f"t_{ite}"
+
+        x = int(splited_line[0])
+        y = int(splited_line[1])
+        z = int(splited_line[2])
+        wavelength = int(splited_line[3])
+        side = int(splited_line[4])
+        exposure = int(splited_line[5])
+        skip = int(splited_line[6])
+
+        data[name] = {
+            "x": x,
+            "y": y,
+            "z": z,
+            "wavelength": wavelength,
+            "side": side,
+            "exposure": exposure,
+            "skip": skip,
+        }
+        ite += 1
+
+    return data
 
 
-def make_acq_tiles(lc_mdata: bytes, filter_mapping: dict):
+def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
     """
     Makes metadata for the acquired tiles of
     the dataset
 
     Parameters
     -----------
-    lc_mdata: List[bytes]
-        List with bytes containing the
-        scale information
+    metadata_dict: dict
+        Dictionary with the acquisition metadata
+        coming from the microscope
+
+    filter_mapping: dict
+        Dictionary with the channel names
 
     Returns
     -----------
@@ -143,51 +305,54 @@ def make_acq_tiles(lc_mdata: bytes, filter_mapping: dict):
 
     channels = {}
 
-    wavelength_line = None
-    tiles_line = None
+    # List where the metadata of the acquired
+    # tiles is stored
+    tile_acquisitions = []
 
-    for idx_line in range(len(lc_mdata)):
-        if "Wavelength" in str(lc_mdata[idx_line]):
-            wavelength_line = idx_line + 1
+    filter_wheel_idx = 0
+    for wavelength, value in metadata_dict["wavelength_config"].items():
+        channel = tile.Channel(
+            channel_name=wavelength,
+            laser_wavelength=wavelength,
+            laser_power=value["power_left"],
+            filter_wheel_index=filter_wheel_idx,
+        )
+        filter_wheel_idx += 1
 
-        elif "Skip" in str(lc_mdata[idx_line]):
-            tiles_line = idx_line + 1
+        channels[wavelength] = channel
 
-    tiles = []
+    # Scale metadata
+    scale = tile.Scale3dTransform(
+        scale=[
+            metadata_dict["session_config"]["µm/pix"],  # X res
+            metadata_dict["session_config"]["µm/pix"],  # Y res
+            metadata_dict["session_config"]["z_step_um"],  # Z res
+        ]
+    )
 
-    if wavelength_line and tiles_line:
-        for idx, l in enumerate(lc_mdata[wavelength_line : tiles_line - 1]):
-            wavelength, powerl, powerr = [float(j) for j in l.split()]
+    for tile_key, tile_info in metadata_dict["tile_config"].items():
+        tile_transform = tile.Translation3dTransform(
+            translation=[
+                tile_info["x"] / 10,
+                tile_info["y"] / 10,
+                tile_info["z"] / 10,
+            ]
+        )
 
-            channel = tile.Channel(
-                channel_name=wavelength,
-                laser_wavelength=wavelength,
-                laser_power=powerl,
-                filter_wheel_index=idx,
-            )
+        channel = channels[tile_info["wavelength"]]
 
-            channels[wavelength] = channel
+        tile_acquisition = tile.AcquisitionTile(
+            channel=channel,
+            notes=(
+                "\nLaser power is in percentage of total, it needs calibration"
+            ),
+            coordinate_transformations=[tile_transform, scale],
+            file_name=f"Ex_{tile_info['wavelength']}_Em_{filter_mapping[tile_info['wavelength']]}/{tile_info['x']}/{tile_info['x']}_{tile_info['y']}/",
+        )
 
-        scale = get_scale(lc_mdata)
+        tile_acquisitions.append(tile_acquisition)
 
-        for line in lc_mdata[tiles_line:]:
-            X, Y, Z, W, S, E, Sk = [int(float(i)) for i in line.split()]
-
-            tform = tile.Translation3dTransform(
-                translation=[int(float(i)) / 10 for i in line.split()[0:3]]
-            )
-
-            channel = channels[float(W)]
-            t = tile.AcquisitionTile(
-                channel=channel,
-                notes=(
-                    "\nLaser power is in percentage of total -- needs calibration"
-                ),
-                coordinate_transformations=[tform, scale],
-                file_name=f"Ex_{W}_Em_{filter_mapping[W]}/{X}/{X}_{Y}/",
-            )
-            tiles.append(t)
-    return tiles
+    return tile_acquisitions
 
 
 class SmartSPIMWriter:
@@ -473,8 +638,37 @@ class SmartSPIMWriter:
             original_dataset_path
         )
 
-        with open(mdata_file, "rb") as file:
-            lc_mdata = file.readlines()
+        with open(mdata_file, "rb") as f:
+            lc_mdata_result = chardet.detect(f.read())
+
+        with open(mdata_file, "r", encoding=lc_mdata_result["encoding"]) as f:
+            lc_mdata = f.readlines()
+
+        # Get information where starts each metadata block
+        # in the metadata file
+        line_indices = get_line_indices_metadata_file(lc_mdata)
+
+        # Parse first section
+        session_config = get_session_config(lines=lc_mdata)
+
+        # Getting wavelengths
+        wavelength_config = get_wavelength_config(
+            lines=lc_mdata,
+            start_index=line_indices["wavelength_start"] + 1,
+            end_index=line_indices["tile_acquisition_start"],
+        )
+
+        # Getting tile info
+        tile_config = get_tile_info(
+            lines=lc_mdata,
+            start_index=line_indices["tile_acquisition_start"] + 1,
+        )
+
+        metadata_dict = {
+            "session_config": session_config,
+            "wavelength_config": wavelength_config,
+            "tile_config": tile_config,
+        }
 
         session_end_time = get_session_end(asi_file)
 
@@ -547,7 +741,9 @@ class SmartSPIMWriter:
                     name="Z", dimension=0, direction="Superior_to_inferior"
                 ),
             ],
-            tiles=make_acq_tiles(lc_mdata, filter_mapping),
+            tiles=make_acq_tiles(
+                metadata_dict=metadata_dict, filter_mapping=filter_mapping
+            ),
         )
 
         acquisition_path = str(output_path.joinpath("acquisition.json"))
