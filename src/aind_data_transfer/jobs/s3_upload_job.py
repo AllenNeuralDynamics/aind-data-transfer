@@ -147,19 +147,36 @@ class GenericS3UploadJobList:
         total_jobs = len(self.job_list)
         current_job_num = 1
         logging.info("Starting all jobs...")
+        problem_jobs = []
         for one_job in self.job_list:
-            # TODO: Add switch on experiment type
             logging.info(
                 f"Running job {current_job_num} of {total_jobs} "
                 f"with params: {one_job.job_configs.dict()}"
             )
-            one_job.run_job()
+            try:
+                one_job.run_job()
+            except Exception as e:
+                logging.error(
+                    f"There was a problem processing {current_job_num} of "
+                    f"{total_jobs} with params: {one_job.job_configs.dict()}. "
+                    f"Skipping for now. Error: {e}"
+                )
+                problem_jobs.append(
+                    f"There was a problem processing {current_job_num} of "
+                    f"{total_jobs} with params: {one_job.job_configs.dict()}. "
+                    f"Error: {e}"
+                )
             logging.info(
                 f"Finished job {current_job_num} of {total_jobs} "
                 f"with params: {one_job.job_configs.dict()}"
             )
             current_job_num += 1
         logging.info("Finished all jobs!")
+        if len(problem_jobs) > 0:
+            logging.error(
+                f"There were errors processing the following jobs: "
+                f"{problem_jobs}"
+            )
 
 
 if __name__ == "__main__":

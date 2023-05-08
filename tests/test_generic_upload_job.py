@@ -168,6 +168,74 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         # There are three jobs defined in the csv file
         mock_run_job.assert_has_calls([call(), call(), call(), call()])
 
+    @patch("boto3.client")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob.run_job")
+    @patch("logging.error")
+    def test_errors_skipped(
+        self,
+        mock_log_error: MagicMock,
+        mock_run_job: MagicMock,
+        mock_client: MagicMock,
+    ) -> None:
+        """Tests that jobs with errors are skipped instead of terminating
+        list."""
+        mock_resp1 = {
+            "Parameter": {"Value": self.EXAMPLE_PARAM_STORE_RESPONSE}
+        }
+        mock_resp2 = {
+            "Parameter": {"Value": json.dumps({"password": "some_password"})}
+        }
+        mock_resp3 = {
+            "Parameter": {
+                "Value": json.dumps(
+                    {"CODEOCEAN_READWRITE_TOKEN": "some_token"}
+                )
+            }
+        }
+
+        mock_client.return_value.get_parameter.side_effect = [
+            mock_resp1,
+            mock_resp2,
+            mock_resp3,
+        ]
+
+        args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE2)]
+        mock_run_job.side_effect = [
+            None,
+            Exception("Test"),
+            None,
+            Exception("Test"),
+        ]
+        jobs = GenericS3UploadJobList(args=args)
+
+        jobs.run_job()
+        problem_jobs = [
+            f"There was a problem processing 2 of 4 with params: "
+            f"{jobs.job_list[1].job_configs.dict()}. "
+            f"Error: Test",
+            f"There was a problem processing 4 of 4 with params: "
+            f"{jobs.job_list[3].job_configs.dict()}. "
+            f"Error: Test",
+        ]
+        mock_log_error.assert_has_calls(
+            [
+                call(
+                    f"There was a problem processing 2 of 4 with params: "
+                    f"{jobs.job_list[1].job_configs.dict()}. Skipping for now."
+                    f" Error: Test"
+                ),
+                call(
+                    f"There was a problem processing 4 of 4 with params: "
+                    f"{jobs.job_list[3].job_configs.dict()}. Skipping for now."
+                    f" Error: Test"
+                ),
+                call(
+                    f"There were errors processing the following jobs: "
+                    f"{problem_jobs}"
+                ),
+            ]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
