@@ -177,7 +177,7 @@ def get_session_config(lines: List[str]) -> dict:
     data["obj_name"] = obj
     data["obj_magnification"] = re.findall(objective_regex, obj)[0]
     data["v_res"] = v_res
-    data["µm/pix"] = um_per_pix
+    data["um/pix"] = um_per_pix
     data["z_step_um"] = z_step
     data["scanning"] = scanning
     data["sampling"] = sampling
@@ -324,8 +324,8 @@ def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
     # Scale metadata
     scale = tile.Scale3dTransform(
         scale=[
-            metadata_dict["session_config"]["µm/pix"],  # X res
-            metadata_dict["session_config"]["µm/pix"],  # Y res
+            metadata_dict["session_config"]["um/pix"],  # X res
+            metadata_dict["session_config"]["um/pix"],  # Y res
             metadata_dict["session_config"]["z_step_um"],  # Z res
         ]
     )
