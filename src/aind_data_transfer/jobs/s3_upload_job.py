@@ -157,14 +157,15 @@ class GenericS3UploadJobList:
                 one_job.run_job()
             except Exception as e:
                 logging.error(
-                    f"There was a problem processing {current_job_num} of "
-                    f"{total_jobs} with params: {one_job.job_configs.dict()}. "
-                    f"Skipping for now. Error: {e}"
+                    f"There was a problem processing job {current_job_num} of "
+                    f"{total_jobs} with data source: "
+                    f"{one_job.job_configs.data_source}. Skipping for now. "
+                    f"Error: {e}"
                 )
                 problem_jobs.append(
-                    f"There was a problem processing {current_job_num} of "
-                    f"{total_jobs} with params: {one_job.job_configs.dict()}. "
-                    f"Error: {e}"
+                    f"There was a problem processing job {current_job_num} of "
+                    f"{total_jobs} with data source: "
+                    f"{one_job.job_configs.data_source}. Error: {e}"
                 )
             logging.info(
                 f"Finished job {current_job_num} of {total_jobs} "
@@ -173,10 +174,9 @@ class GenericS3UploadJobList:
             current_job_num += 1
         logging.info("Finished all jobs!")
         if len(problem_jobs) > 0:
-            logging.error(
-                f"There were errors processing the following jobs: "
-                f"{problem_jobs}"
-            )
+            logging.error("There were errors processing the following jobs: ")
+            for problem_job in problem_jobs:
+                logging.error(problem_job)
 
 
 if __name__ == "__main__":

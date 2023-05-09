@@ -209,29 +209,32 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         jobs = GenericS3UploadJobList(args=args)
 
         jobs.run_job()
-        problem_jobs = [
-            f"There was a problem processing 2 of 4 with params: "
-            f"{jobs.job_list[1].job_configs.dict()}. "
-            f"Error: Test",
-            f"There was a problem processing 4 of 4 with params: "
-            f"{jobs.job_list[3].job_configs.dict()}. "
-            f"Error: Test",
-        ]
         mock_log_error.assert_has_calls(
             [
                 call(
-                    f"There was a problem processing 2 of 4 with params: "
-                    f"{jobs.job_list[1].job_configs.dict()}. Skipping for now."
-                    f" Error: Test"
+                    "There was a problem processing job 2 of 4 with data "
+                    "source: "
+                    "tests/resources/v0.6.x_neuropixels_multiexp_multistream. "
+                    "Skipping for now. Error: Test"
                 ),
                 call(
-                    f"There was a problem processing 4 of 4 with params: "
-                    f"{jobs.job_list[3].job_configs.dict()}. Skipping for now."
-                    f" Error: Test"
+                    "There was a problem processing job 4 of 4 with data "
+                    "source: "
+                    "tests/resources/v0.6.x_neuropixels_multiexp_multistream. "
+                    "Skipping for now. Error: Test"
+                ),
+                call("There were errors processing the following jobs: "),
+                call(
+                    "There was a problem processing job 2 of 4 with data "
+                    "source: "
+                    "tests/resources/v0.6.x_neuropixels_multiexp_multistream. "
+                    "Error: Test"
                 ),
                 call(
-                    f"There were errors processing the following jobs: "
-                    f"{problem_jobs}"
+                    "There was a problem processing job 4 of 4 with data "
+                    "source: "
+                    "tests/resources/v0.6.x_neuropixels_multiexp_multistream. "
+                    "Error: Test"
                 ),
             ]
         )
