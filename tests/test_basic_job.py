@@ -3,9 +3,9 @@
 import json
 import os
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
-from datetime import datetime
 
 from requests import Response
 
@@ -241,20 +241,23 @@ class TestBasicJob(unittest.TestCase):
 
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(Path("some_dir"),
-                                    process_start_time=datetime(2023, 4, 9))
+        basic_job._compile_metadata(
+            Path("some_dir"), process_start_time=datetime(2023, 4, 9)
+        )
 
         # Test where metadata directory is defined
         basic_job_configs.metadata_dir = METADATA_DIR
         basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(Path("some_dir"),
-                                    process_start_time=datetime(2023, 4, 9))
+        basic_job._compile_metadata(
+            Path("some_dir"), process_start_time=datetime(2023, 4, 9)
+        )
 
         # Test where metadata dir forced is true
         basic_job_configs.metadata_dir_force = True
         basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(Path("some_dir"),
-                                    process_start_time=datetime(2023, 4, 9))
+        basic_job._compile_metadata(
+            Path("some_dir"), process_start_time=datetime(2023, 4, 9)
+        )
 
         mock_json_write.assert_has_calls(
             [
@@ -263,7 +266,7 @@ class TestBasicJob(unittest.TestCase):
                 call(Path("some_dir/data_description.json")),
                 call(Path("some_dir/processing.json")),
             ],
-            any_order=True
+            any_order=True,
         )
 
         mock_copyfile.assert_has_calls(
@@ -430,7 +433,7 @@ class TestBasicJob(unittest.TestCase):
         )
         mock_compile_metadata.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp"),
-            process_start_time=datetime(2023, 4, 9)
+            process_start_time=datetime(2023, 4, 9),
         )
         mock_encrypt_behavior.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
