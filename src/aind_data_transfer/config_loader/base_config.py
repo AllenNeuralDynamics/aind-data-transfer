@@ -3,6 +3,7 @@ data transfer jobs."""
 
 import argparse
 import json
+import os
 import re
 from datetime import date, datetime, time
 from pathlib import Path
@@ -354,22 +355,22 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         behavior_dir = (
             None
             if job_args.behavior_dir is None
-            else Path(job_args.behavior_dir)
+            else Path(os.path.abspath(job_args.behavior_dir))
         )
         metadata_dir = (
             None
             if job_args.metadata_dir is None
-            else Path(job_args.metadata_dir)
+            else Path(os.path.abspath(job_args.metadata_dir))
         )
         temp_directory = (
             None
             if job_args.temp_directory is None
-            else Path(job_args.temp_directory)
+            else Path(os.path.abspath(job_args.temp_directory))
         )
         extra_configs = (
             None
             if job_args.extra_configs is None
-            else Path(job_args.extra_configs)
+            else Path(os.path.abspath(job_args.extra_configs))
         )
         log_level = (
             BasicUploadJobConfigs.__fields__["log_level"].default
@@ -391,7 +392,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             }
         return cls(
             s3_bucket=job_args.s3_bucket,
-            data_source=Path(job_args.data_source),
+            data_source=Path(os.path.abspath(job_args.data_source)),
             subject_id=job_args.subject_id,
             modality=Modality(job_args.modality),
             experiment_type=ExperimentType(job_args.experiment_type),
