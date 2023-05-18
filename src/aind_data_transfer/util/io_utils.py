@@ -1,5 +1,7 @@
 import logging
+import math
 import os
+import re
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -193,7 +195,14 @@ class ImarisReader(DataReader):
         Returns:
             dask.array.Array
         """
-        return da.from_array(self.get_dataset(data_path), chunks=chunks)
+        # Shape of the full-res image before 0-padding added by ImarisWriter
+        lvl = self._get_res_lvl(data_path)
+        real_shape_at_lvl = self._get_shape_at_lvl(lvl)
+
+        # This array is 0-padded to be divisible by 2 across all resolution levels
+        a = da.from_array(self.get_dataset(data_path), chunks=chunks)
+        # Crop to the "real" shape at the given resolution
+        return a[:real_shape_at_lvl[0], :real_shape_at_lvl[1], :real_shape_at_lvl[2]]
 
     def as_array(self, data_path=DEFAULT_DATA_PATH) -> np.ndarray:
         """
@@ -202,7 +211,9 @@ class ImarisReader(DataReader):
         Args:
             data_path: the path to the dataset
         """
-        return self.get_dataset(data_path)[:]
+        lvl = self._get_res_lvl(data_path)
+        real_shape_at_lvl = self._get_shape_at_lvl(lvl)
+        return self.get_dataset(data_path)[:real_shape_at_lvl[0], :real_shape_at_lvl[1], :real_shape_at_lvl[2]]
 
     def get_dataset(self, data_path=DEFAULT_DATA_PATH) -> h5py.Dataset:
         """
@@ -216,14 +227,12 @@ class ImarisReader(DataReader):
         """
         return self.handle[data_path]
 
-    def get_shape(self, data_path=DEFAULT_DATA_PATH) -> tuple:
+    def get_shape(self) -> tuple:
         """
         Get the shape of the image
-
-        Args:
-            data_path: the path to the dataset
         """
-        return self.get_dataset(data_path).shape
+        info = self.get_dataset_info()
+        return float(info.attrs["Z"].tostring()), float(info.attrs["Y"].tostring()), float(info.attrs["X"].tostring())
 
     def get_chunks(self, data_path=DEFAULT_DATA_PATH) -> tuple:
         """
@@ -280,7 +289,7 @@ class ImarisReader(DataReader):
             if isinstance(chunks, bool) or chunks is None:
                 lvl_chunks = chunks
             else:
-                lvl_shape = self.get_shape(ds_path)
+                lvl_shape = self._get_shape_at_lvl(lvl)
                 assert len(chunks) == len(lvl_shape)
                 lvl_chunks = list(chunks)
                 for i in range(len(chunks)):
@@ -342,6 +351,17 @@ class ImarisReader(DataReader):
         if self.handle is not None:
             self.handle.close()
             self.handle = None
+
+    def _get_res_lvl(self, data_path: str):
+        lvl_rgx = r"/ResolutionLevel (\d+)/"
+        m = re.search(lvl_rgx, data_path)
+        if m is None:
+            raise Exception(f"Could not parse resolution level from path {data_path}")
+        return int(m.group(1))
+
+    def _get_shape_at_lvl(self, lvl: int):
+        shape = self.get_shape()
+        return tuple(int(math.ceil(s / 2**lvl)) for s in shape)
 
 
 class DataReaderFactory:
