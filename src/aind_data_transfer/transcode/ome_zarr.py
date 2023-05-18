@@ -77,7 +77,7 @@ def write_files(
 
     all_metrics = []
 
-    for impath in image_paths:
+    for impath in sorted(image_paths):
         LOGGER.info(f"Writing tile {impath}")
 
         # Create readers, but don't construct dask array
