@@ -238,6 +238,9 @@ def main():
     df = pd.DataFrame.from_records(all_metrics)
     df.to_csv(args.metrics_file, index_label="test_number")
 
+    client.shutdown()
+    client.close()
+
 
 if __name__ == "__main__":
     main()
