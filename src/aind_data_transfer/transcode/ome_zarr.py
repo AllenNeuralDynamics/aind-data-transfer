@@ -286,7 +286,7 @@ def _store_interleaved_file(
         tile_name = tile_prefix + f"_ch_{channel_names[channel_idx]}" + ".zarr"
         LOGGER.info(f"new tile name: {tile_name}")
 
-        if not overwrite and _tile_exists(writer.store.path, tile_name, n_levels):
+        if not overwrite and _tile_exists(output, tile_name, n_levels):
             LOGGER.info(f"Skipping tile {tile_name}, already exists.")
             continue
 
