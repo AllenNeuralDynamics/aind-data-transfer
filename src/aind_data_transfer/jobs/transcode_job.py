@@ -244,6 +244,7 @@ def main():
                 data_src_dir,
                 dest_data_dir,
                 ignore=ignore_patterns(raw_image_dir_name),
+                dirs_exist_ok=True
             )
         LOGGER.info(
             f"Finished uploading auxiliary data, took {time.time() - t0}"
