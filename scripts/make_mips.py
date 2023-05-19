@@ -7,7 +7,7 @@ from pathlib import Path
 
 import tifffile
 
-from aind_data_transfer.transcode.ome_zarr import _compute_chunks
+from aind_data_transfer.transformations.ome_zarr import _compute_chunks
 from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import any_hdf5, collect_filepaths

@@ -5,6 +5,7 @@ import sys
 import time
 from pathlib import Path
 from shutil import copytree, ignore_patterns
+from typing import Union, Optional
 
 from numcodecs import Blosc
 
@@ -92,7 +93,7 @@ def _build_gcs_cmd(
 
 
 def _build_ome_zar_cmd(
-    raw_image_dir: str, zarr_out: str, job_configs: dict
+    raw_image_dir: str, zarr_out: str, job_configs: dict, bkg_im_dir: Optional[Union[str, Path]] = None
 ) -> str:
     compression_opts = _resolve_compression_options(job_configs)
     job_opts = job_configs["transcode_job"]
@@ -118,6 +119,9 @@ def _build_ome_zar_cmd(
     if "voxsize" in job_opts and job_opts["voxsize"] != "":
         voxsize = job_opts["voxsize"]
         job_cmd += f" --voxsize {voxsize}"
+    if bkg_im_dir is not None:
+        LOGGER.info("Doing background subtraction")
+        job_cmd += f" --bkg_img_dir {str(bkg_im_dir)}"
     return job_cmd
 
 
@@ -175,7 +179,12 @@ def main():
 
     zarr_out = dest_data_dir + "/" + raw_image_dir_name + ".zarr"
     if job_configs["jobs"]["transcode"]:
-        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs)
+        if job_configs["jobs"]["background_subtraction"]:
+            bkg_im_dir = data_src_dir / "derivatives"
+            if not bkg_im_dir.is_dir():
+                raise Exception(f"background image directory not found: {bkg_im_dir}")
+            LOGGER.info(f"Using background image directory: {bkg_im_dir}")
+        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs, bkg_im_dir)
         submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
         subprocess.run(submit_cmd, shell=True)
         LOGGER.info("Submitted transcode job to cluster")

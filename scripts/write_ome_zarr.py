@@ -12,7 +12,7 @@ from botocore.session import get_session
 from numcodecs import blosc
 
 from aind_data_transfer.gcs import create_client
-from aind_data_transfer.transcode.ome_zarr import write_files
+from aind_data_transfer.transformations.ome_zarr import write_files
 from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import *
@@ -158,6 +158,12 @@ def parse_args():
         default=None,
         help='Voxel size of the dataset as a string of floats in XYZ order, e.g. "0.3,0.3,1.0"',
     )
+    parser.add_argument(
+        "--bkg_img_dir",
+        type=str,
+        default=None,
+        help="path to the background image folder. If given, background subtraction will be done for each converted image."
+    )
     args = parser.parse_args()
     return args
 
@@ -233,6 +239,7 @@ def main():
         args.chunk_shape,
         voxsize,
         opts,
+        bkg_img_dir=args.bkg_img_dir
     )
 
     df = pd.DataFrame.from_records(all_metrics)
