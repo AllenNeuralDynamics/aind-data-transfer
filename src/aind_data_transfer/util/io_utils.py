@@ -232,7 +232,7 @@ class ImarisReader(DataReader):
         Get the shape of the image
         """
         info = self.get_dataset_info()
-        return float(info.attrs["Z"].tobytes()), float(info.attrs["Y"].tobytes()), float(info.attrs["X"].tobytes())
+        return int(info.attrs["Z"].tobytes()), int(info.attrs["Y"].tobytes()), int(info.attrs["X"].tobytes())
 
     def get_chunks(self, data_path=DEFAULT_DATA_PATH) -> tuple:
         """
