@@ -25,9 +25,9 @@ class ImagingReaders:
     class SourceRegexPatterns(Enum):
         """Enum for regex patterns the source folder name should match"""
 
-        exaspim_acquisition = r"exaSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
-        mesospim_acquisition = r"mesoSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
-        dispim_acquisition = r"diSPIM_([A-Z0-9]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
+        exaspim_acquisition = r"exaSPIM_([-A-Z0-9.]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
+        mesospim_acquisition = r"mesoSPIM_([-A-Z0-9.]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
+        dispim_acquisition = r"diSPIM_([-A-Z0-9.]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
 
     @staticmethod
     def get_raw_data_dir(reader_name, input_dir):
