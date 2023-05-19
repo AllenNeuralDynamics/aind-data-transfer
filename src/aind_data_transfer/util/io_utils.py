@@ -232,7 +232,7 @@ class ImarisReader(DataReader):
         Get the shape of the image
         """
         info = self.get_dataset_info()
-        return float(info.attrs["Z"].tostring()), float(info.attrs["Y"].tostring()), float(info.attrs["X"].tostring())
+        return float(info.attrs["Z"].tobytes()), float(info.attrs["Y"].tobytes()), float(info.attrs["X"].tobytes())
 
     def get_chunks(self, data_path=DEFAULT_DATA_PATH) -> tuple:
         """
@@ -310,9 +310,9 @@ class ImarisReader(DataReader):
         Get the origin for the image as a [Z,Y,X] coordinate list
         """
         info = self.get_dataset_info()
-        x_min = float(info.attrs["ExtMin0"].tostring())
-        y_min = float(info.attrs["ExtMin1"].tostring())
-        z_min = float(info.attrs["ExtMin2"].tostring())
+        x_min = float(info.attrs["ExtMin0"].tobytes())
+        y_min = float(info.attrs["ExtMin1"].tobytes())
+        z_min = float(info.attrs["ExtMin2"].tobytes())
         return [z_min, y_min, x_min]
 
     def get_extent(self) -> List[float]:
@@ -320,9 +320,9 @@ class ImarisReader(DataReader):
         Get the extent for the image as a [Z,Y,X] coordinate list
         """
         info = self.get_dataset_info()
-        x_max = float(info.attrs["ExtMax0"].tostring())
-        y_max = float(info.attrs["ExtMax1"].tostring())
-        z_max = float(info.attrs["ExtMax2"].tostring())
+        x_max = float(info.attrs["ExtMax0"].tobytes())
+        y_max = float(info.attrs["ExtMax1"].tobytes())
+        z_max = float(info.attrs["ExtMax2"].tobytes())
         return [z_max, y_max, x_max]
 
     def get_voxel_size(self) -> Tuple[List[float], str]:
@@ -335,10 +335,10 @@ class ImarisReader(DataReader):
         info = self.get_dataset_info()
         extmin = self.get_origin()
         extmax = self.get_extent()
-        x = int(info.attrs["X"].tostring())
-        y = int(info.attrs["Y"].tostring())
-        z = int(info.attrs["Z"].tostring())
-        unit = info.attrs["Unit"].tostring()
+        x = int(info.attrs["X"].tobytes())
+        y = int(info.attrs["Y"].tobytes())
+        z = int(info.attrs["Z"].tobytes())
+        unit = info.attrs["Unit"].tobytes()
         voxsize = [
             (extmax[0] - extmin[0]) / z,
             (extmax[1] - extmin[1]) / y,
