@@ -37,6 +37,15 @@ def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
             dataset_info.attrs["ExtMin2"] = np.array(
                 ["3", "0", "0"], dtype="S"
             )
+            dataset_info.attrs["X"] = np.array(
+                list(str(shape[2])), dtype="S"
+            )
+            dataset_info.attrs["Y"] = np.array(
+                list(str(shape[1])), dtype="S"
+            )
+            dataset_info.attrs["Z"] = np.array(
+                list(str(shape[0])), dtype="S"
+            )
 
 
 class TestOmeZarr(unittest.TestCase):
