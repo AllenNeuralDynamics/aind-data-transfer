@@ -1,5 +1,7 @@
 import logging
+import math
 import os
+import re
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -188,12 +190,19 @@ class ImarisReader(DataReader):
 
         Args:
             data_path: the path to the dataset
-            chunks: the chunk shape. This is currently ignored.
+            chunks: the chunk shape
 
         Returns:
             dask.array.Array
         """
-        return da.from_array(self.get_dataset(data_path), chunks=chunks)
+        # Shape of the full-res image before 0-padding added by ImarisWriter
+        lvl = self._get_res_lvl(data_path)
+        real_shape_at_lvl = self._get_shape_at_lvl(lvl)
+
+        # This array is 0-padded to be divisible by the Imaris chunk size in each dimension
+        a = da.from_array(self.get_dataset(data_path), chunks=chunks)
+        # Crop to the "real" shape at the given resolution
+        return a[:real_shape_at_lvl[0], :real_shape_at_lvl[1], :real_shape_at_lvl[2]]
 
     def as_array(self, data_path=DEFAULT_DATA_PATH) -> np.ndarray:
         """
@@ -202,7 +211,9 @@ class ImarisReader(DataReader):
         Args:
             data_path: the path to the dataset
         """
-        return self.get_dataset(data_path)[:]
+        lvl = self._get_res_lvl(data_path)
+        real_shape_at_lvl = self._get_shape_at_lvl(lvl)
+        return self.get_dataset(data_path)[:real_shape_at_lvl[0], :real_shape_at_lvl[1], :real_shape_at_lvl[2]]
 
     def get_dataset(self, data_path=DEFAULT_DATA_PATH) -> h5py.Dataset:
         """
@@ -216,14 +227,12 @@ class ImarisReader(DataReader):
         """
         return self.handle[data_path]
 
-    def get_shape(self, data_path=DEFAULT_DATA_PATH) -> tuple:
+    def get_shape(self) -> tuple:
         """
         Get the shape of the image
-
-        Args:
-            data_path: the path to the dataset
         """
-        return self.get_dataset(data_path).shape
+        info = self.get_dataset_info()
+        return int(info.attrs["Z"].tobytes()), int(info.attrs["Y"].tobytes()), int(info.attrs["X"].tobytes())
 
     def get_chunks(self, data_path=DEFAULT_DATA_PATH) -> tuple:
         """
@@ -280,7 +289,7 @@ class ImarisReader(DataReader):
             if isinstance(chunks, bool) or chunks is None:
                 lvl_chunks = chunks
             else:
-                lvl_shape = self.get_shape(ds_path)
+                lvl_shape = self._get_shape_at_lvl(lvl)
                 assert len(chunks) == len(lvl_shape)
                 lvl_chunks = list(chunks)
                 for i in range(len(chunks)):
@@ -301,9 +310,9 @@ class ImarisReader(DataReader):
         Get the origin for the image as a [Z,Y,X] coordinate list
         """
         info = self.get_dataset_info()
-        x_min = float(info.attrs["ExtMin0"].tostring())
-        y_min = float(info.attrs["ExtMin1"].tostring())
-        z_min = float(info.attrs["ExtMin2"].tostring())
+        x_min = float(info.attrs["ExtMin0"].tobytes())
+        y_min = float(info.attrs["ExtMin1"].tobytes())
+        z_min = float(info.attrs["ExtMin2"].tobytes())
         return [z_min, y_min, x_min]
 
     def get_extent(self) -> List[float]:
@@ -311,9 +320,9 @@ class ImarisReader(DataReader):
         Get the extent for the image as a [Z,Y,X] coordinate list
         """
         info = self.get_dataset_info()
-        x_max = float(info.attrs["ExtMax0"].tostring())
-        y_max = float(info.attrs["ExtMax1"].tostring())
-        z_max = float(info.attrs["ExtMax2"].tostring())
+        x_max = float(info.attrs["ExtMax0"].tobytes())
+        y_max = float(info.attrs["ExtMax1"].tobytes())
+        z_max = float(info.attrs["ExtMax2"].tobytes())
         return [z_max, y_max, x_max]
 
     def get_voxel_size(self) -> Tuple[List[float], str]:
@@ -326,10 +335,10 @@ class ImarisReader(DataReader):
         info = self.get_dataset_info()
         extmin = self.get_origin()
         extmax = self.get_extent()
-        x = int(info.attrs["X"].tostring())
-        y = int(info.attrs["Y"].tostring())
-        z = int(info.attrs["Z"].tostring())
-        unit = info.attrs["Unit"].tostring()
+        x = int(info.attrs["X"].tobytes())
+        y = int(info.attrs["Y"].tobytes())
+        z = int(info.attrs["Z"].tobytes())
+        unit = info.attrs["Unit"].tobytes()
         voxsize = [
             (extmax[0] - extmin[0]) / z,
             (extmax[1] - extmin[1]) / y,
@@ -342,6 +351,17 @@ class ImarisReader(DataReader):
         if self.handle is not None:
             self.handle.close()
             self.handle = None
+
+    def _get_res_lvl(self, data_path: str):
+        lvl_rgx = r"/ResolutionLevel (\d+)/"
+        m = re.search(lvl_rgx, data_path)
+        if m is None:
+            raise Exception(f"Could not parse resolution level from path {data_path}")
+        return int(m.group(1))
+
+    def _get_shape_at_lvl(self, lvl: int):
+        shape = self.get_shape()
+        return tuple(int(math.ceil(s / 2**lvl)) for s in shape)
 
 
 class DataReaderFactory:

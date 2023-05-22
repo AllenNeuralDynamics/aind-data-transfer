@@ -17,7 +17,7 @@ from aind_data_transfer.util.io_utils import (
 
 # TODO: make test fixtures instead of constants?
 IM_SHAPE = (64, 128, 128)
-IM_DTYPE = np.uint16
+IM_DTYPE = np.dtype("uint16")
 
 
 def _write_test_tiffs(folder, n=1):
@@ -31,14 +31,24 @@ def _write_test_tiffs(folder, n=1):
 
 
 def _write_test_h5(folder, n=1):
-    DEFAULT_DATA_PATH = "/DataSet/ResolutionLevel 0/TimePoint 0/Channel 0/Data"
     paths = []
     for i in range(n):
         a = np.ones(IM_SHAPE, dtype=IM_DTYPE)
         path = os.path.join(folder, f"data_{i}.h5")
         paths.append(path)
         with h5py.File(path, "w") as f:
-            f.create_dataset(DEFAULT_DATA_PATH, data=a, chunks=True)
+            f.create_dataset(ImarisReader.DEFAULT_DATA_PATH, data=a, chunks=True)
+            # Write origin metadata
+            dataset_info = f.create_group("DataSetInfo/Image")
+            dataset_info.attrs["X"] = np.array(
+                list(str(IM_SHAPE[2])), dtype="S"
+            )
+            dataset_info.attrs["Y"] = np.array(
+                list(str(IM_SHAPE[1])), dtype="S"
+            )
+            dataset_info.attrs["Z"] = np.array(
+                list(str(IM_SHAPE[0])), dtype="S"
+            )
     return paths
 
 
@@ -83,7 +93,7 @@ class TestTiffReader(unittest.TestCase):
         self.assertEqual(IM_DTYPE, self._reader.get_dtype())
 
     def test_get_itemsize(self):
-        self.assertEqual(2, self._reader.get_itemsize())
+        self.assertEqual(IM_DTYPE.itemsize, self._reader.get_itemsize())
 
 
 class TestHDF5Reader(unittest.TestCase):
@@ -112,13 +122,12 @@ class TestHDF5Reader(unittest.TestCase):
         self.assertTrue(np.all(a == 1))
         self.assertEqual(IM_DTYPE, a.dtype)
 
-    # FIXME: this hangs??
-    # def test_as_dask_array(self):
-    #     d = self._reader.as_dask_array()
-    #     self.assertIsInstance(d, dask.array.Array)
-    #     self.assertEqual(IM_SHAPE, d.shape)
-    #     self.assertTrue(np.all(d == 1))
-    #     self.assertEqual(IM_DTYPE, d.dtype)
+    def test_as_dask_array(self):
+        d = self._reader.as_dask_array(chunks=(32, 32, 32))
+        self.assertIsInstance(d, dask.array.Array)
+        self.assertEqual(IM_SHAPE, d.shape)
+        self.assertTrue(np.all(d == 1))
+        self.assertEqual(IM_DTYPE, d.dtype)
 
     def test_get_shape(self):
         self.assertEqual(IM_SHAPE, self._reader.get_shape())
@@ -130,7 +139,7 @@ class TestHDF5Reader(unittest.TestCase):
         self.assertTrue(all(c >= 1 for c in chunks))
 
     def test_get_itemsize(self):
-        self.assertEqual(2, self._reader.get_itemsize())
+        self.assertEqual(IM_DTYPE.itemsize, self._reader.get_itemsize())
 
     def test_get_handle(self):
         self.assertIsNotNone(self._reader.get_handle())

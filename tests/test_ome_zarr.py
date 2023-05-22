@@ -12,6 +12,7 @@ from distributed import Client
 from parameterized import parameterized
 
 from aind_data_transfer.transcode.ome_zarr import write_files, write_folder
+from aind_data_transfer.util.io_utils import ImarisReader
 
 
 def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
@@ -21,11 +22,10 @@ def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
 
 
 def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
-    DEFAULT_DATA_PATH = "/DataSet/ResolutionLevel 0/TimePoint 0/Channel 0/Data"
     for i in range(n):
         a = np.ones(shape, dtype=np.uint16)
         with h5py.File(os.path.join(folder, f"data_{i}.h5"), "w") as f:
-            f.create_dataset(DEFAULT_DATA_PATH, data=a, chunks=True)
+            f.create_dataset(ImarisReader.DEFAULT_DATA_PATH, data=a, chunks=True)
             # Write origin metadata
             dataset_info = f.create_group("DataSetInfo/Image")
             dataset_info.attrs["ExtMin0"] = np.array(
@@ -36,6 +36,15 @@ def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
             )
             dataset_info.attrs["ExtMin2"] = np.array(
                 ["3", "0", "0"], dtype="S"
+            )
+            dataset_info.attrs["X"] = np.array(
+                list(str(shape[2])), dtype="S"
+            )
+            dataset_info.attrs["Y"] = np.array(
+                list(str(shape[1])), dtype="S"
+            )
+            dataset_info.attrs["Z"] = np.array(
+                list(str(shape[0])), dtype="S"
             )
 
 
