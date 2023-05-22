@@ -17,7 +17,7 @@ from aind_data_transfer.util.io_utils import (
 
 # TODO: make test fixtures instead of constants?
 IM_SHAPE = (64, 128, 128)
-IM_DTYPE = np.dtype("uint8")
+IM_DTYPE = np.dtype("uint16")
 
 
 def _write_test_tiffs(folder, n=1):
