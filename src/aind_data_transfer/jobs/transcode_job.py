@@ -179,6 +179,7 @@ def main():
 
     zarr_out = dest_data_dir + "/" + raw_image_dir_name + ".zarr"
     if job_configs["jobs"]["transcode"]:
+        bkg_im_dir = None
         if job_configs["jobs"]["background_subtraction"]:
             bkg_im_dir = data_src_dir / "derivatives"
             if not bkg_im_dir.is_dir():
