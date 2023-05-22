@@ -190,7 +190,7 @@ class ImarisReader(DataReader):
 
         Args:
             data_path: the path to the dataset
-            chunks: the chunk shape. This is currently ignored.
+            chunks: the chunk shape
 
         Returns:
             dask.array.Array
@@ -199,7 +199,7 @@ class ImarisReader(DataReader):
         lvl = self._get_res_lvl(data_path)
         real_shape_at_lvl = self._get_shape_at_lvl(lvl)
 
-        # This array is 0-padded to be divisible by 2 across all resolution levels
+        # This array is 0-padded to be divisible by the Imaris chunk size in each dimension
         a = da.from_array(self.get_dataset(data_path), chunks=chunks)
         # Crop to the "real" shape at the given resolution
         return a[:real_shape_at_lvl[0], :real_shape_at_lvl[1], :real_shape_at_lvl[2]]
