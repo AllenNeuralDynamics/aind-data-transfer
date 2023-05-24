@@ -10,6 +10,7 @@ jobs: # Select which jobs to run
   transcode: true
   create_ng_link: true
   create_metadata: true
+  background_subtraction: false  # requires a background Tiff in the derivatives folder for each raw image
 data:
   name: exaspim
   subject_id:  # required

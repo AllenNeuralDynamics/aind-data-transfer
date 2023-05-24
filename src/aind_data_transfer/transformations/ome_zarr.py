@@ -2,10 +2,11 @@ import fnmatch
 import logging
 import time
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional
 
 import dask
 import dask.array
+import tifffile
 import zarr
 from aicsimageio.types import PhysicalPixelSizes
 from aicsimageio.writers import OmeZarrWriter
@@ -23,6 +24,7 @@ from aind_data_transfer.util.io_utils import (
     DataReader
 )
 from aind_data_transfer.transformations.deinterleave import ChannelParser, Deinterleave
+from aind_data_transfer.transformations.flatfield_correction import BkgSubtraction
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
@@ -39,6 +41,7 @@ def write_files(
     chunk_shape: tuple = None,
     voxel_size: tuple = None,
     storage_options: dict = None,
+    bkg_img_dir: Optional[str] = None
 ) -> list:
     """
     Write each image as a separate group to a Zarr store.
@@ -56,6 +59,8 @@ def write_files(
         chunk_shape: the chunk shape, if None will be computed from chunk_size
         voxel_size: three element tuple giving physical voxel sizes in Z,Y,X order
         storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
+        bkg_img_dir: the directory containing the background image Tiff file for each raw image.
+                     If None, will not perform background subtraction.
     Returns:
         A list of metrics for each converted image
     """
@@ -141,7 +146,8 @@ def write_files(
                     physical_pixel_sizes,
                     chunks,
                     overwrite,
-                    storage_options
+                    storage_options,
+                    bkg_img_dir=bkg_img_dir
                 )
                 all_metrics.append(tile_metrics)
 
@@ -158,7 +164,8 @@ def _store_file(
         physical_pixel_sizes: PhysicalPixelSizes,
         chunks: tuple,
         overwrite: bool,
-        storage_options: dict
+        storage_options: dict,
+        bkg_img_dir: Optional[str] = None
 ) -> dict:
     """
     Write an image to an existing Zarr store
@@ -174,6 +181,8 @@ def _store_file(
         chunks: the chunk shape
         overwrite: whether to overwrite image groups that already exist
         storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
+        bkg_img_dir: the directory containing the background image Tiff file for each raw image.
+                     If None, will not perform background subtraction.
     Returns:
         A list of metrics for each converted image
     """
@@ -194,6 +203,18 @@ def _store_file(
     reader_chunks = chunks[len(chunks) - len(reader.get_shape()):]
 
     pyramid = _get_or_create_pyramid(reader, n_levels, reader_chunks)
+
+    if bkg_img_dir is not None:
+        bkg_img_pyramid = _create_pyramid(
+            tifffile.imread(BkgSubtraction.get_bkg_path(reader.get_filepath(), bkg_img_dir)),
+            n_levels
+        )
+        for i in range(len(bkg_img_pyramid)):
+            pyramid[i] = BkgSubtraction.subtract(
+                pyramid[i],
+                da.from_array(bkg_img_pyramid[i], chunks=(256, 256))
+            )
+
     pyramid = [ensure_array_5d(arr) for arr in pyramid]
 
     LOGGER.info(f"{pyramid[0]}")
@@ -348,6 +369,7 @@ def write_folder(
     exclude: list = None,
     storage_options: dict = None,
     recursive: bool = False,
+    bkg_img_dir: Optional[str] = None
 ) -> list:
     """
     Write each image in the input directory as a separate group
@@ -366,6 +388,8 @@ def write_folder(
         exclude: a list of filename patterns to exclude from conversion
         storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
         recursive: whether to convert all images in all subfolders
+        bkg_img_dir: the directory containing the background image Tiff file for each raw image.
+                     If None, will not perform background subtraction.
     Returns:
         A list of metrics for each converted image
     """
@@ -396,6 +420,7 @@ def write_folder(
         chunk_shape,
         voxel_size,
         storage_options,
+        bkg_img_dir=bkg_img_dir
     )
 
 
@@ -449,7 +474,7 @@ def _compute_chunks(reader, target_size_mb):
 
 
 def _create_pyramid(
-    data: Union[NDArray, dask.array.Array], n_lvls: int, chunks: tuple
+    data: Union[NDArray, dask.array.Array], n_lvls: int, chunks: Union[str, tuple] = "preserve"
 ) -> List[Union[NDArray, dask.array.Array]]:
     """
     Create a lazy multiscale image pyramid using data as the full-resolution layer.
