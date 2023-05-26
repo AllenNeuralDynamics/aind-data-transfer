@@ -57,6 +57,107 @@ class TestBasicJob(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
+    @patch("aind_data_transfer.jobs.basic_job.check_aws_cli_installed")
+    def test_aws_creds_check_allowed(
+        self,
+        mock_check_aws_cli_installed: MagicMock,
+        mock_client: MagicMock,
+    ):
+        """Tests that the aws credentials pass allowed"""
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        mock_client.return_value.get_caller_identity.return_value = {
+            "Arn": "my-arn"
+        }
+        mock_client.return_value.simulate_principal_policy.return_value = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "s3:PutObject",
+                    "EvalResourceName": (
+                        f"arn:aws:s3:::{basic_job.job_configs.s3_bucket}"
+                    ),
+                    "EvalDecision": "allowed",
+                    "MatchedStatements": [
+                        {
+                            "SourcePolicyId": "AmazonS3FullAccess",
+                            "SourcePolicyType": "IAM Policy",
+                            "StartPosition": {"Line": 3, "Column": 17},
+                            "EndPosition": {"Line": 8, "Column": 6},
+                        }
+                    ],
+                    "MissingContextValues": [],
+                    "EvalDecisionDetails": {},
+                }
+            ],
+            "IsTruncated": False,
+            "ResponseMetadata": {
+                "RequestId": "aaaa-bbbb-cccc",
+                "HTTPStatusCode": 200,
+                "HTTPHeaders": {
+                    "x-amzn-requestid": "xxxx-yyyyy-zzzz",
+                    "content-type": "text/xml",
+                    "content-length": "2753",
+                    "date": "Fri, 26 May 2023 02:20:44 GMT",
+                },
+                "RetryAttempts": 0,
+            },
+        }
+        basic_job._check_aws_cli_and_creds()
+        mock_check_aws_cli_installed.assert_called_once_with()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    @patch("aind_data_transfer.jobs.basic_job.check_aws_cli_installed")
+    def test_aws_creds_check_denied(
+        self,
+        mock_check_aws_cli_installed: MagicMock,
+        mock_client: MagicMock,
+    ):
+        """Tests PermissionError raised on aws creds check"""
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        mock_client.return_value.get_caller_identity.return_value = {
+            "Arn": "my-arn"
+        }
+        mock_client.return_value.simulate_principal_policy.return_value = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "s3:PutObject",
+                    "EvalResourceName": (
+                        f"arn:aws:s3:::{basic_job.job_configs.s3_bucket}"
+                    ),
+                    "EvalDecision": "denied",
+                    "MatchedStatements": [
+                        {
+                            "SourcePolicyId": "AmazonS3FullAccess",
+                            "SourcePolicyType": "IAM Policy",
+                            "StartPosition": {"Line": 3, "Column": 17},
+                            "EndPosition": {"Line": 8, "Column": 6},
+                        }
+                    ],
+                    "MissingContextValues": [],
+                    "EvalDecisionDetails": {},
+                }
+            ],
+            "IsTruncated": False,
+            "ResponseMetadata": {
+                "RequestId": "aaaa-bbbb-cccc",
+                "HTTPStatusCode": 200,
+                "HTTPHeaders": {
+                    "x-amzn-requestid": "xxxx-yyyyy-zzzz",
+                    "content-type": "text/xml",
+                    "content-length": "2753",
+                    "date": "Fri, 26 May 2023 02:20:44 GMT",
+                },
+                "RetryAttempts": 0,
+            },
+        }
+        with self.assertRaises(PermissionError):
+            basic_job._check_aws_cli_and_creds()
+        mock_check_aws_cli_installed.assert_called_once_with()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
     def test_check_if_s3_location_exists(self, mock_client: MagicMock):
         """Tests that the job fails if folder already exists in s3"""
 
@@ -402,8 +503,12 @@ class TestBasicJob(unittest.TestCase):
         "_trigger_codeocean_pipeline"
     )
     @patch("aind_data_transfer.jobs.basic_job.datetime")
+    @patch(
+        "aind_data_transfer.jobs.basic_job.BasicJob._check_aws_cli_and_creds"
+    )
     def test_run_job(
         self,
+        mock_check_aws_creds: MagicMock,
         mock_datetime: MagicMock,
         mock_trigger_pipeline: MagicMock,
         mock_upload_to_s3: MagicMock,
@@ -426,6 +531,7 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job.run_job()
 
+        mock_check_aws_creds.assert_called_once()
         mock_tempfile.assert_called_once_with(dir="some_dir")
         mock_s3_check.assert_called_once()
         mock_compress_raw_data.assert_called_once_with(

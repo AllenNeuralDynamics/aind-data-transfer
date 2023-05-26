@@ -24,7 +24,10 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
     SubjectMetadata,
 )
-from aind_data_transfer.util.s3_utils import upload_to_s3
+from aind_data_transfer.util.s3_utils import (
+    check_aws_cli_installed,
+    upload_to_s3,
+)
 
 
 class BasicJob:
@@ -39,6 +42,39 @@ class BasicJob:
             .getChild(str(id(self)))
         )
         self._instance_logger.setLevel(job_configs.log_level)
+
+    def _check_aws_cli_and_creds(self):
+        """Check if aws cli is installed and user has write permissions to
+        bucket.
+        """
+        check_aws_cli_installed()
+
+        # https://stackoverflow.com/a/47058571
+        iam = boto3.client("iam")
+        sts = boto3.client("sts")
+        try:
+            # Get the arn represented by the currently configured credentials
+            arn = sts.get_caller_identity()["Arn"]
+
+            # Create an arn representing the objects in a bucket
+            bucket_arn = f"arn:aws:s3:::{self.job_configs.s3_bucket}"
+
+            # Run the policy simulation for the basic s3 operations
+            results = iam.simulate_principal_policy(
+                PolicySourceArn=arn,
+                ResourceArns=[bucket_arn],
+                ActionNames=["s3:PutObject"],
+            )
+            if results["EvaluationResults"][0]["EvalDecision"] != "allowed":
+                raise PermissionError(
+                    f"User doesn't have permission to write to bucket "
+                    f"{self.job_configs.s3_bucket}. Check with your admin for "
+                    f"write permissions."
+                )
+        finally:
+            iam.close()
+            sts.close()
+        return None
 
     def _check_if_s3_location_exists(self):
         """Check if the s3 bucket and prefix already exists. If so, raise an
@@ -239,6 +275,7 @@ class BasicJob:
         """Runs the job. Creates a temp directory to compile the files before
         uploading."""
         process_start_time = datetime.now(timezone.utc)
+        self._check_aws_cli_and_creds()
         self._check_if_s3_location_exists()
         with tempfile.TemporaryDirectory(
             dir=self.job_configs.temp_directory
