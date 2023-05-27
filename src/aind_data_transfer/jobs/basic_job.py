@@ -24,7 +24,10 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
     SubjectMetadata,
 )
-from aind_data_transfer.util.s3_utils import upload_to_s3
+from aind_data_transfer.util.s3_utils import (
+    check_aws_cli_installed,
+    upload_to_s3,
+)
 
 
 class BasicJob:
@@ -250,6 +253,7 @@ class BasicJob:
         """Runs the job. Creates a temp directory to compile the files before
         uploading."""
         process_start_time = datetime.now(timezone.utc)
+        self._check_aws_cli_and_creds()
         self._check_if_s3_location_exists()
         with tempfile.TemporaryDirectory(
             dir=self.job_configs.temp_directory
