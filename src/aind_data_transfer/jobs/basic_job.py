@@ -253,7 +253,6 @@ class BasicJob:
         """Runs the job. Creates a temp directory to compile the files before
         uploading."""
         process_start_time = datetime.now(timezone.utc)
-        self._check_aws_cli_and_creds()
         self._check_if_s3_location_exists()
         with tempfile.TemporaryDirectory(
             dir=self.job_configs.temp_directory
