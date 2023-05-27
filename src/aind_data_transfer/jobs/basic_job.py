@@ -27,6 +27,7 @@ from aind_data_transfer.transformations.metadata_creation import (
 from aind_data_transfer.util.s3_utils import (
     upload_to_s3,
 )
+from aind_data_schema.data_description import Modality
 
 
 class BasicJob:
@@ -65,11 +66,23 @@ class BasicJob:
             )
         finally:
             s3_client.close()
-        if results["KeyCount"] != 0:
+        if (
+            results["KeyCount"] != 0
+            and self.job_configs.force_cloud_sync is False
+        ):
             raise FileExistsError(
                 f"S3 path s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix} already exists. Please consult "
                 f"your admin for help removing old folder if desired."
+            )
+        elif (
+            results["KeyCount"] != 0
+            and self.job_configs.force_cloud_sync is True
+        ):
+            logging.warning(
+                f"S3 path s3://{self.job_configs.s3_bucket}/"
+                f"{self.job_configs.s3_prefix} already exists. Will force "
+                f"syncing of local directory"
             )
         return None
 
@@ -83,47 +96,61 @@ class BasicJob:
         else:
             behavior_dir_excluded = None
 
-        # If no compression is required, we'll upload the data directly instead
-        # of copying it to a temp folder
-        if not self.job_configs.compress_raw_data:
-            # Upload non-behavior data to s3
-            data_prefix = "/".join(
-                [
-                    self.job_configs.s3_prefix,
-                    self.job_configs.experiment_type.value,
-                ]
-            )
-            upload_to_s3(
-                directory_to_upload=self.job_configs.data_source,
-                s3_bucket=self.job_configs.s3_bucket,
-                s3_prefix=data_prefix,
-                dryrun=self.job_configs.dry_run,
-                excluded=behavior_dir_excluded,
-            )
-        # Otherwise, we'll store the compressed folder in a temp directory
-        # and upload it along with the other files
-        else:
-            self._instance_logger.info("Compressing raw data folder: ")
-            zc = ZipCompressor(display_progress_bar=True)
-            compressed_data_folder_name = (
-                str(os.path.basename(self.job_configs.data_source)) + ".zip"
-            )
-            folder_path = (
-                temp_dir
-                / self.job_configs.experiment_type.value
-                / compressed_data_folder_name
-            )
-            os.mkdir(folder_path.parent)
-            skip_dirs = (
-                None
-                if self.job_configs.behavior_dir is None
-                else [self.job_configs.behavior_dir]
-            )
-            zc.compress_dir(
-                input_dir=self.job_configs.data_source,
-                output_dir=folder_path,
-                skip_dirs=skip_dirs,
-            )
+        for modality_config in self.job_configs.modalities:
+            if not modality_config.compress_source:
+                data_prefix = "/".join(
+                    [
+                        self.job_configs.s3_prefix,
+                        modality_config.modality.name.lower(),
+                    ]
+                )
+                upload_to_s3(
+                    directory_to_upload=modality_config.source,
+                    s3_bucket=self.job_configs.s3_bucket,
+                    s3_prefix=data_prefix,
+                    dryrun=self.job_configs.dry_run,
+                    excluded=behavior_dir_excluded,
+                )
+            else:
+                self._instance_logger.info(
+                    f"Compressing data folder: {modality_config.source}"
+                )
+                if modality_config.modality == Modality.ECEPHYS:
+                    from aind_data_transfer.jobs.ecephys_job import (
+                        EcephysCompressionJob, EcephysCompressionParameters
+                    )
+                    compression_params = EcephysCompressionParameters(
+                        source=modality_config.source,
+                        extra_config=modality_config.extra_config
+                    )
+                    ecephys_compress_job = EcephysCompressionJob(
+                        job_configs=compression_params,
+                        behavior_dir=self.job_configs.behavior_dir,
+                        log_level=self.job_configs.log_level,
+                    )
+                    ecephys_compress_job.compress_raw_data(temp_dir=temp_dir)
+                else:
+                    zc = ZipCompressor(display_progress_bar=True)
+                    compressed_data_folder_name = (
+                            str(os.path.basename(
+                                modality_config.source)) + ".zip"
+                    )
+                    folder_path = (
+                            temp_dir
+                            / modality_config.modality.name.lower()
+                            / compressed_data_folder_name
+                    )
+                    os.mkdir(folder_path.parent)
+                    skip_dirs = (
+                        None
+                        if self.job_configs.behavior_dir is None
+                        else [self.job_configs.behavior_dir]
+                    )
+                    zc.compress_dir(
+                        input_dir=modality_config.source,
+                        output_dir=folder_path,
+                        skip_dirs=skip_dirs,
+                    )
         return None
 
     def _compile_metadata(
@@ -145,9 +172,10 @@ class BasicJob:
         )
         procedures_file_name = temp_dir / procedures_metadata.output_filename
         procedures_metadata.write_to_json(procedures_file_name)
+        modalities = [m.modality for m in self.job_configs.modalities]
         data_description_metadata = RawDataDescriptionMetadata.from_inputs(
             name=self.job_configs.s3_prefix,
-            modality=[self.job_configs.modality],
+            modality=modalities,
         )
         data_description_file_name = (
             temp_dir / data_description_metadata.output_filename
@@ -155,17 +183,15 @@ class BasicJob:
         data_description_metadata.write_to_json(data_description_file_name)
 
         processing_end_time = datetime.now(timezone.utc)
-        processing_metadata = ProcessingMetadata.from_inputs(
-            process_name=self.job_configs.process_name,
+        processing_metadata = ProcessingMetadata.from_modalities_configs(
+            modality_configs=self.job_configs.modalities,
             start_date_time=process_start_time,
             end_date_time=processing_end_time,
-            input_location=str(self.job_configs.data_source),
             output_location=(
                 f"s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix}"
             ),
             code_url=self.job_configs.aind_data_transfer_repo_location,
-            parameters=self.job_configs.dict(),
             notes=None,
         )
         processing_file_name = temp_dir / processing_metadata.output_filename

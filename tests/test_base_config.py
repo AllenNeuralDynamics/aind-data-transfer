@@ -11,6 +11,7 @@ from aind_data_schema.data_description import ExperimentType, Modality
 
 from aind_data_transfer.config_loader.base_config import (
     BasicJobEndpoints,
+    ModalityConfigs,
     BasicUploadJobConfigs,
 )
 
@@ -121,11 +122,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         "VIDEO_ENCRYPTION_PASSWORD": "some_password",
         "S3_BUCKET": "some_bucket",
         "EXPERIMENT_TYPE": "confocal",
-        "MODALITY": "ECEPHYS",
+        "MODALITIES": f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
         "SUBJECT_ID": "12345",
         "ACQ_DATE": "2020-10-10",
         "ACQ_TIME": "10:10:10",
-        "DATA_SOURCE": str(DATA_DIR),
         "DRY_RUN": "true",
     }
 
@@ -165,7 +165,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(
             ExperimentType.CONFOCAL, basic_job_configs.experiment_type
         )
-        self.assertEqual(Modality.ECEPHYS, basic_job_configs.modality)
+        self.assertEqual(
+            [ModalityConfigs(modality=Modality.CONFOCAL, source=DATA_DIR)],
+            basic_job_configs.modalities
+        )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
             date.fromisoformat("2020-10-10"),
@@ -175,10 +178,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             time.fromisoformat("10:10:10"),
             basic_job_configs.acq_time,
         )
-        self.assertEqual(DATA_DIR, basic_job_configs.data_source)
         self.assertTrue(basic_job_configs.dry_run)
         self.assertIsNone(basic_job_configs.behavior_dir)
-        self.assertIsNone(basic_job_configs.extra_configs)
         self.assertIsNone(basic_job_configs.metadata_dir)
         self.assertFalse(basic_job_configs.metadata_dir_force)
         self.assertEqual(
@@ -190,8 +191,6 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
     def test_from_req_args(self, mock_client: MagicMock):
         """Tests that the required configs can be set from aws param store"""
         test_req_args = [
-            "-d",
-            str(DATA_DIR),
             "-b",
             "some_bucket",
             "-s",
@@ -199,7 +198,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "SmartSPIM",
             "-m",
-            "OPHYS",
+            f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "2022-10-10",
             "-t",
@@ -244,7 +243,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(
             ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
         )
-        self.assertEqual(Modality.OPHYS, basic_job_configs.modality)
+        self.assertEqual(
+            [ModalityConfigs(modality=Modality.OPHYS, source=DATA_DIR)],
+            basic_job_configs.modalities
+        )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
             date.fromisoformat("2022-10-10"),
@@ -258,10 +260,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
         self.assertEqual("WARNING", basic_job_configs.log_level)
-        self.assertEqual(DATA_DIR, basic_job_configs.data_source)
         self.assertFalse(basic_job_configs.dry_run)
         self.assertIsNone(basic_job_configs.behavior_dir)
-        self.assertIsNone(basic_job_configs.extra_configs)
         self.assertIsNone(basic_job_configs.metadata_dir)
 
     @mock.patch("boto3.client")
@@ -269,8 +269,6 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         """Tests that the optional configs can also be set."""
 
         test_opt_args = [
-            "-d",
-            str(DATA_DIR),
             "-b",
             "some_bucket",
             "-s",
@@ -278,7 +276,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "SmartSPIM",
             "-m",
-            "OPHYS",
+            f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}","extra_config":"{str(CONFIG_FILE)}"}}]',
             "-l",
             "INFO",
             "-a",
@@ -287,8 +285,6 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "13-24-01",
             "-p",
             "/aws/param/store",
-            "-c",
-            str(CONFIG_FILE),
             "-n",
             str(TEST_DIR),
             "-v",
@@ -296,8 +292,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-x",
             str(METADATA_DIR),
             "--dry-run",
-            "--compress-raw-data",
             "--metadata-dir-force",
+            "--force-cloud-sync",
         ]
 
         mock_client.return_value.get_parameter.side_effect = [
@@ -336,7 +332,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(
             ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
         )
-        self.assertEqual(Modality.OPHYS, basic_job_configs.modality)
+        self.assertEqual(
+            [ModalityConfigs(modality=Modality.OPHYS, source=DATA_DIR, extra_config=CONFIG_FILE)],
+            basic_job_configs.modalities
+        )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
             date.fromisoformat("2022-10-10"),
@@ -349,13 +348,11 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
-        self.assertEqual(DATA_DIR, basic_job_configs.data_source)
         self.assertEqual("INFO", basic_job_configs.log_level)
         self.assertTrue(basic_job_configs.dry_run)
-        self.assertTrue(basic_job_configs.compress_raw_data)
         self.assertTrue(basic_job_configs.metadata_dir_force)
+        self.assertTrue(basic_job_configs.force_cloud_sync)
         self.assertEqual(BEHAVIOR_DIR, basic_job_configs.behavior_dir)
-        self.assertEqual(CONFIG_FILE, basic_job_configs.extra_configs)
         self.assertEqual(METADATA_DIR, basic_job_configs.metadata_dir)
 
     @mock.patch("boto3.client")
@@ -372,8 +369,6 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         }
 
         test_req_args = [
-            "-d",
-            str(DATA_DIR),
             "-b",
             "some_bucket",
             "-s",
@@ -381,7 +376,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "SmartSPIM",
             "-m",
-            "OPHYS",
+            f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "10/10/2022",
             "-t",
@@ -391,8 +386,6 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         ]
 
         test_malformed_date_args = [
-            "-d",
-            str(DATA_DIR),
             "-b",
             "some_bucket",
             "-s",
@@ -400,7 +393,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "SmartSPIM",
             "-m",
-            "OPHYS",
+            f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "12/12/20225",
             "-t",
@@ -410,8 +403,6 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         ]
 
         test_malformed_time_args = [
-            "-d",
-            str(DATA_DIR),
             "-b",
             "some_bucket",
             "-s",
@@ -419,7 +410,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "SmartSPIM",
             "-m",
-            "OPHYS",
+            f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "10/10/2022",
             "-t",
@@ -448,7 +439,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(
             ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
         )
-        self.assertEqual(Modality.OPHYS, basic_job_configs.modality)
+        self.assertEqual(
+            [ModalityConfigs(modality=Modality.CONFOCAL, source=DATA_DIR)],
+            basic_job_configs.modalities
+        )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
             date.fromisoformat("2022-10-10"),
@@ -461,10 +455,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
-        self.assertEqual(DATA_DIR, basic_job_configs.data_source)
         self.assertFalse(basic_job_configs.dry_run)
         self.assertIsNone(basic_job_configs.behavior_dir)
-        self.assertIsNone(basic_job_configs.extra_configs)
         self.assertIsNone(basic_job_configs.metadata_dir)
         self.assertEqual("WARNING", basic_job_configs.log_level)
         self.assertFalse(mock_client.called)
