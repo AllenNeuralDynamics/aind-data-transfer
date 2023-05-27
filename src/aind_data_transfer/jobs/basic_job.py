@@ -25,7 +25,6 @@ from aind_data_transfer.transformations.metadata_creation import (
     SubjectMetadata,
 )
 from aind_data_transfer.util.s3_utils import (
-    check_aws_cli_installed,
     upload_to_s3,
 )
 
@@ -43,37 +42,15 @@ class BasicJob:
         )
         self._instance_logger.setLevel(job_configs.log_level)
 
-    def _check_aws_cli_and_creds(self):
-        """Check if aws cli is installed and user has write permissions to
-        bucket.
+    def _test_upload(self, temp_dir: Path):
+        """Run upload command on empty directory to see if user has permissions
+        and aws cli installed.
         """
-        check_aws_cli_installed()
-
-        # https://stackoverflow.com/a/47058571
-        iam = boto3.client("iam")
-        sts = boto3.client("sts")
-        try:
-            # Get the arn represented by the currently configured credentials
-            arn = sts.get_caller_identity()["Arn"]
-
-            # Create an arn representing the objects in a bucket
-            bucket_arn = f"arn:aws:s3:::{self.job_configs.s3_bucket}"
-
-            # Run the policy simulation for the basic s3 operations
-            results = iam.simulate_principal_policy(
-                PolicySourceArn=arn,
-                ResourceArns=[bucket_arn],
-                ActionNames=["s3:PutObject"],
-            )
-            if results["EvaluationResults"][0]["EvalDecision"] != "allowed":
-                raise PermissionError(
-                    f"User doesn't have permission to write to bucket "
-                    f"{self.job_configs.s3_bucket}. Check with your admin for "
-                    f"write permissions."
-                )
-        finally:
-            iam.close()
-            sts.close()
+        upload_to_s3(
+            directory_to_upload=temp_dir,
+            s3_bucket=self.job_configs.s3_bucket,
+            s3_prefix=self.job_configs.s3_prefix,
+        )
         return None
 
     def _check_if_s3_location_exists(self):
@@ -275,11 +252,11 @@ class BasicJob:
         """Runs the job. Creates a temp directory to compile the files before
         uploading."""
         process_start_time = datetime.now(timezone.utc)
-        self._check_aws_cli_and_creds()
         self._check_if_s3_location_exists()
         with tempfile.TemporaryDirectory(
             dir=self.job_configs.temp_directory
         ) as td:
+            self._test_upload(temp_dir=Path(td))
             self._compress_raw_data(temp_dir=Path(td))
             self._encrypt_behavior_dir(temp_dir=Path(td))
             self._compile_metadata(

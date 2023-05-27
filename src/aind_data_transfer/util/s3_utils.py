@@ -32,20 +32,11 @@ def get_secret(secret_name, region_name):
     return secret
 
 
-def check_aws_cli_installed():
-    """Will return an error if check fails."""
-    if platform.system() == "Windows":
-        shell = True
-    else:
-        shell = False
-    subprocess.run(["aws", "--version"], shell=shell, check=True)
-
-
 def upload_to_s3(
     directory_to_upload,
     s3_bucket,
     s3_prefix,
-    dryrun,
+    dryrun=False,
     excluded=None,
     included=None,
 ):
