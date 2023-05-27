@@ -25,7 +25,6 @@ from aind_data_transfer.transformations.metadata_creation import (
     SubjectMetadata,
 )
 from aind_data_transfer.util.s3_utils import (
-    check_aws_cli_installed,
     upload_to_s3,
 )
 
