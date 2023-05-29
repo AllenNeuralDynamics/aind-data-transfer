@@ -6,11 +6,11 @@ from pathlib import Path
 from aind_data_schema.data_description import Modality
 from aind_data_schema.processing import ProcessName
 
-from aind_data_transfer.jobs.ecephys_job import (
+from aind_data_transfer.readers.ephys_readers import DataReader
+from aind_data_transfer.transformations.ephys_compressors import (
+    CompressorName,
     EcephysCompressionParameters,
 )
-from aind_data_transfer.readers.ephys_readers import DataReader
-from aind_data_transfer.transformations.ephys_compressors import CompressorName
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 DATA_DIR = TEST_DIR / "v0.6.x_neuropixels_multiexp_multistream"
@@ -31,7 +31,7 @@ class TestEcephysUploadJobConfigs(unittest.TestCase):
         self.assertEqual(
             150, ecephys_configs.compress_max_windows_filename_len
         )
-        self.assertTrue(ecephys_configs.compress_source)
+        self.assertTrue(ecephys_configs.compress_raw_data)
         self.assertEqual("zarr", ecephys_configs.compress_write_output_format)
         self.assertEqual({"level": 3}, ecephys_configs.compressor_kwargs)
         self.assertEqual(
@@ -39,7 +39,7 @@ class TestEcephysUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual(DataReader.OPENEPHYS, ecephys_configs.data_reader)
         self.assertEqual(DATA_DIR, ecephys_configs.source)
-        self.assertEqual(None, ecephys_configs.extra_config)
+        self.assertEqual(None, ecephys_configs.extra_configs)
         self.assertEqual(Modality.ECEPHYS, ecephys_configs.modality)
         self.assertEqual(
             ProcessName.EPHYS_PREPROCESSING, ecephys_configs.process_name

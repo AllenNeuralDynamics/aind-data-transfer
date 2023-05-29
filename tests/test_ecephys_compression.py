@@ -5,8 +5,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
-from aind_data_transfer.jobs.ecephys_job import (
-    EcephysCompressionJob, EcephysCompressionParameters
+from aind_data_transfer.transformations.ephys_compressors import (
+    EcephysCompressionParameters,
+    EphysCompressors,
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
@@ -14,12 +15,12 @@ DATA_DIR = TEST_DIR / "v0.6.x_neuropixels_multiexp_multistream"
 BEHAVIOR_DIR = TEST_DIR / "v0.6.x_neuropixels_multiexp_multistream" / "Videos"
 
 
-class TestEcephysJob(unittest.TestCase):
+class TestEcephysCompression(unittest.TestCase):
     """Tests for EcephysJob class"""
 
     @patch("shutil.copytree")
     @patch("shutil.ignore_patterns")
-    @patch("aind_data_transfer.jobs.ecephys_job.memmap")
+    @patch("aind_data_transfer.transformations.ephys_compressors.memmap")
     @patch(
         "aind_data_transfer.readers.ephys_readers.EphysReaders."
         "get_streams_to_clip"
@@ -41,7 +42,7 @@ class TestEcephysJob(unittest.TestCase):
         "compress_and_write_block"
     )
     @patch(
-        "aind_data_transfer.jobs.ecephys_job."
+        "aind_data_transfer.transformations.ephys_compressors."
         "correct_np_opto_electrode_locations"
     )
     def test_ecephys_job_with_compression(
@@ -77,13 +78,11 @@ class TestEcephysJob(unittest.TestCase):
         }
 
         ecephys_configs = EcephysCompressionParameters(source=DATA_DIR)
-        ecephys_job = EcephysCompressionJob(
+        ecephys_compressor = EphysCompressors(
             job_configs=ecephys_configs, behavior_dir=BEHAVIOR_DIR
         )
-        ecephys_job.compress_raw_data(temp_dir=Path("some_path"))
-        # Test when a behavior directory is defined
-        # ecephys_configs.behavior_dir = BEHAVIOR_DIR
-        ecephys_job.compress_raw_data(temp_dir=Path("some_path"))
+        ecephys_compressor.compress_raw_data(temp_dir=Path("some_path"))
+        ecephys_compressor.compress_raw_data(temp_dir=Path("some_path"))
         mock_correct_np_opto.assert_has_calls([call(DATA_DIR), call(DATA_DIR)])
         mock_copytree.assert_has_calls(
             [

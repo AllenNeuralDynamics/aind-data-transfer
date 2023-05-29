@@ -11,8 +11,8 @@ from aind_data_schema.data_description import ExperimentType, Modality
 
 from aind_data_transfer.config_loader.base_config import (
     BasicJobEndpoints,
-    ModalityConfigs,
     BasicUploadJobConfigs,
+    ModalityConfigs,
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
@@ -122,7 +122,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         "VIDEO_ENCRYPTION_PASSWORD": "some_password",
         "S3_BUCKET": "some_bucket",
         "EXPERIMENT_TYPE": "confocal",
-        "MODALITIES": f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
+        "MODALITIES": f'[{{"modality":"CONFOCAL",'
+        f'"source":"{str(DATA_DIR)}"}}]',
         "SUBJECT_ID": "12345",
         "ACQ_DATE": "2020-10-10",
         "ACQ_TIME": "10:10:10",
@@ -167,7 +168,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual(
             [ModalityConfigs(modality=Modality.CONFOCAL, source=DATA_DIR)],
-            basic_job_configs.modalities
+            basic_job_configs.modalities,
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
@@ -245,7 +246,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual(
             [ModalityConfigs(modality=Modality.OPHYS, source=DATA_DIR)],
-            basic_job_configs.modalities
+            basic_job_configs.modalities,
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
@@ -276,7 +277,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "SmartSPIM",
             "-m",
-            f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}","extra_config":"{str(CONFIG_FILE)}"}}]',
+            f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}",'
+            f'"extra_configs":"{str(CONFIG_FILE)}"}}]',
             "-l",
             "INFO",
             "-a",
@@ -333,8 +335,14 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
         )
         self.assertEqual(
-            [ModalityConfigs(modality=Modality.OPHYS, source=DATA_DIR, extra_config=CONFIG_FILE)],
-            basic_job_configs.modalities
+            [
+                ModalityConfigs(
+                    modality=Modality.OPHYS,
+                    source=DATA_DIR,
+                    extra_configs=CONFIG_FILE,
+                )
+            ],
+            basic_job_configs.modalities,
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
@@ -441,7 +449,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual(
             [ModalityConfigs(modality=Modality.CONFOCAL, source=DATA_DIR)],
-            basic_job_configs.modalities
+            basic_job_configs.modalities,
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(

@@ -7,7 +7,7 @@ import os
 import re
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
 from aind_data_access_api.secrets import get_parameter
 from aind_data_schema.data_description import (
@@ -21,6 +21,7 @@ from pydantic import (
     DirectoryPath,
     Field,
     FilePath,
+    PrivateAttr,
     SecretStr,
     validator,
 )
@@ -116,12 +117,43 @@ class BasicJobEndpoints(BaseSettings):
 
 
 class ModalityConfigs(BaseSettings):
-    modality: Modality = Field(...)
-    source: DirectoryPath = Field(...)
-    compress_source: Optional[bool] = Field(default=None)
-    extra_config: Optional[FilePath] = Field(default=None)
+    """Class to contain configs for each modality type"""
 
-    @validator("compress_source", always=True)
+    # Optional number id to assign to modality config
+    _number_id: Optional[int] = PrivateAttr(default=None)
+    modality: Modality = Field(
+        ..., description="Data collection modality", title="Modality"
+    )
+    source: DirectoryPath = Field(
+        ...,
+        description="Location of raw data to be uploaded",
+        title="Data Source",
+    )
+    compress_raw_data: Optional[bool] = Field(
+        default=None,
+        description="Run compression on data",
+        title="Compress Raw Data",
+    )
+    extra_configs: Optional[FilePath] = Field(
+        default=None,
+        description="Location of additional configuration file",
+        title="Extra Configs",
+    )
+
+    @property
+    def number_id(self):
+        """Retrieve an optionally assigned numerical id"""
+        return self._number_id
+
+    @property
+    def default_output_folder_name(self):
+        """Construct the default folder name for the modality."""
+        if self._number_id is None:
+            return self.modality.name.lower()
+        else:
+            return self.modality.name.lower() + str(self._number_id)
+
+    @validator("compress_raw_data", always=True)
     def get_compress_source_default(
         cls, compress_source: Optional[bool], values: Dict[str, Any]
     ) -> bool:
@@ -208,7 +240,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description=(
             "Force syncing of data folder even if location exists in cloud"
         ),
-        title="Force Cloud Sync"
+        title="Force Cloud Sync",
     )
 
     @property

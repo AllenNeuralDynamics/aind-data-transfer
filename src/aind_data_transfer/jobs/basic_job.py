@@ -8,10 +8,12 @@ import shutil
 import sys
 import tempfile
 from datetime import datetime, timezone
+from importlib import import_module
 from pathlib import Path
 
 import boto3
 from aind_codeocean_api.codeocean import CodeOceanClient
+from aind_data_schema.data_description import Modality
 
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
 from aind_data_transfer.transformations.generic_compressors import (
@@ -24,10 +26,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
     SubjectMetadata,
 )
-from aind_data_transfer.util.s3_utils import (
-    upload_to_s3,
-)
-from aind_data_schema.data_description import Modality
+from aind_data_transfer.util.s3_utils import upload_to_s3
 
 
 class BasicJob:
@@ -97,33 +96,42 @@ class BasicJob:
             behavior_dir_excluded = None
 
         for modality_config in self.job_configs.modalities:
-            if not modality_config.compress_source:
-                data_prefix = "/".join(
-                    [
-                        self.job_configs.s3_prefix,
-                        modality_config.modality.name.lower(),
-                    ]
-                )
-                upload_to_s3(
-                    directory_to_upload=modality_config.source,
-                    s3_bucket=self.job_configs.s3_bucket,
-                    s3_prefix=data_prefix,
-                    dryrun=self.job_configs.dry_run,
-                    excluded=behavior_dir_excluded,
+            if not modality_config.compress_raw_data:
+                dst_dir = temp_dir / modality_config.default_output_folder_name
+                os.mkdir(dst_dir)
+                shutil.copytree(
+                    modality_config.source,
+                    dst_dir,
+                    ignore=behavior_dir_excluded,
                 )
             else:
                 self._instance_logger.info(
                     f"Compressing data folder: {modality_config.source}"
                 )
                 if modality_config.modality == Modality.ECEPHYS:
-                    from aind_data_transfer.jobs.ecephys_job import (
-                        EcephysCompressionJob, EcephysCompressionParameters
+                    # Would prefer to not have imports here, but we have
+                    # conditional dependencies
+                    EcephysCompressionParameters = getattr(
+                        import_module(
+                            "aind_data_transfer.transformations."
+                            "ephys_compressors"
+                        ),
+                        "EcephysCompressionParameters",
                     )
+                    EphysCompressors = getattr(
+                        import_module(
+                            "aind_data_transfer.transformations."
+                            "ephys_compressors"
+                        ),
+                        "EphysCompressors",
+                    )
+
                     compression_params = EcephysCompressionParameters(
                         source=modality_config.source,
-                        extra_config=modality_config.extra_config
+                        extra_config=modality_config.extra_configs,
                     )
-                    ecephys_compress_job = EcephysCompressionJob(
+                    compression_params._number_id = modality_config.number_id
+                    ecephys_compress_job = EphysCompressors(
                         job_configs=compression_params,
                         behavior_dir=self.job_configs.behavior_dir,
                         log_level=self.job_configs.log_level,
@@ -132,13 +140,12 @@ class BasicJob:
                 else:
                     zc = ZipCompressor(display_progress_bar=True)
                     compressed_data_folder_name = (
-                            str(os.path.basename(
-                                modality_config.source)) + ".zip"
+                        str(os.path.basename(modality_config.source)) + ".zip"
                     )
                     folder_path = (
-                            temp_dir
-                            / modality_config.modality.name.lower()
-                            / compressed_data_folder_name
+                        temp_dir
+                        / modality_config.default_output_folder_name
+                        / compressed_data_folder_name
                     )
                     os.mkdir(folder_path.parent)
                     skip_dirs = (

@@ -14,7 +14,6 @@ from aind_data_schema.data_description import (
     Modality,
     RawDataDescription,
 )
-from aind_data_transfer.config_loader.base_config import ModalityConfigs
 from aind_data_schema.procedures import Procedures
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
 from aind_data_schema.subject import Subject
@@ -24,6 +23,7 @@ from requests import Response
 from requests.exceptions import ConnectionError, JSONDecodeError
 
 from aind_data_transfer import __version__ as aind_data_transfer_version
+from aind_data_transfer.config_loader.base_config import ModalityConfigs
 
 
 class MetadataCreation(ABC):
@@ -320,13 +320,13 @@ class ProcessingMetadata(MetadataCreation):
 
     @classmethod
     def from_modalities_configs(
-            cls,
-            modality_configs: List[ModalityConfigs],
-            start_date_time: datetime,
-            end_date_time: datetime,
-            output_location: str,
-            code_url: str,
-            notes: Optional[str] = None,
+        cls,
+        modality_configs: List[ModalityConfigs],
+        start_date_time: datetime,
+        end_date_time: datetime,
+        output_location: str,
+        code_url: str,
+        notes: Optional[str] = None,
     ):
         """
         Build a ProcessingMetadata instance using some basic parameters.
@@ -357,16 +357,14 @@ class ProcessingMetadata(MetadataCreation):
                 version=aind_data_transfer_version,
                 start_date_time=start_date_time,
                 end_date_time=end_date_time,
-                input_location=modality_config.source,
+                input_location=str(modality_config.source),
                 output_location=output_location,
                 code_url=code_url,
-                parameters=modality_config.json(),
+                parameters=modality_config.dict(),
                 notes=notes,
             )
             data_processes.append(data_processing_instance)
-        processing_instance = Processing(
-            data_processes=data_processes
-        )
+        processing_instance = Processing(data_processes=data_processes)
         # Do this to use enum strings instead of classes in dict representation
         contents = json.loads(processing_instance.json())
         return cls(model_obj=contents)
@@ -390,7 +388,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
         funding_source: Optional[Tuple] = (
             Funding(funder=Institution.AIND.value.abbreviation),
         ),
-        investigators: Optional[List[str]] = None
+        investigators: Optional[List[str]] = None,
     ):
         """
         Build a RawDataDescriptionMetadata instance using some basic
