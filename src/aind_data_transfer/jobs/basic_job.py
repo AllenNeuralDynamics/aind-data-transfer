@@ -128,7 +128,7 @@ class BasicJob:
 
                     compression_params = EcephysCompressionParameters(
                         source=modality_config.source,
-                        extra_config=modality_config.extra_configs,
+                        extra_configs=modality_config.extra_configs,
                     )
                     compression_params._number_id = modality_config.number_id
                     ecephys_compress_job = EphysCompressors(
