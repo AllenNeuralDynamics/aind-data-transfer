@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, call, patch
 
 from requests import Response
 
+from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.transformations.metadata_creation import (
@@ -337,9 +338,12 @@ class TestBasicJob(unittest.TestCase):
             parameters=[
                 '{"trigger_codeocean_job": '
                 '{"job_type": "confocal", '
+                '"modalities": ["MRI"], '
                 '"capsule_id": "some_capsule_id", '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_12345_2020-10-10_10-10-10"}}'
+                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
+                f'"aind_data_transfer_version": "{__version__}"'
+                "}}"
             ],
         )
 

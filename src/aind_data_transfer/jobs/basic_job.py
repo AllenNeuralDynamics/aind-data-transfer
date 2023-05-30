@@ -15,6 +15,7 @@ import boto3
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_data_schema.data_description import Modality
 
+from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
 from aind_data_transfer.transformations.generic_compressors import (
     VideoCompressor,
@@ -256,9 +257,13 @@ class BasicJob:
         trigger_capsule_params = {
             "trigger_codeocean_job": {
                 "job_type": self.job_configs.experiment_type.value,
+                "modalities": (
+                    [m.modality.name for m in self.job_configs.modalities]
+                ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
                 "bucket": self.job_configs.s3_bucket,
                 "prefix": self.job_configs.s3_prefix,
+                "aind_data_transfer_version": __version__,
             }
         }
         co_client = CodeOceanClient(
