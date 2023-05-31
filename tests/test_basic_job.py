@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, call, patch
 
 from requests import Response
 
+from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.transformations.metadata_creation import (
@@ -46,8 +47,8 @@ class TestBasicJob(unittest.TestCase):
         "VIDEO_ENCRYPTION_PASSWORD": "some_password",
         "CODEOCEAN_API_TOKEN": "some_api_token",
         "S3_BUCKET": "some_bucket",
+        "MODALITIES": f'[{{"modality":"MRI",' f'"source":"{str(DATA_DIR)}"}}]',
         "EXPERIMENT_TYPE": "confocal",
-        "MODALITY": "ECEPHYS",
         "SUBJECT_ID": "12345",
         "ACQ_DATE": "2020-10-10",
         "ACQ_TIME": "10:10:10",
@@ -56,114 +57,73 @@ class TestBasicJob(unittest.TestCase):
     }
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    def test_check_if_s3_location_exists(self, mock_client: MagicMock):
-        """Tests that the job fails if folder already exists in s3"""
-
-        mock_client.return_value.list_objects_v2.side_effect = [
-            {"KeyCount": 0},
-            {"KeyCount": 1},
-        ]
+    @patch("tempfile.TemporaryDirectory")
+    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
+    def test_aws_creds_check_allowed(
+        self,
+        mock_upload_to_s3: MagicMock,
+        mock_tempfile: MagicMock,
+    ):
+        """Tests that the aws credentials pass allowed"""
+        mock_tempfile.return_value.__enter__.return_value = (
+            Path("some_dir") / "tmp"
+        )
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
-
-        # Try where aws response says object doesn't exist
-        basic_job._check_if_s3_location_exists()
-
-        # Check that error is raised if object already exists
-        with self.assertRaises(FileExistsError):
-            basic_job._check_if_s3_location_exists()
-
-        mock_client.assert_has_calls(
-            [
-                call("s3"),
-                call().list_objects_v2(
-                    Bucket="some_bucket",
-                    Prefix="confocal_12345_2020-10-10_10-10-10",
-                    MaxKeys=1,
-                ),
-                call().close(),
-                call("s3"),
-                call().list_objects_v2(
-                    Bucket="some_bucket",
-                    Prefix="confocal_12345_2020-10-10_10-10-10",
-                    MaxKeys=1,
-                ),
-                call().close(),
-            ]
+        basic_job._test_upload(Path("some_dir"))
+        mock_upload_to_s3.assert_called_once_with(
+            directory_to_upload=Path("some_dir"),
+            s3_bucket="some_bucket",
+            s3_prefix="confocal_12345_2020-10-10_10-10-10",
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
+    @patch("os.mkdir")
     @patch(
         "aind_data_transfer.transformations.generic_compressors.ZipCompressor."
         "compress_dir"
     )
+    @patch("shutil.copytree")
     def test_compress_raw_data_no_zip(
         self,
+        mock_copytree: MagicMock,
         mock_compress: MagicMock,
-        mock_upload: MagicMock,
-        mock_client: MagicMock,
+        mock_make_dir: MagicMock,
     ):
-        """Tests that the raw data is uploaded to s3 right away"""
+        """Tests that the raw data is copied to temp directory"""
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
-        # Without a Behavior directory
-        mock_upload.assert_called_once_with(
-            directory_to_upload=DATA_DIR,
-            s3_bucket="some_bucket",
-            s3_prefix="confocal_12345_2020-10-10_10-10-10/confocal",
-            dryrun=True,
-            excluded=None,
-        )
-
+        mock_make_dir.assert_called_once_with(Path("some_path") / "mri")
         # With a Behavior directory defined
         basic_job.job_configs.behavior_dir = BEHAVIOR_DIR
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
-
-        mock_upload.assert_has_calls(
+        mock_copytree.assert_has_calls(
             [
+                call(DATA_DIR, Path("some_path/mri"), ignore=None),
                 call(
-                    directory_to_upload=DATA_DIR,
-                    s3_bucket="some_bucket",
-                    s3_prefix="confocal_12345_2020-10-10_10-10-10/confocal",
-                    dryrun=True,
-                    excluded=None,
-                ),
-                call(
-                    directory_to_upload=DATA_DIR,
-                    s3_bucket="some_bucket",
-                    s3_prefix="confocal_12345_2020-10-10_10-10-10/confocal",
-                    dryrun=True,
-                    excluded=(BEHAVIOR_DIR / "*"),
+                    DATA_DIR,
+                    Path("some_path/mri"),
+                    ignore=(BEHAVIOR_DIR / "*"),
                 ),
             ]
         )
 
         self.assertFalse(mock_compress.called)
-        self.assertFalse(mock_client.called)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
     @patch(
         "aind_data_transfer.transformations.generic_compressors.ZipCompressor."
         "compress_dir"
     )
     @patch("os.mkdir")
     def test_compress_raw_data_with_zip(
-        self,
-        mock_mkdir: MagicMock,
-        mock_compress: MagicMock,
-        mock_upload: MagicMock,
-        mock_client: MagicMock,
+        self, mock_mkdir: MagicMock, mock_compress: MagicMock
     ):
         """Tests that the raw data is zipped"""
         basic_job_configs = BasicUploadJobConfigs()
-        basic_job_configs.compress_raw_data = True
+        basic_job_configs.modalities[0].compress_raw_data = True
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
@@ -174,8 +134,8 @@ class TestBasicJob(unittest.TestCase):
 
         mock_mkdir.assert_has_calls(
             [
-                call(Path("some_path/confocal")),
-                call(Path("some_path/confocal")),
+                call(Path("some_path/mri")),
+                call(Path("some_path/mri")),
             ]
         )
 
@@ -184,7 +144,7 @@ class TestBasicJob(unittest.TestCase):
                 call(
                     input_dir=DATA_DIR,
                     output_dir=Path(
-                        "some_path/confocal/"
+                        "some_path/mri/"
                         "v0.6.x_neuropixels_multiexp_multistream.zip"
                     ),
                     skip_dirs=None,
@@ -192,16 +152,13 @@ class TestBasicJob(unittest.TestCase):
                 call(
                     input_dir=DATA_DIR,
                     output_dir=Path(
-                        "some_path/confocal/"
+                        "some_path/mri/"
                         "v0.6.x_neuropixels_multiexp_multistream.zip"
                     ),
                     skip_dirs=[BEHAVIOR_DIR],
                 ),
             ]
         )
-
-        self.assertFalse(mock_client.called)
-        self.assertFalse(mock_upload.called)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch(
@@ -381,9 +338,12 @@ class TestBasicJob(unittest.TestCase):
             parameters=[
                 '{"trigger_codeocean_job": '
                 '{"job_type": "confocal", '
+                '"modalities": ["MRI"], '
                 '"capsule_id": "some_capsule_id", '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_12345_2020-10-10_10-10-10"}}'
+                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
+                f'"aind_data_transfer_version": "{__version__}"'
+                "}}"
             ],
         )
 
@@ -402,8 +362,10 @@ class TestBasicJob(unittest.TestCase):
         "_trigger_codeocean_pipeline"
     )
     @patch("aind_data_transfer.jobs.basic_job.datetime")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
     def test_run_job(
         self,
+        mock_test_upload: MagicMock,
         mock_datetime: MagicMock,
         mock_trigger_pipeline: MagicMock,
         mock_upload_to_s3: MagicMock,
@@ -426,6 +388,9 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job.run_job()
 
+        mock_test_upload.assert_called_once_with(
+            temp_dir=(Path("some_dir") / "tmp")
+        )
         mock_tempfile.assert_called_once_with(dir="some_dir")
         mock_s3_check.assert_called_once()
         mock_compress_raw_data.assert_called_once_with(

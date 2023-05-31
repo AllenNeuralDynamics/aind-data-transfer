@@ -33,12 +33,12 @@ def get_secret(secret_name, region_name):
 
 
 def upload_to_s3(
-        directory_to_upload,
-        s3_bucket,
-        s3_prefix,
-        dryrun,
-        excluded=None,
-        included=None,
+    directory_to_upload,
+    s3_bucket,
+    s3_prefix,
+    dryrun=False,
+    excluded=None,
+    included=None,
 ):
     # Upload to s3
     if platform.system() == "Windows":
@@ -57,7 +57,7 @@ def upload_to_s3(
         base_command.extend(["--include", included])
     if dryrun:
         base_command.append("--dryrun")
-    subprocess.run(base_command, shell=shell)
+    subprocess.run(base_command, shell=shell, check=True)
 
     logging.info("Finished uploading to s3.")
 
@@ -83,9 +83,12 @@ def copy_to_s3(file_to_upload, s3_bucket, s3_prefix, dryrun):
                 "--dryrun",
             ],
             shell=shell,
+            check=True,
         )
     else:
         subprocess.run(
-            ["aws", "s3", "cp", file_to_upload, aws_dest], shell=shell
+            ["aws", "s3", "cp", file_to_upload, aws_dest],
+            shell=shell,
+            check=True,
         )
     logging.info("Finished copying file to s3.")
