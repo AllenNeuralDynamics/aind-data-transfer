@@ -1,9 +1,8 @@
 import fnmatch
 import logging
 import time
-import typing
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, cast
 
 import dask
 import dask.array
@@ -618,27 +617,21 @@ def _build_ome(
     channel_names: Optional[List[str]] = None,
     channel_colors: Optional[List[int]] = None,
     channel_minmax: Optional[List[Tuple[float, float]]] = None,
-) -> typing.Dict:
+) -> Dict:
     """
     Create the necessary metadata for an OME tiff image
 
     Parameters
     ----------
-    data_shape:
-        A 5-d tuple, assumed to be TCZYX order
-    image_name:
-        The name of the image
-    channel_names:
-        The names for each channel
-    channel_colors:
-        List of all channel colors
-    channel_minmax:
-        List of all (min, max) pairs of channel intensities
+    data_shape: A 5-d tuple, assumed to be TCZYX order
+    image_name: The name of the image
+    channel_names: The names for each channel
+    channel_colors: List of all channel colors
+    channel_minmax: List of all (min, max) pairs of channel intensities
 
     Returns
     -------
-    Dict
-        An "omero" metadata object suitable for writing to ome-zarr
+    Dict: An "omero" metadata object suitable for writing to ome-zarr
     """
     if channel_names is None:
         channel_names = [
@@ -699,12 +692,11 @@ def _compute_scales(
     pixelsizes: a list of pixel sizes in each spatial dimension (Z, Y, X)
     chunks: a 5D tuple of integers with size of each chunk dimension (T, C, Z, Y, X)
     data_shape: a 5D tuple of the full resolution image's shape
-    method: scaler method, either "nearest" or "precomputed". Use "precomputed"
-            if writing a precomputed pyramid
+    translation: a 5 element list specifying the offset in physical units in each dimension
 
     Returns
     -------
-    A tuple of the coordinate transforms, chunk options, and the Scaler instance
+    A tuple of the coordinate transforms and chunk options
     """
     transforms = [
         [
@@ -743,7 +735,7 @@ def _compute_scales(
     if scale_num_levels > 1:
         for i in range(scale_num_levels - 1):
             last_transform = transforms[-1][0]
-            last_scale = typing.cast(List, last_transform["scale"])
+            last_scale = cast(List, last_transform["scale"])
             transforms.append(
                 [
                     {
@@ -777,7 +769,18 @@ def _compute_scales(
     return transforms, chunk_sizes
 
 
-def _get_axes_5d(time_unit="millisecond", space_unit="micrometer"):
+def _get_axes_5d(time_unit: str = "millisecond", space_unit: str = "micrometer") -> List[Dict]:
+    """Generate the list of axes.
+
+    Parameters
+    ----------
+    time_unit: the time unit string, e.g., "millisecond"
+    space_unit: the space unit string, e.g., "micrometer"
+
+    Returns
+    -------
+    A list of dictionaries for each axis
+    """
     axes_5d = [
         {"name": "t", "type": "time", "unit": f"{time_unit}"},
         {"name": "c", "type": "channel"},
