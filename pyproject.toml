@@ -54,7 +54,8 @@ imaging = [
     'gcsfs',
     'xarray-multiscale',
     'parameterized',
-    'zarr==2.13.3',
+    'zarr==2.14.2',
+    'ome-zarr==0.7.1',
     'chardet==5.1.0'
 ]
 full = [

@@ -2,16 +2,17 @@ import fnmatch
 import logging
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, cast
 
 import dask
 import dask.array
 import tifffile
 import zarr
-from aicsimageio.types import PhysicalPixelSizes
-from aicsimageio.writers import OmeZarrWriter
 from distributed import wait
 from numpy.typing import NDArray
+from ome_zarr.format import CurrentFormat
+from ome_zarr.io import parse_url
+from ome_zarr.writer import write_multiscale
 from xarray_multiscale import multiscale
 from xarray_multiscale.reducers import windowed_mean
 
@@ -78,7 +79,8 @@ def write_files(
     if storage_options is None:
         storage_options = {}
 
-    writer = OmeZarrWriter(output)
+    store = parse_url(output, mode="w").store
+    root_group = zarr.group(store=store)
 
     all_metrics = []
 
@@ -95,9 +97,6 @@ def write_files(
                 except Exception:
                     voxel_size = [1.0, 1.0, 1.0]
             LOGGER.info(f"Using voxel size: {voxel_size}")
-            physical_pixel_sizes = PhysicalPixelSizes(
-                Z=voxel_size[0], Y=voxel_size[1], X=voxel_size[2]
-            )
 
             # Attempt to parse tile origin
             origin = _parse_origin(reader)
@@ -123,13 +122,13 @@ def write_files(
                 LOGGER.info("Deinterleaving during write")
                 tile_metrics = _store_interleaved_file(
                     reader,
-                    writer,
+                    root_group,
                     output,
                     channel_names,
                     n_levels,
                     scale_factor,
                     origin,
-                    physical_pixel_sizes,
+                    voxel_size,
                     chunks,
                     overwrite,
                     storage_options
@@ -138,12 +137,12 @@ def write_files(
             else:
                 tile_metrics = _store_file(
                     reader,
-                    writer,
+                    root_group,
                     output,
                     n_levels,
                     scale_factor,
                     origin,
-                    physical_pixel_sizes,
+                    voxel_size,
                     chunks,
                     overwrite,
                     storage_options,
@@ -156,12 +155,12 @@ def write_files(
 
 def _store_file(
         reader: DataReader,
-        writer: OmeZarrWriter,
+        root_group: zarr.Group,
         output: str,
         n_levels: int,
         scale_factor: int,
         origin: list,
-        physical_pixel_sizes: PhysicalPixelSizes,
+        voxel_size: tuple,
         chunks: tuple,
         overwrite: bool,
         storage_options: dict,
@@ -219,19 +218,39 @@ def _store_file(
 
     LOGGER.info(f"{pyramid[0]}")
 
-    LOGGER.info("Starting write...")
-    t0 = time.time()
-    jobs = writer.write_multiscale(
-        pyramid=pyramid,
-        image_name=tile_name,
-        physical_pixel_sizes=physical_pixel_sizes,
-        translation=origin,
+    ome_json = _build_ome(
+        pyramid[0].shape,
+        tile_name,
         channel_names=None,
         channel_colors=None,
-        scale_factor=(scale_factor,) * 3,
-        chunks=chunks,
-        storage_options=storage_options,
-        compute_dask=False,
+        channel_minmax=None
+    )
+    axes_5d = _get_axes_5d()
+    transforms, chunk_opts = _compute_scales(
+        len(pyramid),
+        (scale_factor,) * 3,
+        voxel_size,
+        chunks,
+        pyramid[0].shape,
+        origin,
+    )
+    for opt in chunk_opts:
+        opt.update(storage_options)
+
+    group = root_group.create_group(tile_name, overwrite=True)
+    group.attrs["omero"] = ome_json
+
+    LOGGER.info("Starting write...")
+    t0 = time.time()
+    jobs = write_multiscale(
+        pyramid,
+        group=group,
+        fmt=CurrentFormat(),
+        axes=axes_5d,
+        coordinate_transformations=transforms,
+        storage_options=chunk_opts,
+        name=None,
+        compute=False,
     )
     if jobs:
         LOGGER.info("Computing dask arrays...")
@@ -260,13 +279,13 @@ def _store_file(
 
 def _store_interleaved_file(
         reader: DataReader,
-        writer: OmeZarrWriter,
+        root_group: zarr.Group,
         output: str,
         channel_names: list,
         n_levels: int,
         scale_factor: int,
         origin: list,
-        physical_pixel_sizes: PhysicalPixelSizes,
+        voxel_size: tuple,
         chunks: tuple,
         overwrite: bool,
         storage_options: dict,
@@ -318,19 +337,39 @@ def _store_interleaved_file(
 
         LOGGER.info(f"{channel_pyramid[0]}")
 
-        LOGGER.info("Starting write...")
-        t0 = time.time()
-        jobs = writer.write_multiscale(
-            pyramid=channel_pyramid,
-            image_name=tile_name,
-            physical_pixel_sizes=physical_pixel_sizes,
-            translation=origin,
+        ome_json = _build_ome(
+            channel_pyramid[0].shape,
+            tile_name,
             channel_names=None,
             channel_colors=None,
-            scale_factor=(scale_factor,) * 3,
-            chunks=chunks,
-            storage_options=storage_options,
-            compute_dask=False,
+            channel_minmax=None
+        )
+        axes_5d = _get_axes_5d()
+        transforms, chunk_opts = _compute_scales(
+            len(channel_pyramid),
+            (scale_factor,) * 3,
+            voxel_size,
+            chunks,
+            channel_pyramid[0].shape,
+            origin,
+        )
+        for opt in chunk_opts:
+            opt.update(storage_options)
+
+        group = root_group.create_group(tile_name, overwrite=True)
+        group.attrs["omero"] = ome_json
+
+        LOGGER.info("Starting write...")
+        t0 = time.time()
+        jobs = write_multiscale(
+            channel_pyramid,
+            group=group,
+            fmt=CurrentFormat(),
+            axes=axes_5d,
+            coordinate_transformations=transforms,
+            storage_options=chunk_opts,
+            name=None,
+            compute=False,
         )
         if jobs:
             LOGGER.info("Computing dask arrays...")
@@ -570,3 +609,183 @@ def _populate_metrics(
     storage_ratio = _get_storage_ratio(out_zarr, tile_name)
     tile_metrics["storage_ratio"] = storage_ratio
     LOGGER.info(f"Compress ratio: {storage_ratio}")
+
+
+def _build_ome(
+    data_shape: Tuple[int, ...],
+    image_name: str,
+    channel_names: Optional[List[str]] = None,
+    channel_colors: Optional[List[int]] = None,
+    channel_minmax: Optional[List[Tuple[float, float]]] = None,
+) -> Dict:
+    """
+    Create the necessary metadata for an OME tiff image
+
+    Parameters
+    ----------
+    data_shape: A 5-d tuple, assumed to be TCZYX order
+    image_name: The name of the image
+    channel_names: The names for each channel
+    channel_colors: List of all channel colors
+    channel_minmax: List of all (min, max) pairs of channel intensities
+
+    Returns
+    -------
+    Dict: An "omero" metadata object suitable for writing to ome-zarr
+    """
+    if channel_names is None:
+        channel_names = [
+            f"Channel:{image_name}:{i}"
+            for i in range(data_shape[1])
+        ]
+    if channel_colors is None:
+        channel_colors = [i for i in range(data_shape[1])]
+    if channel_minmax is None:
+        channel_minmax = [(0.0, 1.0) for _ in range(data_shape[1])]
+    ch = []
+    for i in range(data_shape[1]):
+        ch.append(
+            {
+                "active": True,
+                "coefficient": 1,
+                "color": f"{channel_colors[i]:06x}",
+                "family": "linear",
+                "inverted": False,
+                "label": channel_names[i],
+                "window": {
+                    "end": float(channel_minmax[i][1]),
+                    "max": float(channel_minmax[i][1]),
+                    "min": float(channel_minmax[i][0]),
+                    "start": float(channel_minmax[i][0]),
+                },
+            }
+        )
+
+    omero = {
+        "id": 1,  # ID in OMERO
+        "name": image_name,  # Name as shown in the UI
+        "version": "0.4",  # Current version
+        "channels": ch,
+        "rdefs": {
+            "defaultT": 0,  # First timepoint to show the user
+            "defaultZ": data_shape[2] // 2,  # First Z section to show the user
+            "model": "color",  # "color" or "greyscale"
+        }
+    }
+    return omero
+
+
+def _compute_scales(
+    scale_num_levels: int,
+    scale_factor: Tuple[float, float, float],
+    pixelsizes: Tuple[float, float, float],
+    chunks: Tuple[int, int, int, int, int],
+    data_shape: Tuple[int, int, int, int, int],
+    translation: Optional[List[float]] = None,
+) -> Tuple[List, List]:
+    """Generate the list of coordinate transformations and associated chunk options.
+
+    Parameters
+    ----------
+    scale_num_levels: the number of downsampling levels
+    scale_factor: a tuple of scale factors in each spatial dimension (Z, Y, X)
+    pixelsizes: a list of pixel sizes in each spatial dimension (Z, Y, X)
+    chunks: a 5D tuple of integers with size of each chunk dimension (T, C, Z, Y, X)
+    data_shape: a 5D tuple of the full resolution image's shape
+    translation: a 5 element list specifying the offset in physical units in each dimension
+
+    Returns
+    -------
+    A tuple of the coordinate transforms and chunk options
+    """
+    transforms = [
+        [
+            # the voxel size for the first scale level
+            {
+                "type": "scale",
+                "scale": [
+                    1.0,
+                    1.0,
+                    pixelsizes[0],
+                    pixelsizes[1],
+                    pixelsizes[2],
+                ],
+            }
+        ]
+    ]
+    if translation is not None:
+        transforms[0].append({
+            "type": "translation",
+            "translation": translation
+        })
+    chunk_sizes = []
+    lastz = data_shape[2]
+    lasty = data_shape[3]
+    lastx = data_shape[4]
+    opts = dict(
+        chunks=(
+            1,
+            1,
+            min(lastz, chunks[2]),
+            min(lasty, chunks[3]),
+            min(lastx, chunks[4]),
+        )
+    )
+    chunk_sizes.append(opts)
+    if scale_num_levels > 1:
+        for i in range(scale_num_levels - 1):
+            last_transform = transforms[-1][0]
+            last_scale = cast(List, last_transform["scale"])
+            transforms.append(
+                [
+                    {
+                        "type": "scale",
+                        "scale": [
+                            1.0,
+                            1.0,
+                            last_scale[2] * scale_factor[0],
+                            last_scale[3] * scale_factor[1],
+                            last_scale[4] * scale_factor[2],
+                        ],
+                    }
+                ]
+            )
+            if translation is not None:
+                transforms[-1].append({
+                    "type": "translation",
+                    "translation": translation
+                })
+            lastz = int(math.ceil(lastz / scale_factor[0]))
+            lasty = int(math.ceil(lasty / scale_factor[1]))
+            lastx = int(math.ceil(lastx / scale_factor[2]))
+            opts = dict(chunks=(
+                1,
+                1,
+                min(lastz, chunks[2]),
+                min(lasty, chunks[3]),
+                min(lastx, chunks[4])))
+            chunk_sizes.append(opts)
+
+    return transforms, chunk_sizes
+
+
+def _get_axes_5d(time_unit: str = "millisecond", space_unit: str = "micrometer") -> List[Dict]:
+    """Generate the list of axes.
+
+    Parameters
+    ----------
+    time_unit: the time unit string, e.g., "millisecond"
+    space_unit: the space unit string, e.g., "micrometer"
+
+    Returns
+    -------
+    A list of dictionaries for each axis
+    """
+    axes_5d = [
+        {"name": "t", "type": "time", "unit": f"{time_unit}"},
+        {"name": "c", "type": "channel"},
+        {"name": "z", "type": "space", "unit": f"{space_unit}"},
+        {"name": "y", "type": "space", "unit": f"{space_unit}"},
+        {"name": "x", "type": "space", "unit": f"{space_unit}"},
+    ]
+    return axes_5d
