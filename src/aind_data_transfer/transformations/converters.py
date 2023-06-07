@@ -2,7 +2,7 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 import pandas as pd
 
-import file_io
+# import aind_data_transfer.transformations.file_io as file_io
 
 from aind_data_schema.imaging.acquisition import AxisName, Direction, Axis, Immersion, Acquisition, AcquisitionTile
 from aind_data_schema.imaging.tile import Channel, Scale3dTransform, Translation3dTransform
