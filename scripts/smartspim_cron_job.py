@@ -292,101 +292,6 @@ def organize_datasets(
     return new_dataset_paths, ready_datasets
 
 
-def get_smartspim_default_config() -> dict:
-    """
-    Returns the default config
-    for the smartspim pipeline
-    """
-    return {
-        "stitching": {
-            "co_folder": "scratch",
-            "channel": "Ex_488_Em_525",
-            "resolution": {"x": "1.8", "y": "1.8", "z": "2.0"},
-        },
-        "registration": {"channels": ["Ex_488_Em_525"], "input_scale": "3"},
-        # 'segmentation': {
-        #     'channels': ['Ex_488_Em_525'],
-        #     'input_scale': '0',
-        #     'chunksize': '500',
-        # },
-    }
-
-
-def build_pipeline_config(provided_config: dict, default_config: dict) -> dict:
-    """
-    Converts user input to pipeline input
-
-    Parameters
-    ----------
-    provided_config: dict
-        Dictionary provided from the processing_manifest.json
-
-    default_config: dict
-        Default configuration for each of the steps
-
-    Returns
-    ----------
-    dict
-        Pipeline configuration
-    """
-
-    new_config = default_config.copy()
-
-    stitching_config = file_utils.helper_validate_key_dict(
-        provided_config, "stitching"
-    )
-
-    cell_segmentation_channels = file_utils.helper_validate_key_dict(
-        provided_config, "cell_segmentation_channels"
-    )
-
-    ccf_registration_channels = file_utils.helper_validate_key_dict(
-        provided_config, "ccf_registration_channels"
-    )
-
-    # Setting stitching channel
-    if stitching_config is not None:
-        new_config["stitching"]["channel"] = stitching_config["channel"]
-        new_config["stitching"]["resolution"]["x"] = str(
-            stitching_config["resolution"]["x"]
-        )
-        new_config["stitching"]["resolution"]["y"] = str(
-            stitching_config["resolution"]["y"]
-        )
-        new_config["stitching"]["resolution"]["z"] = str(
-            stitching_config["resolution"]["z"]
-        )
-
-    else:
-        default_ch = new_config["stitching"]["channel"]
-        x_res = new_config["stitching"]["resolution"]["x"]
-        y_res = new_config["stitching"]["resolution"]["y"]
-        z_res = new_config["stitching"]["resolution"]["z"]
-
-        res = f"x={x_res} um, y={y_res} um and z={z_res} um"
-        logger.info(
-            f"Using default stitching channel {default_ch} and resolution {res}"
-        )
-
-    # Setting CCF registration
-    if ccf_registration_channels is not None:
-        new_config["registration"]["channels"] = ccf_registration_channels
-
-    else:
-        default_ch = new_config["registration"]["channels"]
-        logger.info(f"Using default registration channel {default_ch}")
-
-    # Setting cell segmentation channels
-    if cell_segmentation_channels is not None:
-        new_config["segmentation"] = {"input_scale": "0", "chunksize": "500"}
-        new_config["segmentation"]["channels"] = cell_segmentation_channels
-
-    else:
-        logger.info(f"No segmentation!")
-
-    return new_config
-
-
 def get_upload_datasets(
     dataset_folder: PathLike,
     config_path: PathLike,
@@ -430,7 +335,6 @@ def get_upload_datasets(
     # List of pending datasets with pipeline configuration
     # built just like code ocean accepts it
     pending_datasets_config = []
-    default_pipeline_config = get_smartspim_default_config()
 
     # Get smartspim datasets that match data conventions
     dataset_folder = Path(dataset_folder)
@@ -450,6 +354,9 @@ def get_upload_datasets(
             dataset_config, "dataset_status"
         )
 
+        if isinstance(dataset_status, dict):
+            dataset_status = dataset_status["status"]
+
         if dataset_status is None:
             warning_datasets.append(dataset_path)
             continue
@@ -462,16 +369,18 @@ def get_upload_datasets(
             dataset_config, "pipeline_processing"
         )
 
+        if pipeline_processing is None:
+            pipeline_processing = file_utils.helper_validate_key_dict(
+                dataset_config, "processing_pipeline"
+            )
+
         if dataset_status == "pending" and pipeline_processing is not None:
             # Datasets to upload
             pending_datasets.append(dataset_path)
+
+            # Adding pipeline parameters to the pending datasets
             pending_datasets_config.append(
-                {
-                    "path": dataset_path,
-                    "pipeline_processing": build_pipeline_config(
-                        pipeline_processing, default_pipeline_config
-                    ),
-                }
+                {"path": dataset_path, **pipeline_processing}
             )
 
         elif dataset_status == "uploading":
