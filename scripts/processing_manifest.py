@@ -45,8 +45,15 @@ class DatasetStatus(AindModel):
 class DataDescription(AindModel):
     """Processing manifest data description"""
 
-    project: str = Field(..., description="Project name")
-    project_id: str = Field(..., description="Project id")
+    # Need to add funding source and group
+    project: Optional[str] = Field(None, description="Project name")
+    project_id: Optional[str] = Field(None, description="Project id")
+    institution: Institution = Field(
+        ...,
+        description="An established society, corporation, foundation or other organization that collected this data",
+        title="Institution",
+        enumNames=[i.value.name for i in Institution],
+    )
 
 
 class Acquisition(AindModel):
@@ -153,12 +160,13 @@ class ProcessingManifest(AindModel):
     dataset_status: DatasetStatus = Field(
         ..., title="Dataset status", description="Dataset status"
     )
-    institution: Institution = Field(
+
+    data_description: DataDescription = Field(
         ...,
-        description="An established society, corporation, foundation or other organization that collected this data",
-        title="Institution",
-        enumNames=[i.value.name for i in Institution],
+        title="Data description",
+        description="Data description necessary to create metadata",
     )
+
     acquisition: Acquisition = Field(
         ...,
         title="Acquisition data",
@@ -191,7 +199,11 @@ def generate_processing_manifest(output_path: str):
     processing_manifest_example = ProcessingManifest(
         specimen_id="000000",
         dataset_status=DatasetStatus(status="pending"),
-        institution=Institution.AIND,
+        data_description=DataDescription(
+            # project="asd", # Uncomment if you want this info
+            # project_id="asd",
+            institution=Institution.AIND
+        ),
         acquisition=Acquisition(
             experimenter_full_name="John Rohde",
             instrument_id="SmartSPIM-id-1",
@@ -203,7 +215,7 @@ def generate_processing_manifest(output_path: str):
             ),  # Optional parameter
             local_storage_directory="D:/SmartSPIM_Data",
         ),
-        processing_pipeline=ProcessingPipeline(
+        pipeline_processing=ProcessingPipeline(
             stitching=StitchingParameters(
                 channel="Ex_488_Em_561",
                 resolution=[

@@ -177,7 +177,7 @@ def get_session_config(lines: List[str]) -> dict:
     data["obj_name"] = obj
     data["obj_magnification"] = re.findall(objective_regex, obj)[0]
     data["v_res"] = v_res
-    data["um/pix"] = um_per_pix
+    data["µm/pix"] = um_per_pix
     data["z_step_um"] = z_step
     data["scanning"] = scanning
     data["sampling"] = sampling
@@ -324,8 +324,8 @@ def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
     # Scale metadata
     scale = tile.Scale3dTransform(
         scale=[
-            metadata_dict["session_config"]["um/pix"],  # X res
-            metadata_dict["session_config"]["um/pix"],  # Y res
+            metadata_dict["session_config"]["µm/pix"],  # X res
+            metadata_dict["session_config"]["µm/pix"],  # Y res
             metadata_dict["session_config"]["z_step_um"],  # Z res
         ]
     )
@@ -783,7 +783,7 @@ class SmartSPIMWriter:
             )
         else:
             logger.error(
-                f"data_description.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
+                f"data_description.json was not created for {parsed_data['mouse_id']}."
             )
 
         # Creates the subject metadata json
@@ -798,11 +798,11 @@ class SmartSPIMWriter:
                     original_dataset_path,
                     output_path,
                 )
-            except ValueError:
-                logger.error("Error creating acquisition schema")
+            except ValueError as e:
+                logger.error(f"Error creating acquisition schema {e}")
         else:
             logger.error(
-                f"acquisition.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
+                f"acquisition.json was not created for {parsed_data['mouse_id']}. Acquisition was not found in processing manifest."
             )
 
     def prepare_datasets(
