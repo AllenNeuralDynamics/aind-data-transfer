@@ -36,6 +36,7 @@ file_path = Path(
 
 LOGS_FOLDER = f"{file_path}/.cronjob/logs_{CURR_DATE}"
 CURR_DATE_TIME = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+LOGS_FILE = f"{LOGS_FOLDER}/smartspim_logs_{CURR_DATE_TIME}.log"
 
 # Creates logs folder, if it does not exist
 file_utils.create_folder(LOGS_FOLDER)
@@ -46,9 +47,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(
-            f"{LOGS_FOLDER}/smartspim_logs_{CURR_DATE_TIME}.log", "a"
-        ),
+        logging.FileHandler(LOGS_FILE, "a"),
     ],
     force=True,
 )
@@ -163,6 +162,88 @@ def get_default_config(filename: str) -> dict:
         raise error
 
     return config
+
+
+def update_logs_folder_permissions(
+    logs_folder: PathLike, permissions: Optional[str] = "755"
+):
+    """
+    Updates logs folder permissions
+
+    Parameters
+    -----------
+    logs_folder: PathLike
+        Path of the current logs folder
+
+    permissions: Optional[str]
+        Permission that will be given via chmod
+    """
+    oct_permissions = int(permissions, 8)
+    curr_permissions = oct(os.stat(logs_folder).st_mode)[-3:]
+
+    if curr_permissions != permissions:
+        logger.info(
+            f"Updating permissions for {logs_folder} from {curr_permissions} to {permissions}"
+        )
+        os.chmod(logs_folder, oct_permissions)
+
+
+def provide_folder_permissions(
+    root_folder: PathLike, paths: list, permissions: Optional[str] = "755"
+):
+    """
+    Provides 755 permission in the folder.
+    This fixes a known bug in the VAST system
+    where folder are created with 000 permissions.
+
+    Parameters
+    -----------
+    root_folder: PathLike
+        Root folder where the datasets are located
+
+    paths: List[PathLike]
+        List with the paths to the folder that
+        the permissions will be updated
+
+    permissions: Optional[str]
+        Permission that will be given via chmod
+
+    """
+
+    def helper_update_permissions(list_folders: list):
+        """
+        Helper function to update permissions
+        of a list of folders
+
+        Parameters
+        -----------
+        list_folders: list
+            List of strings with the paths to
+            the folders to update
+        """
+        for list_folder in list_folders:
+            os.chmod(list_folder, oct_permissions)
+
+    oct_permissions = int(permissions, 8)
+
+    for path in paths:
+        dataset_path = f"{root_folder}/{path}"
+        curr_permissions = oct(os.stat(dataset_path).st_mode)[-3:]
+
+        if curr_permissions != permissions:
+            logger.info(
+                f"Updating permissions for {dataset_path} from {curr_permissions} to {permissions}"
+            )
+            os.chmod(dataset_path, oct_permissions)
+
+            # Updating first level
+            first_level_folders = glob.glob(f"{dataset_path}/*/")
+            second_level_folders = glob.glob(f"{dataset_path}/*/*/")
+            third_level_folders = glob.glob(f"{dataset_path}/*/*/*/")
+
+            helper_update_permissions(first_level_folders)
+            helper_update_permissions(second_level_folders)
+            helper_update_permissions(third_level_folders)
 
 
 def get_smartspim_folders_with_file(
@@ -369,11 +450,6 @@ def get_upload_datasets(
             dataset_config, "pipeline_processing"
         )
 
-        if pipeline_processing is None:
-            pipeline_processing = file_utils.helper_validate_key_dict(
-                dataset_config, "processing_pipeline"
-            )
-
         if dataset_status == "pending" and pipeline_processing is not None:
             # Datasets to upload
             pending_datasets.append(dataset_path)
@@ -440,64 +516,6 @@ def pre_upload_smartspim(
     logger.info(f"Updating state to 'uploading'")
 
 
-def provide_folder_permissions(
-    root_folder: PathLike, paths: list, permissions: Optional[str] = "755"
-):
-    """
-    Provides 755 permission in the folder.
-    This fixes a known bug in the VAST system
-    where folder are created with 000 permissions.
-
-    Parameters
-    -----------
-    root_folder: PathLike
-        Root folder where the datasets are located
-
-    paths: List[PathLike]
-        List with the paths to the folder that
-        the permissions will be updated
-
-    permissions: Optional[str]
-        Permission that will be given via chmod
-
-    """
-
-    oct_permissions = int(permissions, 8)
-
-    def helper_update_permissions(list_folders: list):
-        """
-        Helper function to update permissions
-        of a list of folders
-
-        Parameters
-        -----------
-        list_folders: list
-            List of strings with the paths to
-            the folders to update
-        """
-        for list_folder in list_folders:
-            os.chmod(list_folder, oct_permissions)
-
-    for path in paths:
-        dataset_path = f"{root_folder}/{path}"
-        curr_permissions = oct(os.stat(dataset_path).st_mode)[-3:]
-
-        if curr_permissions != permissions:
-            logger.info(
-                f"Updating permissions for {dataset_path} from {curr_permissions} to {permissions}"
-            )
-            os.chmod(dataset_path, oct_permissions)
-
-            # Updating first level
-            first_level_folders = glob.glob(f"{dataset_path}/*/")
-            second_level_folders = glob.glob(f"{dataset_path}/*/*/")
-            third_level_folders = glob.glob(f"{dataset_path}/*/*/*/")
-
-            helper_update_permissions(first_level_folders)
-            helper_update_permissions(second_level_folders)
-            helper_update_permissions(third_level_folders)
-
-
 def main():
     """
     Main to execute the smartspim job
@@ -533,9 +551,13 @@ def main():
         root_folder=root_folder, search_file="processing_manifest.json"
     )
 
+    # Providing folder permissions to dataset to upload
     provide_folder_permissions(
         root_folder=root_folder, paths=raw_datasets_ready, permissions="755"
     )
+
+    # Updating logs permissions
+    update_logs_folder_permissions(logs_folder=LOGS_FOLDER)
 
     logger.warning(f"Raw datasets rejected: {raw_datasets_rejected}")
 

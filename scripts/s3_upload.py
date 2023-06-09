@@ -157,6 +157,79 @@ def get_smartspim_config(job_config: dict, pipeline_config: dict) -> dict:
     return job_config
 
 
+def wait_for_data_availability(
+    co_client,
+    data_asset_id: str,
+    timeout_seconds: int = 300,
+    pause_interval=10,
+):
+    """
+    There is a lag between when a register data request is made and when the
+    data is available to be used in a capsule.
+    Parameters
+    ----------
+    data_asset_id : str
+    timeout_seconds : int
+        Roughly how long the method should check if the data is available.
+    pause_interval : int
+        How many seconds between when the backend is queried.
+
+    Returns
+    -------
+    requests.Response
+
+    """
+    num_of_checks = 0
+    break_flag = False
+    time.sleep(pause_interval)
+    response = co_client.get_data_asset(data_asset_id)
+
+    if ((pause_interval * num_of_checks) > timeout_seconds) or (
+        response.status_code == 200
+    ):
+        break_flag = True
+    while not break_flag:
+        time.sleep(pause_interval)
+        response = co_client.get_data_asset(data_asset_id)
+        num_of_checks += 1
+        if ((pause_interval * num_of_checks) > timeout_seconds) or (
+            response.status_code == 200
+        ):
+            break_flag = True
+    return response
+
+
+def make_data_viewable(co_client: CodeOceanClient, response_contents: dict):
+    """
+    Makes a registered dataset viewable
+
+    Parameters
+    ----------
+    co_client: CodeOceanClient
+        Code ocean client
+
+    response_contents: dict
+        Dictionary with the response
+        of the created data asset
+
+    """
+    data_asset_id = response_contents["id"]
+    response_data_available = wait_for_data_availability(
+        co_client, data_asset_id
+    )
+
+    if response_data_available.status_code != 200:
+        raise FileNotFoundError(f"Unable to find: {data_asset_id}")
+
+    # Make data asset viewable to everyone
+    update_data_perm_response = co_client.update_permissions(
+        data_asset_id=data_asset_id, everyone="viewer"
+    )
+    logger.info(
+        f"Data asset viewable to everyone: {update_data_perm_response}"
+    )
+
+
 def post_upload_smartspim(args: dict, s3_path: str, n_failed_uploads: int):
     """
     Post upload function for the smartspim
@@ -213,15 +286,9 @@ def post_upload_smartspim(args: dict, s3_path: str, n_failed_uploads: int):
                 }
             }
 
-            pipeline_processing = pipeline_config.get("pipeline_processing")
-
-            # To map new version
-            if pipeline_processing is None:
-                pipeline_processing = pipeline_config.get("processing_pipeline")
-
             job_configs["trigger_codeocean_job"] = get_smartspim_config(
                 job_configs["trigger_codeocean_job"],
-                pipeline_processing,
+                pipeline_config,
             )
 
             capsule_id = pipeline_config["co_capsule_id"]
@@ -233,12 +300,31 @@ def post_upload_smartspim(args: dict, s3_path: str, n_failed_uploads: int):
                     domain=co_cred["domain"], token=co_cred["token"]
                 )
 
+                # Registering data asset
+                data_asset_reg_response = co_api.register_data_asset(
+                    asset_name=asset_name,
+                    mount=asset_name,
+                    bucket=bucket,
+                    prefix=asset_name,
+                    tags=["smartspim", "raw"],
+                )
+                response_contents = data_asset_reg_response.json()
+                logger.info(
+                    f"Created data asset in Code Ocean: {response_contents}"
+                )
+
+                # Making the created data asset available for everyone
+                make_data_viewable(co_api, response_contents)
+
+                # Avoiding triggering pipeline until okta auth is fixed
+                """
                 run_response = co_api.run_capsule(
                     capsule_id=capsule_id,
                     data_assets=[],
                     parameters=[json.dumps(job_configs)],
                 )
                 logger.info(f"Run response: {run_response.json()}")
+                """
 
             except ValueError as err:
                 logger.error(f"Error communicating with Code Ocean API {err}")

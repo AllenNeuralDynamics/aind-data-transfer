@@ -165,7 +165,7 @@ class ProcessingManifest(AindModel):
         description="Acquition data coming from the rig which is necessary to create matadata files",
     )
 
-    processing_pipeline: ProcessingPipeline = Field(
+    pipeline_processing: ProcessingPipeline = Field(
         ...,
         title="SmartSPIM pipeline parameters",
         description="Parameters necessary for the smartspim pipeline parameters",
