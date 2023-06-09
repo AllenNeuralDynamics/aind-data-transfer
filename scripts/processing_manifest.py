@@ -206,7 +206,7 @@ def generate_processing_manifest(output_path: str):
         ),
         acquisition=Acquisition(
             experimenter_full_name="John Rohde",
-            instrument_id="SmartSPIM-id-1",
+            instrument_id="SmartSPIM-2-1",
             chamber_immersion=Immersion(
                 medium="Cargille oil 1.5200", refractive_index=1.5208
             ),

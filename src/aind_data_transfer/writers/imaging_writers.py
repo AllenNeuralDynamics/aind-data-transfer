@@ -483,7 +483,7 @@ class SmartSPIMWriter:
         if "institution" not in dataset_info:
             raise ValueError("Please, provide the institution in the manifest")
         else:
-            institution = dataset_info["institution"]
+            institution = dataset_info["institution"]["abbreviation"]
 
         funding_source = file_utils.helper_validate_key_dict(
             dictionary=dataset_info,
@@ -516,6 +516,7 @@ class SmartSPIMWriter:
             project_id=project_id,
             funding_source=[Funding(funder=funding_source)],
             experiment_type=ExperimentType.SMARTSPIM,
+            investigators=[],
         )
 
         data_description_path = str(
@@ -677,10 +678,10 @@ class SmartSPIMWriter:
             dictionary=dataset_info, key="instrument_id"
         )
         experimenter_full_name = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info, key="experimenter"
+            dictionary=dataset_info, key="experimenter_full_name"
         )
         local_storage_directory = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info, key="local_storage"
+            dictionary=dataset_info, key="local_storage_directory"
         )
         chamber_immersion_medium = file_utils.helper_validate_key_dict(
             dictionary=dataset_info["chamber_immersion"], key="medium"
@@ -730,9 +731,7 @@ class SmartSPIMWriter:
             ),
             axes=[
                 acquisition.Axis(
-                    name="X",
-                    dimension=2,
-                    direction="Left_to_right",
+                    name="X", dimension=2, direction="Left_to_right",
                 ),
                 acquisition.Axis(
                     name="Y", dimension=1, direction="Posterior_to_anterior"
