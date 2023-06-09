@@ -213,9 +213,15 @@ def post_upload_smartspim(args: dict, s3_path: str, n_failed_uploads: int):
                 }
             }
 
+            pipeline_processing = pipeline_config.get("pipeline_processing")
+
+            # To map new version
+            if pipeline_processing is None:
+                pipeline_processing = pipeline_config.get("processing_pipeline")
+
             job_configs["trigger_codeocean_job"] = get_smartspim_config(
                 job_configs["trigger_codeocean_job"],
-                pipeline_config["pipeline_processing"],
+                pipeline_processing,
             )
 
             capsule_id = pipeline_config["co_capsule_id"]

@@ -1,20 +1,17 @@
-import re
+"""
+Script that defines the pydantic schema
+for the processing manifest
+"""
+
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
 from aind_data_schema.base import AindModel
-from aind_data_schema.data_description import (
-    Funding,
-    Institution,
-    Modality,
-    datetime_from_name_string,
-)
+from aind_data_schema.data_description import Institution
 from aind_data_schema.device import SizeUnit
 from aind_data_schema.imaging.acquisition import AxisName, Immersion
 from pydantic import Field
-
-from aind_data_transfer.util import file_utils
 
 
 class Status(Enum):
@@ -46,11 +43,15 @@ class DatasetStatus(AindModel):
 
 
 class DataDescription(AindModel):
+    """Processing manifest data description"""
+
     project: str = Field(..., description="Project name")
     project_id: str = Field(..., description="Project id")
 
 
 class Acquisition(AindModel):
+    """Processing manifest acquisition"""
+
     experimenter_full_name: str = Field(
         ...,
         description="First and last name of the experimenter.",
@@ -69,51 +70,75 @@ class Acquisition(AindModel):
 
 
 class ChannelRegex(Enum):
+    """Regular expression for the channel imaging data"""
+
     CHANNEL_NAME = r"Ex_\d{3}_Em_\d{3}"
 
 
 class AxisResolution(AindModel):
+    """Axial resolution for the channel imaging data"""
+
     axis_name: AxisName = Field(..., title="Axis name")
     unit: SizeUnit = Field(SizeUnit.UM, title="Axis physical units")
     resolution: float = Field(..., title="Axis resolution")
 
 
 class StitchingParameters(AindModel):
+    """Stitching parameters for the SmartSPIM pipeline"""
+
     channel: str = Field(
         ...,
         title="Stitching channel",
         regex=ChannelRegex.CHANNEL_NAME.value,
         description="Channel we want the dataset to be stitched on",
     )
-    dataset_resolution: List[AxisResolution] = Field(
+    resolution: List[AxisResolution] = Field(
         ..., title="Dataset resolution in each axis"
     )
+    cpus: Optional[int] = Field(32, title="cpus for stitching and fusion")
 
 
-class CCFParameters(AindModel):
-    ccf_channels: List[str] = Field(
+class CCFRegistrationParameters(AindModel):
+    """Registration parameters for the SmartSPIM pipeline"""
+
+    channels: List[str] = Field(
         ...,
         title="Channels we want to register the dataset on",
         regex=ChannelRegex.CHANNEL_NAME.value,
     )
+    input_scale: Optional[int] = Field(3, title="Input scale")
 
 
 class CellSegParameters(AindModel):
-    cell_seg_channels: List[str] = Field(
+    """Segmentation parameters for the SmartSPIM pipeline"""
+
+    channels: List[str] = Field(
         ...,
         title="Channels we want to segment the dataset on",
         regex=ChannelRegex.CHANNEL_NAME.value,
     )
+    input_scale: Optional[str] = Field(
+        "0", title="Input scale to use in the segmentation"
+    )
+    chunksize: Optional[str] = Field(
+        "128", title="Chunksize in the segmentation"
+    )
+    signal_start: Optional[str] = Field(
+        "0", title="Slide in Z where the segmentaiton starts"
+    )
+    signal_end: Optional[str] = Field(
+        "-1", title="Slide in Z where the segmentaiton ends"
+    )
 
 
 class ProcessingPipeline(AindModel):
-    stitching_parameters: StitchingParameters = Field(
-        ..., title="Stitching parameters"
-    )
-    ccf_parameters: Optional[CCFParameters] = Field(
+    """Pipeline parameters for the SmartSPIM pipeline"""
+
+    stitching: StitchingParameters = Field(..., title="Stitching parameters")
+    registration: Optional[CCFRegistrationParameters] = Field(
         None, title="Parameters for the CCF registration"
     )
-    cell_segmentation_parameters: Optional[CellSegParameters] = Field(
+    segmentation: Optional[CellSegParameters] = Field(
         None, title="Cell segmentation parameters"
     )
 
@@ -147,10 +172,20 @@ class ProcessingManifest(AindModel):
     )
 
 
-if __name__ == "__main__":
-    # print(ProcessingManifest.schema_json(indent=2))
-    # print(ProcessingManifest.schema())
+def generate_processing_manifest(output_path: str):
+    """
+    Function that generates a processing manifest
+    json based on the schema.
 
+    Parameters
+    ----------
+    output_path: str
+        Path where we want to output the
+        processing manifest. It includes the name.
+        e.g., processing_manifest.json,
+        PATH/TO/FOLDER/processing_manifest.json
+        PATH/TO/FOLDER/processing_manifest_specimen_id.json
+    """
     output_path = "processing_manifest.json"
 
     processing_manifest_example = ProcessingManifest(
@@ -169,19 +204,19 @@ if __name__ == "__main__":
             local_storage_directory="D:/SmartSPIM_Data",
         ),
         processing_pipeline=ProcessingPipeline(
-            stitching_parameters=StitchingParameters(
+            stitching=StitchingParameters(
                 channel="Ex_488_Em_561",
-                dataset_resolution=[
+                resolution=[
                     AxisResolution(axis_name="X", resolution=1.8),
                     AxisResolution(axis_name="Y", resolution=1.8),
                     AxisResolution(axis_name="Z", resolution=2.0),
                 ],
             ),
-            ccf_parameters=CCFParameters(
-                ccf_channels=["Ex_488_Em_561", "Ex_561_Em_600"]
+            registration=CCFRegistrationParameters(
+                channels=["Ex_488_Em_561", "Ex_561_Em_600"]
             ),  # Optional parameter
-            cell_segmentation_parameters=CellSegParameters(
-                cell_seg_channels=["Ex_488_Em_561", "Ex_561_Em_600"]
+            segmentation=CellSegParameters(
+                channels=["Ex_488_Em_561", "Ex_561_Em_600"]
             ),  # Optional parameter
         ),
     )
@@ -189,7 +224,12 @@ if __name__ == "__main__":
     with open(output_path, "w") as f:
         f.write(processing_manifest_example.json(indent=3))
 
-    # reading back the json
-    json_data = file_utils.read_json_as_dict(output_path)
-    model = ProcessingManifest(**json_data)
-    print(model.json())
+
+def main():
+    """Main function"""
+    output_path = "processing_manifest.json"
+    generate_processing_manifest(output_path)
+
+
+if __name__ == "__main__":
+    main()
