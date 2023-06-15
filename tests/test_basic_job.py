@@ -95,7 +95,8 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
-        mock_make_dir.assert_called_once_with(Path("some_path") / "mri")
+        # The shutil copy takes care of creating the directory
+        mock_make_dir.assert_not_called()
         # With a Behavior directory defined
         basic_job.job_configs.behavior_dir = BEHAVIOR_DIR
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
