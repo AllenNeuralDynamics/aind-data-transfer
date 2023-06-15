@@ -97,9 +97,9 @@ class BasicJob:
             behavior_dir_excluded = None
 
         for modality_config in self.job_configs.modalities:
+            print(f"Starting to process {modality_config.source}")
             if not modality_config.compress_raw_data:
                 dst_dir = temp_dir / modality_config.default_output_folder_name
-                os.mkdir(dst_dir)
                 shutil.copytree(
                     modality_config.source,
                     dst_dir,
@@ -294,13 +294,19 @@ class BasicJob:
         with tempfile.TemporaryDirectory(
             dir=self.job_configs.temp_directory
         ) as td:
+            self._instance_logger.info("Checking write credentials...")
             self._test_upload(temp_dir=Path(td))
+            self._instance_logger.info("Processing raw data...")
             self._compress_raw_data(temp_dir=Path(td))
+            self._instance_logger.info("Checking for behavior directory...")
             self._encrypt_behavior_dir(temp_dir=Path(td))
+            self._instance_logger.info("Compiling metadata...")
             self._compile_metadata(
                 temp_dir=Path(td), process_start_time=process_start_time
             )
+            self._instance_logger.info("Starting s3 upload...")
             self._upload_to_s3(temp_dir=Path(td))
+            self._instance_logger.info("Initiating code ocean pipeline...")
             self._trigger_codeocean_pipeline()
 
 
