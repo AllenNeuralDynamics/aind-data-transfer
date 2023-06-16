@@ -103,7 +103,7 @@ def read_imaging_log(log_path: str) -> dict:
                     x = match.group(1)
                     y = match.group(2)
                     channel = match.group(3)
-                    file_name = match.group(4)
+                    file_name = Path(match.group(4)).name
 
                     #move to next next line in log_list without using next
                     line = log_list[log_list.index(line) + 2]

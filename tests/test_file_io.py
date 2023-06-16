@@ -7,10 +7,10 @@ import datetime
 
 
 def main():
-    test_dir = pathlib.Path('/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM_624852_2023-06-03_10-11-33')
+    test_dir = pathlib.Path.cwd().joinpath('tests/resources/imaging/iSPIM_test')
     log_path = test_dir.joinpath('imaging_log.log')
-    data_src_dir = test_dir
-    dest_data_dir = "s3://aind-scratch-data/diSPIM_624852_2023-06-03_10-11-33"
+    data_src_dir = pathlib.Path('/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM_624852_2023-06-03_10-11-33')
+    dest_data_dir = "s3://aind-scratch-data/diSPIM_624852_2023-06-03_10-11-33" #needs to be s3 path
 
     #read log file into dict
     log_dict = file_io.read_imaging_log(log_path)
