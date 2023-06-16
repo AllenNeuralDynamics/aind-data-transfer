@@ -1,42 +1,42 @@
 # Leave values blank to use defaults
 endpoints:
-  raw_data_dir:
-  dest_data_dir:
-  metadata_schemas:
-  metadata_service_url:
-  code_repo_location:
+  raw_data_dir: "//allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM_624852_2023-06-03_10-11-33"
+  dest_data_dir: "s3://aind-scratch-data/diSPIM_624852_2023-06-03_10-11-33"
+  metadata_schemas: "https://github.com/AllenNeuralDynamics/aind-data-schema"
+  metadata_service_url: "http://aind-metadata-service"
+  code_repo_location: "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 jobs: # Select which jobs to run
-  upload_aux_files: true
+  upload_aux_files: true #should upload metadata files in raw_data_dir, however does not appear to work
   transcode: true
-  create_ng_link: true
+  create_ng_link: false #only works for smartspim currently
   create_metadata: true
   background_subtraction: false  # requires a background Tiff in the derivatives folder for each raw image
 data:
-  name: exaspim
-  subject_id:  # required
+  name: diSPIM #does nothing
+  subject_id: "624852"  # required
 transcode_job:
   compressor:
     compressor_name: blosc
     kwargs: {cname: "zstd", clevel: 1, shuffle: "SHUFFLE"}
-  chunk_size: 64  # MB
-#  chunk_shape: [1, 1, 512, 256, 256]  # remove this field if you want automatic chunking
-  resume: false  # resume processing if previous job failed
-  n_levels: 8
-  voxsize:
+  chunk_size: 4  # MB
+  chunk_shape: [1, 1, 128, 256, 256] #remove this field if you want automatic chunking
+  resume: false # resume processing if previous job failed
+  n_levels: 4
+  voxsize: "0.298,0.298,0.8"
   exclude: []
   submit_args: {
     nodes: 1,
     ntasks_per_node: 32,
     cpus_per_task: 1,
-    mem_per_cpu: 3000,  # MB
-    conda_activate: ~,
-    conda_env: ~,
-    run_parent_dir: ~,
-    walltime: "1-00:00:00",
-    tmp_space: "8GB",  # this is per node
-    mail_user: ~,
-    queue: ~
+    mem_per_cpu: 8000,  # MB
+    conda_activate: "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate",
+    conda_env: "adt-upload-clone",
+    run_parent_dir: "//allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM_624852_2023-06-03_10-11-33",
+    walltime: "0-10:00:00",
+    tmp_space: "128MB",  # this is per node
+    mail_user: "carson.berry@alleninstitute.org",
+    queue: "aind"
   }
 create_ng_link_job:
-  vmin: 0
+  vmin: 30
   vmax: 1000

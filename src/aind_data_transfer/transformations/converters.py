@@ -6,6 +6,7 @@ import pandas as pd
 
 from aind_data_schema.imaging.acquisition import AxisName, Direction, Axis, Immersion, Acquisition, AcquisitionTile
 from aind_data_schema.imaging.tile import Channel, Scale3dTransform, Translation3dTransform
+from datetime import datetime
 
 def log_to_acq_json(log_dict: dict) -> Acquisition:
     """
@@ -27,22 +28,30 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
     session_start_time: datetime = log_dict['session_start_time']
     session_end_time: datetime = log_dict['session_end_time']
 
+    #convert session start and end times to datetime objects
+    session_start_time = datetime.strptime(session_start_time, '%Y-%m-%dT%H:%M:%S')
+    session_end_time = datetime.strptime(session_end_time, '%Y,%m,%d,%H,%M,%S') #the imaging_log file may change this format
+
+
+
     tiles: list[AcquisitionTile] = []
-    for tile_dict in log_dict['tiles']:
-        ch = Channel(channel_name=tile_dict['channel_name'], 
-                     laser_wavelength=int(tile_dict['laser_wavelength']), 
-                     laser_power=tile_dict['laser_power'],
-                     filter_wheel_index=tile_dict['filter_wheel_index'])
-        scale_tfm = Scale3dTransform(scale=[float(tile_dict['x_voxel_size']), 
-                                            float(tile_dict['y_voxel_size']), 
-                                            float(tile_dict['z_voxel_size'])])
+    for tile_dict in log_dict['tiles'].values():
+        scale_tfm = Scale3dTransform(scale=[float(log_dict['x_voxel_size']), 
+                                            float(log_dict['y_voxel_size']), 
+                                            float(log_dict['z_voxel_size'])])
         translation_tfm = Translation3dTransform(translation=
-                        [float(tile_dict['tile_x_position']) * 1000. / float(tile_dict['x_voxel_size']), 
-                        float(tile_dict['tile_y_position']) * 1000. / float(tile_dict['y_voxel_size']),
-                        float(tile_dict['tile_z_position']) * 1000. / float(tile_dict['z_voxel_size'])])
+                        [float(tile_dict['tile_x_position']) * 1000. / float(log_dict['x_voxel_size']), 
+                        float(tile_dict['tile_y_position']) * 1000. / float(log_dict['y_voxel_size']),
+                        float(tile_dict['tile_z_position']) * 1000. / float(log_dict['z_voxel_size'])])
+        channel_dict = log_dict['channels'][tile_dict['channel']]
+        ch = Channel(channel_name=tile_dict['channel'], 
+                    laser_wavelength=int(channel_dict['laser_wavelength']), 
+                    laser_power=channel_dict['laser_power'],
+                    filter_wheel_index=channel_dict['filter_wheel_index'])
+
         tile = AcquisitionTile(channel=ch, 
                                file_name=tile_dict['file_name'],
-                               imaging_angle=tile_dict['lightsheet_angle'], 
+                               imaging_angle=log_dict['lightsheet_angle'], 
                                coordinate_transformations=[scale_tfm, translation_tfm])
         tiles.append(tile)
 
@@ -102,9 +111,9 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
     def extract_tile_translation() -> dict[str, list[float]]:
         tile_transforms: dict[str, list[float]] = {}
 
-        for tile in acq_obj['tiles']:
-            translation: list[float] = tile['coordinate_transformations'][1]['translation']
-            filename: str = tile['file_name']
+        for tile in acq_obj.tiles:
+            translation: list[float] = tile.coordinate_transformations[1].translation
+            filename: str = tile.file_name
 
             tile_transforms[filename] = translation
 
@@ -244,7 +253,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                 x.text = "µm"
                 x = ET.SubElement(voxel_size, "size")
 
-                scale_vector = acq_obj["tiles"][0]['coordinate_transformations'][0]['scale']
+                scale_vector = acq_obj.tiles[0].coordinate_transformations[0].scale
                 x.text = f"{scale_vector[0]} {scale_vector[1]} {scale_vector[2]}"
 
                 attr = ET.SubElement(vs, "attributes")
@@ -255,7 +264,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                 x = ET.SubElement(attr, "tile")
                 x.text = f"{i}"
                 x = ET.SubElement(attr, "angle")
-                x.text = "0"
+                x.text = str(acq_obj.tiles[0].imaging_angle)
 
             add_attributes(view_setups)
 
