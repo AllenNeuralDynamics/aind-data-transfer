@@ -21,6 +21,9 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
 )
 
+from aind_data_transfer.transformations.file_io import read_log_file, write_xml, read_imaging_log
+from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
@@ -178,6 +181,10 @@ def main():
         )
 
     zarr_out = dest_data_dir + "/" + raw_image_dir_name + ".zarr"
+
+
+
+
     if job_configs["jobs"]["transcode"]:
         bkg_im_dir = None
         if job_configs["jobs"]["background_subtraction"]:
@@ -190,6 +197,55 @@ def main():
         subprocess.run(submit_cmd, shell=True)
         LOGGER.info("Submitted transcode job to cluster")
 
+    if job_configs["jobs"]["upload_aux_files"]:
+        LOGGER.info("Uploading auxiliary data")
+        t0 = time.time()
+        if is_cloud_url(dest_data_dir):
+            provider, bucket, prefix = parse_cloud_url(dest_data_dir)
+            if provider == "s3://":
+                cmd = _build_s3_cmd(
+                    data_src_dir, bucket, prefix, raw_image_dir_name
+                )
+            elif provider == "gs://":
+                cmd = _build_gcs_cmd(
+                    data_src_dir, bucket, prefix, raw_image_dir_name
+                )
+            else:
+                raise Exception(f"Unsupported cloud storage: {provider}")
+            
+            if job_configs["data"]["name"]=='diSPIM': #convert metadata log to xml 
+                LOGGER.info("Creating xml files for diSPIM data")
+                #convert imaging log to acq json
+                log_file = data_src_dir.joinpath('imaging_log.log')
+                #read log file into dict
+                log_dict = read_imaging_log(log_file)
+                #convert to acq json
+                acq_json = log_to_acq_json(log_dict)
+
+                #convert acq json to xml
+                is_zarr = True
+                condition = ""
+                acq_xml = acq_json_to_xml(acq_json, dest_data_dir, is_zarr, condition) #needs s3 path
+
+                #write xml to file
+                xml_file_path = data_src_dir.joinpath('Camera_405.xml')
+                write_xml(acq_xml, xml_file_path)
+
+
+            subprocess.run(cmd, shell=True)
+        else:
+            copytree(
+                data_src_dir,
+                dest_data_dir,
+                ignore=ignore_patterns(raw_image_dir_name),
+                dirs_exist_ok=True
+            )
+        LOGGER.info(
+            f"Finished uploading auxiliary data, took {time.time() - t0}"
+        )
+
+
+
     if job_configs["jobs"]["create_ng_link"]:
         ng_link_cmd = (
             f"python {_NG_LINK_SCRIPT} "
@@ -197,6 +253,7 @@ def main():
             f"--output={data_src_dir} "
             f"--vmin={job_configs['create_ng_link_job']['vmin']} "
             f"--vmax={job_configs['create_ng_link_job']['vmax']}"
+
         )
         subprocess.run(ng_link_cmd, shell=True)
         output_json = data_src_dir / "process_output.json"
@@ -233,33 +290,6 @@ def main():
             )
         )
 
-    if job_configs["jobs"]["upload_aux_files"]:
-        LOGGER.info("Uploading auxiliary data")
-        t0 = time.time()
-        if is_cloud_url(dest_data_dir):
-            provider, bucket, prefix = parse_cloud_url(dest_data_dir)
-            if provider == "s3://":
-                cmd = _build_s3_cmd(
-                    data_src_dir, bucket, prefix, raw_image_dir_name
-                )
-            elif provider == "gs://":
-                cmd = _build_gcs_cmd(
-                    data_src_dir, bucket, prefix, raw_image_dir_name
-                )
-            else:
-                raise Exception(f"Unsupported cloud storage: {provider}")
-            subprocess.run(cmd, shell=True)
-        else:
-            copytree(
-                data_src_dir,
-                dest_data_dir,
-                ignore=ignore_patterns(raw_image_dir_name),
-                dirs_exist_ok=True
-            )
-        LOGGER.info(
-            f"Finished uploading auxiliary data, took {time.time() - t0}"
-        )
-
-
+ 
 if __name__ == "__main__":
     main()

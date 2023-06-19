@@ -5,6 +5,11 @@ from typing import Union
 import xml.etree.ElementTree as ET
 from aind_data_transfer.util.file_utils import read_text_to_list
 import re
+import toml
+
+def read_toml(toml_path: Union[Path, str]) -> dict:
+    with open(toml_path) as f:
+        return toml.load(f)
 
 def read_json(json_path: Union[Path, str]) -> dict: 
     with open(json_path) as f:
@@ -80,7 +85,7 @@ def read_imaging_log(log_path: str) -> dict:
         log_dict['y_voxel_size'] = re.search(y_voxel_regex, log_text).group(1)
         log_dict['z_voxel_size'] = re.search(z_voxel_regex, log_text).group(1)
         log_dict['lightsheet_angle'] = str(re.search(lightsheet_angle_regex, log_text).group(1))
-        log_dict['local_storage_directory'] = re.search(local_storage_dir_regex, log_text).group(1)
+        log_dict['local_storage_directory'] = re.search(local_storage_dir_regex, log_text).group(1) #these are the directories at time of writing the log file, but are specific to aquisition computer computer, which if it is saving to a NAS, breaks the rest of the workflow
         log_dict['external_storage_directory'] = re.search(external_storage_dir_regex, log_text).group(1)
 
         return log_dict

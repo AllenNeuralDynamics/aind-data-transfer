@@ -2,11 +2,13 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 import pandas as pd
 
-# import aind_data_transfer.transformations.file_io as file_io
+import aind_data_transfer.transformations.file_io as file_io
 
 from aind_data_schema.imaging.acquisition import AxisName, Direction, Axis, Immersion, Acquisition, AcquisitionTile
 from aind_data_schema.imaging.tile import Channel, Scale3dTransform, Translation3dTransform
 from datetime import datetime
+import tifffile
+import pathlib
 
 def log_to_acq_json(log_dict: dict) -> Acquisition:
     """
@@ -70,7 +72,12 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
 
     chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion_medium'], 
                                              refractive_index=log_dict['chamber_immersion_refractive_index'])
-    local_storage_directory: str = log_dict['local_storage_directory']
+    
+    local_storage_directory: str = log_dict['local_storage_directory'] #should come from config.yml (in case of files being moved before uploading to s3)
+    #assert local_storage_directory is accessible and exists
+    if not pathlib.Path(local_storage_directory).exists():
+        local_storage_directory = log_dict['data_src_dir']
+    
     external_storage_directory: str = log_dict['external_storage_directory']
 
     return Acquisition(experimenter_full_name=experimenter_full_name, 
@@ -243,10 +250,22 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                 x = ET.SubElement(vs, "size")
                 
                 # FIXME: Test later
-                # metadata_path_res = 'home/TODO_ADD_USER/' + s3_path[s3_path.index('//') + 2:] + '0/.zarray'
-                # shape: list[int] = file_io.read_json(metadata_path_res)["shape"]  # 5 ints: [t, c, z, y, x]
-                # x.text = f"{shape[4]} {shape[3]} {shape[2]}"  
-                x.text = f"TODO TODO TODO"
+                #this is going to run prior to uploading the data to s3, so we need to get the shape from the metadata file if available
+                # metadata_path_res = s3_path[s3_path.index('//') + 2:] + '0/.zarray'
+
+                def get_tiff_dimensions(tile_path: str) -> list[int]:
+                    with tifffile.TiffFile(tile_path) as tif:
+                        return tif.series[0].shape
+                
+
+                #could get shape by reading file directly 
+
+                # shape: list[int] =  file_io.read_json(metadata_path_res)["shape"]  # 5 ints: [t, c, z, y, x]
+                shape: list[int] =  [1,1,get_tiff_dimensions(pathlib.Path(acq_obj.local_storage_directory).joinpath('diSPIM',tile))]
+
+
+                x.text = f"{shape[2][0]} {shape[2][1]} {shape[2][2]}"  
+                # x.text = f"TODO TODO TODO"
 
                 voxel_size = ET.SubElement(vs, "voxelSize")
                 x = ET.SubElement(voxel_size, "unit")
