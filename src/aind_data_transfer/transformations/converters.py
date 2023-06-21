@@ -8,6 +8,7 @@ from aind_data_schema.imaging.acquisition import AxisName, Direction, Axis, Imme
 from aind_data_schema.imaging.tile import Channel, Scale3dTransform, Translation3dTransform
 from datetime import datetime
 import tifffile
+import re
 import pathlib
 
 def log_to_acq_json(log_dict: dict) -> Acquisition:
@@ -119,10 +120,16 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
         tile_transforms: dict[str, list[float]] = {}
 
         for tile in acq_obj.tiles:
+
+            #zero the translations from the first tile
+            if tile == acq_obj.tiles[0]:
+                [offset_z, offset_y, offset_x] = tile.coordinate_transformations[1].translation
+                offset = [offset_z, offset_y, offset_x]
+
             translation: list[float] = tile.coordinate_transformations[1].translation
             filename: str = tile.file_name
 
-            tile_transforms[filename] = translation
+            tile_transforms[filename] = [el1 - el2 for el1, el2 in zip(translation, offset)]
 
         return tile_transforms
     
@@ -142,26 +149,34 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                   'Z': int(),
                   'channel': int(),
                   'camera': int()}
-        df = pd.DataFrame(fields, index=[])
-        for tile in acq_obj['tiles']: 
-            filename: str = tile['file_name']
-            vals = filename.split('_')
-            X = int(vals[2])
-            Y = int(vals[4])
-            Z = int(vals[6])
-            
-            if len(vals[8]) <= 4: 
-                channel = int(vals[8])
-                cam = int(vals[9][-1])
-            else:
-                channel = int(vals[8][:vals[8].index('.')])
-                cam = -1
+        df = pd.DataFrame(fields, index=[0])
 
-            df.append({'X': X, 
+        for i, tile in enumerate(acq_obj.tiles): 
+            filename: str = tile.file_name
+            #use regex anchors
+            file_parse_regex = r"X_(\d*)_Y_(\d*)_Z_(\d*)_ch_(\d*)[_cam_]*(\d)?"
+            vals = re.search(file_parse_regex, filename).groups()
+
+            # vals = filename.split('_')
+            X = int(vals[0])
+            Y = int(vals[1])
+            Z = int(vals[2])
+            channel = int(vals[3]) #need to ensure this is the channel
+            
+            if vals[4] is not None:
+                cam = int(vals[4])
+            else: 
+                cam = 0
+
+            df = pd.concat([df, 
+                        pd.DataFrame({
+                        'filename': filename,
+                        'X': X, 
                        'Y': Y, 
                        'Z': Z,
                        'channel': channel,
-                       'cam': cam}, ignore_index=True)
+                       'camera': cam}, index = [i])])
+
 
         # Filter Dataframe
         if condition != "": 
@@ -183,7 +198,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                 x.attrib["type"] = "absolute"
 
                 # FIXME: Test later
-                x.text = 'home/TODO_ADD_USER/' + s3_path[s3_path.index('//') + 2:]
+                x.text = 's3://'+s3_path[s3_path.index('//') + 2:]
 
                 zgs = ET.SubElement(img_loader, "zgroups")
                 for i, tile in enumerate(filtered_tiles):
@@ -191,7 +206,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                     zg.attrib["setup"] = f"{i}"
                     zg.attrib["timepoint"] = "0"
                     x = ET.SubElement(zg, "path")
-                    x.text = tile
+                    x.text = str(pathlib.Path(tile).stem)+".zarr"
                     
             else:  # n5 
                 img_loader.attrib["format"] = "bdv.n5"
@@ -227,7 +242,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                     id_entry.text = f"{i}"
                     t_entry.append(id_entry)
                     name_entry = ET.Element("name")
-                    name_entry.text = tile
+                    name_entry.text = str(pathlib.Path(tile).stem)
                     t_entry.append(name_entry)
                     tile_atts.append(t_entry)
 
@@ -246,7 +261,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                 x = ET.SubElement(vs, "id")
                 x.text = f"{i}"
                 x = ET.SubElement(vs, "name")
-                x.text = tile
+                x.text = str(pathlib.Path(tile).stem)
                 x = ET.SubElement(vs, "size")
                 
                 # FIXME: Test later
@@ -312,7 +327,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
             name = ET.SubElement(vt, "Name")
             name.text = "Translation to Nominal Grid"
             affine = ET.SubElement(vt, "affine")
-            affine.text = f'0.0 0.0 0.0 {tr[0]} 0.0 0.0 0.0 {tr[1]} 0.0 0.0 0.0 {tr[2]}'
+            affine.text = f'1.0 0.0 0.0 {tr[0]} 0.0 1.0 0.0 {tr[1]} 0.0 0.0 1.0 {tr[2]}'
 
             vr.append(vt)
 
@@ -322,7 +337,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
     filtered_translations: list[list[float]] = list(tile_translations.values())
     if zarr and condition != "":
         filtered_tiles = filter_tiles_on_condition(condition)
-        filtered_translations = tile_translations[filtered_tiles]
+        filtered_translations = [tile_translations[i] for i in filtered_tiles]
 
     # Construct the output xml
     spim_data = ET.Element("SpimData")
