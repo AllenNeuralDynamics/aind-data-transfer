@@ -8,7 +8,7 @@ from enum import Enum
 from typing import List, Optional
 
 from aind_data_schema.base import AindModel
-from aind_data_schema.data_description import Institution
+from aind_data_schema.data_description import Funding, Institution
 from aind_data_schema.device import SizeUnit
 from aind_data_schema.imaging.acquisition import AxisName, Immersion
 from pydantic import Field
@@ -53,6 +53,9 @@ class DataDescription(AindModel):
         description="An established society, corporation, foundation or other organization that collected this data",
         title="Institution",
         enumNames=[i.value.name for i in Institution],
+    )
+    funding_sources: List[Funding] = Field(
+        ..., description="Funding sources", title="Funding"
     )
 
 
@@ -202,7 +205,14 @@ def generate_processing_manifest(output_path: str):
         data_description=DataDescription(
             # project="asd", # Uncomment if you want this info
             # project_id="asd",
-            institution=Institution.AIND
+            institution=Institution.AIND,
+            funding_sources=[
+                Funding(
+                    funder=Institution.AIND,
+                    # grant_number="00000000",
+                    # fundee="AIND"
+                ),
+            ],
         ),
         acquisition=Acquisition(
             experimenter_full_name="John Rohde",

@@ -485,11 +485,16 @@ class SmartSPIMWriter:
         else:
             institution = dataset_info["institution"]["abbreviation"]
 
-        funding_source = file_utils.helper_validate_key_dict(
+        funding_sources = file_utils.helper_validate_key_dict(
             dictionary=dataset_info,
-            key="funding_source",
-            default_return=institution,
+            key="funding",
+            default_return=[Funding(funder=institution)],
         )
+        funding_sources = [
+            Funding.parse_obj(funding_source)
+            for funding_source in funding_sources
+        ]
+
         project_name = file_utils.helper_validate_key_dict(
             dictionary=dataset_info, key="project"
         )
@@ -497,7 +502,7 @@ class SmartSPIMWriter:
             dictionary=dataset_info, key="project_id"
         )
         group = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info, key="group", default_return="MSMA"
+            dictionary=dataset_info, key="group", default_return=None
         )
 
         # Creating data description
@@ -514,7 +519,7 @@ class SmartSPIMWriter:
             group=group,
             project_name=project_name,
             project_id=project_id,
-            funding_source=[Funding(funder=funding_source)],
+            funding_source=funding_sources,
             experiment_type=ExperimentType.SMARTSPIM,
             investigators=[],
         )
@@ -731,7 +736,9 @@ class SmartSPIMWriter:
             ),
             axes=[
                 acquisition.Axis(
-                    name="X", dimension=2, direction="Left_to_right",
+                    name="X",
+                    dimension=2,
+                    direction="Left_to_right",
                 ),
                 acquisition.Axis(
                     name="Y", dimension=1, direction="Posterior_to_anterior"
