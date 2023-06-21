@@ -488,7 +488,7 @@ class SmartSPIMWriter:
         funding_sources = file_utils.helper_validate_key_dict(
             dictionary=dataset_info,
             key="funding",
-            default_return=[Funding(funder=institution)],
+            default_return=[Funding(funder=Institution.AI)], # setting Allen Institute by default
         )
         funding_sources = [
             Funding.parse_obj(funding_source)
