@@ -24,20 +24,6 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 
-def get_blosc_codec(cname, clevel):
-    opts = {
-        "compressor": blosc.Blosc(
-            cname=cname, clevel=clevel, shuffle=blosc.SHUFFLE
-        ),
-        "params": {
-            "shuffle": blosc.SHUFFLE,
-            "level": clevel,
-            "name": f"blosc-{cname}",
-        },
-    }
-    return opts
-
-
 def output_valid(output: Union[str, os.PathLike]) -> bool:
     """
     Check if the output path is valid. If the path is a cloud storage location,
@@ -195,8 +181,6 @@ def main():
         "env": {
             "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
             "HDF5_USE_FILE_LOCKING": "FALSE",
-            "OMP_NUM_THREADS": "1",
-            "MALLOC_TRIM_THRESHOLD_": "0",
         }
     }
     client, _ = get_client(args.deployment, worker_options=worker_options)
@@ -227,7 +211,7 @@ def main():
 
     overwrite = not args.resume
 
-    opts = get_blosc_codec(args.codec, args.clevel)
+    compressor = blosc.Blosc(args.codec, args.clevel, shuffle=blosc.SHUFFLE)
 
     all_metrics = write_files(
         images,
@@ -238,7 +222,7 @@ def main():
         args.chunk_size,
         args.chunk_shape,
         voxsize,
-        opts,
+        compressor,
         bkg_img_dir=args.bkg_img_dir
     )
 
