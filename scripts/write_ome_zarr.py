@@ -122,8 +122,8 @@ def parse_args():
     )
     parser.add_argument(
         "--scale_factor",
-        type=float,
-        default=2.0,
+        type=int,
+        default=2,
         help="scale factor for downsampling",
     )
     parser.add_argument(
