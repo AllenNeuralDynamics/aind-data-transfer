@@ -423,7 +423,6 @@ class DataReaderFactory:
 
 
 class BlockedArrayWriter:
-    DEFAULT_BLOCK_SHAPE = ()
 
     @staticmethod
     def gen_slices(
