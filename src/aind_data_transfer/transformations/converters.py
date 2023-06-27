@@ -39,13 +39,15 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
 
     tiles: list[AcquisitionTile] = []
     for tile_dict in log_dict['tiles'].values():
-        scale_tfm = Scale3dTransform(scale=[float(log_dict['x_voxel_size']), 
-                                            float(log_dict['y_voxel_size']), 
+        scale_tfm = Scale3dTransform(scale=[float(log_dict['config_toml']['tile_specs']['x_field_of_view_um']/log_dict['config_toml']['tile_specs']['row_count_pixels']
+), 
+                                            float(log_dict['config_toml']['tile_specs']['y_field_of_view_um']/log_dict['config_toml']['tile_specs']['column_count_pixels']
+), 
                                             float(log_dict['z_voxel_size'])])
         translation_tfm = Translation3dTransform(translation=
-                        [float(tile_dict['tile_x_position']) * 1000. / float(log_dict['x_voxel_size']), 
-                        float(tile_dict['tile_y_position']) * 1000. / float(log_dict['y_voxel_size']),
-                        float(tile_dict['tile_z_position']) * 1000. / float(log_dict['z_voxel_size'])])
+                        [float(tile_dict['tile_x_position']),  
+                        float(tile_dict['tile_y_position']),
+                        float(tile_dict['tile_z_position'])])
         channel_dict = log_dict['channels'][tile_dict['channel']]
         ch = Channel(channel_name=tile_dict['channel'], 
                     laser_wavelength=int(channel_dict['laser_wavelength']), 
@@ -93,14 +95,16 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
                        local_storage_directory=local_storage_directory,
                        external_storage_directory=external_storage_directory)
 
-def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condition: str = "") -> ET.ElementTree:
+
+
+def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, condition: str = "") -> ET.ElementTree:
     """
     Parameters
     ----------
     acq_obj: Acquisition
         Acquisition instance
-    s3_path: str
-        S3 URI to dataset
+    data_loc: str
+        Relative path to dataset in linked Code Ocean data/dir
     zarr: bool
         Boolean that describes the type of the dataset: zarr or n5. 
         If n5, conditioning the dataset is turned off. 
@@ -197,8 +201,8 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                 x = ET.SubElement(img_loader, "zarr")
                 x.attrib["type"] = "absolute"
 
-                # FIXME: Test later
-                x.text = 's3://'+s3_path[s3_path.index('//') + 2:]
+                # should be relative path on s3 (from code_ocean)
+                x.text = '/data/'+data_loc+'/'
 
                 zgs = ET.SubElement(img_loader, "zgroups")
                 for i, tile in enumerate(filtered_tiles):
@@ -279,8 +283,7 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
                 shape: list[int] =  [1,1,get_tiff_dimensions(pathlib.Path(acq_obj.local_storage_directory).joinpath('diSPIM',tile))]
 
 
-                x.text = f"{shape[2][0]} {shape[2][1]} {shape[2][2]}"  
-                # x.text = f"TODO TODO TODO"
+                x.text = f"{shape[2][2]} {shape[2][1]} {shape[2][0]}"  #XYZ for BDV, ZYX for Zarr
 
                 voxel_size = ET.SubElement(vs, "voxelSize")
                 x = ET.SubElement(voxel_size, "unit")
@@ -337,7 +340,10 @@ def acq_json_to_xml(acq_obj: Acquisition, s3_path: str, zarr: bool = True, condi
     filtered_translations: list[list[float]] = list(tile_translations.values())
     if zarr and condition != "":
         filtered_tiles = filter_tiles_on_condition(condition)
-        filtered_translations = [tile_translations[i] for i in filtered_tiles]
+        filtered_translations = []
+        for tile in filtered_tiles:
+            rounded_translations = [round(x, 4) for x in tile_translations[tile]]
+            filtered_translations.append(rounded_translations)
 
     # Construct the output xml
     spim_data = ET.Element("SpimData")

@@ -21,7 +21,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
 )
 
-from aind_data_transfer.transformations.file_io import read_log_file, write_xml, read_imaging_log
+from aind_data_transfer.transformations.file_io import read_log_file, read_toml, write_xml, read_imaging_log, write_acq_json
 from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
 
 LOGGER = logging.getLogger(__name__)
@@ -217,15 +217,21 @@ def main():
                 LOGGER.info("Creating xml files for diSPIM data")
                 #convert imaging log to acq json
                 log_file = data_src_dir.joinpath('imaging_log.log')
+                toml_dict = read_toml(data_src_dir.joinpath('config.toml'))
+
                 #read log file into dict
                 log_dict = read_imaging_log(log_file)
+                log_dict['data_src_dir'] = str(data_src_dir)
+                log_dict['config_toml'] = toml_dict
                 #convert to acq json
                 acq_json = log_to_acq_json(log_dict)
+                acq_json_path = data_src_dir.joinpath('acquisition.json')
+                # write_acq_json(acq_json, acq_json_path)
 
                 #convert acq json to xml
                 is_zarr = True
-                condition = ""
-                acq_xml = acq_json_to_xml(acq_json, dest_data_dir, is_zarr, condition) #needs s3 path
+                condition = "channel==405"
+                acq_xml = acq_json_to_xml(acq_json, data_src_dir.stem.joinpath(job_configs["data"]["name"]+'.zarr'), is_zarr, condition) #needs s3 path
 
                 #write xml to file
                 xml_file_path = data_src_dir.joinpath('Camera_405.xml')

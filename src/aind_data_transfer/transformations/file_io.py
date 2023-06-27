@@ -6,6 +6,8 @@ import xml.etree.ElementTree as ET
 from aind_data_transfer.util.file_utils import read_text_to_list
 import re
 import toml
+from aind_data_schema.imaging.acquisition import AxisName, Direction, Axis, Immersion, Acquisition, AcquisitionTile
+
 
 def read_toml(toml_path: Union[Path, str]) -> dict:
     with open(toml_path) as f:
@@ -189,3 +191,15 @@ def write_xml(tree: ET.ElementTree, path: Union[Path, str]) -> None:
 
     #write xml to file
     tree.write(path, encoding="utf-8", xml_declaration=True)
+
+def write_acq_json(acq_obj: Acquisition, acq_json_path: str) -> None:
+    """
+    Parameters
+    ----------
+    acq_obj: Acquisition
+        Acquisition instance
+    acq_json_path: str
+        Path to output json file
+    """
+    with open(acq_json_path, 'w') as f:
+        json.dump(acq_obj.dict(), f, indent=4)
