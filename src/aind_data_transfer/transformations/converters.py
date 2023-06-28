@@ -127,10 +127,11 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
 
             #zero the translations from the first tile
             if tile == acq_obj.tiles[0]:
-                [offset_z, offset_y, offset_x] = tile.coordinate_transformations[1].translation
+                [offset_z, offset_y, offset_x] = [i/j for i, j in zip(tile.coordinate_transformations[1].translation, tile.coordinate_transformations[0].scale)]
                 offset = [offset_z, offset_y, offset_x]
 
-            translation: list[float] = tile.coordinate_transformations[1].translation
+            translation: list[float] = [i/j for i, j in zip(tile.coordinate_transformations[1].translation, tile.coordinate_transformations[0].scale)] #this needs to be in pixels for the xml. Not microns. 
+
             filename: str = tile.file_name
 
             tile_transforms[filename] = [el1 - el2 for el1, el2 in zip(translation, offset)]
