@@ -53,7 +53,7 @@ def main():
     file_io.write_xml(acq_xml, xml_file_path)
     json_fp = data_src_dir.joinpath('acquisition.json')
 
-    # file_io.write_acq_json(acq_json, json_fp)
+    file_io.write_acq_json(acq_json, json_fp)
 
 if __name__ == "__main__":
     main()

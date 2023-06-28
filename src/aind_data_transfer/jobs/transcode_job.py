@@ -226,12 +226,12 @@ def main():
                 #convert to acq json
                 acq_json = log_to_acq_json(log_dict)
                 acq_json_path = data_src_dir.joinpath('acquisition.json')
-                # write_acq_json(acq_json, acq_json_path)
+                write_acq_json(acq_json, acq_json_path)
 
                 #convert acq json to xml
                 is_zarr = True
                 condition = "channel==405"
-                acq_xml = acq_json_to_xml(acq_json, data_src_dir.stem.joinpath(job_configs["data"]["name"]+'.zarr'), is_zarr, condition) #needs s3 path
+                acq_xml = acq_json_to_xml(acq_json, data_src_dir.stem.joinpath(job_configs["data"]["name"]+'.zarr'), is_zarr, condition) #needs relative path to zarr file (as seen by code ocean)
 
                 #write xml to file
                 xml_file_path = data_src_dir.joinpath('Camera_405.xml')
