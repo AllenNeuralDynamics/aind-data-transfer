@@ -374,7 +374,7 @@ class TestBasicJob(unittest.TestCase):
             data_assets=[],
             parameters=[
                 '{"trigger_codeocean_job": '
-                '{"job_type": "confocal", '
+                '{"job_type": "run_generic_pipeline", '
                 '"modalities": ["MRI"], '
                 '"capsule_id": "some_capsule_id", '
                 f'"process_capsule_id": "xyz-456", '
