@@ -242,6 +242,71 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             (ExperimentType.ECEPHYS, job0.job_configs.experiment_type)
             and (ExperimentType.CONFOCAL, job1.job_configs.experiment_type)
         )
+        self.assertIsNone(job0.job_configs.codeocean_process_capsule_id)
+        self.assertIsNone(job1.job_configs.codeocean_process_capsule_id)
+
+    @patch("boto3.client")
+    def test_load_configs4(self, mock_client: MagicMock) -> None:
+        """Tests configs with custom processing capsule id are loaded
+        correctly."""
+        mock_resp1 = {
+            "Parameter": {"Value": self.EXAMPLE_PARAM_STORE_RESPONSE}
+        }
+        mock_resp2 = {
+            "Parameter": {"Value": json.dumps({"password": "some_password"})}
+        }
+        mock_resp3 = {
+            "Parameter": {
+                "Value": json.dumps(
+                    {"CODEOCEAN_READWRITE_TOKEN": "some_token"}
+                )
+            }
+        }
+
+        mock_client.return_value.get_parameter.side_effect = [
+            mock_resp1,
+            mock_resp2,
+            mock_resp3,
+            mock_resp1,
+            mock_resp2,
+            mock_resp3,
+        ]
+
+        args = ["-j", str(self.PATH_TO_EXAMPLE_CSV_FILE3)]
+        jobs = GenericS3UploadJobList(args=args)
+        job0 = jobs.job_list[0]
+        job1 = jobs.job_list[1]
+        self.assertEqual(
+            ExperimentType.ECEPHYS, job0.job_configs.experiment_type
+        )
+        self.assertEqual(
+            ExperimentType.CONFOCAL, job1.job_configs.experiment_type
+        )
+        expected_source = Path(
+            "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
+        )
+        self.assertTrue(
+            (
+                ModalityConfigs(
+                    modality=Modality.ECEPHYS, source=expected_source
+                )
+                in job0.job_configs.modalities
+            )
+            and (
+                ModalityConfigs(
+                    modality=Modality.CONFOCAL, source=expected_source
+                )
+                in job0.job_configs.modalities
+            )
+        )
+        self.assertTrue(
+            (ExperimentType.ECEPHYS, job0.job_configs.experiment_type)
+            and (ExperimentType.CONFOCAL, job1.job_configs.experiment_type)
+        )
+        self.assertTrue(
+            ("xyz-123", job0.job_configs.codeocean_process_capsule_id)
+            and ("zyx-456", job1.job_configs.codeocean_process_capsule_id)
+        )
 
     @patch("boto3.client")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob.run_job")

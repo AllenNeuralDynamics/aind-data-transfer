@@ -39,6 +39,13 @@ class BasicJobEndpoints(BaseSettings):
     aind_data_transfer_repo_location: str = Field(...)
     video_encryption_password: Optional[SecretStr] = Field(None)
     codeocean_api_token: Optional[SecretStr] = Field(None)
+    codeocean_process_capsule_id: Optional[str] = Field(
+        None,
+        description=(
+            "If defined, will run this Code Ocean Capsule after registering "
+            "the data asset"
+        ),
+    )
 
     class Config:
         """This class will add custom sourcing from aws."""
@@ -389,6 +396,13 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             action="store_true",
             help=_help_message("force_cloud_sync"),
         )
+        parser.add_argument(
+            "-i",
+            "--codeocean-process-capsule-id",
+            required=False,
+            type=str,
+            help=_help_message("codeocean_process_capsule_id"),
+        )
         parser.set_defaults(dry_run=False)
         parser.set_defaults(metadata_dir_force=False)
         parser.set_defaults(force_cloud_sync=False)
@@ -428,6 +442,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             endpoints_param_dict = {
                 "aws_param_store_name": job_args.endpoints_parameters
             }
+        if job_args.codeocean_process_capsule_id is not None:
+            endpoints_param_dict[
+                "codeocean_process_capsule_id"
+            ] = job_args.codeocean_process_capsule_id
         modalities_json = json.loads(job_args.modalities)
         modalities = [ModalityConfigs.parse_obj(m) for m in modalities_json]
         return cls(

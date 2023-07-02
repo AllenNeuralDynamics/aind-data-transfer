@@ -427,6 +427,25 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             json.dumps(custom_endpoints),
         ]
 
+        test_custom_capsule_args = [
+            "-b",
+            "some_bucket",
+            "-s",
+            "12345",
+            "-e",
+            "SmartSPIM",
+            "-m",
+            f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
+            "-a",
+            "10/10/2022",
+            "-t",
+            "13:24:01",
+            "-i",
+            "xyz-456",
+            "-p",
+            json.dumps(custom_endpoints),
+        ]
+
         basic_job_configs = BasicUploadJobConfigs.from_args(test_req_args)
         self.assertEqual("some_domain", basic_job_configs.codeocean_domain)
         self.assertEqual(
@@ -474,6 +493,13 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             BasicUploadJobConfigs.from_args(test_malformed_time_args)
+
+        custom_capsule_job_configs = BasicUploadJobConfigs.from_args(
+            test_custom_capsule_args
+        )
+        self.assertEqual(
+            "xyz-456", custom_capsule_job_configs.codeocean_process_capsule_id
+        )
 
 
 if __name__ == "__main__":

@@ -97,7 +97,9 @@ class BasicJob:
             behavior_dir_excluded = None
 
         for modality_config in self.job_configs.modalities:
-            print(f"Starting to process {modality_config.source}")
+            self._instance_logger.info(
+                f"Starting to process {modality_config.source}"
+            )
             if not modality_config.compress_raw_data:
                 dst_dir = temp_dir / modality_config.default_output_folder_name
                 shutil.copytree(
@@ -261,6 +263,9 @@ class BasicJob:
                     [m.modality.name for m in self.job_configs.modalities]
                 ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
+                "process_capsule_id": (
+                    self.job_configs.codeocean_process_capsule_id
+                ),
                 "bucket": self.job_configs.s3_bucket,
                 "prefix": self.job_configs.s3_prefix,
                 "aind_data_transfer_version": __version__,
