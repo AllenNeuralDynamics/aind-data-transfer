@@ -341,6 +341,43 @@ class TestBasicJob(unittest.TestCase):
                 '{"job_type": "confocal", '
                 '"modalities": ["MRI"], '
                 '"capsule_id": "some_capsule_id", '
+                '"process_capsule_id": null, '
+                '"bucket": "some_bucket", '
+                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
+                f'"aind_data_transfer_version": "{__version__}"'
+                "}}"
+            ],
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_codeocean_api.codeocean.CodeOceanClient.run_capsule")
+    def test_trigger_custom_codeocean_capsule(
+        self,
+        mock_run_capsule: MagicMock,
+    ):
+        """Tests code ocean capsule is triggered"""
+        successful_response = Response()
+        successful_response.status_code = 200
+        successful_response._content = json.dumps(
+            {"Message": "triggered a code ocean capsule"}
+        ).encode("utf-8")
+        mock_run_capsule.return_value = successful_response
+        # With dry-run set to True
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job_configs.dry_run = False
+        basic_job_configs.codeocean_process_capsule_id = "xyz-456"
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        basic_job._trigger_codeocean_pipeline()
+
+        mock_run_capsule.assert_called_once_with(
+            capsule_id="some_capsule_id",
+            data_assets=[],
+            parameters=[
+                '{"trigger_codeocean_job": '
+                '{"job_type": "run_generic_pipeline", '
+                '"modalities": ["MRI"], '
+                '"capsule_id": "some_capsule_id", '
+                '"process_capsule_id": "xyz-456", '
                 '"bucket": "some_bucket", '
                 '"prefix": "confocal_12345_2020-10-10_10-10-10", '
                 f'"aind_data_transfer_version": "{__version__}"'

@@ -8,6 +8,7 @@ import shutil
 import sys
 import tempfile
 from datetime import datetime, timezone
+from enum import Enum
 from importlib import import_module
 from pathlib import Path
 
@@ -28,6 +29,13 @@ from aind_data_transfer.transformations.metadata_creation import (
     SubjectMetadata,
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
+
+
+# It might make more sense to move this class into different repo
+class JobTypes(Enum):
+    REGISTER_DATA = "register_data"
+    RUN_GENERIC_PIPELINE = "run_generic_pipeline"
+    TEST = "test"
 
 
 class BasicJob:
@@ -97,7 +105,9 @@ class BasicJob:
             behavior_dir_excluded = None
 
         for modality_config in self.job_configs.modalities:
-            print(f"Starting to process {modality_config.source}")
+            self._instance_logger.info(
+                f"Starting to process {modality_config.source}"
+            )
             if not modality_config.compress_raw_data:
                 dst_dir = temp_dir / modality_config.default_output_folder_name
                 shutil.copytree(
@@ -253,14 +263,21 @@ class BasicJob:
 
     def _trigger_codeocean_pipeline(self):
         """Trigger the codeocean pipeline."""
-        # Legacy way we set up parameters...
+        if self.job_configs.codeocean_process_capsule_id is not None:
+            job_type = JobTypes.RUN_GENERIC_PIPELINE.value
+        else:
+            # Handle legacy way we set up parameters...
+            job_type = self.job_configs.experiment_type.value
         trigger_capsule_params = {
             "trigger_codeocean_job": {
-                "job_type": self.job_configs.experiment_type.value,
+                "job_type": job_type,
                 "modalities": (
                     [m.modality.name for m in self.job_configs.modalities]
                 ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
+                "process_capsule_id": (
+                    self.job_configs.codeocean_process_capsule_id
+                ),
                 "bucket": self.job_configs.s3_bucket,
                 "prefix": self.job_configs.s3_prefix,
                 "aind_data_transfer_version": __version__,
