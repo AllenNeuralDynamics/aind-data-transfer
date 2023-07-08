@@ -520,7 +520,46 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         test_args = ["--json-args", json_arg_string]
         basic_job_configs = BasicUploadJobConfigs.from_json_args(test_args)
-        print(basic_job_configs)
+        self.assertEqual("some_domain", basic_job_configs.codeocean_domain)
+        self.assertEqual(
+            "some_capsule_id", basic_job_configs.codeocean_trigger_capsule_id
+        )
+        self.assertEqual(
+            "some_ms_domain", basic_job_configs.metadata_service_domain
+        )
+        self.assertEqual(
+            "some_dtr_location",
+            basic_job_configs.aind_data_transfer_repo_location,
+        )
+        self.assertEqual(
+            "some_password",
+            basic_job_configs.video_encryption_password.get_secret_value(),
+        )
+        self.assertEqual("some_bucket", basic_job_configs.s3_bucket)
+        self.assertEqual(
+            ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
+        )
+        self.assertEqual(
+            [
+                ModalityConfigs(
+                    modality=Modality.OPHYS,
+                    source=DATA_DIR
+                )
+            ],
+            basic_job_configs.modalities,
+        )
+        self.assertEqual("12345", basic_job_configs.subject_id)
+        self.assertEqual(
+            date.fromisoformat("2022-10-10"),
+            basic_job_configs.acq_date,
+        )
+        self.assertEqual(
+            time.fromisoformat("13:24:01"),
+            basic_job_configs.acq_time,
+        )
+        self.assertEqual(
+            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+        )
 
 
 if __name__ == "__main__":

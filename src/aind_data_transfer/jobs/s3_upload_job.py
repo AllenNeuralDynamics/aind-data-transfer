@@ -263,12 +263,6 @@ class GenericS3UploadJobList:
                     )
                     for k, v in row.items()
                 }
-                cleaned_row["acq_date"] = BasicUploadJobConfigs.parse_date(
-                    cleaned_row["acq_date"]
-                )
-                cleaned_row["acq_time"] = BasicUploadJobConfigs.parse_time(
-                    cleaned_row["acq_time"]
-                )
                 # Override with flags set in command line
                 if self.configs.compress_raw_data is True:
                     cleaned_row["compress_raw_data"] = True

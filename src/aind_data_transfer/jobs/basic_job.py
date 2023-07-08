@@ -329,6 +329,9 @@ class BasicJob:
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
-    job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
+    if "--json-args" in sys_args:
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
+    else:
+        job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
     job = BasicJob(job_configs=job_configs_from_main)
     job.run_job()

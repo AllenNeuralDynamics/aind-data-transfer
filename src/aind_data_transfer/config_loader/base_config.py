@@ -178,10 +178,10 @@ class ModalityConfigs(BaseSettings):
 class BasicUploadJobConfigs(BasicJobEndpoints):
     """Configuration for the basic upload job"""
 
-    DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-    DATE_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
-    TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
-    TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
+    _DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    _DATE_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
+    _TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
+    _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
 
     s3_bucket: str = Field(
         ...,
@@ -264,26 +264,24 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             creation_time=self.acq_time,
         )
 
-    @classmethod
     @validator("acq_date", pre=True)
-    def parse_date(cls, date_str: str) -> date:
+    def _parse_date(cls, date_str: str) -> date:
         """Parses date string to %YYYY-%MM-%DD format"""
-        if re.match(BasicUploadJobConfigs.DATE_PATTERN1, date_str):
+        if re.match(BasicUploadJobConfigs._DATE_PATTERN1, date_str):
             return date.fromisoformat(date_str)
-        elif re.match(BasicUploadJobConfigs.DATE_PATTERN2, date_str):
+        elif re.match(BasicUploadJobConfigs._DATE_PATTERN2, date_str):
             return datetime.strptime(date_str, "%m/%d/%Y").date()
         else:
             raise ValueError(
                 "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
             )
 
-    @classmethod
     @validator("acq_time", pre=True)
-    def parse_time(cls, time_str: str) -> time:
+    def _parse_time(cls, time_str: str) -> time:
         """Parses time string to "%HH-%MM-%SS format"""
-        if re.match(BasicUploadJobConfigs.TIME_PATTERN1, time_str):
+        if re.match(BasicUploadJobConfigs._TIME_PATTERN1, time_str):
             return datetime.strptime(time_str, "%H-%M-%S").time()
-        elif re.match(BasicUploadJobConfigs.TIME_PATTERN2, time_str):
+        elif re.match(BasicUploadJobConfigs._TIME_PATTERN2, time_str):
             return time.fromisoformat(time_str)
         else:
             raise ValueError(
@@ -410,8 +408,8 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         parser.set_defaults(metadata_dir_force=False)
         parser.set_defaults(force_cloud_sync=False)
         job_args = parser.parse_args(args)
-        acq_date = BasicUploadJobConfigs.parse_date(job_args.acq_date)
-        acq_time = BasicUploadJobConfigs.parse_time(job_args.acq_time)
+        acq_date = job_args.acq_date
+        acq_time = job_args.acq_time
         behavior_dir = (
             None
             if job_args.behavior_dir is None
