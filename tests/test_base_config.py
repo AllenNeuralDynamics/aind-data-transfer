@@ -501,6 +501,27 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "xyz-456", custom_capsule_job_configs.codeocean_process_capsule_id
         )
 
+    def test_from_json_args(self):
+        """Tests that the required configs can be set from aws param store"""
+        modalities = f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}"}}]'
+        json_arg_string = (
+            f'{{"s3_bucket": "some_bucket", '
+            f'"subject_id": "12345", '
+            f'"experiment_type": "SmartSPIM", '
+            f'"modalities": {modalities}, '
+            f'"acq_date": "2022-10-10", '
+            f'"acq_time": "13-24-01", '
+            f'"codeocean_domain": "some_domain", '
+            f'"codeocean_trigger_capsule_id": "some_capsule_id", '
+            f'"metadata_service_domain": "some_ms_domain", '
+            f'"aind_data_transfer_repo_location": "some_dtr_location", '
+            f'"video_encryption_password": "some_password", '
+            f'"codeocean_api_token": "some_token"}}'
+        )
+        test_args = ["--json-args", json_arg_string]
+        basic_job_configs = BasicUploadJobConfigs.from_json_args(test_args)
+        print(basic_job_configs)
+
 
 if __name__ == "__main__":
     unittest.main()

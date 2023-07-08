@@ -178,6 +178,11 @@ class ModalityConfigs(BaseSettings):
 class BasicUploadJobConfigs(BasicJobEndpoints):
     """Configuration for the basic upload job"""
 
+    DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    DATE_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
+    TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
+    TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
+
     s3_bucket: str = Field(
         ...,
         description="Bucket where data will be uploaded",
@@ -259,28 +264,26 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             creation_time=self.acq_time,
         )
 
-    @staticmethod
-    def parse_date(date_str: str) -> date:
+    @classmethod
+    @validator("acq_date", pre=True)
+    def parse_date(cls, date_str: str) -> date:
         """Parses date string to %YYYY-%MM-%DD format"""
-        pattern = r"^\d{4}-\d{2}-\d{2}$"
-        pattern2 = r"^\d{1,2}/\d{1,2}/\d{4}$"
-        if re.match(pattern, date_str):
+        if re.match(BasicUploadJobConfigs.DATE_PATTERN1, date_str):
             return date.fromisoformat(date_str)
-        elif re.match(pattern2, date_str):
+        elif re.match(BasicUploadJobConfigs.DATE_PATTERN2, date_str):
             return datetime.strptime(date_str, "%m/%d/%Y").date()
         else:
             raise ValueError(
                 "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
             )
 
-    @staticmethod
-    def parse_time(time_str: str) -> time:
+    @classmethod
+    @validator("acq_time", pre=True)
+    def parse_time(cls, time_str: str) -> time:
         """Parses time string to "%HH-%MM-%SS format"""
-        pattern = r"^\d{1,2}-\d{1,2}-\d{1,2}$"
-        pattern2 = r"^\d{1,2}:\d{1,2}:\d{1,2}$"
-        if re.match(pattern, time_str):
+        if re.match(BasicUploadJobConfigs.TIME_PATTERN1, time_str):
             return datetime.strptime(time_str, "%H-%M-%S").time()
-        elif re.match(pattern2, time_str):
+        elif re.match(BasicUploadJobConfigs.TIME_PATTERN2, time_str):
             return time.fromisoformat(time_str)
         else:
             raise ValueError(
@@ -464,3 +467,16 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             log_level=log_level,
             **endpoints_param_dict,
         )
+
+    @classmethod
+    def from_json_args(cls, args: list):
+        """Adds ability to construct settings from a single json string."""
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--json-args",
+            required=True,
+            type=str,
+            help="Configs passed as a single json string",
+        )
+        return cls(**json.loads(parser.parse_args(args).json_args))
