@@ -14,16 +14,20 @@ class TestEphysReaders(unittest.TestCase):
     open_ephys_dir = RESOURCES_DIR / "v0.6.x_neuropixels_multiexp_multistream"
 
     nidaq_rec_prefix = (
-        "'recording': OpenEphysBinaryRecordingExtractor: 8 channels - 1 "
-        "segments - 30.0kHz - 0.003s, 'experiment_name': 'experiment"
+        "'recording': OpenEphysBinaryRecordingExtractor: "
+        "8 channels - 30.0kHz - 1 segments - 100 samples \n"
+        "                                   0.00s (3.33 ms) - int16 dtype - 1.56 KiB, "
+        "'experiment_name': 'experiment"
     )
     nidaq_rec_suffix = (
         "'stream_name': 'Record Node 101#NI-DAQmx-103.PXIe-6341'"
     )
 
     neuropix_rec_prefix = (
-        "'recording': OpenEphysBinaryRecordingExtractor: 384 channels - 1 "
-        "segments - 30.0kHz - 0.003s, 'experiment_name': 'experiment"
+        "'recording': OpenEphysBinaryRecordingExtractor: "
+        "384 channels - 30.0kHz - 1 segments - 100 samples \n"
+        "                                   0.00s (3.33 ms) - int16 dtype - 75.00 KiB, "
+        "'experiment_name': 'experiment"
     )
     neuropix_rec_suffix = (
         "'stream_name': 'Record Node 101#Neuropix-PXI-100.Probe"
