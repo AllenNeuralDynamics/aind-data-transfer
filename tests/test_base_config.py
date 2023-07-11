@@ -502,7 +502,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
 
     def test_from_json_args(self):
-        """Tests that the required configs can be set from aws param store"""
+        """Tests that the required configs can be set from a json string"""
         modalities = f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}"}}]'
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
