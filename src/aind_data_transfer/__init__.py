@@ -8,4 +8,4 @@ LOG_DATE_FMT = "%Y-%m-%d %H:%M"
 
 logging.basicConfig(format=LOG_FMT, datefmt=LOG_DATE_FMT)
 
-__version__ = "0.21.4"
+__version__ = "0.21.5"
