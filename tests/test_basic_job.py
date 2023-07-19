@@ -162,6 +162,39 @@ class TestBasicJob(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("os.mkdir")
+    @patch(
+        "aind_data_transfer.transformations.generic_compressors.ZipCompressor."
+        "compress_dir"
+    )
+    @patch("shutil.copytree")
+    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
+    def test_compress_raw_data_no_zip_skip_staging(
+        self,
+        mock_upload: MagicMock,
+        mock_copytree: MagicMock,
+        mock_compress: MagicMock,
+        mock_make_dir: MagicMock,
+    ):
+        """Tests that the raw data is uploaded directly to s3"""
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job_configs.modalities[0].skip_staging = True
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        basic_job._compress_raw_data(temp_dir=Path("some_path"))
+
+        # Should upload directly to s3
+        mock_make_dir.assert_not_called()
+        mock_copytree.assert_not_called()
+        mock_upload.assert_called_once_with(
+            directory_to_upload=DATA_DIR,
+            s3_bucket="some_bucket",
+            s3_prefix="confocal_12345_2020-10-10_10-10-10/mri",
+            dryrun=True,
+            excluded=None,
+        )
+        self.assertFalse(mock_compress.called)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch(
         "aind_data_transfer.transformations.metadata_creation."
         "SubjectMetadata.from_service"

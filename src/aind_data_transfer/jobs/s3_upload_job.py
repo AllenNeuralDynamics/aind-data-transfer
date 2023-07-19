@@ -41,6 +41,9 @@ class GenericS3UploadJobList:
         help_message_compress_raw_data = (
             "Zip raw data folder before uploading."
         )
+        help_message_skip_staging = (
+            "Skip copying uncompressed data to a staging directory."
+        )
         parser = argparse.ArgumentParser()
         parser.add_argument(
             "-j",
@@ -65,6 +68,12 @@ class GenericS3UploadJobList:
             "--force-cloud-sync",
             action="store_true",
             help="Force syncing of data if s3 location already exists.",
+            default=False,
+        )
+        parser.add_argument(
+            "--skip-staging",
+            action="store_true",
+            help=help_message_skip_staging,
             default=False,
         )
         job_args = parser.parse_args(args)
@@ -160,6 +169,25 @@ class GenericS3UploadJobList:
         if (
             source is not None
             and modality_unindexed
+            and cleaned_row.get("modality.skip_staging") is not None
+        ):
+            skip_staging = cleaned_row.get("modality.skip_staging")
+        elif (
+            source is not None
+            and modality_unindexed
+            and cleaned_row.get("skip_staging") is not None
+        ):
+            skip_staging = cleaned_row.get("skip_staging")
+        elif source is not None and modality_key != "modality":
+            skip_staging = cleaned_row.get(f"{modality_key}.skip_staging")
+        else:
+            skip_staging = False
+
+        skip_staging = False if skip_staging is None else skip_staging
+
+        if (
+            source is not None
+            and modality_unindexed
             and cleaned_row.get("modality.extra_configs") is not None
         ):
             extra_configs = cleaned_row.get("modality.extra_configs")
@@ -182,6 +210,7 @@ class GenericS3UploadJobList:
                 source=source,
                 compress_raw_data=compress_raw_data,
                 extra_configs=extra_configs,
+                skip_staging=skip_staging,
             )
             num_id = modality_counts.get(modality)
             modality_configs._number_id = num_id
@@ -243,6 +272,7 @@ class GenericS3UploadJobList:
                     "extra_configs",
                     "source",
                     "compress_raw_data",
+                    "skip_staging",
                 }
             )
         ]:
@@ -270,6 +300,8 @@ class GenericS3UploadJobList:
                     cleaned_row["dry_run"] = True
                 if self.configs.force_cloud_sync is True:
                     cleaned_row["force_cloud_sync"] = True
+                if self.configs.skip_staging is True:
+                    cleaned_row["skip_staging"] = True
                 # Avoid downloading endpoints from aws multiple times
                 if cleaned_row.get("aws_param_store_name") is not None:
                     # Check if param store is defined in previous row
