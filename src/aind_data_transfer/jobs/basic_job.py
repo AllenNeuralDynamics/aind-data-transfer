@@ -108,12 +108,39 @@ class BasicJob:
             self._instance_logger.info(
                 f"Starting to process {modality_config.source}"
             )
-            if not modality_config.compress_raw_data:
+            if (
+                not modality_config.compress_raw_data
+                and not modality_config.skip_staging
+            ):
+                self._instance_logger.info(
+                    f"Copying data to staging directory: {temp_dir}"
+                )
                 dst_dir = temp_dir / modality_config.default_output_folder_name
                 shutil.copytree(
                     modality_config.source,
                     dst_dir,
                     ignore=behavior_dir_excluded,
+                )
+            elif (
+                not modality_config.compress_raw_data
+                and modality_config.skip_staging
+            ):
+                self._instance_logger.info(
+                    f"Skipping staging and uploading {modality_config.source} "
+                    f"directly to s3."
+                )
+                s3_prefix_modality = "/".join(
+                    [
+                        self.job_configs.s3_prefix,
+                        modality_config.default_output_folder_name,
+                    ]
+                )
+                upload_to_s3(
+                    directory_to_upload=modality_config.source,
+                    s3_bucket=self.job_configs.s3_bucket,
+                    s3_prefix=s3_prefix_modality,
+                    dryrun=self.job_configs.dry_run,
+                    excluded=behavior_dir_excluded,
                 )
             else:
                 self._instance_logger.info(

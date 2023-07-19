@@ -146,6 +146,11 @@ class ModalityConfigs(BaseSettings):
         description="Location of additional configuration file",
         title="Extra Configs",
     )
+    skip_staging: bool = Field(
+        default=False,
+        description="Upload uncompressed directly without staging",
+        title="Skip Staging",
+    )
 
     @property
     def number_id(self):

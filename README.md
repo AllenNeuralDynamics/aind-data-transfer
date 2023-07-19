@@ -86,10 +86,12 @@ One or more modalities need to be set. The csv headers can look like:
 modality0: [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MRI, OPHYS, SMARTSPIM, SPIM]
 modality0.source: path to modality0 raw data folder
 modality0.compress_raw_data (Optional): Override default compression behavior. True if ECEPHYS, False otherwise.
+modality0.skip_staging (Optional): If modality0.compress_raw_data is False and this is True, upload directly to s3. Default is False.
 modality0.extra_configs (Optional): path to config file to override compression defaults
 modality1 (Optional): [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MRI, OPHYS, SMARTSPIM, SPIM]
 modality1.source (Optional): path to modality0 raw data folder
 modality1.compress_raw_data (Optional): Override default compression behavior. True if ECEPHYS, False otherwise.
+modality1.skip_staging (Optional): If modality1.compress_raw_data is False and this is True, upload directly to s3. Default is False.
 modality1.extra_configs (Optional): path to config file to override compression defaults
 ...
 ```
@@ -128,6 +130,7 @@ metadata_dir_force: Default is false. If true, the metadata in the metadata fold
 dry_run: Default is false. If set to true, it will perform a dry-run of the upload portion and not actually upload anything.
 force_cloud_sync: Use with caution. If set to true, it will sync the local raw data to the cloud even if the cloud folder already exists.
 compress_raw_data: Override all compress_raw_data defaults and set them to True.
+skip_staging: For each modality, copy uncompressed data directly to s3.
 ```
 
 After creating the csv file, you can run through the jobs with
