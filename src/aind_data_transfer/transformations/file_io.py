@@ -206,4 +206,4 @@ def write_acq_json(acq_obj: Acquisition, acq_json_path: str) -> None:
     acq_obj.session_end_time = acq_obj.session_end_time.isoformat()
 
     with open(acq_json_path, 'w') as f:
-        json.dump(acq_obj.json(), f, indent=4)
+        json.dump(json.loads(acq_obj.json()), f, indent=4)
