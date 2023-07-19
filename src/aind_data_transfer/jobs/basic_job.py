@@ -105,6 +105,8 @@ class BasicJob:
             behavior_dir_excluded = None
 
         for modality_config in self.job_configs.modalities:
+            print(self.job_configs)
+            print(modality_config)
             self._instance_logger.info(
                 f"Starting to process {modality_config.source}"
             )

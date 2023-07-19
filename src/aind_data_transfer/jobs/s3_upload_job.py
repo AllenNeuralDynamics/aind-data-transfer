@@ -178,10 +178,14 @@ class GenericS3UploadJobList:
             and cleaned_row.get("skip_staging") is not None
         ):
             skip_staging = cleaned_row.get("skip_staging")
-        elif source is not None and modality_key != "modality":
+        elif (
+            source is not None
+            and modality_key != "modality"
+            and cleaned_row.get(f"{modality_key}.skip_staging") is not None
+        ):
             skip_staging = cleaned_row.get(f"{modality_key}.skip_staging")
         else:
-            skip_staging = False
+            skip_staging = cleaned_row.get("skip_staging")
 
         skip_staging = False if skip_staging is None else skip_staging
 
@@ -251,7 +255,6 @@ class GenericS3UploadJobList:
                 f"header: {modality_keys}"
             )
         for modality_key in modality_keys:
-            # modality = cleaned_row[modality_key]
             modality_configs = self._map_row_and_key_to_modality_config(
                 modality_key=modality_key,
                 cleaned_row=cleaned_row,
@@ -317,7 +320,6 @@ class GenericS3UploadJobList:
                         cleaned_row.update(job_endpoints)
                         param_store_name = cleaned_row["aws_param_store_name"]
                     del cleaned_row["aws_param_store_name"]
-
                 self._parse_modality_configs_from_row(cleaned_row=cleaned_row)
 
                 configs_from_row = BasicUploadJobConfigs(**cleaned_row)
