@@ -180,7 +180,7 @@ def _store_file(
         voxel_size: the voxel size of the image
         chunks: the chunk shape
         overwrite: whether to overwrite image groups that already exist
-        storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
+        compressor: numcodecs Codec instance to use for compression
         bkg_img_dir: the directory containing the background image Tiff file for each raw image.
                      If None, will not perform background subtraction.
     Returns:
@@ -228,6 +228,8 @@ def _store_file(
         # The background subtraction can change the chunks,
         # so rechunk before storing
         pyramid = [ensure_array_5d(arr).rechunk(chunks) for arr in pyramid]
+        LOGGER.info(f"input array: {pyramid[0]}")
+        LOGGER.info(f"input array size: {pyramid[0].nbytes / 2 ** 20} MiB")
 
         block_shape = ensure_shape_5d(
             BlockedArrayWriter.get_block_shape(pyramid[0])
@@ -270,28 +272,16 @@ def _store_file(
         # so rechunk before storing
         arr = arr.rechunk(chunks)
 
-        LOGGER.info(f"input array: {arr}")
-        LOGGER.info(f"input array size: {arr.nbytes / 2 ** 20} MiB")
-
-        block_shape = ensure_shape_5d(BlockedArrayWriter.get_block_shape(arr))
-        LOGGER.info(f"block shape: {block_shape}")
-
-        write_ome_ngff_metadata(
-            group,
+        t0 = time.time()
+        pyramid = _gen_and_store_pyramid(
             arr,
+            group,
             tile_name,
             n_levels,
             scale_factors,
             voxel_size,
             origin,
-        )
-
-        scale_factors = ensure_shape_5d(scale_factors)
-
-        t0 = time.time()
-        store_array(arr, group, "0", block_shape, compressor)
-        pyramid = downsample_and_store(
-            arr, group, n_levels, scale_factors, block_shape, compressor
+            compressor
         )
         write_time = time.time() - t0
 
@@ -332,16 +322,16 @@ def _store_interleaved_file(
 
     Args:
         reader: the reader for the image
-        writer: the OmeZarrWriter instance
+        root_group: the root Zarr group in which to store the Array
         output: the location of the output Zarr store (filesystem, s3, gs)
         channel_names: the wavelength string of each channel, e.g., ["488, "561","689"]
         n_levels: number of downsampling levels to compute
-        scale_factor: scale factor for downsampling in X, Y and Z
+        scale_factors: scale factors for downsampling in X, Y and Z
         origin: the tile origin coordinates in ZYX order
-        physical_pixel_sizes: the voxel size of the image
+        voxel_size: the voxel size of the image
         chunks: the chunk shape
         overwrite: whether to overwrite image groups that already exist
-        storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
+        compressor: numcodecs Codec instance to use for compression
     Returns:
         A list of metrics for each converted image
     """
@@ -370,35 +360,16 @@ def _store_interleaved_file(
         # of channels, so rechunk back to the desired shape
         channel = channel.rechunk(chunks)
 
-        LOGGER.info(f"input array: {channel}")
-        LOGGER.info(f"input array size: {channel.nbytes / 2 ** 20} MiB")
-
-        block_shape = ensure_shape_5d(
-            BlockedArrayWriter.get_block_shape(channel)
-        )
-        LOGGER.info(f"block shape: {block_shape}")
-
-        scale_factors = ensure_shape_5d(scale_factors)
-
-        write_ome_ngff_metadata(
-            group,
+        t0 = time.time()
+        pyramid = _gen_and_store_pyramid(
             channel,
+            group,
             tile_name,
             n_levels,
-            scale_factors[2:],
+            scale_factors,
             voxel_size,
             origin,
-        )
-
-        t0 = time.time()
-        store_array(channel, group, "0", block_shape, compressor)
-        pyramid = downsample_and_store(
-            channel,
-            group,
-            n_levels,
-            scale_factors,
-            block_shape,
-            compressor,
+            compressor
         )
         write_time = time.time() - t0
 
@@ -419,6 +390,55 @@ def _store_interleaved_file(
         )
 
     return tile_metrics
+
+
+def _gen_and_store_pyramid(arr, group, tile_name, n_levels, scale_factors, voxel_size, origin, compressor):
+    """
+    Progressively downsample the input array and store the results as separate arrays in a Zarr group.
+
+    Parameters
+    ----------
+    arr : da.Array
+        The input Dask array.
+    group : zarr.Group
+        The output Zarr group.
+    tile_name: str
+        The name of the tile.
+    n_lvls : int
+        The number of pyramid levels.
+    scale_factors : Tuple
+        The scale factors for downsampling along each dimension.
+    voxel_size: Tuple
+        The physical voxel size in Z, Y, X order.
+    origin: Tuple
+        The origin of the tile in Z, Y, X order.
+    compressor : numcodecs.abc.Codec, optional
+        The compression codec to use for the output Zarr array.
+    """
+    LOGGER.info(f"input array: {arr}")
+    LOGGER.info(f"input array size: {arr.nbytes / 2 ** 20} MiB")
+
+    write_ome_ngff_metadata(
+        group,
+        arr,
+        tile_name,
+        n_levels,
+        scale_factors[-3:],  # must be 3D
+        voxel_size[-3:],  # must be 3D
+        origin,
+    )
+
+    scale_factors = ensure_shape_5d(scale_factors)
+
+    block_shape = ensure_shape_5d(BlockedArrayWriter.get_block_shape(arr))
+    LOGGER.info(f"block shape: {block_shape}")
+
+    store_array(arr, group, "0", block_shape, compressor)
+    pyramid = downsample_and_store(
+        arr, group, n_levels, scale_factors, block_shape, compressor
+    )
+
+    return pyramid
 
 
 def write_folder(
@@ -450,7 +470,7 @@ def write_folder(
         chunk_shape: the chunk shape, if None will be computed from chunk_size
         voxel_size: three element tuple giving physical voxel sizes in Z,Y,X order
         exclude: a list of filename patterns to exclude from conversion
-        storage_options: a dictionary of options to pass to the Zarr storage backend, e.g., "compressor"
+        compressor: numcodecs Codec instance to use for compression
         recursive: whether to convert all images in all subfolders
         bkg_img_dir: the directory containing the background image Tiff file for each raw image.
                      If None, will not perform background subtraction.
@@ -806,6 +826,7 @@ def store_array(
     path: str,
     block_shape: tuple,
     compressor: Codec = None,
+    dimension_separator: str = "/"
 ) -> zarr.Array:
     """
     Store the full resolution layer of a Dask pyramid into a Zarr group.
@@ -833,7 +854,7 @@ def store_array(
         chunks=arr.chunksize,
         dtype=arr.dtype,
         compressor=compressor,
-        dimension_separator="/",
+        dimension_separator=dimension_separator,
         overwrite=True,
     )
 
