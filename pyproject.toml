@@ -47,14 +47,14 @@ ephys = [
 ]
 imaging = [
     'argschema',
-    'dask==2023.6.0',
-    'distributed==2023.6.0',
+    'dask==2023.7.1',
+    'distributed==2023.7.1',
     'bokeh!=3.0.*,>=2.4.2',
     'gcsfs',
     'xarray-multiscale',
     'parameterized',
-    'zarr==2.15.0',
-    'ome-zarr==0.7.1',
+    'zarr==2.16.0',
+    'ome-zarr==0.8.0',
     'chardet==5.1.0'
 ]
 full = [
