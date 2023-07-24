@@ -26,7 +26,8 @@ dependencies = [
     'aind-data-schema==0.13.13',
     'aind-metadata-service[client]>=0.2.5',
     'tqdm==4.64.1',
-    'aind-data-access-api[secrets]'
+    'aind-data-access-api[secrets]',
+    'pydantic<2.0'
 ]
 
 [project.optional-dependencies]
@@ -40,7 +41,7 @@ dev = [
     'Sphinx'
 ]
 ephys = [
-    'spikeinterface[full]>=0.97.1',
+    'spikeinterface[full]>=0.98.0',
     'probeinterface>=0.2.16',
     'zarr',
     'wavpack-numcodecs>=0.1.3'

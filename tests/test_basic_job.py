@@ -162,6 +162,39 @@ class TestBasicJob(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("os.mkdir")
+    @patch(
+        "aind_data_transfer.transformations.generic_compressors.ZipCompressor."
+        "compress_dir"
+    )
+    @patch("shutil.copytree")
+    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
+    def test_compress_raw_data_no_zip_skip_staging(
+        self,
+        mock_upload: MagicMock,
+        mock_copytree: MagicMock,
+        mock_compress: MagicMock,
+        mock_make_dir: MagicMock,
+    ):
+        """Tests that the raw data is uploaded directly to s3"""
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job_configs.modalities[0].skip_staging = True
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        basic_job._compress_raw_data(temp_dir=Path("some_path"))
+
+        # Should upload directly to s3
+        mock_make_dir.assert_not_called()
+        mock_copytree.assert_not_called()
+        mock_upload.assert_called_once_with(
+            directory_to_upload=DATA_DIR,
+            s3_bucket="some_bucket",
+            s3_prefix="confocal_12345_2020-10-10_10-10-10/mri",
+            dryrun=True,
+            excluded=None,
+        )
+        self.assertFalse(mock_compress.called)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch(
         "aind_data_transfer.transformations.metadata_creation."
         "SubjectMetadata.from_service"
@@ -341,6 +374,43 @@ class TestBasicJob(unittest.TestCase):
                 '{"job_type": "confocal", '
                 '"modalities": ["MRI"], '
                 '"capsule_id": "some_capsule_id", '
+                '"process_capsule_id": null, '
+                '"bucket": "some_bucket", '
+                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
+                f'"aind_data_transfer_version": "{__version__}"'
+                "}}"
+            ],
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_codeocean_api.codeocean.CodeOceanClient.run_capsule")
+    def test_trigger_custom_codeocean_capsule(
+        self,
+        mock_run_capsule: MagicMock,
+    ):
+        """Tests code ocean capsule is triggered"""
+        successful_response = Response()
+        successful_response.status_code = 200
+        successful_response._content = json.dumps(
+            {"Message": "triggered a code ocean capsule"}
+        ).encode("utf-8")
+        mock_run_capsule.return_value = successful_response
+        # With dry-run set to True
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job_configs.dry_run = False
+        basic_job_configs.codeocean_process_capsule_id = "xyz-456"
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        basic_job._trigger_codeocean_pipeline()
+
+        mock_run_capsule.assert_called_once_with(
+            capsule_id="some_capsule_id",
+            data_assets=[],
+            parameters=[
+                '{"trigger_codeocean_job": '
+                '{"job_type": "run_generic_pipeline", '
+                '"modalities": ["MRI"], '
+                '"capsule_id": "some_capsule_id", '
+                '"process_capsule_id": "xyz-456", '
                 '"bucket": "some_bucket", '
                 '"prefix": "confocal_12345_2020-10-10_10-10-10", '
                 f'"aind_data_transfer_version": "{__version__}"'

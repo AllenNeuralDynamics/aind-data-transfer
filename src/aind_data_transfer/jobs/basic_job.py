@@ -8,6 +8,7 @@ import shutil
 import sys
 import tempfile
 from datetime import datetime, timezone
+from enum import Enum
 from importlib import import_module
 from pathlib import Path
 
@@ -28,6 +29,13 @@ from aind_data_transfer.transformations.metadata_creation import (
     SubjectMetadata,
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
+
+
+# It might make more sense to move this class into different repo
+class JobTypes(Enum):
+    REGISTER_DATA = "register_data"
+    RUN_GENERIC_PIPELINE = "run_generic_pipeline"
+    TEST = "test"
 
 
 class BasicJob:
@@ -97,13 +105,42 @@ class BasicJob:
             behavior_dir_excluded = None
 
         for modality_config in self.job_configs.modalities:
-            print(f"Starting to process {modality_config.source}")
-            if not modality_config.compress_raw_data:
+            self._instance_logger.info(
+                f"Starting to process {modality_config.source}"
+            )
+            if (
+                not modality_config.compress_raw_data
+                and not modality_config.skip_staging
+            ):
+                self._instance_logger.info(
+                    f"Copying data to staging directory: {temp_dir}"
+                )
                 dst_dir = temp_dir / modality_config.default_output_folder_name
                 shutil.copytree(
                     modality_config.source,
                     dst_dir,
                     ignore=behavior_dir_excluded,
+                )
+            elif (
+                not modality_config.compress_raw_data
+                and modality_config.skip_staging
+            ):
+                self._instance_logger.info(
+                    f"Skipping staging and uploading {modality_config.source} "
+                    f"directly to s3."
+                )
+                s3_prefix_modality = "/".join(
+                    [
+                        self.job_configs.s3_prefix,
+                        modality_config.default_output_folder_name,
+                    ]
+                )
+                upload_to_s3(
+                    directory_to_upload=modality_config.source,
+                    s3_bucket=self.job_configs.s3_bucket,
+                    s3_prefix=s3_prefix_modality,
+                    dryrun=self.job_configs.dry_run,
+                    excluded=behavior_dir_excluded,
                 )
             else:
                 self._instance_logger.info(
@@ -253,14 +290,21 @@ class BasicJob:
 
     def _trigger_codeocean_pipeline(self):
         """Trigger the codeocean pipeline."""
-        # Legacy way we set up parameters...
+        if self.job_configs.codeocean_process_capsule_id is not None:
+            job_type = JobTypes.RUN_GENERIC_PIPELINE.value
+        else:
+            # Handle legacy way we set up parameters...
+            job_type = self.job_configs.experiment_type.value
         trigger_capsule_params = {
             "trigger_codeocean_job": {
-                "job_type": self.job_configs.experiment_type.value,
+                "job_type": job_type,
                 "modalities": (
                     [m.modality.name for m in self.job_configs.modalities]
                 ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
+                "process_capsule_id": (
+                    self.job_configs.codeocean_process_capsule_id
+                ),
                 "bucket": self.job_configs.s3_bucket,
                 "prefix": self.job_configs.s3_prefix,
                 "aind_data_transfer_version": __version__,
@@ -312,6 +356,9 @@ class BasicJob:
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
-    job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
+    if "--json-args" in sys_args:
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
+    else:
+        job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
     job = BasicJob(job_configs=job_configs_from_main)
     job.run_job()

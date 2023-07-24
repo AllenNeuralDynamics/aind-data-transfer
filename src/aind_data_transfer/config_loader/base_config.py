@@ -39,6 +39,13 @@ class BasicJobEndpoints(BaseSettings):
     aind_data_transfer_repo_location: str = Field(...)
     video_encryption_password: Optional[SecretStr] = Field(None)
     codeocean_api_token: Optional[SecretStr] = Field(None)
+    codeocean_process_capsule_id: Optional[str] = Field(
+        None,
+        description=(
+            "If defined, will run this Code Ocean Capsule after registering "
+            "the data asset"
+        ),
+    )
 
     class Config:
         """This class will add custom sourcing from aws."""
@@ -139,6 +146,11 @@ class ModalityConfigs(BaseSettings):
         description="Location of additional configuration file",
         title="Extra Configs",
     )
+    skip_staging: bool = Field(
+        default=False,
+        description="Upload uncompressed directly without staging",
+        title="Skip Staging",
+    )
 
     @property
     def number_id(self):
@@ -170,6 +182,11 @@ class ModalityConfigs(BaseSettings):
 
 class BasicUploadJobConfigs(BasicJobEndpoints):
     """Configuration for the basic upload job"""
+
+    _DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    _DATE_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
+    _TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
+    _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
 
     s3_bucket: str = Field(
         ...,
@@ -252,28 +269,24 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             creation_time=self.acq_time,
         )
 
-    @staticmethod
-    def parse_date(date_str: str) -> date:
+    @validator("acq_date", pre=True)
+    def _parse_date(cls, date_str: str) -> date:
         """Parses date string to %YYYY-%MM-%DD format"""
-        pattern = r"^\d{4}-\d{2}-\d{2}$"
-        pattern2 = r"^\d{1,2}/\d{1,2}/\d{4}$"
-        if re.match(pattern, date_str):
+        if re.match(BasicUploadJobConfigs._DATE_PATTERN1, date_str):
             return date.fromisoformat(date_str)
-        elif re.match(pattern2, date_str):
+        elif re.match(BasicUploadJobConfigs._DATE_PATTERN2, date_str):
             return datetime.strptime(date_str, "%m/%d/%Y").date()
         else:
             raise ValueError(
                 "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
             )
 
-    @staticmethod
-    def parse_time(time_str: str) -> time:
+    @validator("acq_time", pre=True)
+    def _parse_time(cls, time_str: str) -> time:
         """Parses time string to "%HH-%MM-%SS format"""
-        pattern = r"^\d{1,2}-\d{1,2}-\d{1,2}$"
-        pattern2 = r"^\d{1,2}:\d{1,2}:\d{1,2}$"
-        if re.match(pattern, time_str):
+        if re.match(BasicUploadJobConfigs._TIME_PATTERN1, time_str):
             return datetime.strptime(time_str, "%H-%M-%S").time()
-        elif re.match(pattern2, time_str):
+        elif re.match(BasicUploadJobConfigs._TIME_PATTERN2, time_str):
             return time.fromisoformat(time_str)
         else:
             raise ValueError(
@@ -389,12 +402,19 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             action="store_true",
             help=_help_message("force_cloud_sync"),
         )
+        parser.add_argument(
+            "-i",
+            "--codeocean-process-capsule-id",
+            required=False,
+            type=str,
+            help=_help_message("codeocean_process_capsule_id"),
+        )
         parser.set_defaults(dry_run=False)
         parser.set_defaults(metadata_dir_force=False)
         parser.set_defaults(force_cloud_sync=False)
         job_args = parser.parse_args(args)
-        acq_date = BasicUploadJobConfigs.parse_date(job_args.acq_date)
-        acq_time = BasicUploadJobConfigs.parse_time(job_args.acq_time)
+        acq_date = job_args.acq_date
+        acq_time = job_args.acq_time
         behavior_dir = (
             None
             if job_args.behavior_dir is None
@@ -428,6 +448,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             endpoints_param_dict = {
                 "aws_param_store_name": job_args.endpoints_parameters
             }
+        if job_args.codeocean_process_capsule_id is not None:
+            endpoints_param_dict[
+                "codeocean_process_capsule_id"
+            ] = job_args.codeocean_process_capsule_id
         modalities_json = json.loads(job_args.modalities)
         modalities = [ModalityConfigs.parse_obj(m) for m in modalities_json]
         return cls(
@@ -446,3 +470,16 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             log_level=log_level,
             **endpoints_param_dict,
         )
+
+    @classmethod
+    def from_json_args(cls, args: list):
+        """Adds ability to construct settings from a single json string."""
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--json-args",
+            required=True,
+            type=str,
+            help="Configs passed as a single json string",
+        )
+        return cls(**json.loads(parser.parse_args(args).json_args))
