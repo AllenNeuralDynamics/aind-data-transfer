@@ -498,14 +498,14 @@ class BlockedArrayWriter:
             )
 
     @staticmethod
-    def get_block_shape(arr, target_size_mb=102400, mode="cycle"):
+    def get_block_shape(arr, target_size_mb=409600, mode="cycle"):
         """
         Given the shape and chunk size of a pre-chunked array, determine the optimal block shape
         closest to target_size. Expanded block dimensions are an integer multiple of the chunk dimension
         to ensure optimal access patterns.
         Args:
             arr: the input array
-            target_size_mb: target block size in megabytes
+            target_size_mb: target block size in megabytes, default is 409600
             mode: strategy. Must be one of "cycle", or "iso"
         Returns:
             the block shape
