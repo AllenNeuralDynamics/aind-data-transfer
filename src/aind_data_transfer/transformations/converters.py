@@ -10,6 +10,7 @@ from datetime import datetime
 import tifffile
 import re
 import pathlib
+from aind_data_transfer.transformations.deinterleave import ChannelParser, Deinterleave
 
 def log_to_acq_json(log_dict: dict) -> Acquisition:
     """
@@ -61,14 +62,14 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
         tiles.append(tile)
 
 
-    # NOTE: Made up directions
+    # NOTE: These directions are in "camera coordinates" (ie. the data is stored in this order, and the cells/data have a 45 degree skew from the "optical coordinates")
     axes: list[Axis] = []
     axes.append(Axis(name=AxisName.X, 
                      dimension=2, 
-                     direction=Direction.LR))  
+                     direction=Direction.AP))  
     axes.append(Axis(name=AxisName.Y, 
                      dimension=1, 
-                     direction=Direction.AP))
+                     direction=Direction.LR))
     axes.append(Axis(name=AxisName.Z, 
                      dimension=0, 
                      direction=Direction.IS))
