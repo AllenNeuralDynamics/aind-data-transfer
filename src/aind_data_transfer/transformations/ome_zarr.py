@@ -876,8 +876,8 @@ def downsample_and_store(
 
     Parameters
     ----------
-    first_mipmap : da.Array
-        The input Dask array.
+    arr : da.Array
+        The full-resolution Dask array.
     group : zarr.Group
         The output Zarr group.
     n_lvls : int
