@@ -182,8 +182,33 @@ def main():
 
     zarr_out = dest_data_dir + "/" + raw_image_dir_name + ".zarr"
 
+    if job_configs["jobs"]["create_metadata"]:
+        metadata_service_url = job_configs["endpoints"]["metadata_service_url"]
+        subject_id = job_configs["data"]["subject_id"]
+        subject_metadata = SubjectMetadata.from_service(
+            domain=metadata_service_url,
+            subject_id=subject_id,
+        )
+        subject_metadata.write_to_json(
+            os.path.join(data_src_dir, subject_metadata.output_filename)
+        )
 
+        procedures_metadata = ProceduresMetadata.from_service(
+            domain=metadata_service_url,
+            subject_id=subject_id,
+        )
+        procedures_metadata.write_to_json(
+            os.path.join(data_src_dir, procedures_metadata.output_filename)
+        )
 
+        data_description_metadata = RawDataDescriptionMetadata.from_inputs(
+            name=Path(data_src_dir).name, modality=[Modality.SPIM]
+        )
+        data_description_metadata.write_to_json(
+            os.path.join(
+                data_src_dir, data_description_metadata.output_filename
+            )
+        )
 
     if job_configs["jobs"]["transcode"]:
         bkg_im_dir = None
@@ -225,11 +250,11 @@ def main():
                 log_dict['config_toml'] = toml_dict
                 #convert to acq json
                 acq_json = log_to_acq_json(log_dict)
-                
                 acq_json_path = Path(data_src_dir).joinpath('acquisition.json')
+
                 try:
                     write_acq_json(acq_json, acq_json_path)
-                    print('Finished writing acq json')
+                    LOGGER.info('Finished writing acq json')
                 except Exception as e:
                     LOGGER.error(f"Failed to write acquisition.json: {e}")
 
@@ -239,7 +264,7 @@ def main():
                 acq_xml = acq_json_to_xml(acq_json, data_src_dir.stem +'/'+(job_configs["data"]["name"]+'.zarr'), is_zarr, condition) #needs relative path to zarr file (as seen by code ocean)
 
                 #write xml to file
-                xml_file_path = data_src_dir.joinpath('Camera_405.xml')
+                xml_file_path = data_src_dir.joinpath('Camera_405.xml') #
                 write_xml(acq_xml, xml_file_path)
 
 
@@ -273,33 +298,6 @@ def main():
                 f"Creating neuroglancer link failed; {output_json} was not created"
             )
 
-    if job_configs["jobs"]["create_metadata"]:
-        metadata_service_url = job_configs["endpoints"]["metadata_service_url"]
-        subject_id = job_configs["data"]["subject_id"]
-        subject_metadata = SubjectMetadata.from_service(
-            domain=metadata_service_url,
-            subject_id=subject_id,
-        )
-        subject_metadata.write_to_json(
-            os.path.join(data_src_dir, subject_metadata.output_filename)
-        )
-
-        procedures_metadata = ProceduresMetadata.from_service(
-            domain=metadata_service_url,
-            subject_id=subject_id,
-        )
-        procedures_metadata.write_to_json(
-            os.path.join(data_src_dir, procedures_metadata.output_filename)
-        )
-
-        data_description_metadata = RawDataDescriptionMetadata.from_inputs(
-            name=Path(data_src_dir).name, modality=[Modality.SPIM]
-        )
-        data_description_metadata.write_to_json(
-            os.path.join(
-                data_src_dir, data_description_metadata.output_filename
-            )
-        )
 
  
 if __name__ == "__main__":

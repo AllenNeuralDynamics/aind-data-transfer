@@ -98,7 +98,7 @@ def read_imaging_log(log_path: str) -> dict:
     # we want to extract the file name, and the x,y,z coordinates
     def get_tile_dict(log_list: list) -> dict:
         tile_loc_regex = r"Collecting tile stacks at \((.?\d+\.\d+), (.?\d+\.\d+)\).*?channels \[(\d+)\].*?saving to.*?'(.*?)'"
-        tile_z_position_regex = r"Starting scan at Z = (\d+\.\d+) mm"
+        tile_z_position_regex = r"Starting scan at Z = .?(\d+\.\d+) mm"
 
         tile_dict = {}
         for line in log_list:
