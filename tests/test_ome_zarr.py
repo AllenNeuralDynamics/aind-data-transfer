@@ -11,7 +11,10 @@ import zarr
 from distributed import Client
 from parameterized import parameterized
 
-from aind_data_transfer.transformations.ome_zarr import write_files, write_folder
+from aind_data_transfer.transformations.ome_zarr import (
+    write_files,
+    write_folder,
+)
 from aind_data_transfer.util.io_utils import ImarisReader
 
 
@@ -25,7 +28,9 @@ def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
     for i in range(n):
         a = np.ones(shape, dtype=np.uint16)
         with h5py.File(os.path.join(folder, f"data_{i}.h5"), "w") as f:
-            f.create_dataset(ImarisReader.DEFAULT_DATA_PATH, data=a, chunks=True)
+            f.create_dataset(
+                ImarisReader.DEFAULT_DATA_PATH, data=a, chunks=True
+            )
             # Write origin metadata
             dataset_info = f.create_group("DataSetInfo/Image")
             dataset_info.attrs["ExtMin0"] = np.array(
@@ -37,15 +42,9 @@ def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
             dataset_info.attrs["ExtMin2"] = np.array(
                 ["3", "0", "0"], dtype="S"
             )
-            dataset_info.attrs["X"] = np.array(
-                list(str(shape[2])), dtype="S"
-            )
-            dataset_info.attrs["Y"] = np.array(
-                list(str(shape[1])), dtype="S"
-            )
-            dataset_info.attrs["Z"] = np.array(
-                list(str(shape[0])), dtype="S"
-            )
+            dataset_info.attrs["X"] = np.array(list(str(shape[2])), dtype="S")
+            dataset_info.attrs["Y"] = np.array(list(str(shape[1])), dtype="S")
+            dataset_info.attrs["Z"] = np.array(list(str(shape[0])), dtype="S")
 
 
 class TestOmeZarr(unittest.TestCase):
@@ -180,7 +179,7 @@ class TestOmeZarr(unittest.TestCase):
         shape = (64, 128, 128)
         out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
         n_levels = 4
-        scale_factor = 2.0
+        scale_factor = 2
         voxel_size = [1.0, 1.0, 1.0]
         metrics = write_files(
             files, out_zarr, n_levels, scale_factor, voxel_size=voxel_size
@@ -191,7 +190,12 @@ class TestOmeZarr(unittest.TestCase):
         z = zarr.open(out_zarr, "r")
 
         # Test group for each written image
-        expected_keys = {"data_0.zarr", "data_1.zarr", "data_2.zarr", "data_3.zarr"}
+        expected_keys = {
+            "data_0.zarr",
+            "data_1.zarr",
+            "data_2.zarr",
+            "data_3.zarr",
+        }
         actual_keys = set(z.keys())
         self.assertEqual(expected_keys, actual_keys)
 
@@ -215,7 +219,7 @@ class TestOmeZarr(unittest.TestCase):
         shape = (64, 128, 128)
         out_zarr = os.path.join(self._temp_dir.name, "ome.zarr")
         n_levels = 4
-        scale_factor = 2.0
+        scale_factor = 2
         voxel_size = [1.0, 1.0, 1.0]
 
         # create a dummy file to exclude from conversion
@@ -234,7 +238,12 @@ class TestOmeZarr(unittest.TestCase):
         z = zarr.open(out_zarr, "r")
 
         # Test that all images were written except exclusion
-        expected_keys = {"data_0.zarr", "data_1.zarr", "data_2.zarr", "data_3.zarr"}
+        expected_keys = {
+            "data_0.zarr",
+            "data_1.zarr",
+            "data_2.zarr",
+            "data_3.zarr",
+        }
         actual_keys = set(z.keys())
         self.assertEqual(expected_keys, actual_keys)
 
