@@ -101,9 +101,17 @@ class TestSubjectMetadata(unittest.TestCase):
     successful_response_message = {
         "message": "Valid Model.",
         "data": {
-            "describedBy": "https://github-location.org/subject.py",
-            "schema_version": "0.3.0",
-            "species": "Mus musculus",
+            "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/subject.py",
+            "schema_version": "0.4.1",
+            "species": {
+                "name": "Mus musculus",
+                "abbreviation": None,
+                "registry": {
+                    "name": "National Center for Biotechnology Information",
+                    "abbreviation": "NCBI"
+                },
+                "registry_identifier": "10090"
+            },
             "subject_id": "632269",
             "sex": "Female",
             "date_of_birth": "2022-05-01",
@@ -113,16 +121,15 @@ class TestSubjectMetadata(unittest.TestCase):
             "source": None,
             "rrid": None,
             "restrictions": None,
-            "breeding_group": (
-                "Pvalb-IRES-Cre;RCL-somBiPoles_mCerulean-WPRE(ND)"
-            ),
+            "breeding_group": "Pvalb-IRES-Cre;RCL-somBiPoles_mCerulean-WPRE(ND)",
             "maternal_id": "615310",
             "maternal_genotype": "Pvalb-IRES-Cre/wt",
             "paternal_id": "623236",
             "paternal_genotype": "RCL-somBiPoles_mCerulean-WPRE/wt",
             "wellness_reports": None,
-            "notes": None,
-        },
+            "housing": None,
+            "notes": None
+        }
     }
 
     multiple_subjects_response = {
