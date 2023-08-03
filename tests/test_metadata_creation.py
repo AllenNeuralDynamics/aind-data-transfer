@@ -12,7 +12,7 @@ from aind_data_schema import (
     RawDataDescription,
     Subject,
 )
-from aind_data_schema.data_description import Modality
+from aind_data_schema.data_description import Modality, Funding, Institution
 from aind_data_schema.processing import ProcessName
 from requests import ConnectionError, Response
 
@@ -329,7 +329,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         Tests that the data description metadata is created correctly.
         """
         data_description = RawDataDescriptionMetadata.from_inputs(
-            name="diSPIM_12345_2022-02-21_16-30-01", modality=[Modality.SPIM]
+            name="diSPIM_12345_2022-02-21_16-30-01", modality=[Modality.SPIM], funding_source=[Funding(funder=Institution.AI)]
         )
 
         expected_data_description_instance = RawDataDescription.parse_obj(

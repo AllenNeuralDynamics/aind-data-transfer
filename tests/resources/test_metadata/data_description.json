@@ -31,9 +31,7 @@
    ],
    "data_level": "raw data",
    "group": null,
-   "investigators": [
-      "Jane Smith"
-   ],
+   "investigators": [],
    "project_name": null,
    "project_id": null,
    "restrictions": null,
