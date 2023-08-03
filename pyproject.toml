@@ -14,20 +14,20 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'pandas',
+    'pandas==2.0.3',
+    's3fs==0.4.2',
     's3transfer[crt]==0.6.1',
-    'boto3',
+    'boto3==1.28.19',
     'botocore==1.31.19',
-    'numpy>=1.16',
-    'pyyaml',
-    'google-cloud-storage',
-    'pyminizip',
+    'numpy==1.24.4',
+    'pyyaml==6.0.1',
+    'google-cloud-storage==2.10.0',
+    'pyminizip==0.2.6',
     'aind-codeocean-api==0.1.0',
     'aind-data-schema==0.13.72',
     'aind-metadata-service[client]>=0.2.5',
     'tqdm==4.64.1',
-    'aind-data-access-api[secrets]',
-    'pydantic<2.0'
+    'aind-data-access-api[secrets]==0.3.0'
 ]
 
 [project.optional-dependencies]
@@ -51,7 +51,7 @@ imaging = [
     'dask==2023.7.1',
     'distributed==2023.7.1',
     'bokeh!=3.0.*,>=2.4.2',
-    'gcsfs',
+    'gcsfs==2023.6.0',
     'xarray-multiscale',
     'parameterized',
     'zarr==2.16.0',
