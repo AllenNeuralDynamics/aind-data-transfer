@@ -74,8 +74,8 @@ Required
 
 ```
 s3_bucket: S3 Bucket name
-experiment_type: One of [confocal, diSPIM, ecephys, exaSPIM, FIP, fMOST, HSFP, mesoSPIM, MRI, Other, SmartSPIM]
-modality: One of [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MRI, OPHYS, SMARTSPIM, SPIM]
+experiment_type: One of [confocal, diSPIM, ecephys, exaSPIM, FIP, fMOST, HSFP, mesoSPIM, MPOPHYS, MRI, Other, SmartSPIM, SPOPHYS]
+modality: One of [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MPOPHYS, MRI, SMARTSPIM, SPIM, SPOPHYS]
 subject_id: ID of the subject
 acq_date: Format can be either yyyy-MM-dd or MM/dd/yyyy
 acq_time: Format can be either HH:mm:ss or HH-mm-ss
@@ -83,12 +83,12 @@ acq_time: Format can be either HH:mm:ss or HH-mm-ss
 
 One or more modalities need to be set. The csv headers can look like:
 ```
-modality0: [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MRI, OPHYS, SMARTSPIM, SPIM]
+modality0: [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MPOPHYS, MRI, SMARTSPIM, SPIM, SPOPHYS]
 modality0.source: path to modality0 raw data folder
 modality0.compress_raw_data (Optional): Override default compression behavior. True if ECEPHYS, False otherwise.
 modality0.skip_staging (Optional): If modality0.compress_raw_data is False and this is True, upload directly to s3. Default is False.
 modality0.extra_configs (Optional): path to config file to override compression defaults
-modality1 (Optional): [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MRI, OPHYS, SMARTSPIM, SPIM]
+modality1 (Optional): [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MPOPHYS, MRI, SMARTSPIM, SPIM, SPOPHYS]
 modality1.source (Optional): path to modality0 raw data folder
 modality1.compress_raw_data (Optional): Override default compression behavior. True if ECEPHYS, False otherwise.
 modality1.skip_staging (Optional): If modality1.compress_raw_data is False and this is True, upload directly to s3. Default is False.

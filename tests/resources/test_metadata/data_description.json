@@ -1,25 +1,37 @@
 {
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/data_description.py",
-   "schema_version": "0.6.0",
+   "schema_version": "0.7.4",
    "license": "CC-BY-4.0",
    "creation_time": "16:30:01",
    "creation_date": "2022-02-21",
    "name": "diSPIM_12345_2022-02-21_16-30-01",
    "institution": {
       "name": "Allen Institute for Neural Dynamics",
-      "abbreviation": "AIND"
+      "abbreviation": "AIND",
+      "registry": {
+         "name": "Research Organization Registry",
+         "abbreviation": "ROR"
+      },
+      "registry_identifier": "04szwah67"
    },
-   "ror_id": null,
    "funding_source": [
       {
-         "funder": "AIND",
+         "funder": {
+            "name": "Allen Institute",
+            "abbreviation": "AI",
+            "registry": {
+               "name": "Research Organization Registry",
+               "abbreviation": "ROR"
+            },
+            "registry_identifier": "03cpe7c52"
+         },
          "grant_number": null,
          "fundee": null
       }
    ],
-   "investigators": [],
    "data_level": "raw data",
    "group": null,
+   "investigators": [],
    "project_name": null,
    "project_id": null,
    "restrictions": null,
