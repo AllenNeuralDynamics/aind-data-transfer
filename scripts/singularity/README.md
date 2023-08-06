@@ -2,11 +2,12 @@
 
 ### Build Singularity-Builder
 
-TODO: We should build these automatically and register them somewhere.
+TODO: We should build the singularity-builder docker container in a different repo
 
-- From the project's root directory:
-- Make a local build directory. Run `mkdir build`
-- Build a docker image. Run `docker build -t singularity-builder:latest -f scripts/singularity/Dockerfile .`
-- Build the singularity image. Run: `docker run --privileged -v ${PWD}/build:/build singularity-builder:latest singularity build build/aind_data_transfer.sif aind_data_transfer.def`
-- There should be a sif file in the build folder. The permissions may need to be updated.
-- The sif file can now be copied to a shared directory that a slurm cluster can access.
+- From the project's root directory and from the main branch:
+- Run: `./scripts/singularity/run_build.sh`
+- After the build completes, there should be a sif file that can now be copied to a shared directory that a slurm cluster can access.
+
+### To build an older version other than the latest
+- If the docker image is already built, you can create a sif file for a specific version by running: `docker run --privileged -e AIND_DATA_TRANSFER_VERSION=${AIND_DATA_TRANSFER_VERSION} -v ${PWD}/build:/build singularity-builder:latest ./build_sif.sh`
+- Alternatively, you can checkout a specific tag and run `./scripts/singularity/run_build.sh`

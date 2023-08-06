@@ -46,4 +46,4 @@ make -C ./builddir install
 RUN mkdir build
 
 # Copy def file and post_install script
-COPY ["scripts/singularity/aind_data_transfer.def", "post_install.sh", "./"]
+COPY ["scripts/singularity/aind_data_transfer.def", "scripts/singularity/build_sif.sh","post_install.sh", "./"]
