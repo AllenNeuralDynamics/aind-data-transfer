@@ -130,28 +130,21 @@ def main():
 
     root_group: zarr.Group = zarr.open(args.output_zarr, mode="w")
 
-    write_ome_ngff_metadata(
-        root_group,
-        scales[0],
-        Path(args.output_zarr).stem,
-        n_levels,
-        scale_factors[-3:],  # must be 3D
-        tuple(reversed(args.voxel_size)),  # must be 3D ZYX
-    )
-
     codec = blosc.Blosc(cname="zstd", clevel=1, shuffle=blosc.SHUFFLE)
+
+    metadata = {}
 
     t0 = time.time()
     if len(scales) < n_levels:
         # downsample from scratch
         reducer = windowed_mean
-        root_group.attrs["multiscales"][0]["metadata"] = {
-                "description": "Pyramid generated with xarray_multiscale",
-                "method": f"{reducer.__module__}.{reducer.__name__}",
-                "version": xarray_multiscale.__version__,
-                "args": None,
-                "kwargs": {},
-            }
+        metadata["metadata"] = {
+            "description": "Pyramid generated with xarray_multiscale",
+            "method": f"{reducer.__module__}.{reducer.__name__}",
+            "version": xarray_multiscale.__version__,
+            "args": None,
+            "kwargs": {},
+        }
         _LOGGER.info(
             "Num existing scales is less than num levels, downsampling from scratch."
         )
@@ -171,6 +164,15 @@ def main():
             store_array(s, root_group, str(i), block_shape, codec)
             if i == n_levels - 1:
                 break
+    write_ome_ngff_metadata(
+        root_group,
+        scales[0],
+        Path(args.output_zarr).stem,
+        n_levels,
+        scale_factors[-3:],  # must be 3D
+        tuple(reversed(args.voxel_size)),  # must be 3D ZYX
+        metadata=metadata
+    )
     _LOGGER.info(f"Done. Took {time.time() - t0} seconds")
 
 

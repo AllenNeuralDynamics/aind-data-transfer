@@ -942,6 +942,7 @@ def write_ome_ngff_metadata(
     scale_factors: tuple,
     voxel_size: tuple,
     origin: list = None,
+    metadata: dict = None,
 ) -> None:
     """
     Write OME-NGFF metadata to a Zarr group.
@@ -961,6 +962,8 @@ def write_ome_ngff_metadata(
     voxel_size : tuple
         The voxel size along each dimension.
     """
+    if metadata is None:
+        metadata = {}
     fmt = CurrentFormat()
     ome_json = _build_ome(
         arr.shape,
@@ -982,4 +985,4 @@ def write_ome_ngff_metadata(
         for dataset, transform in zip(datasets, coordinate_transformations):
             dataset["coordinateTransformations"] = transform
 
-    write_multiscales_metadata(group, datasets, fmt, axes_5d)
+    write_multiscales_metadata(group, datasets, fmt, axes_5d, **metadata)
