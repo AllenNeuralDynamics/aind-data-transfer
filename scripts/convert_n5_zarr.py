@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List
 
 import dask.array as da
+import xarray_multiscale
 import zarr
 from numcodecs import blosc
 from natsort import natsorted
@@ -21,6 +22,7 @@ from aind_data_transfer.util.chunk_utils import (
 )
 from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.io_utils import BlockedArrayWriter
+from xarray_multiscale import windowed_mean
 
 blosc.use_threads = False
 
@@ -142,6 +144,14 @@ def main():
     t0 = time.time()
     if len(scales) < n_levels:
         # downsample from scratch
+        reducer = windowed_mean
+        root_group.attrs["multiscales"][0]["metadata"] = {
+                "description": "Pyramid generated with xarray_multiscale",
+                "method": f"{reducer.__module__}.{reducer.__name__}",
+                "version": xarray_multiscale.__version__,
+                "args": None,
+                "kwargs": {},
+            }
         _LOGGER.info(
             "Num existing scales is less than num levels, downsampling from scratch."
         )
@@ -153,7 +163,9 @@ def main():
             scale_factors,
             block_shape,
             codec,
+            reducer
         )
+
     else:
         for i, s in enumerate(scales):
             store_array(s, root_group, str(i), block_shape, codec)
