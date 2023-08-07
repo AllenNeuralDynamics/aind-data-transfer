@@ -56,7 +56,8 @@ imaging = [
     'parameterized',
     'zarr==2.16.0',
     'ome-zarr==0.8.0',
-    'chardet==5.1.0'
+    'chardet==5.1.0',
+    'natsort',
 ]
 full = [
     'aind-data-transfer[ephys]',

@@ -12,7 +12,7 @@ from ome_zarr.format import CurrentFormat
 from ome_zarr.io import parse_url
 from ome_zarr.writer import write_multiscales_metadata
 from xarray_multiscale import multiscale
-from xarray_multiscale.reducers import windowed_mean
+from xarray_multiscale.reducers import windowed_mean, WindowedReducer
 
 from aind_data_transfer.util.chunk_utils import *
 from aind_data_transfer.util.file_utils import collect_filepaths
@@ -785,10 +785,11 @@ def _get_axes_5d(
 
 
 def create_pyramid(
-    arr: ArrayLike,
+    arr: Union[np.ndarray, da.Array],
     n_lvls: int,
     scale_factors: tuple,
     chunks: Union[str, tuple] = "preserve",
+    reducer: WindowedReducer = windowed_mean,
 ) -> list:
     """
     Create a multiscale pyramid of the input data.
@@ -810,9 +811,9 @@ def create_pyramid(
         A list of Dask arrays representing the pyramid levels.
     """
     pyramid = multiscale(
-        arr,
-        windowed_mean,  # func
-        scale_factors,
+        array=arr,
+        reduction=reducer,  # func
+        scale_factors=scale_factors,
         preserve_dtype=True,
         chunks=chunks,
     )[:n_lvls]
@@ -870,6 +871,7 @@ def downsample_and_store(
     scale_factors: Tuple,
     block_shape: Tuple,
     compressor: Codec = None,
+    reducer: WindowedReducer = windowed_mean,
 ) -> list:
     """
     Progressively downsample the input array and store the results as separate arrays in a Zarr group.
@@ -893,7 +895,7 @@ def downsample_and_store(
     pyramid = [arr]
 
     for arr_index in range(1, n_lvls):
-        first_mipmap = _get_first_mipmap_level(arr, scale_factors)
+        first_mipmap = _get_first_mipmap_level(arr, scale_factors, reducer)
 
         ds = group.create_dataset(
             str(arr_index),
@@ -913,7 +915,7 @@ def downsample_and_store(
     return pyramid
 
 
-def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple) -> da.Array:
+def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple, reducer: WindowedReducer = windowed_mean) -> da.Array:
     """
     Generate a mipmap pyramid from the input array and return the first mipmap level.
 
@@ -928,7 +930,7 @@ def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple) -> da.Array:
         The first mipmap level of the input array.
     """
     n_lvls = 2
-    pyramid = create_pyramid(arr, n_lvls, scale_factors, arr.chunksize)
+    pyramid = create_pyramid(arr, n_lvls, scale_factors, arr.chunksize, reducer)
     return ensure_array_5d(pyramid[1])
 
 
@@ -940,6 +942,7 @@ def write_ome_ngff_metadata(
     scale_factors: tuple,
     voxel_size: tuple,
     origin: list = None,
+    metadata: dict = None,
 ) -> None:
     """
     Write OME-NGFF metadata to a Zarr group.
@@ -959,6 +962,8 @@ def write_ome_ngff_metadata(
     voxel_size : tuple
         The voxel size along each dimension.
     """
+    if metadata is None:
+        metadata = {}
     fmt = CurrentFormat()
     ome_json = _build_ome(
         arr.shape,
@@ -980,4 +985,4 @@ def write_ome_ngff_metadata(
         for dataset, transform in zip(datasets, coordinate_transformations):
             dataset["coordinateTransformations"] = transform
 
-    write_multiscales_metadata(group, datasets, fmt, axes_5d)
+    write_multiscales_metadata(group, datasets, fmt, axes_5d, **metadata)
