@@ -49,17 +49,18 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
                         [float(tile_dict['tile_x_position']),  
                         float(tile_dict['tile_y_position']),
                         float(tile_dict['tile_z_position'])])
-        channel_dict = log_dict['channels'][tile_dict['channel']]
-        ch = Channel(channel_name=tile_dict['channel'], 
-                    laser_wavelength=int(channel_dict['laser_wavelength']), 
-                    laser_power=channel_dict['laser_power'],
-                    filter_wheel_index=channel_dict['filter_wheel_index'])
+        for channel in tile_dict['channel']:
+            channel_dict = log_dict['channels'][channel]
+            ch = Channel(channel_name=channel, 
+                        laser_wavelength=int(channel_dict['laser_wavelength']), 
+                        laser_power=channel_dict['laser_power'],
+                        filter_wheel_index=channel_dict['filter_wheel_index'])
 
-        tile = AcquisitionTile(channel=ch, 
-                               file_name=tile_dict['file_name'],
-                               imaging_angle=log_dict['lightsheet_angle'], 
-                               coordinate_transformations=[scale_tfm, translation_tfm])
-        tiles.append(tile)
+            tile = AcquisitionTile(channel=ch, 
+                                file_name=tile_dict['file_name'],
+                                imaging_angle=log_dict['lightsheet_angle'], 
+                                coordinate_transformations=[scale_tfm, translation_tfm])
+            tiles.append(tile)
 
 
     # NOTE: These directions are in "camera coordinates" (ie. the data is stored in this order, and the cells/data have a 45 degree skew from the "optical coordinates")
@@ -98,7 +99,7 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
 
 
 
-def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, condition: str = "") -> ET.ElementTree:
+def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: bool = True, condition: str = "") -> ET.ElementTree:
     """
     Parameters
     ----------
@@ -142,14 +143,14 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
     # Parses tile names into a pandas dataframe and 
     # applies boolean masking on given str condition. 
     # Returns list of filtered tile names. 
-    def filter_tiles_on_condition(condition: str) -> list[str]:
+    def filter_tiles_on_condition(condition: str, acquisition_style:str = 'sequential') -> list[str]:
         """
         Condition Field Names: 
         X, Y, Z, channel, camera
         """
 
         # Construct Dataframe
-        fields = {'filename': '', 
+        fields = {'filename': str(), 
                   'X': int(), 
                   'Y': int(),
                   'Z': int(),
@@ -157,31 +158,92 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
                   'camera': int()}
         df = pd.DataFrame(fields, index=[0])
 
-        for i, tile in enumerate(acq_obj.tiles): 
+        for i, tile in enumerate(acq_obj.tiles):  
             filename: str = tile.file_name
             #use regex anchors
-            file_parse_regex = r"X_(\d*)_Y_(\d*)_Z_(\d*)_ch_(\d*)[_cam_]*(\d)?"
-            vals = re.search(file_parse_regex, filename).groups()
+            if acquisition_style == "sequential":
+                file_parse_regex = r"X_(\d*)_Y_(\d*)_Z_(\d*)_ch_(\d*)[_cam_]*(\d)?" 
+                vals = re.search(file_parse_regex, filename).groups()
+
+                X = int(vals[0])
+                Y = int(vals[1])
+                Z = int(vals[2])
+                channel = (vals[3]) #need to ensure this is the channel number, not the wavelength
+
+                if vals[4] != None:
+                    cam = int(vals[4])
+                else: 
+                    cam = 0
+
+            elif acquisition_style == "interleaved":
+                # TODO, we will eventually get this information from one of the metadata json files (the acquisition.json?)
+                #for the interim we will parse the filename 
+                # We need to support the following filename conventions, which come from different operators:
+                #Ex2_Rn28s-{channel0}_{gene1}-{channel1}_{gene2}-{channel2}_{gene3}-{channel3}_X_{x_pos}_Y_{y_pos}_Z_{z_pos}_ch_{channel0}_{channel1}_{channel2}_{channel3}.tiff
+                #somtimes these have less than 4 channels, and sometimes there is a _cam_0 or _cam_1 at the end
+
+                #The other convention is: 
+                #{random_stuff_like_round}_{mouse_id}_X_{x_pos}_Y_{y_pos}_Z_{z_pos}_ch_{channel0}_{channel1}_{channel2}_{channel3}.tiff
+
+                file_parse_regex = r"X_(\d*)_Y_(\d*)_Z_(\d*)_"
+                #first convention:
+
+                ribo_regex = r"(?:Rn28s-(\d+)?)"
+                channel_regex = r".*_ch_(\d+(?:_\d+)*)[_cam_]*(\d)?\."
+                ribo_channel = re.search(ribo_regex, filename).groups()[0]
+                if len(ribo_channel)>0:
+                    #first convention, which means we need to only return the ribo channel 
+                    condition = f"channel=={ribo_channel}"
+
+                #second convention: assume 405 is the ribo channel
+
+
+
+                vals = re.search(file_parse_regex, filename).groups()
+                #convert tuple to list
+                vals = list(vals)
+
+                X = int(vals[0])
+                Y = int(vals[1])
+                Z = int(vals[2])
+
+                #flatten vals
+                channels =  re.search(channel_regex, filename).groups()
+                channel = []
+                try:
+                    
+                    other_channels = channels[0].split('_')
+                    for oc in other_channels:
+                        channel.append(oc)
+                except Exception as e:
+                    print(e)
+                    print("Error parsing channel number from filename. Continuing with next tile")
+                    continue
+
+                #get cam number if it exists
+                if channels[1] != None:
+                    cam = int(channels[1])
+                else:
+                    cam = 0
+
+
+                      
+            else:
+                raise ValueError("acquisition_style must be either 'sequential' or 'interleaved'")
+            
 
             # vals = filename.split('_')
-            X = int(vals[0])
-            Y = int(vals[1])
-            Z = int(vals[2])
-            channel = int(vals[3]) #need to ensure this is the channel
+  
             
-            if vals[4] is not None:
-                cam = int(vals[4])
-            else: 
-                cam = 0
-
-            df = pd.concat([df, 
+            for ch in channel:
+                df = pd.concat([df, 
                         pd.DataFrame({
                         'filename': filename,
                         'X': X, 
-                       'Y': Y, 
-                       'Z': Z,
-                       'channel': channel,
-                       'camera': cam}, index = [i])])
+                        'Y': Y, 
+                        'Z': Z,
+                        'channel': ch,
+                        'camera': cam}, index = [i])])
 
 
         # Filter Dataframe
@@ -194,7 +256,7 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
         return output_tilenames
 
     # Define filepaths of tiles and associated attributes
-    def add_sequence_description(parent: ET.Element, filtered_tiles: list[str]) -> None: 
+    def add_sequence_description(parent: ET.Element, log_dict:dict, filtered_tiles: list[str]) -> None: 
         def add_image_loader(seq_desc: ET.Element, filtered_tiles: list[str]) -> None:
             img_loader = ET.SubElement(seq_desc, "ImageLoader")
             if zarr: 
@@ -221,8 +283,8 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
                 x.attrib["type"] = "relative"
                 x.text = "dataset.n5"
 
-        def add_view_setups(seq_desc: ET.Element, filtered_tiles: list[str]) -> None: 
-            def add_attributes(view_setups: ET.Element) -> None:
+        def add_view_setups(seq_desc: ET.Element,log_dict, filtered_tiles: list[str]) -> None: 
+            def add_attributes(view_setups: ET.Element, log_dict) -> None:
                 # Add attributes
                 x = ET.SubElement(view_setups, "Attributes")
                 x.attrib["name"] = "illumination"
@@ -278,14 +340,19 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
                     with tifffile.TiffFile(tile_path) as tif:
                         return tif.series[0].shape
                 
-
+                def get_tile_size_from_config_toml(log_dict) -> list[int]:
+                    X_size = log_dict['config_toml']['tile_specs']['row_count_pixels']
+                    Y_size = log_dict['config_toml']['tile_specs']['column_count_pixels']
+                    Z_size = int(log_dict['config_toml']['imaging_specs']['volume_z_um']/log_dict['config_toml']['imaging_specs']['z_step_size_um'])
+                    return [Z_size, Y_size, X_size]
                 #could get shape by reading file directly 
 
                 # shape: list[int] =  file_io.read_json(metadata_path_res)["shape"]  # 5 ints: [t, c, z, y, x]
-                shape: list[int] =  [1,1,get_tiff_dimensions(pathlib.Path(acq_obj.local_storage_directory).joinpath('diSPIM',tile))]
+            
+                shape: list[int] =  [1,1,get_tile_size_from_config_toml(log_dict)]
 
 
-                x.text = f"{shape[2][2]} {shape[2][1]} {shape[2][0]}"  #XYZ for BDV, ZYX for Zarr
+                x.text = f"{shape[2][0]} {shape[2][1]} {shape[2][2]}"  #XYZ for BDV, ZYX for Zarr
 
                 voxel_size = ET.SubElement(vs, "voxelSize")
                 x = ET.SubElement(voxel_size, "unit")
@@ -305,7 +372,7 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
                 x = ET.SubElement(attr, "angle")
                 x.text = str(acq_obj.tiles[0].imaging_angle)
 
-            add_attributes(view_setups)
+            add_attributes(view_setups, log_dict)
 
         def add_time_points(seq_desc: ET.Element) -> None: 
             x = ET.SubElement(seq_desc, "Timepoints")
@@ -316,7 +383,7 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
 
         seq_desc = ET.SubElement(parent, "SequenceDescription")
         add_image_loader(seq_desc, filtered_tiles)
-        add_view_setups(seq_desc, filtered_tiles)
+        add_view_setups(seq_desc, log_dict, filtered_tiles )
         add_time_points(seq_desc)
 
     # Define transformations applied to tiles
@@ -340,12 +407,18 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
     tile_translations: dict[str, list[float]] = extract_tile_translation()
     filtered_tiles: list[str] = list(tile_translations.keys())
     filtered_translations: list[list[float]] = list(tile_translations.values())
-    if zarr and condition != "":
-        filtered_tiles = filter_tiles_on_condition(condition)
-        filtered_translations = []
-        for tile in filtered_tiles:
-            rounded_translations = [round(x, 4) for x in tile_translations[tile]]
-            filtered_translations.append(rounded_translations)
+    acquisition_style = log_dict['config_toml']['imaging_specs']['acquisition_style']
+    if zarr and condition != "" or acquisition_style=='interleaved':
+        filtered_tiles = filter_tiles_on_condition(condition, acquisition_style=acquisition_style)
+
+    #if interleaved, we cannot filter the tiles on the condition, because each tile contains multiple channels
+    # therefore we just apply the translation to all tiles when generating the xml
+    
+    # Round translations to 4 decimal places
+    filtered_translations = []
+    for tile in filtered_tiles:
+        rounded_translations = [round(x, 4) for x in tile_translations[tile]]
+        filtered_translations.append(rounded_translations)
 
     # Construct the output xml
     spim_data = ET.Element("SpimData")
@@ -353,7 +426,7 @@ def acq_json_to_xml(acq_obj: Acquisition, data_loc: str, zarr: bool = True, cond
     x = ET.SubElement(spim_data, "BasePath")
     x.attrib["type"] = "relative"
     x.text = "."
-    add_sequence_description(spim_data, filtered_tiles)
+    add_sequence_description(spim_data,log_dict, filtered_tiles)
     add_view_registrations(spim_data, filtered_translations)
 
     return ET.ElementTree(spim_data)

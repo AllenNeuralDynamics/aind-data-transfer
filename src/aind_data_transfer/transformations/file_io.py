@@ -97,7 +97,7 @@ def read_imaging_log(log_path: str) -> dict:
     # we care about lines with this string in it "Collecting tile stacks at (X, Y) [um] for channels [405] and saving to: [*]"
     # we want to extract the file name, and the x,y,z coordinates
     def get_tile_dict(log_list: list) -> dict:
-        tile_loc_regex = r"Collecting tile stacks at \((.?\d+\.\d+), (.?\d+\.\d+)\).*?channels \[(\d+)\].*?saving to.*?'(.*?)'"
+        tile_loc_regex = "Collecting tile stacks at \((.?\d+.\d+), (.?\d+.\d+)\).*?\[um\] for channels \[([\d, ]+)\].*?saving to.*?'(.*?)'"
         tile_z_position_regex = r"Starting scan at Z = .?(\d+\.\d+) mm"
 
         tile_dict = {}
@@ -109,7 +109,8 @@ def read_imaging_log(log_path: str) -> dict:
                     # print(match.groups())
                     x = match.group(1)
                     y = match.group(2)
-                    channel = match.group(3)
+                    if len(match.group(3)) > 3:
+                        channel = match.group(3).split(', ')
                     file_name = Path(match.group(4)).name
 
                     #move to next next line in log_list without using next

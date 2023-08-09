@@ -30,10 +30,9 @@ def main():
             dest_data_dir = dest_data_dir[:-1]
     else:
         
-        data_src_dir = pathlib.Path('/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM_624852_2023-06-03_10-11-33')
+        data_src_dir = pathlib.Path('/allen/aind/scratch/diSPIM/diSPIM_685890_2023-06-29_14-39-56')
         dest_data_dir = "diSPIM_624852_2023-06-03_10-11-33" #needs to be s3 path
-    test_dir = pathlib.Path.cwd().joinpath('tests/resources/imaging/iSPIM_test')
-    log_path = test_dir.joinpath('imaging_log.log')
+    log_path = data_src_dir.joinpath('imaging_log.log')
     toml_dict = file_io.read_toml(data_src_dir.joinpath('config.toml'))
     #read log file into dict
     log_dict = file_io.read_imaging_log(log_path)
@@ -45,8 +44,8 @@ def main():
 
     #convert acq json to xml
     is_zarr = True
-    condition = "channel==405"
-    acq_xml = converters.acq_json_to_xml(acq_json, dest_data_dir+'/diSPIM.zarr', is_zarr, condition) #needs s3 path
+    condition = ""
+    acq_xml = converters.acq_json_to_xml(acq_json, log_dict, dest_data_dir+'/diSPIM.zarr', is_zarr, condition) #needs s3 path
 
     #write xml to file
     xml_file_path = data_src_dir.joinpath('Camera_405.xml')
