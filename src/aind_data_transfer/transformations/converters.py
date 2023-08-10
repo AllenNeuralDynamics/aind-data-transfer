@@ -404,8 +404,8 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             #TODO THERE IS AN ACQUISITION BUG where X and Y are switched between acqusition and bigstitcher
             #WHEN THIS BUG IS FIXED, this should go back to tr 0 1 2
             
-            
-            affine.text = f'1.0 0.0 0.0 {tr[1]} 0.0 1.0 0.0 {-tr[0]} 0.0 0.0 1.0 {tr[2]}'
+
+            affine.text = f'1.0 0.0 0.0 {tr[1]} 0.0 1.0 0.0 {-tr[0]} 0.0 0.0 1.0 {tr[2]+tr[1]}'
 
             vr.append(vt)
 
