@@ -31,7 +31,7 @@ def main():
     else:
         
         data_src_dir = pathlib.Path('/allen/aind/scratch/diSPIM/diSPIM_685890_2023-06-29_14-39-56')
-        dest_data_dir = "diSPIM_624852_2023-06-03_10-11-33" #needs to be s3 path
+        dest_data_dir = "diSPIM_685890_2023-06-29_14-39-56" 
     log_path = data_src_dir.joinpath('imaging_log.log')
     toml_dict = file_io.read_toml(data_src_dir.joinpath('config.toml'))
     #read log file into dict

@@ -136,7 +136,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
             filename: str = tile.file_name
 
-            tile_transforms[filename] = [el1 - el2 for el1, el2 in zip(translation, offset)]
+            tile_transforms[filename] = [el1 - el2  for el1, el2 in zip(translation, offset)]
 
         return tile_transforms
     
@@ -193,7 +193,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
                 ribo_channel = re.search(ribo_regex, filename).groups()[0]
                 if len(ribo_channel)>0:
                     #first convention, which means we need to only return the ribo channel 
-                    condition = f"channel=={ribo_channel}"
+                    condition = f"channel=='{ribo_channel}'"
 
                 #second convention: assume 405 is the ribo channel
 
@@ -226,34 +226,36 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
                 else:
                     cam = 0
 
-
-                      
             else:
                 raise ValueError("acquisition_style must be either 'sequential' or 'interleaved'")
-            
 
-            # vals = filename.split('_')
-  
-            
-            for ch in channel:
+
+            for  ch in channel:
+                #match the logic from ome_zarr.py that generates the new tilenames
+                tile_prefix = ChannelParser.parse_tile_xyz_loc(filename)
+                new_zarr_tile_name = tile_prefix + f"_ch_{ch}" + ".zarr"
                 df = pd.concat([df, 
                         pd.DataFrame({
                         'filename': filename,
+                        'new_filename':new_zarr_tile_name,
                         'X': X, 
                         'Y': Y, 
                         'Z': Z,
-                        'channel': ch,
+                        'channel': (ch),
                         'camera': cam}, index = [i])])
 
 
         # Filter Dataframe
         if condition != "": 
             results = df.query(condition)
+            results  = results.drop_duplicates(['filename']) #remove filename duplicates
         else:
             results = df
         output_tilenames = list(results['filename'])
+        output_new_tilenames = list(results['new_filename'])
+        
 
-        return output_tilenames
+        return output_tilenames, output_new_tilenames
 
     # Define filepaths of tiles and associated attributes
     def add_sequence_description(parent: ET.Element, log_dict:dict, filtered_tiles: list[str]) -> None: 
@@ -351,8 +353,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             
                 shape: list[int] =  [1,1,get_tile_size_from_config_toml(log_dict)]
 
-
-                x.text = f"{shape[2][0]} {shape[2][1]} {shape[2][2]}"  #XYZ for BDV, ZYX for Zarr
+                x.text = f"{shape[2][2]} {shape[2][1]} {shape[2][0]}"  #XYZ for BDV, ZYX for Zarr
 
                 voxel_size = ET.SubElement(vs, "voxelSize")
                 x = ET.SubElement(voxel_size, "unit")
@@ -399,7 +400,10 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             name = ET.SubElement(vt, "Name")
             name.text = "Translation to Nominal Grid"
             affine = ET.SubElement(vt, "affine")
-            affine.text = f'1.0 0.0 0.0 {tr[0]} 0.0 1.0 0.0 {tr[1]} 0.0 0.0 1.0 {tr[2]}'
+
+            #TODO THERE IS AN ACQUISITION BUG where X and Y are switched between acqusition and bigstitcher
+            #WHEN THIS BUG IS FIXED, this should go back to tr 0 1 2
+            affine.text = f'1.0 0.0 0.0 {tr[1]} 0.0 1.0 0.0 {tr[0]} 0.0 0.0 1.0 {tr[2]}'
 
             vr.append(vt)
 
@@ -409,7 +413,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
     filtered_translations: list[list[float]] = list(tile_translations.values())
     acquisition_style = log_dict['config_toml']['imaging_specs']['acquisition_style']
     if zarr and condition != "" or acquisition_style=='interleaved':
-        filtered_tiles = filter_tiles_on_condition(condition, acquisition_style=acquisition_style)
+        filtered_tiles, new_filtered_tilenames = filter_tiles_on_condition(condition, acquisition_style=acquisition_style)
 
     #if interleaved, we cannot filter the tiles on the condition, because each tile contains multiple channels
     # therefore we just apply the translation to all tiles when generating the xml
@@ -426,7 +430,8 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
     x = ET.SubElement(spim_data, "BasePath")
     x.attrib["type"] = "relative"
     x.text = "."
-    add_sequence_description(spim_data,log_dict, filtered_tiles)
+    #add_sequence_description(spim_data,log_dict, filtered_tiles)
+    add_sequence_description(spim_data, log_dict, new_filtered_tilenames)
     add_view_registrations(spim_data, filtered_translations)
 
     return ET.ElementTree(spim_data)
