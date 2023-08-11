@@ -105,6 +105,8 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
     ----------
     acq_obj: Acquisition
         Acquisition instance
+    log_dict: dict
+        Output of file_io.read_log_file (see there for more details, keys etc)
     data_loc: str
         Relative path to dataset in linked Code Ocean data/dir
     zarr: bool
@@ -112,8 +114,13 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
         If n5, conditioning the dataset is turned off. 
     condition: str
         Conditional statement for filtering the dataset on specific attributes.
-        Can filter on following 5 fields: X, Y, Z, channel, camera
+        Can filter on following 5 fields: X, Y, Z, channel, camera, filename (not recommended) 
         Ex: "channel == 405 and camera = 0"    
+        In practice this will generally be "channel==405" or "channel==488"
+        
+        If no condition is specified, the entire dataset is uploaded.
+        If acquisition style is "interleaved", the condition will be conditionally overwritten. 
+
 
     Returns
     -------
