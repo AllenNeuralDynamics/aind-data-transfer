@@ -136,7 +136,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
             filename: str = tile.file_name
 
-            tile_transforms[filename] = [el1 - el2  for el1, el2 in zip(translation, offset)]
+            tile_transforms[filename] = [el2 - el1  for el1, el2 in zip(translation, offset)]
 
         return tile_transforms
     
@@ -405,7 +405,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             #WHEN THIS BUG IS FIXED, this should go back to tr 0 1 2
             
 
-            affine.text = f'1.0 0.0 0.0 {tr[1]} 0.0 1.0 0.0 {-tr[0]} 0.0 0.0 1.0 {tr[2]+tr[1]}'
+            affine.text = f'1.0 0.0 0.0 {tr[1]} 0.0 1.0 0.0 {tr[0]} 0.0 0.0 1.0 {tr[2]+tr[1]}'
 
             vr.append(vt)
 
