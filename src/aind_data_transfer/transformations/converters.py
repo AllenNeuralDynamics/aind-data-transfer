@@ -140,13 +140,46 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
         return tile_transforms
     
-    # Parses tile names into a pandas dataframe and 
-    # applies boolean masking on given str condition. 
-    # Returns list of filtered tile names. 
+
     def filter_tiles_on_condition(condition: str, acquisition_style:str = 'sequential') -> list[str]:
         """
-        Condition Field Names: 
-        X, Y, Z, channel, camera
+        Parses tilenames into a pandas dataframe and applies boolean masking on given str condition.
+        This includes some logic to handle different tilename formats. 
+
+        Returns list of filtered tile names.
+
+        Parameters
+        ----------
+        
+        Condition: str
+            Conditional statement for filtering the dataset on specific attributes.
+            Can filter on following 5 fields: 
+                X, Y, Z, channel, camera
+
+            Ex: "channel==405 and camera==0"
+            
+            In general, the most-used format is anticipated to be "channel==405"
+
+        
+            
+        acquisition_style: str
+            Acquisition style of the dataset.
+
+            Options: ['sequential', 'interleaved']
+        
+            If the acquisition style is 'interleaved', then the 
+            condition may be overwritten to filter on the Rn28s channel. 
+
+        Returns
+        -------
+        output_tilenames: list[str] 
+            List of filtered tile names that satisfy the condition. These are 
+            the tilenames before conversion to zarr. 
+        
+        output_new_tilenames`: list[str]
+            List of new tilenames after conversion to zarr.
+
+
         """
 
         # Construct Dataframe

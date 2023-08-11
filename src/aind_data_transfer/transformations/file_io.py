@@ -18,17 +18,46 @@ def read_json(json_path: Union[Path, str]) -> dict:
         return json.load(f)
 
 def read_imaging_log(log_path: str) -> dict:
+    """Reads imaging log file into log_dict
+    
+    Args:
+        log_path (str): path to imaging log file
+    
+    Returns:
+        log_dict (dict): dict containing imaging log info
+    
+        log_dict.keys() =
+            ['tiles' (dict of dicts, indexed by filename),
+                 keys: 'tile_x_position', 'tile_y_position', 'tile_z_position', 'channel', 'file_name'             )
+            'channels' (dict of dicts, indexed by channel name),
+                 keys: 'laser_wavelength', 'laser_power', 'filter_wheel_index'
+                        
+            'specimen_id', 
+            'subject_id', 
+            'instrument_id', 
+            'session_start_time', 
+            'session_end_time', 
+            'instrument_id', 
+            'chamber_immersion_medium', 
+            'chamber_immersion_refractive_index', 
+            'x_voxel_size', 
+            'y_voxel_size',
+            'z_voxel_size',
+            'lightsheet_angle', 
+            'local_storage_directory',
+            'external_storage_directory'
+            ]
+
+
+    
+    
+    """
 
     log_list = read_text_to_list(log_path)
     
     with open(log_path, 'r') as f:
         log_text = f.read()
     
-
-
-
-    
-
     def get_channel_dict(log_list :list ) -> dict:
         """ This happens once for each of the channels in the log file"""
         channel_name_regex = r"channel_name.? (\d+)"
@@ -52,7 +81,9 @@ def read_imaging_log(log_path: str) -> dict:
                     laser_power = re.search(laser_power_regex, line).group(1)
                     line = log_list[log_list.index(line) + 1]
                     filter_wheel_index = re.search(filter_wheel_index_regex, line).group(1)
-                    channel_dict[channel_name] = {'laser_wavelength': laser_wavelength, 'laser_power': laser_power, 'filter_wheel_index': filter_wheel_index}
+                    channel_dict[channel_name] = {'laser_wavelength': laser_wavelength, 
+                                                  'laser_power': laser_power, 
+                                                  'filter_wheel_index': filter_wheel_index}
             else:
                 continue
         return channel_dict
@@ -117,29 +148,26 @@ def read_imaging_log(log_path: str) -> dict:
                     line = log_list[log_list.index(line) + 2]
 
                     z = float(re.search(tile_z_position_regex, line).group(1))*1000 #convert to micrometers
-                    tile_dict[file_name] = {'tile_x_position': x, 'tile_y_position': y, 'tile_z_position': z, 'channel': channel, 'file_name': file_name}
+                    tile_dict[file_name] = {'tile_x_position': x,
+                                             'tile_y_position': y, 
+                                             'tile_z_position': z, 
+                                             'channel': channel, 
+                                             'file_name': file_name}
                 else:
                     continue
         return tile_dict
-
 
  
     log_dict = {}
     log_dict = get_session_info(log_text, log_dict)
     log_dict['tiles'] = get_tile_dict(log_list)
     log_dict['channels'] = get_channel_dict(log_list)
-
     return log_dict
 
      
-    # we also care about tile 
-
-
-
 def read_log_file(log_path: str) -> dict: 
     with open(log_path, 'r') as f: 
         lines = f.readlines()
-    
 
     log_dict = {}
     log_dict['tiles']: list[dict] = []
