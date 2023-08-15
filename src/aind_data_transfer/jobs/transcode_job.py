@@ -210,6 +210,22 @@ def main():
             )
         )
 
+    if job_configs["jobs"]["create_ng_link"]:
+        ng_link_cmd = (
+            f"python {_NG_LINK_SCRIPT} "
+            f"--input={zarr_out} "
+            f"--output={data_src_dir} "
+            f"--vmin={job_configs['create_ng_link_job']['vmin']} "
+            f"--vmax={job_configs['create_ng_link_job']['vmax']}"
+
+        )
+        subprocess.run(ng_link_cmd, shell=True)
+        output_json = data_src_dir / "process_output.json"
+        if not output_json.is_file():
+            LOGGER.error(
+                f"Creating neuroglancer link failed; {output_json} was not created"
+            )
+
     if job_configs["jobs"]["transcode"]:
         bkg_im_dir = None
         if job_configs["jobs"]["background_subtraction"]:
@@ -279,24 +295,6 @@ def main():
         LOGGER.info(
             f"Finished uploading auxiliary data, took {time.time() - t0}"
         )
-
-
-
-    if job_configs["jobs"]["create_ng_link"]:
-        ng_link_cmd = (
-            f"python {_NG_LINK_SCRIPT} "
-            f"--input={zarr_out} "
-            f"--output={data_src_dir} "
-            f"--vmin={job_configs['create_ng_link_job']['vmin']} "
-            f"--vmax={job_configs['create_ng_link_job']['vmax']}"
-
-        )
-        subprocess.run(ng_link_cmd, shell=True)
-        output_json = data_src_dir / "process_output.json"
-        if not output_json.is_file():
-            LOGGER.error(
-                f"Creating neuroglancer link failed; {output_json} was not created"
-            )
 
 
  

@@ -26,7 +26,8 @@ dependencies = [
     'aind-data-schema==0.13.13',
     'aind-metadata-service[client]>=0.2.5',
     'tqdm==4.64.1',
-    'aind-data-access-api[secrets]'
+    'aind-data-access-api[secrets]', 
+    'toml==0.10.2',
 ]
 
 [project.optional-dependencies]
