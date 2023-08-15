@@ -5,39 +5,22 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
-from aind_data_transfer.config_loader.ecephys_config import (
-    EcephysUploadJobConfigs,
+from aind_data_transfer.transformations.ephys_compressors import (
+    EcephysCompressionParameters,
+    EphysCompressors,
 )
-from aind_data_transfer.jobs.ecephys_job import EcephysJob
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 DATA_DIR = TEST_DIR / "v0.6.x_neuropixels_multiexp_multistream"
 BEHAVIOR_DIR = TEST_DIR / "v0.6.x_neuropixels_multiexp_multistream" / "Videos"
 
 
-class TestEcephysJob(unittest.TestCase):
+class TestEcephysCompression(unittest.TestCase):
     """Tests for EcephysJob class"""
 
-    EXAMPLE_ENV_VAR1 = {
-        "S3_BUCKET": "some_bucket",
-        "MODALITY": "ecephys",
-        "SUBJECT_ID": "12345",
-        "ACQ_DATE": "2020-10-10",
-        "ACQ_TIME": "05:10:10",
-        "DATA_SOURCE": str(DATA_DIR),
-        "CODEOCEAN_DOMAIN": "some_domain",
-        "CODEOCEAN_API_TOKEN": "some_token",
-        "CODEOCEAN_TRIGGER_CAPSULE_ID": "some_capsule_id",
-        "METADATA_SERVICE_DOMAIN": "some_ms_domain",
-        "AIND_DATA_TRANSFER_REPO_LOCATION": "some_dtr_location",
-        "VIDEO_ENCRYPTION_PASSWORD": "some_password",
-    }
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("shutil.copytree")
     @patch("shutil.ignore_patterns")
-    @patch("numpy.memmap")
-    @patch("aind_data_transfer.jobs.ecephys_job.upload_to_s3")
+    @patch("aind_data_transfer.transformations.ephys_compressors.memmap")
     @patch(
         "aind_data_transfer.readers.ephys_readers.EphysReaders."
         "get_streams_to_clip"
@@ -59,86 +42,7 @@ class TestEcephysJob(unittest.TestCase):
         "compress_and_write_block"
     )
     @patch(
-        "aind_data_transfer.jobs.ecephys_job."
-        "correct_np_opto_electrode_locations"
-    )
-    def test_ecephys_job_no_compression(
-        self,
-        mock_correct_np_opto: MagicMock,
-        mock_write_block: MagicMock,
-        mock_scale_read_blocks: MagicMock,
-        mock_get_compressor: MagicMock,
-        mock_get_read_blocks: MagicMock,
-        mock_get_streams_to_clip: MagicMock,
-        mock_upload_to_s3: MagicMock,
-        mock_memmap: MagicMock,
-        mock_ignore_patterns: MagicMock,
-        mock_copytree: MagicMock,
-    ):
-        """Tests ecephys job runs correctly with no compression"""
-        ecephys_configs = EcephysUploadJobConfigs()
-        ecephys_configs.compress_raw_data = False
-        ecephys_job = EcephysJob(job_configs=ecephys_configs)
-        ecephys_job._compress_raw_data(temp_dir=Path("some_path"))
-        # Upload raw data with behavior directory defined
-        ecephys_configs.behavior_dir = BEHAVIOR_DIR
-        ecephys_job._compress_raw_data(temp_dir=Path("some_path"))
-
-        mock_correct_np_opto.assert_has_calls([call(DATA_DIR), call(DATA_DIR)])
-        mock_upload_to_s3.assert_has_calls(
-            [
-                call(
-                    directory_to_upload=DATA_DIR,
-                    s3_bucket="some_bucket",
-                    s3_prefix="ecephys_12345_2020-10-10_05-10-10/ecephys",
-                    dryrun=False,
-                    excluded=None,
-                ),
-                call(
-                    directory_to_upload=DATA_DIR,
-                    s3_bucket="some_bucket",
-                    s3_prefix="ecephys_12345_2020-10-10_05-10-10/ecephys",
-                    dryrun=False,
-                    excluded=(BEHAVIOR_DIR / "*"),
-                ),
-            ]
-        )
-        self.assertFalse(mock_write_block.called)
-        self.assertFalse(mock_scale_read_blocks.called)
-        self.assertFalse(mock_get_compressor.called)
-        self.assertFalse(mock_get_read_blocks.called)
-        self.assertFalse(mock_get_streams_to_clip.called)
-        self.assertFalse(mock_memmap.called)
-        self.assertFalse(mock_ignore_patterns.called)
-        self.assertFalse(mock_copytree.called)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("shutil.copytree")
-    @patch("shutil.ignore_patterns")
-    @patch("aind_data_transfer.jobs.ecephys_job.memmap")
-    @patch("aind_data_transfer.jobs.ecephys_job.upload_to_s3")
-    @patch(
-        "aind_data_transfer.readers.ephys_readers.EphysReaders."
-        "get_streams_to_clip"
-    )
-    @patch(
-        "aind_data_transfer.readers.ephys_readers.EphysReaders."
-        "get_read_blocks"
-    )
-    @patch(
         "aind_data_transfer.transformations.ephys_compressors."
-        "EphysCompressors.get_compressor"
-    )
-    @patch(
-        "aind_data_transfer.transformations.ephys_compressors."
-        "EphysCompressors.scale_read_blocks"
-    )
-    @patch(
-        "aind_data_transfer.writers.ephys_writers.EphysWriters."
-        "compress_and_write_block"
-    )
-    @patch(
-        "aind_data_transfer.jobs.ecephys_job."
         "correct_np_opto_electrode_locations"
     )
     def test_ecephys_job_with_compression(
@@ -149,7 +53,6 @@ class TestEcephysJob(unittest.TestCase):
         mock_get_compressor: MagicMock,
         mock_get_read_blocks: MagicMock,
         mock_get_streams_to_clip: MagicMock,
-        mock_upload_to_s3: MagicMock,
         mock_memmap: MagicMock,
         mock_ignore_patterns: MagicMock,
         mock_copytree: MagicMock,
@@ -174,14 +77,12 @@ class TestEcephysJob(unittest.TestCase):
             "stream_name": "mocked stream name",
         }
 
-        ecephys_configs = EcephysUploadJobConfigs()
-        ecephys_job = EcephysJob(job_configs=ecephys_configs)
-        ecephys_job._compress_raw_data(temp_dir=Path("some_path"))
-        # Test when a behavior directory is defined
-        ecephys_configs.behavior_dir = BEHAVIOR_DIR
-        ecephys_job._compress_raw_data(temp_dir=Path("some_path"))
-
-        self.assertFalse(mock_upload_to_s3.called)
+        ecephys_configs = EcephysCompressionParameters(source=DATA_DIR)
+        ecephys_compressor = EphysCompressors(
+            job_configs=ecephys_configs, behavior_dir=BEHAVIOR_DIR
+        )
+        ecephys_compressor.compress_raw_data(temp_dir=Path("some_path"))
+        ecephys_compressor.compress_raw_data(temp_dir=Path("some_path"))
         mock_correct_np_opto.assert_has_calls([call(DATA_DIR), call(DATA_DIR)])
         mock_copytree.assert_has_calls(
             [

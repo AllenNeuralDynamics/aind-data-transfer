@@ -1,0 +1,3 @@
+codeocean_process_capsule_id, modality0, modality0.source, modality1, modality1.source, modality1.compress_raw_data, s3-bucket, subject-id, experiment-type, acq-date, acq-time, aws_param_store_name
+xyz-123, ecephys, tests/resources/v0.6.x_neuropixels_multiexp_multistream, confocal, tests/resources/v0.6.x_neuropixels_multiexp_multistream, true, some_bucket, 123454, ecephys, 2020-10-10, 14-10-10, /some/aws/param/store/name
+zyx-456, mri, tests/resources/v0.6.x_neuropixels_multiexp_multistream, , , , some_bucket, 123454, confocal, 2020-10-10, 14-10-10, /some/aws/param/store/name
