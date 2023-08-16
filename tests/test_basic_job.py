@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, call, patch
 
 from requests import Response
 
+from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.transformations.metadata_creation import (
@@ -46,8 +47,8 @@ class TestBasicJob(unittest.TestCase):
         "VIDEO_ENCRYPTION_PASSWORD": "some_password",
         "CODEOCEAN_API_TOKEN": "some_api_token",
         "S3_BUCKET": "some_bucket",
+        "MODALITIES": f'[{{"modality":"MRI",' f'"source":"{str(DATA_DIR)}"}}]',
         "EXPERIMENT_TYPE": "confocal",
-        "MODALITY": "ECEPHYS",
         "SUBJECT_ID": "12345",
         "ACQ_DATE": "2020-10-10",
         "ACQ_TIME": "10:10:10",
@@ -56,215 +57,74 @@ class TestBasicJob(unittest.TestCase):
     }
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    @patch("aind_data_transfer.jobs.basic_job.check_aws_cli_installed")
+    @patch("tempfile.TemporaryDirectory")
+    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
     def test_aws_creds_check_allowed(
         self,
-        mock_check_aws_cli_installed: MagicMock,
-        mock_client: MagicMock,
+        mock_upload_to_s3: MagicMock,
+        mock_tempfile: MagicMock,
     ):
         """Tests that the aws credentials pass allowed"""
+        mock_tempfile.return_value.__enter__.return_value = (
+            Path("some_dir") / "tmp"
+        )
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
-        mock_client.return_value.get_caller_identity.return_value = {
-            "Arn": "my-arn"
-        }
-        mock_client.return_value.simulate_principal_policy.return_value = {
-            "EvaluationResults": [
-                {
-                    "EvalActionName": "s3:PutObject",
-                    "EvalResourceName": (
-                        f"arn:aws:s3:::{basic_job.job_configs.s3_bucket}"
-                    ),
-                    "EvalDecision": "allowed",
-                    "MatchedStatements": [
-                        {
-                            "SourcePolicyId": "AmazonS3FullAccess",
-                            "SourcePolicyType": "IAM Policy",
-                            "StartPosition": {"Line": 3, "Column": 17},
-                            "EndPosition": {"Line": 8, "Column": 6},
-                        }
-                    ],
-                    "MissingContextValues": [],
-                    "EvalDecisionDetails": {},
-                }
-            ],
-            "IsTruncated": False,
-            "ResponseMetadata": {
-                "RequestId": "aaaa-bbbb-cccc",
-                "HTTPStatusCode": 200,
-                "HTTPHeaders": {
-                    "x-amzn-requestid": "xxxx-yyyyy-zzzz",
-                    "content-type": "text/xml",
-                    "content-length": "2753",
-                    "date": "Fri, 26 May 2023 02:20:44 GMT",
-                },
-                "RetryAttempts": 0,
-            },
-        }
-        basic_job._check_aws_cli_and_creds()
-        mock_check_aws_cli_installed.assert_called_once_with()
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    @patch("aind_data_transfer.jobs.basic_job.check_aws_cli_installed")
-    def test_aws_creds_check_denied(
-        self,
-        mock_check_aws_cli_installed: MagicMock,
-        mock_client: MagicMock,
-    ):
-        """Tests PermissionError raised on aws creds check"""
-        basic_job_configs = BasicUploadJobConfigs()
-        basic_job = BasicJob(job_configs=basic_job_configs)
-        mock_client.return_value.get_caller_identity.return_value = {
-            "Arn": "my-arn"
-        }
-        mock_client.return_value.simulate_principal_policy.return_value = {
-            "EvaluationResults": [
-                {
-                    "EvalActionName": "s3:PutObject",
-                    "EvalResourceName": (
-                        f"arn:aws:s3:::{basic_job.job_configs.s3_bucket}"
-                    ),
-                    "EvalDecision": "denied",
-                    "MatchedStatements": [
-                        {
-                            "SourcePolicyId": "AmazonS3FullAccess",
-                            "SourcePolicyType": "IAM Policy",
-                            "StartPosition": {"Line": 3, "Column": 17},
-                            "EndPosition": {"Line": 8, "Column": 6},
-                        }
-                    ],
-                    "MissingContextValues": [],
-                    "EvalDecisionDetails": {},
-                }
-            ],
-            "IsTruncated": False,
-            "ResponseMetadata": {
-                "RequestId": "aaaa-bbbb-cccc",
-                "HTTPStatusCode": 200,
-                "HTTPHeaders": {
-                    "x-amzn-requestid": "xxxx-yyyyy-zzzz",
-                    "content-type": "text/xml",
-                    "content-length": "2753",
-                    "date": "Fri, 26 May 2023 02:20:44 GMT",
-                },
-                "RetryAttempts": 0,
-            },
-        }
-        with self.assertRaises(PermissionError):
-            basic_job._check_aws_cli_and_creds()
-        mock_check_aws_cli_installed.assert_called_once_with()
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    def test_check_if_s3_location_exists(self, mock_client: MagicMock):
-        """Tests that the job fails if folder already exists in s3"""
-
-        mock_client.return_value.list_objects_v2.side_effect = [
-            {"KeyCount": 0},
-            {"KeyCount": 1},
-        ]
-        basic_job_configs = BasicUploadJobConfigs()
-        basic_job = BasicJob(job_configs=basic_job_configs)
-
-        # Try where aws response says object doesn't exist
-        basic_job._check_if_s3_location_exists()
-
-        # Check that error is raised if object already exists
-        with self.assertRaises(FileExistsError):
-            basic_job._check_if_s3_location_exists()
-
-        mock_client.assert_has_calls(
-            [
-                call("s3"),
-                call().list_objects_v2(
-                    Bucket="some_bucket",
-                    Prefix="confocal_12345_2020-10-10_10-10-10",
-                    MaxKeys=1,
-                ),
-                call().close(),
-                call("s3"),
-                call().list_objects_v2(
-                    Bucket="some_bucket",
-                    Prefix="confocal_12345_2020-10-10_10-10-10",
-                    MaxKeys=1,
-                ),
-                call().close(),
-            ]
+        basic_job._test_upload(Path("some_dir"))
+        mock_upload_to_s3.assert_called_once_with(
+            directory_to_upload=Path("some_dir"),
+            s3_bucket="some_bucket",
+            s3_prefix="confocal_12345_2020-10-10_10-10-10",
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
+    @patch("os.mkdir")
     @patch(
         "aind_data_transfer.transformations.generic_compressors.ZipCompressor."
         "compress_dir"
     )
+    @patch("shutil.copytree")
     def test_compress_raw_data_no_zip(
         self,
+        mock_copytree: MagicMock,
         mock_compress: MagicMock,
-        mock_upload: MagicMock,
-        mock_client: MagicMock,
+        mock_make_dir: MagicMock,
     ):
-        """Tests that the raw data is uploaded to s3 right away"""
+        """Tests that the raw data is copied to temp directory"""
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
-        # Without a Behavior directory
-        mock_upload.assert_called_once_with(
-            directory_to_upload=DATA_DIR,
-            s3_bucket="some_bucket",
-            s3_prefix="confocal_12345_2020-10-10_10-10-10/confocal",
-            dryrun=True,
-            excluded=None,
-        )
-
+        # The shutil copy takes care of creating the directory
+        mock_make_dir.assert_not_called()
         # With a Behavior directory defined
         basic_job.job_configs.behavior_dir = BEHAVIOR_DIR
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
-
-        mock_upload.assert_has_calls(
+        mock_copytree.assert_has_calls(
             [
+                call(DATA_DIR, Path("some_path/mri"), ignore=None),
                 call(
-                    directory_to_upload=DATA_DIR,
-                    s3_bucket="some_bucket",
-                    s3_prefix="confocal_12345_2020-10-10_10-10-10/confocal",
-                    dryrun=True,
-                    excluded=None,
-                ),
-                call(
-                    directory_to_upload=DATA_DIR,
-                    s3_bucket="some_bucket",
-                    s3_prefix="confocal_12345_2020-10-10_10-10-10/confocal",
-                    dryrun=True,
-                    excluded=(BEHAVIOR_DIR / "*"),
+                    DATA_DIR,
+                    Path("some_path/mri"),
+                    ignore=(BEHAVIOR_DIR / "*"),
                 ),
             ]
         )
 
         self.assertFalse(mock_compress.called)
-        self.assertFalse(mock_client.called)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
     @patch(
         "aind_data_transfer.transformations.generic_compressors.ZipCompressor."
         "compress_dir"
     )
     @patch("os.mkdir")
     def test_compress_raw_data_with_zip(
-        self,
-        mock_mkdir: MagicMock,
-        mock_compress: MagicMock,
-        mock_upload: MagicMock,
-        mock_client: MagicMock,
+        self, mock_mkdir: MagicMock, mock_compress: MagicMock
     ):
         """Tests that the raw data is zipped"""
         basic_job_configs = BasicUploadJobConfigs()
-        basic_job_configs.compress_raw_data = True
+        basic_job_configs.modalities[0].compress_raw_data = True
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
@@ -275,8 +135,8 @@ class TestBasicJob(unittest.TestCase):
 
         mock_mkdir.assert_has_calls(
             [
-                call(Path("some_path/confocal")),
-                call(Path("some_path/confocal")),
+                call(Path("some_path/mri")),
+                call(Path("some_path/mri")),
             ]
         )
 
@@ -285,7 +145,7 @@ class TestBasicJob(unittest.TestCase):
                 call(
                     input_dir=DATA_DIR,
                     output_dir=Path(
-                        "some_path/confocal/"
+                        "some_path/mri/"
                         "v0.6.x_neuropixels_multiexp_multistream.zip"
                     ),
                     skip_dirs=None,
@@ -293,7 +153,7 @@ class TestBasicJob(unittest.TestCase):
                 call(
                     input_dir=DATA_DIR,
                     output_dir=Path(
-                        "some_path/confocal/"
+                        "some_path/mri/"
                         "v0.6.x_neuropixels_multiexp_multistream.zip"
                     ),
                     skip_dirs=[BEHAVIOR_DIR],
@@ -301,8 +161,38 @@ class TestBasicJob(unittest.TestCase):
             ]
         )
 
-        self.assertFalse(mock_client.called)
-        self.assertFalse(mock_upload.called)
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("os.mkdir")
+    @patch(
+        "aind_data_transfer.transformations.generic_compressors.ZipCompressor."
+        "compress_dir"
+    )
+    @patch("shutil.copytree")
+    @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
+    def test_compress_raw_data_no_zip_skip_staging(
+        self,
+        mock_upload: MagicMock,
+        mock_copytree: MagicMock,
+        mock_compress: MagicMock,
+        mock_make_dir: MagicMock,
+    ):
+        """Tests that the raw data is uploaded directly to s3"""
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job_configs.modalities[0].skip_staging = True
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        basic_job._compress_raw_data(temp_dir=Path("some_path"))
+
+        # Should upload directly to s3
+        mock_make_dir.assert_not_called()
+        mock_copytree.assert_not_called()
+        mock_upload.assert_called_once_with(
+            directory_to_upload=DATA_DIR,
+            s3_bucket="some_bucket",
+            s3_prefix="confocal_12345_2020-10-10_10-10-10/mri",
+            dryrun=True,
+            excluded=None,
+        )
+        self.assertFalse(mock_compress.called)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch(
@@ -482,9 +372,49 @@ class TestBasicJob(unittest.TestCase):
             parameters=[
                 '{"trigger_codeocean_job": '
                 '{"job_type": "confocal", '
+                '"modalities": ["MRI"], '
                 '"capsule_id": "some_capsule_id", '
+                '"process_capsule_id": null, '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_12345_2020-10-10_10-10-10"}}'
+                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
+                f'"aind_data_transfer_version": "{__version__}"'
+                "}}"
+            ],
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_codeocean_api.codeocean.CodeOceanClient.run_capsule")
+    def test_trigger_custom_codeocean_capsule(
+        self,
+        mock_run_capsule: MagicMock,
+    ):
+        """Tests code ocean capsule is triggered"""
+        successful_response = Response()
+        successful_response.status_code = 200
+        successful_response._content = json.dumps(
+            {"Message": "triggered a code ocean capsule"}
+        ).encode("utf-8")
+        mock_run_capsule.return_value = successful_response
+        # With dry-run set to True
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job_configs.dry_run = False
+        basic_job_configs.codeocean_process_capsule_id = "xyz-456"
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        basic_job._trigger_codeocean_pipeline()
+
+        mock_run_capsule.assert_called_once_with(
+            capsule_id="some_capsule_id",
+            data_assets=[],
+            parameters=[
+                '{"trigger_codeocean_job": '
+                '{"job_type": "run_generic_pipeline", '
+                '"modalities": ["MRI"], '
+                '"capsule_id": "some_capsule_id", '
+                '"process_capsule_id": "xyz-456", '
+                '"bucket": "some_bucket", '
+                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
+                f'"aind_data_transfer_version": "{__version__}"'
+                "}}"
             ],
         )
 
@@ -503,12 +433,10 @@ class TestBasicJob(unittest.TestCase):
         "_trigger_codeocean_pipeline"
     )
     @patch("aind_data_transfer.jobs.basic_job.datetime")
-    @patch(
-        "aind_data_transfer.jobs.basic_job.BasicJob._check_aws_cli_and_creds"
-    )
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
     def test_run_job(
         self,
-        mock_check_aws_creds: MagicMock,
+        mock_test_upload: MagicMock,
         mock_datetime: MagicMock,
         mock_trigger_pipeline: MagicMock,
         mock_upload_to_s3: MagicMock,
@@ -531,7 +459,9 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job.run_job()
 
-        mock_check_aws_creds.assert_called_once()
+        mock_test_upload.assert_called_once_with(
+            temp_dir=(Path("some_dir") / "tmp")
+        )
         mock_tempfile.assert_called_once_with(dir="some_dir")
         mock_s3_check.assert_called_once()
         mock_compress_raw_data.assert_called_once_with(

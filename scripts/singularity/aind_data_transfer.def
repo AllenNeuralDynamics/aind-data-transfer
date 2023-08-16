@@ -1,0 +1,9 @@
+Bootstrap: docker
+From: python:3.9
+
+%files
+    post_install.sh
+
+%post
+    pip install aind-data-transfer[full] --no-cache-dir
+    ./post_install.sh

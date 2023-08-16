@@ -8,11 +8,15 @@ import shutil
 import sys
 import tempfile
 from datetime import datetime, timezone
+from enum import Enum
+from importlib import import_module
 from pathlib import Path
 
 import boto3
 from aind_codeocean_api.codeocean import CodeOceanClient
+from aind_data_schema.data_description import Modality
 
+from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
 from aind_data_transfer.transformations.generic_compressors import (
     VideoCompressor,
@@ -24,10 +28,14 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
     SubjectMetadata,
 )
-from aind_data_transfer.util.s3_utils import (
-    check_aws_cli_installed,
-    upload_to_s3,
-)
+from aind_data_transfer.util.s3_utils import upload_to_s3
+
+
+# It might make more sense to move this class into different repo
+class JobTypes(Enum):
+    REGISTER_DATA = "register_data"
+    RUN_GENERIC_PIPELINE = "run_generic_pipeline"
+    TEST = "test"
 
 
 class BasicJob:
@@ -43,37 +51,15 @@ class BasicJob:
         )
         self._instance_logger.setLevel(job_configs.log_level)
 
-    def _check_aws_cli_and_creds(self):
-        """Check if aws cli is installed and user has write permissions to
-        bucket.
+    def _test_upload(self, temp_dir: Path):
+        """Run upload command on empty directory to see if user has permissions
+        and aws cli installed.
         """
-        check_aws_cli_installed()
-
-        # https://stackoverflow.com/a/47058571
-        iam = boto3.client("iam")
-        sts = boto3.client("sts")
-        try:
-            # Get the arn represented by the currently configured credentials
-            arn = sts.get_caller_identity()["Arn"]
-
-            # Create an arn representing the objects in a bucket
-            bucket_arn = f"arn:aws:s3:::{self.job_configs.s3_bucket}"
-
-            # Run the policy simulation for the basic s3 operations
-            results = iam.simulate_principal_policy(
-                PolicySourceArn=arn,
-                ResourceArns=[bucket_arn],
-                ActionNames=["s3:PutObject"],
-            )
-            if results["EvaluationResults"][0]["EvalDecision"] != "allowed":
-                raise PermissionError(
-                    f"User doesn't have permission to write to bucket "
-                    f"{self.job_configs.s3_bucket}. Check with your admin for "
-                    f"write permissions."
-                )
-        finally:
-            iam.close()
-            sts.close()
+        upload_to_s3(
+            directory_to_upload=temp_dir,
+            s3_bucket=self.job_configs.s3_bucket,
+            s3_prefix=self.job_configs.s3_prefix,
+        )
         return None
 
     def _check_if_s3_location_exists(self):
@@ -88,11 +74,23 @@ class BasicJob:
             )
         finally:
             s3_client.close()
-        if results["KeyCount"] != 0:
+        if (
+            results["KeyCount"] != 0
+            and self.job_configs.force_cloud_sync is False
+        ):
             raise FileExistsError(
                 f"S3 path s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix} already exists. Please consult "
                 f"your admin for help removing old folder if desired."
+            )
+        elif (
+            results["KeyCount"] != 0
+            and self.job_configs.force_cloud_sync is True
+        ):
+            logging.warning(
+                f"S3 path s3://{self.job_configs.s3_bucket}/"
+                f"{self.job_configs.s3_prefix} already exists. Will force "
+                f"syncing of local directory"
             )
         return None
 
@@ -106,47 +104,98 @@ class BasicJob:
         else:
             behavior_dir_excluded = None
 
-        # If no compression is required, we'll upload the data directly instead
-        # of copying it to a temp folder
-        if not self.job_configs.compress_raw_data:
-            # Upload non-behavior data to s3
-            data_prefix = "/".join(
-                [
-                    self.job_configs.s3_prefix,
-                    self.job_configs.experiment_type.value,
-                ]
+        for modality_config in self.job_configs.modalities:
+            self._instance_logger.info(
+                f"Starting to process {modality_config.source}"
             )
-            upload_to_s3(
-                directory_to_upload=self.job_configs.data_source,
-                s3_bucket=self.job_configs.s3_bucket,
-                s3_prefix=data_prefix,
-                dryrun=self.job_configs.dry_run,
-                excluded=behavior_dir_excluded,
-            )
-        # Otherwise, we'll store the compressed folder in a temp directory
-        # and upload it along with the other files
-        else:
-            self._instance_logger.info("Compressing raw data folder: ")
-            zc = ZipCompressor(display_progress_bar=True)
-            compressed_data_folder_name = (
-                str(os.path.basename(self.job_configs.data_source)) + ".zip"
-            )
-            folder_path = (
-                temp_dir
-                / self.job_configs.experiment_type.value
-                / compressed_data_folder_name
-            )
-            os.mkdir(folder_path.parent)
-            skip_dirs = (
-                None
-                if self.job_configs.behavior_dir is None
-                else [self.job_configs.behavior_dir]
-            )
-            zc.compress_dir(
-                input_dir=self.job_configs.data_source,
-                output_dir=folder_path,
-                skip_dirs=skip_dirs,
-            )
+            if (
+                not modality_config.compress_raw_data
+                and not modality_config.skip_staging
+            ):
+                self._instance_logger.info(
+                    f"Copying data to staging directory: {temp_dir}"
+                )
+                dst_dir = temp_dir / modality_config.default_output_folder_name
+                shutil.copytree(
+                    modality_config.source,
+                    dst_dir,
+                    ignore=behavior_dir_excluded,
+                )
+            elif (
+                not modality_config.compress_raw_data
+                and modality_config.skip_staging
+            ):
+                self._instance_logger.info(
+                    f"Skipping staging and uploading {modality_config.source} "
+                    f"directly to s3."
+                )
+                s3_prefix_modality = "/".join(
+                    [
+                        self.job_configs.s3_prefix,
+                        modality_config.default_output_folder_name,
+                    ]
+                )
+                upload_to_s3(
+                    directory_to_upload=modality_config.source,
+                    s3_bucket=self.job_configs.s3_bucket,
+                    s3_prefix=s3_prefix_modality,
+                    dryrun=self.job_configs.dry_run,
+                    excluded=behavior_dir_excluded,
+                )
+            else:
+                self._instance_logger.info(
+                    f"Compressing data folder: {modality_config.source}"
+                )
+                if modality_config.modality == Modality.ECEPHYS:
+                    # Would prefer to not have imports here, but we have
+                    # conditional dependencies
+                    EcephysCompressionParameters = getattr(
+                        import_module(
+                            "aind_data_transfer.transformations."
+                            "ephys_compressors"
+                        ),
+                        "EcephysCompressionParameters",
+                    )
+                    EphysCompressors = getattr(
+                        import_module(
+                            "aind_data_transfer.transformations."
+                            "ephys_compressors"
+                        ),
+                        "EphysCompressors",
+                    )
+
+                    compression_params = EcephysCompressionParameters(
+                        source=modality_config.source,
+                        extra_configs=modality_config.extra_configs,
+                    )
+                    compression_params._number_id = modality_config.number_id
+                    ecephys_compress_job = EphysCompressors(
+                        job_configs=compression_params,
+                        behavior_dir=self.job_configs.behavior_dir,
+                        log_level=self.job_configs.log_level,
+                    )
+                    ecephys_compress_job.compress_raw_data(temp_dir=temp_dir)
+                else:
+                    zc = ZipCompressor(display_progress_bar=True)
+                    compressed_data_folder_name = (
+                        str(os.path.basename(modality_config.source)) + ".zip"
+                    )
+                    folder_path = (
+                        temp_dir
+                        / modality_config.default_output_folder_name
+                        / compressed_data_folder_name
+                    )
+                    os.mkdir(folder_path.parent)
+                    skip_dirs = (
+                        None
+                        if self.job_configs.behavior_dir is None
+                        else [self.job_configs.behavior_dir]
+                    )
+                    zc.compress_dir(
+                        input_dir=modality_config.source,
+                        output_dir=folder_path,
+                        skip_dirs=skip_dirs,
+                    )
         return None
 
     def _compile_metadata(
@@ -168,9 +217,10 @@ class BasicJob:
         )
         procedures_file_name = temp_dir / procedures_metadata.output_filename
         procedures_metadata.write_to_json(procedures_file_name)
+        modalities = [m.modality for m in self.job_configs.modalities]
         data_description_metadata = RawDataDescriptionMetadata.from_inputs(
             name=self.job_configs.s3_prefix,
-            modality=[self.job_configs.modality],
+            modality=modalities,
         )
         data_description_file_name = (
             temp_dir / data_description_metadata.output_filename
@@ -178,17 +228,15 @@ class BasicJob:
         data_description_metadata.write_to_json(data_description_file_name)
 
         processing_end_time = datetime.now(timezone.utc)
-        processing_metadata = ProcessingMetadata.from_inputs(
-            process_name=self.job_configs.process_name,
+        processing_metadata = ProcessingMetadata.from_modalities_configs(
+            modality_configs=self.job_configs.modalities,
             start_date_time=process_start_time,
             end_date_time=processing_end_time,
-            input_location=str(self.job_configs.data_source),
             output_location=(
                 f"s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix}"
             ),
             code_url=self.job_configs.aind_data_transfer_repo_location,
-            parameters=self.job_configs.dict(),
             notes=None,
         )
         processing_file_name = temp_dir / processing_metadata.output_filename
@@ -242,13 +290,24 @@ class BasicJob:
 
     def _trigger_codeocean_pipeline(self):
         """Trigger the codeocean pipeline."""
-        # Legacy way we set up parameters...
+        if self.job_configs.codeocean_process_capsule_id is not None:
+            job_type = JobTypes.RUN_GENERIC_PIPELINE.value
+        else:
+            # Handle legacy way we set up parameters...
+            job_type = self.job_configs.experiment_type.value
         trigger_capsule_params = {
             "trigger_codeocean_job": {
-                "job_type": self.job_configs.experiment_type.value,
+                "job_type": job_type,
+                "modalities": (
+                    [m.modality.name for m in self.job_configs.modalities]
+                ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
+                "process_capsule_id": (
+                    self.job_configs.codeocean_process_capsule_id
+                ),
                 "bucket": self.job_configs.s3_bucket,
                 "prefix": self.job_configs.s3_prefix,
+                "aind_data_transfer_version": __version__,
             }
         }
         co_client = CodeOceanClient(
@@ -275,22 +334,31 @@ class BasicJob:
         """Runs the job. Creates a temp directory to compile the files before
         uploading."""
         process_start_time = datetime.now(timezone.utc)
-        self._check_aws_cli_and_creds()
         self._check_if_s3_location_exists()
         with tempfile.TemporaryDirectory(
             dir=self.job_configs.temp_directory
         ) as td:
+            self._instance_logger.info("Checking write credentials...")
+            self._test_upload(temp_dir=Path(td))
+            self._instance_logger.info("Processing raw data...")
             self._compress_raw_data(temp_dir=Path(td))
+            self._instance_logger.info("Checking for behavior directory...")
             self._encrypt_behavior_dir(temp_dir=Path(td))
+            self._instance_logger.info("Compiling metadata...")
             self._compile_metadata(
                 temp_dir=Path(td), process_start_time=process_start_time
             )
+            self._instance_logger.info("Starting s3 upload...")
             self._upload_to_s3(temp_dir=Path(td))
+            self._instance_logger.info("Initiating code ocean pipeline...")
             self._trigger_codeocean_pipeline()
 
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
-    job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
+    if "--json-args" in sys_args:
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
+    else:
+        job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
     job = BasicJob(job_configs=job_configs_from_main)
     job.run_job()

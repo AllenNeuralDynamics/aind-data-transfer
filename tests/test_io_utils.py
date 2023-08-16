@@ -4,7 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import dask.array
+import dask.array as da
+import zarr
 import h5py
 import numpy as np
 from tifffile import tifffile
@@ -13,6 +14,7 @@ from aind_data_transfer.util.io_utils import (
     DataReaderFactory,
     ImarisReader,
     TiffReader,
+    BlockedArrayWriter,
 )
 
 # TODO: make test fixtures instead of constants?
@@ -37,7 +39,9 @@ def _write_test_h5(folder, n=1):
         path = os.path.join(folder, f"data_{i}.h5")
         paths.append(path)
         with h5py.File(path, "w") as f:
-            f.create_dataset(ImarisReader.DEFAULT_DATA_PATH, data=a, chunks=True)
+            f.create_dataset(
+                ImarisReader.DEFAULT_DATA_PATH, data=a, chunks=True
+            )
             # Write origin metadata
             dataset_info = f.create_group("DataSetInfo/Image")
             dataset_info.attrs["X"] = np.array(
@@ -75,7 +79,7 @@ class TestTiffReader(unittest.TestCase):
 
     def test_as_dask_array(self):
         d = self._reader.as_dask_array()
-        self.assertIsInstance(d, dask.array.Array)
+        self.assertIsInstance(d, da.Array)
         self.assertEqual(IM_SHAPE, d.shape)
         self.assertTrue(np.all(d == 1))
         self.assertEqual(IM_DTYPE, d.dtype)
@@ -96,7 +100,7 @@ class TestTiffReader(unittest.TestCase):
         self.assertEqual(IM_DTYPE.itemsize, self._reader.get_itemsize())
 
 
-class TestHDF5Reader(unittest.TestCase):
+class TestImarisReader(unittest.TestCase):
     def setUp(self):
         self._temp_dir = tempfile.TemporaryDirectory()
         self._image_dir = Path(self._temp_dir.name) / "images"
@@ -124,7 +128,7 @@ class TestHDF5Reader(unittest.TestCase):
 
     def test_as_dask_array(self):
         d = self._reader.as_dask_array(chunks=(32, 32, 32))
-        self.assertIsInstance(d, dask.array.Array)
+        self.assertIsInstance(d, da.Array)
         self.assertEqual(IM_SHAPE, d.shape)
         self.assertTrue(np.all(d == 1))
         self.assertEqual(IM_DTYPE, d.dtype)
@@ -149,6 +153,9 @@ class TestHDF5Reader(unittest.TestCase):
         self.assertIsNone(self._reader.handle)
         self.assertRaises(TypeError, self._reader.as_array)
 
+    def test_n_levels(self):
+        self.assertEqual(1, self._reader.n_levels)
+
 
 class TestDataReaderFactor(unittest.TestCase):
     def setUp(self):
@@ -170,6 +177,70 @@ class TestDataReaderFactor(unittest.TestCase):
         reader = DataReaderFactory().create(self._tiff_path)
         self.assertIsInstance(reader, TiffReader)
         reader.close()
+
+
+class TestBlockedArrayWriter(unittest.TestCase):
+    def test_gen_slices(self):
+        """Test the gen_slices method."""
+        arr_shape = (16, 16, 16)
+        block_shape = (4, 5, 8)
+
+        # Generate the slices
+        slices = list(BlockedArrayWriter.gen_slices(arr_shape, block_shape))
+
+        # Verify the number of slices
+        num_blocks = np.prod(
+            [np.ceil(a / b) for a, b in zip(arr_shape, block_shape)]
+        )
+        self.assertEqual(len(slices), num_blocks)
+
+        # Verify the shape of each slice
+        for slice_ in slices:
+            slice_shape = tuple(s.stop - s.start for s in slice_)
+            # For each dimension, the slice size should be equal to the block size or the remainder of the array size
+            for ss, bs, as_ in zip(slice_shape, block_shape, arr_shape):
+                self.assertTrue(ss == bs or ss == as_ % bs)
+
+    def test_gen_slices_different_lengths(self):
+        """Test the gen_slices method with arguments of different lengths."""
+        arr_shape = (10, 10, 10)
+        block_shape = (5, 5)
+
+        # Test that gen_slices raises an Exception when given inputs of different lengths
+        with self.assertRaises(Exception):
+            list(BlockedArrayWriter.gen_slices(arr_shape, block_shape))
+
+    def test_store(self):
+        """Test the store method."""
+        arr_shape = (10, 10, 10)
+        block_shape = (5, 5, 5)
+
+        # Create an input Dask array
+        in_array = da.from_array(
+            np.random.rand(*arr_shape), chunks=block_shape
+        )
+
+        # Create an output Zarr array
+        out_array = zarr.zeros(arr_shape)
+
+        # Call the store method
+        BlockedArrayWriter.store(in_array, out_array, block_shape)
+
+        # Check if the output array matches the input array
+        np.testing.assert_array_equal(out_array, in_array)
+
+    def test_get_block_shape(self):
+        d = da.zeros(
+            shape=(20000, 20000, 20000),
+            chunks=(128, 256, 256),
+            dtype=np.uint16,
+        )
+        target_size_mb = 102400
+        expected_block_shape = (4096, 4096, 4096)
+        self.assertEqual(
+            expected_block_shape,
+            BlockedArrayWriter.get_block_shape(d, target_size_mb),
+        )
 
 
 if __name__ == "__main__":

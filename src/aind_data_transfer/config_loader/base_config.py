@@ -7,7 +7,7 @@ import os
 import re
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from aind_data_access_api.secrets import get_parameter
 from aind_data_schema.data_description import (
@@ -16,7 +16,15 @@ from aind_data_schema.data_description import (
     build_data_name,
 )
 from aind_data_schema.processing import ProcessName
-from pydantic import BaseSettings, DirectoryPath, Field, FilePath, SecretStr
+from pydantic import (
+    BaseSettings,
+    DirectoryPath,
+    Field,
+    FilePath,
+    PrivateAttr,
+    SecretStr,
+    validator,
+)
 
 
 class BasicJobEndpoints(BaseSettings):
@@ -31,6 +39,13 @@ class BasicJobEndpoints(BaseSettings):
     aind_data_transfer_repo_location: str = Field(...)
     video_encryption_password: Optional[SecretStr] = Field(None)
     codeocean_api_token: Optional[SecretStr] = Field(None)
+    codeocean_process_capsule_id: Optional[str] = Field(
+        None,
+        description=(
+            "If defined, will run this Code Ocean Capsule after registering "
+            "the data asset"
+        ),
+    )
 
     class Config:
         """This class will add custom sourcing from aws."""
@@ -108,8 +123,70 @@ class BasicJobEndpoints(BaseSettings):
                 )
 
 
+class ModalityConfigs(BaseSettings):
+    """Class to contain configs for each modality type"""
+
+    # Optional number id to assign to modality config
+    _number_id: Optional[int] = PrivateAttr(default=None)
+    modality: Modality = Field(
+        ..., description="Data collection modality", title="Modality"
+    )
+    source: DirectoryPath = Field(
+        ...,
+        description="Location of raw data to be uploaded",
+        title="Data Source",
+    )
+    compress_raw_data: Optional[bool] = Field(
+        default=None,
+        description="Run compression on data",
+        title="Compress Raw Data",
+    )
+    extra_configs: Optional[FilePath] = Field(
+        default=None,
+        description="Location of additional configuration file",
+        title="Extra Configs",
+    )
+    skip_staging: bool = Field(
+        default=False,
+        description="Upload uncompressed directly without staging",
+        title="Skip Staging",
+    )
+
+    @property
+    def number_id(self):
+        """Retrieve an optionally assigned numerical id"""
+        return self._number_id
+
+    @property
+    def default_output_folder_name(self):
+        """Construct the default folder name for the modality."""
+        if self._number_id is None:
+            return self.modality.name.lower()
+        else:
+            return self.modality.name.lower() + str(self._number_id)
+
+    @validator("compress_raw_data", always=True)
+    def get_compress_source_default(
+        cls, compress_source: Optional[bool], values: Dict[str, Any]
+    ) -> bool:
+        """Set compress source default to True for ecephys data."""
+        if (
+            compress_source is None
+            and "modality" in values
+            and values["modality"] == Modality.ECEPHYS
+        ):
+            return True
+        else:
+            return False
+
+
 class BasicUploadJobConfigs(BasicJobEndpoints):
     """Configuration for the basic upload job"""
+
+    _DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    _DATE_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
+    _TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
+    _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
 
     s3_bucket: str = Field(
         ...,
@@ -119,8 +196,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
     experiment_type: ExperimentType = Field(
         ..., description="Experiment type", title="Experiment Type"
     )
-    modality: Modality = Field(
-        ..., description="Data collection modality", title="Modality"
+    modalities: List[ModalityConfigs] = Field(
+        ...,
+        description="Data collection modalities and their directory location",
+        title="Modalities",
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
     acq_date: date = Field(
@@ -130,11 +209,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         ...,
         description="Time of day data was acquired",
         title="Acquisition Time",
-    )
-    data_source: DirectoryPath = Field(
-        ...,
-        description="Location of raw data to be uploaded",
-        title="Data Source",
     )
     process_name: ProcessName = Field(
         default=ProcessName.OTHER,
@@ -160,11 +234,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Directory of metadata",
         title="Metadata Directory",
     )
-    extra_configs: Optional[FilePath] = Field(
-        default=None,
-        description="Location of additional configuration file",
-        title="Extra Configs",
-    )
     log_level: str = Field(
         default="WARNING",
         description="Logging level. Default is WARNING.",
@@ -183,10 +252,12 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Perform a dry-run of data upload",
         title="Dry Run",
     )
-    compress_raw_data: bool = Field(
+    force_cloud_sync: bool = Field(
         default=False,
-        description="Run compression on data",
-        title="Compress Raw Data",
+        description=(
+            "Force syncing of data folder even if location exists in cloud"
+        ),
+        title="Force Cloud Sync",
     )
 
     @property
@@ -198,28 +269,24 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             creation_time=self.acq_time,
         )
 
-    @staticmethod
-    def parse_date(date_str: str) -> date:
+    @validator("acq_date", pre=True)
+    def _parse_date(cls, date_str: str) -> date:
         """Parses date string to %YYYY-%MM-%DD format"""
-        pattern = r"^\d{4}-\d{2}-\d{2}$"
-        pattern2 = r"^\d{1,2}/\d{1,2}/\d{4}$"
-        if re.match(pattern, date_str):
+        if re.match(BasicUploadJobConfigs._DATE_PATTERN1, date_str):
             return date.fromisoformat(date_str)
-        elif re.match(pattern2, date_str):
+        elif re.match(BasicUploadJobConfigs._DATE_PATTERN2, date_str):
             return datetime.strptime(date_str, "%m/%d/%Y").date()
         else:
             raise ValueError(
                 "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
             )
 
-    @staticmethod
-    def parse_time(time_str: str) -> time:
+    @validator("acq_time", pre=True)
+    def _parse_time(cls, time_str: str) -> time:
         """Parses time string to "%HH-%MM-%SS format"""
-        pattern = r"^\d{1,2}-\d{1,2}-\d{1,2}$"
-        pattern2 = r"^\d{1,2}:\d{1,2}:\d{1,2}$"
-        if re.match(pattern, time_str):
+        if re.match(BasicUploadJobConfigs._TIME_PATTERN1, time_str):
             return datetime.strptime(time_str, "%H-%M-%S").time()
-        elif re.match(pattern2, time_str):
+        elif re.match(BasicUploadJobConfigs._TIME_PATTERN2, time_str):
             return time.fromisoformat(time_str)
         else:
             raise ValueError(
@@ -253,13 +320,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             help=_help_message("s3_bucket"),
         )
         parser.add_argument(
-            "-d",
-            "--data-source",
-            required=True,
-            type=str,
-            help=_help_message("data_source"),
-        )
-        parser.add_argument(
             "-e",
             "--experiment-type",
             required=True,
@@ -268,10 +328,13 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         )
         parser.add_argument(
             "-m",
-            "--modality",
+            "--modalities",
             required=True,
             type=str,
-            help=_help_message("modality"),
+            help=(
+                f"String that can be parsed as json list where each entry "
+                f"has fields: {ModalityConfigs.__fields__}"
+            ),
         )
         parser.add_argument(
             "-p",
@@ -298,13 +361,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             help="Time data was acquired, HH-mm-ss or HH:mm:ss",
         )
         # Optional
-        parser.add_argument(
-            "-c",
-            "--extra-configs",
-            required=False,
-            type=str,
-            help=_help_message("extra_configs"),
-        )
         parser.add_argument(
             "-l",
             "--log-level",
@@ -337,21 +393,28 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             "--dry-run", action="store_true", help=_help_message("dry_run")
         )
         parser.add_argument(
-            "--compress-raw-data",
-            action="store_true",
-            help=_help_message("compress_raw_data"),
-        )
-        parser.add_argument(
             "--metadata-dir-force",
             action="store_true",
             help=_help_message("metadata_dir_force"),
         )
+        parser.add_argument(
+            "--force-cloud-sync",
+            action="store_true",
+            help=_help_message("force_cloud_sync"),
+        )
+        parser.add_argument(
+            "-i",
+            "--codeocean-process-capsule-id",
+            required=False,
+            type=str,
+            help=_help_message("codeocean_process_capsule_id"),
+        )
         parser.set_defaults(dry_run=False)
-        parser.set_defaults(compress_raw_data=False)
         parser.set_defaults(metadata_dir_force=False)
+        parser.set_defaults(force_cloud_sync=False)
         job_args = parser.parse_args(args)
-        acq_date = BasicUploadJobConfigs.parse_date(job_args.acq_date)
-        acq_time = BasicUploadJobConfigs.parse_time(job_args.acq_time)
+        acq_date = job_args.acq_date
+        acq_time = job_args.acq_time
         behavior_dir = (
             None
             if job_args.behavior_dir is None
@@ -366,11 +429,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             None
             if job_args.temp_directory is None
             else Path(os.path.abspath(job_args.temp_directory))
-        )
-        extra_configs = (
-            None
-            if job_args.extra_configs is None
-            else Path(os.path.abspath(job_args.extra_configs))
         )
         log_level = (
             BasicUploadJobConfigs.__fields__["log_level"].default
@@ -390,21 +448,38 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             endpoints_param_dict = {
                 "aws_param_store_name": job_args.endpoints_parameters
             }
+        if job_args.codeocean_process_capsule_id is not None:
+            endpoints_param_dict[
+                "codeocean_process_capsule_id"
+            ] = job_args.codeocean_process_capsule_id
+        modalities_json = json.loads(job_args.modalities)
+        modalities = [ModalityConfigs.parse_obj(m) for m in modalities_json]
         return cls(
             s3_bucket=job_args.s3_bucket,
-            data_source=Path(os.path.abspath(job_args.data_source)),
             subject_id=job_args.subject_id,
-            modality=Modality(job_args.modality),
             experiment_type=ExperimentType(job_args.experiment_type),
+            modalities=modalities,
             acq_date=acq_date,
             acq_time=acq_time,
             behavior_dir=behavior_dir,
             temp_directory=temp_directory,
             metadata_dir=metadata_dir,
-            extra_configs=extra_configs,
             dry_run=job_args.dry_run,
-            compress_raw_data=job_args.compress_raw_data,
             metadata_dir_force=job_args.metadata_dir_force,
+            force_cloud_sync=job_args.force_cloud_sync,
             log_level=log_level,
             **endpoints_param_dict,
         )
+
+    @classmethod
+    def from_json_args(cls, args: list):
+        """Adds ability to construct settings from a single json string."""
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--json-args",
+            required=True,
+            type=str,
+            help="Configs passed as a single json string",
+        )
+        return cls(**json.loads(parser.parse_args(args).json_args))

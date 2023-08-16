@@ -32,20 +32,11 @@ def get_secret(secret_name, region_name):
     return secret
 
 
-def check_aws_cli_installed():
-    """Will return an error if check fails."""
-    if platform.system() == "Windows":
-        shell = True
-    else:
-        shell = False
-    subprocess.run(["aws", "--version"], shell=shell, check=True)
-
-
 def upload_to_s3(
     directory_to_upload,
     s3_bucket,
     s3_prefix,
-    dryrun,
+    dryrun=False,
     excluded=None,
     included=None,
 ):
@@ -58,12 +49,12 @@ def upload_to_s3(
     # TODO: Use s3transfer library instead of subprocess?
     logging.info("Uploading to s3.")
     aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
-    base_command = ["aws", "s3", "sync", directory_to_upload, aws_dest]
+    base_command = ["aws", "s3", "sync", str(directory_to_upload), aws_dest]
 
     if excluded:
-        base_command.extend(["--exclude", excluded])
+        base_command.extend(["--exclude", str(excluded)])
     if included:
-        base_command.extend(["--include", included])
+        base_command.extend(["--include", str(included)])
     if dryrun:
         base_command.append("--dryrun")
     subprocess.run(base_command, shell=shell, check=True)
@@ -87,7 +78,7 @@ def copy_to_s3(file_to_upload, s3_bucket, s3_prefix, dryrun):
                 "aws",
                 "s3",
                 "cp",
-                file_to_upload,
+                str(file_to_upload),
                 aws_dest,
                 "--dryrun",
             ],
@@ -96,7 +87,7 @@ def copy_to_s3(file_to_upload, s3_bucket, s3_prefix, dryrun):
         )
     else:
         subprocess.run(
-            ["aws", "s3", "cp", file_to_upload, aws_dest],
+            ["aws", "s3", "cp", str(file_to_upload), aws_dest],
             shell=shell,
             check=True,
         )
