@@ -5,5 +5,8 @@ From: python:3.9
     post_install.sh
 
 %post
+    wget https://www.mpich.org/static/downloads/3.2/mpich-3.2.tar.gz
+    tar xfz mpich-3.2.tar.gz
+    rm mpich-3.2.tar.gz
     pip install aind-data-transfer[full] --no-cache-dir
     ./post_install.sh
