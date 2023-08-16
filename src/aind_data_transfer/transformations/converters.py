@@ -49,7 +49,22 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
                         [float(tile_dict['tile_x_position']),  
                         float(tile_dict['tile_y_position']),
                         float(tile_dict['tile_z_position'])])
-        for channel in tile_dict['channel']:
+        
+        if log_dict['config_toml']['imaging_specs']['acquisition_style'] == 'interleaved':
+            for channel in tile_dict['channel']:
+                channel_dict = log_dict['channels'][channel]
+                ch = Channel(channel_name=channel, 
+                            laser_wavelength=int(channel_dict['laser_wavelength']), 
+                            laser_power=channel_dict['laser_power'],
+                            filter_wheel_index=channel_dict['filter_wheel_index'])
+
+                tile = AcquisitionTile(channel=ch, 
+                                    file_name=tile_dict['file_name'],
+                                    imaging_angle=log_dict['lightsheet_angle'], 
+                                    coordinate_transformations=[scale_tfm, translation_tfm])
+                tiles.append(tile)
+        elif log_dict['config_toml']['imaging_specs']['acquisition_style'] == 'sequential':
+            channel = tile_dict['channel']
             channel_dict = log_dict['channels'][channel]
             ch = Channel(channel_name=channel, 
                         laser_wavelength=int(channel_dict['laser_wavelength']), 
@@ -215,6 +230,20 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
                 else: 
                     cam = 0
 
+                
+                #match the logic from ome_zarr.py that generates the new tilenames
+                tile_prefix = ChannelParser.parse_tile_xyz_loc(filename)
+                new_zarr_tile_name = tile_prefix + f"_ch_{channel}" + ".zarr"
+                df = pd.concat([df, 
+                        pd.DataFrame({
+                        'filename': filename,
+                        'new_filename':new_zarr_tile_name,
+                        'X': X, 
+                        'Y': Y, 
+                        'Z': Z,
+                        'channel': (channel),
+                        'camera': cam}, index = [i])])
+
             elif acquisition_style == "interleaved":
                 # TODO, we will eventually get this information from one of the metadata json files (the acquisition.json?)
                 #for the interim we will parse the filename 
@@ -266,23 +295,24 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
                 else:
                     cam = 0
 
+                for ch in channel:
+                    #match the logic from ome_zarr.py that generates the new tilenames
+                    tile_prefix = ChannelParser.parse_tile_xyz_loc(filename)
+                    new_zarr_tile_name = tile_prefix + f"_ch_{ch}" + ".zarr"
+                    df = pd.concat([df, 
+                            pd.DataFrame({
+                            'filename': filename,
+                            'new_filename':new_zarr_tile_name,
+                            'X': X, 
+                            'Y': Y, 
+                            'Z': Z,
+                            'channel': (ch),
+                            'camera': cam}, index = [i])])
             else:
                 raise ValueError("acquisition_style must be either 'sequential' or 'interleaved'")
 
 
-            for  ch in channel:
-                #match the logic from ome_zarr.py that generates the new tilenames
-                tile_prefix = ChannelParser.parse_tile_xyz_loc(filename)
-                new_zarr_tile_name = tile_prefix + f"_ch_{ch}" + ".zarr"
-                df = pd.concat([df, 
-                        pd.DataFrame({
-                        'filename': filename,
-                        'new_filename':new_zarr_tile_name,
-                        'X': X, 
-                        'Y': Y, 
-                        'Z': Z,
-                        'channel': (ch),
-                        'camera': cam}, index = [i])])
+            
 
 
         # Filter Dataframe

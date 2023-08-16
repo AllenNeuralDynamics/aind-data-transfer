@@ -142,6 +142,8 @@ def read_imaging_log(log_path: str) -> dict:
                     y = match.group(2)
                     if len(match.group(3)) > 3:
                         channel = match.group(3).split(', ')
+                    else:
+                        channel = match.group(3)
                     file_name = Path(match.group(4)).name
 
                     #move to next next line in log_list without using next
