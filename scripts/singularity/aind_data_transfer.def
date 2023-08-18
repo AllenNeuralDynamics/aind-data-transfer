@@ -5,5 +5,9 @@ From: python:3.9
     post_install.sh
 
 %post
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    rm awscliv2.zip
+    ./aws/install
     pip install aind-data-transfer[full] --no-cache-dir
     ./post_install.sh

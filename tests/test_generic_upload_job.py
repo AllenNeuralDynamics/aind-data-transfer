@@ -233,7 +233,7 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             )
             and (
                 ModalityConfigs(
-                    modality=Modality.CONFOCAL, source=expected_source
+                    modality=Modality.CONFOCAL, source=expected_source, compress_raw_data=True
                 )
                 in job0.job_configs.modalities
             )
@@ -294,7 +294,7 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             )
             and (
                 ModalityConfigs(
-                    modality=Modality.CONFOCAL, source=expected_source
+                    modality=Modality.CONFOCAL, source=expected_source, compress_raw_data=True
                 )
                 in job0.job_configs.modalities
             )
@@ -307,6 +307,7 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             ("xyz-123", job0.job_configs.codeocean_process_capsule_id)
             and ("zyx-456", job1.job_configs.codeocean_process_capsule_id)
         )
+        self.assertFalse(job1.job_configs.modalities[0].compress_raw_data)
 
     @patch("boto3.client")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob.run_job")
