@@ -10,4 +10,4 @@ From: python:3.9
     rm awscliv2.zip
     ./aws/install
     pip install aind-data-transfer[full] --no-cache-dir
-    # ./post_install.sh
+    ./post_install.sh
