@@ -74,7 +74,7 @@ Required
 
 ```
 s3_bucket: S3 Bucket name
-experiment_type: One of [confocal, diSPIM, ecephys, exaSPIM, FIP, fMOST, HSFP, mesoSPIM, MPOPHYS, MRI, Other, SmartSPIM, SPOPHYS]
+experiment_type: One of [confocal, diSPIM, ecephys, exaSPIM, FIP, fMOST, HSFP, mesoSPIM, MPOPHYS, MRI, Other, SmartSPIM, single-pane-ophys] (pulled from the modality.abbreviation field)
 modality: One of [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MPOPHYS, MRI, SMARTSPIM, SPIM, SPOPHYS]
 subject_id: ID of the subject
 acq_date: Format can be either yyyy-MM-dd or MM/dd/yyyy
