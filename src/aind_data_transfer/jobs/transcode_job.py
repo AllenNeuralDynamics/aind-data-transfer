@@ -210,6 +210,18 @@ def main():
             )
         )
 
+    if job_configs["jobs"]["transcode"]:
+        bkg_im_dir = None
+        if job_configs["jobs"]["background_subtraction"]:
+            bkg_im_dir = data_src_dir / "derivatives"
+            if not bkg_im_dir.is_dir():
+                raise Exception(f"background image directory not found: {bkg_im_dir}")
+            LOGGER.info(f"Using background image directory: {bkg_im_dir}")
+        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs, bkg_im_dir)
+        submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
+        subprocess.run(submit_cmd, shell=True)
+        LOGGER.info("Submitted transcode job to cluster")
+
     if job_configs["jobs"]["create_ng_link"]:
         ng_link_cmd = (
             f"python {_NG_LINK_SCRIPT} "
@@ -225,18 +237,6 @@ def main():
             LOGGER.error(
                 f"Creating neuroglancer link failed; {output_json} was not created"
             )
-
-    if job_configs["jobs"]["transcode"]:
-        bkg_im_dir = None
-        if job_configs["jobs"]["background_subtraction"]:
-            bkg_im_dir = data_src_dir / "derivatives"
-            if not bkg_im_dir.is_dir():
-                raise Exception(f"background image directory not found: {bkg_im_dir}")
-            LOGGER.info(f"Using background image directory: {bkg_im_dir}")
-        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs, bkg_im_dir)
-        submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
-        subprocess.run(submit_cmd, shell=True)
-        LOGGER.info("Submitted transcode job to cluster")
 
     if job_configs["jobs"]["upload_aux_files"]:
         LOGGER.info("Uploading auxiliary data")
