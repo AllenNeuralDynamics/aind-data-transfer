@@ -176,6 +176,8 @@ class ModalityConfigs(BaseSettings):
             and values["modality"] == Modality.ECEPHYS
         ):
             return True
+        elif compress_source is not None:
+            return compress_source
         else:
             return False
 
