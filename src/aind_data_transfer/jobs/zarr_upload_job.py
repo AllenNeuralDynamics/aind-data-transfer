@@ -309,19 +309,19 @@ class ZarrUploadJob(BasicJob):
 
         self._data_src_dir = modality_config.source
         if not self._data_src_dir.exists():
-            raise Exception(
+            raise FileNotFoundError(
                 f"data source directory {self._data_src_dir} does not exist"
             )
         self._raw_image_dir = (
             self._data_src_dir / modality_config.modality.value.abbreviation
         )
         if not self._raw_image_dir.exists():
-            raise Exception(
+            raise FileNotFoundError(
                 f"raw image directory {self._raw_image_dir} does not exist"
             )
         self._derivatives_dir = self._data_src_dir / "derivatives"
         if not self._derivatives_dir.exists():
-            raise Exception(
+            raise FileNotFoundError(
                 f"derivatives directory {self._derivatives_dir} does not exist"
             )
         self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{modality_config.modality.value.abbreviation}.zarr"
