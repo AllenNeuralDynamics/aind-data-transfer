@@ -1,5 +1,6 @@
 """Loads Imaging job configurations"""
 import argparse
+import json
 from pathlib import Path
 
 import yaml
@@ -21,8 +22,8 @@ class ImagingJobConfigurationLoader:
             help="Configs passed as a single json string",
         )
         config = json.loads(parser.parse_args(args).json_args)
-        self.__resolve_endpoints(config)
-        self.__parse_compressor_configs(config)
+        ImagingJobConfigurationLoader.__resolve_endpoints(config)
+        ImagingJobConfigurationLoader.__parse_compressor_configs(config)
         return config
 
     def load_configs(self, sys_args):
