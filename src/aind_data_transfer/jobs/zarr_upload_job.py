@@ -8,8 +8,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 from aind_data_schema.data_description import Modality, ExperimentType
-from aind_data_transfer.config_loader.base_config import ConfigError, BasicUploadJobConfigs, ModalityConfigs, \
-    BasicJobEndpoints
+from aind_data_transfer.config_loader.base_config import (
+    ConfigError,
+    BasicUploadJobConfigs,
+    ModalityConfigs,
+    BasicJobEndpoints,
+)
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.transformations.ome_zarr import write_files
 from aind_data_transfer.util.dask_utils import get_client
@@ -24,28 +28,33 @@ class ZarrUploadJobConfigs(BasicUploadJobConfigs):
     """Configurations for ZarrUploadJob."""
 
     n_levels: Optional[int] = Field(
-        1,
-        description="Number of levels to use for the pyramid. Default is 1."
+        1, description="Number of levels to use for the pyramid. Default is 1."
     )
     scale_factor: Optional[int] = Field(
-        2,
-        description="Scale factor to use for the pyramid. Default is 2."
+        2, description="Scale factor to use for the pyramid. Default is 2."
     )
     chunk_shape: Optional[tuple] = Field(
         (1, 1, 256, 256, 256),
-        description="5D Chunk shape to use for the zarr Array. Default is (1, 1, 256, 256, 256)."
+        description="5D Chunk shape to use for the zarr Array. Default is (1, 1, 256, 256, 256).",
     )
     voxel_size: Optional[tuple] = Field(
         None,
-        description="Voxel size to use for the zarr Array. if None, will attempt to parse from the image metadata. Default is None."
+        description="Voxel size to use for the zarr Array. if None, will attempt to parse from the image metadata. Default is None.",
     )
     codec: Optional[str] = Field(
         "zstd",
-        description="Blosc codec to use for compression. Default is zstd."
+        description="Blosc codec to use for compression. Default is zstd.",
     )
     clevel: Optional[int] = Field(
-        1,
-        description="Blosc compression level to use. Default is 1."
+        1, description="Blosc compression level to use. Default is 1."
+    )
+    do_bkg_subtraction: Optional[bool] = Field(
+        False,
+        description="Whether to subtract the background image from the raw data. Default is False.",
+    )
+    exclude_patterns: Optional[list] = Field(
+        None,
+        description="List of patterns to exclude from the zarr conversion. Default is None.",
     )
 
     @classmethod
@@ -201,6 +210,17 @@ class ZarrUploadJobConfigs(BasicUploadJobConfigs):
             type=int,
             help=_help_message("clevel"),
         )
+        parser.add_argument(
+            "--do-bkg-subtraction",
+            action="store_true",
+            help=_help_message("do_bkg_subtraction"),
+        )
+        parser.add_argument(
+            "--exclude-patterns",
+            required=False,
+            type=str,
+            help=_help_message("exclude_patterns"),
+        )
         parser.set_defaults(dry_run=False)
         parser.set_defaults(metadata_dir_force=False)
         parser.set_defaults(force_cloud_sync=False)
@@ -266,6 +286,8 @@ class ZarrUploadJobConfigs(BasicUploadJobConfigs):
             voxel_size=job_args.voxel_size,
             codec=job_args.codec,
             clevel=job_args.clevel,
+            do_bkg_subtraction=job_args.do_bkg_subtraction,
+            exclude_patterns=job_args.exclude_patterns,
             **endpoints_param_dict,
         )
 
@@ -275,6 +297,34 @@ class ZarrUploadJob(BasicJob):
 
     def __init__(self, job_configs: ZarrUploadJobConfigs):
         super().__init__(job_configs=job_configs)
+
+        if len(self.job_configs.modalities) != 1:
+            raise ConfigError("ZarrUploadJob only supports one modality.")
+
+        modality_config = self.job_configs.modalities[0]
+        if modality_config.modality not in (Modality.EXASPIM, Modality.DISPIM):
+            raise ConfigError(
+                "ZarrUploadJob only supports EXASPIM and DISPIM modalities."
+            )
+
+        self._data_src_dir = modality_config.source
+        if not self._data_src_dir.exists():
+            raise Exception(
+                f"data source directory {self._data_src_dir} does not exist"
+            )
+        self._raw_image_dir = (
+            self._data_src_dir / modality_config.modality.value.abbreviation
+        )
+        if not self._raw_image_dir.exists():
+            raise Exception(
+                f"raw image directory {self._raw_image_dir} does not exist"
+            )
+        self._derivatives_dir = self._data_src_dir / "derivatives"
+        if not self._derivatives_dir.exists():
+            raise Exception(
+                f"derivatives directory {self._derivatives_dir} does not exist"
+            )
+        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{modality_config.modality.value.abbreviation}.zarr"
 
     def _compress_raw_data(self, temp_dir: Path) -> None:
         """Not implemented for ZarrUploadJob."""
@@ -292,25 +342,39 @@ class ZarrUploadJob(BasicJob):
             s3_bucket=self.job_configs.s3_bucket,
             s3_prefix=self.job_configs.s3_prefix,
             dryrun=self.job_configs.dry_run,
-            excluded=excluded
+            excluded=excluded,
         )
 
-    def _upload_zarr(self, raw_data_dir: Path, derivatives_dir: Path, zarr_path: str) -> None:
-        images = set(get_images(raw_data_dir, exclude=["*combined*", "*dummy*", "*.tif"]))
-        self._instance_logger.info(f"Found {len(images)} images in {raw_data_dir}")
+    def _upload_zarr(self) -> None:
+        images = set(
+            get_images(
+                self._raw_image_dir, exclude=self.job_configs.exclude_patterns
+            )
+        )
+        self._instance_logger.info(
+            f"Found {len(images)} images in {self._raw_image_dir}"
+        )
 
         if not images:
             self._instance_logger.warning(f"No images found, exiting.")
             return
 
         self._instance_logger.info(f"Writing {len(images)} images to OME-Zarr")
-        self._instance_logger.info(f"Writing OME-Zarr to {zarr_path}")
+        self._instance_logger.info(f"Writing OME-Zarr to {self._zarr_path}")
 
-        compressor = blosc.Blosc(self.job_configs.codec, self.job_configs.clevel, shuffle=blosc.SHUFFLE)
+        compressor = blosc.Blosc(
+            self.job_configs.codec,
+            self.job_configs.clevel,
+            shuffle=blosc.SHUFFLE,
+        )
+
+        bkg_img_dir = None
+        if self.job_configs.do_bkg_subtraction:
+            bkg_img_dir = str(self._derivatives_dir)
 
         write_files(
             images,
-            zarr_path,
+            self._zarr_path,
             self.job_configs.n_levels,
             self.job_configs.scale_factor,
             True,
@@ -318,7 +382,7 @@ class ZarrUploadJob(BasicJob):
             self.job_configs.chunk_shape,
             self.job_configs.voxel_size,
             compressor,
-            bkg_img_dir=str(derivatives_dir)
+            bkg_img_dir=bkg_img_dir,
         )
 
     def run_job(self):
@@ -326,36 +390,24 @@ class ZarrUploadJob(BasicJob):
         uploading."""
         process_start_time = datetime.now(timezone.utc)
 
-        if len(self.job_configs.modalities) != 1:
-            raise ConfigError("ZarrUploadJob only supports one modality.")
-
-        modality_config = self.job_configs.modalities[0]
-        if modality_config.modality not in (Modality.EXASPIM, Modality.DISPIM):
-            raise ConfigError("ZarrUploadJob only supports EXASPIM and DISPIM modalities.")
-
-        data_src_dir = modality_config.source
-
         self._check_if_s3_location_exists()
         with tempfile.TemporaryDirectory(
-                dir=self.job_configs.temp_directory
+            dir=self.job_configs.temp_directory
         ) as td:
             self._instance_logger.info("Checking write credentials...")
             self._test_upload(temp_dir=Path(td))
         self._instance_logger.info("Compiling metadata...")
         self._compile_metadata(
-            temp_dir=data_src_dir, process_start_time=process_start_time
+            temp_dir=self._data_src_dir, process_start_time=process_start_time
         )
         self._instance_logger.info("Starting s3 upload...")
         # Exclude raw image directory, this is uploaded separately
-        raw_data_dir = data_src_dir / modality_config.modality.value.abbreviation
         self._upload_to_s3(
-            dir=data_src_dir,
-            excluded=os.path.join(raw_data_dir, "*")
+            dir=self._data_src_dir,
+            excluded=os.path.join(self._raw_image_dir, "*"),
         )
         self._instance_logger.info("Starting zarr upload...")
-        derivatives_dir = data_src_dir / "derivatives"
-        zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{modality_config.modality.value.abbreviation}.zarr"
-        self._upload_zarr(raw_data_dir, derivatives_dir, zarr_path)
+        self._upload_zarr()
 
 
 if __name__ == "__main__":
