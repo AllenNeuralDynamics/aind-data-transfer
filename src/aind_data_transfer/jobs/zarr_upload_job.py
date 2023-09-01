@@ -1,10 +1,11 @@
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from aind_data_schema.data_description import Modality
-from aind_data_transfer.config_loader.base_config import ConfigError
+from aind_data_transfer.config_loader.base_config import ConfigError, BasicUploadJobConfigs
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.util.s3_utils import upload_to_s3
 
@@ -57,3 +58,13 @@ class ZarrUploadJob(BasicJob):
         # TODO: zarr conversion
         self._instance_logger.info("Initiating code ocean pipeline...")
         self._trigger_codeocean_pipeline()
+
+
+if __name__ == "__main__":
+    sys_args = sys.argv[1:]
+    if "--json-args" in sys_args:
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
+    else:
+        job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
+    job = BasicJob(job_configs=job_configs_from_main)
+    job.run_job()
