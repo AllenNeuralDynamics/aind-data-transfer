@@ -278,7 +278,7 @@ def main(job_configs):
 if __name__ == "__main__":
     job_configs = ImagingJobConfigurationLoader().from_json_args(sys.argv[1:])
 
-    _SCRIPTS_DIR = job_configs["script_dir"]
+    _SCRIPTS_DIR = Path(job_configs["script_dir"])
 
     _S3_SCRIPT = _SCRIPTS_DIR / "s3_upload.py"
     if not _S3_SCRIPT.is_file():
