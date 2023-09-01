@@ -33,7 +33,7 @@ class BasicJobEndpoints(BaseSettings):
     aws_param_store_name: Optional[str] = Field(default=None, repr=False)
 
     codeocean_domain: str = Field(...)
-    codeocean_trigger_capsule_id: str = Field(...)
+    codeocean_trigger_capsule_id: Optional[str] = Field(None)
     codeocean_trigger_capsule_version: Optional[str] = Field(None)
     metadata_service_domain: str = Field(...)
     aind_data_transfer_repo_location: str = Field(...)
