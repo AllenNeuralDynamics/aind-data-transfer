@@ -35,27 +35,6 @@ def _find_scripts_dir():
     return scripts_dir
 
 
-_SCRIPTS_DIR = _find_scripts_dir()
-
-_S3_SCRIPT = _SCRIPTS_DIR / "s3_upload.py"
-if not _S3_SCRIPT.is_file():
-    raise Exception(f"script not found: {_S3_SCRIPT}")
-
-_GCS_SCRIPT = _SCRIPTS_DIR / "gcs_upload.py"
-if not _GCS_SCRIPT.is_file():
-    raise Exception(f"script not found: {_GCS_SCRIPT}")
-
-_OME_ZARR_SCRIPT = _SCRIPTS_DIR / "write_ome_zarr.py"
-if not _OME_ZARR_SCRIPT.is_file():
-    raise Exception(f"script not found: {_OME_ZARR_SCRIPT}")
-
-_NG_LINK_SCRIPT = _SCRIPTS_DIR / "create_neuroglancer_links.py"
-
-_SUBMIT_SCRIPT = _SCRIPTS_DIR / "cluster" / "submit.py"
-if not _SUBMIT_SCRIPT.is_file():
-    raise Exception(f"script not found: {_SUBMIT_SCRIPT}")
-
-
 def _build_s3_cmd(
     data_src_dir: str,
     bucket: str,
@@ -158,9 +137,7 @@ def _resolve_compression_options(job_configs: dict) -> dict:
     return opts
 
 
-def main():
-    job_configs = ImagingJobConfigurationLoader().load_configs(sys.argv[1:])
-
+def main(job_configs):
     data_src_dir = Path(job_configs["endpoints"]["raw_data_dir"])
     dest_data_dir = job_configs["endpoints"]["dest_data_dir"]
     if dest_data_dir.endswith("/"):
@@ -299,4 +276,26 @@ def main():
 
  
 if __name__ == "__main__":
-    main()
+    job_configs = ImagingJobConfigurationLoader().from_json_args(sys.argv[1:])
+
+    _SCRIPTS_DIR = job_configs["script_dir"]
+
+    _S3_SCRIPT = _SCRIPTS_DIR / "s3_upload.py"
+    if not _S3_SCRIPT.is_file():
+        raise Exception(f"script not found: {_S3_SCRIPT}")
+
+    _GCS_SCRIPT = _SCRIPTS_DIR / "gcs_upload.py"
+    if not _GCS_SCRIPT.is_file():
+        raise Exception(f"script not found: {_GCS_SCRIPT}")
+
+    _OME_ZARR_SCRIPT = _SCRIPTS_DIR / "write_ome_zarr.py"
+    if not _OME_ZARR_SCRIPT.is_file():
+        raise Exception(f"script not found: {_OME_ZARR_SCRIPT}")
+
+    _NG_LINK_SCRIPT = _SCRIPTS_DIR / "create_neuroglancer_links.py"
+
+    _SUBMIT_SCRIPT = _SCRIPTS_DIR / "cluster" / "submit.py"
+    if not _SUBMIT_SCRIPT.is_file():
+        raise Exception(f"script not found: {_SUBMIT_SCRIPT}")
+
+    main(job_configs)

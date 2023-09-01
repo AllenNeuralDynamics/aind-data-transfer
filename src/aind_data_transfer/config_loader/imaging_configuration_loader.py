@@ -9,6 +9,22 @@ from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
 
 
 class ImagingJobConfigurationLoader:
+
+    def from_json_args(cls, args: list):
+        """Adds ability to construct settings from a single json string."""
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--json-args",
+            required=True,
+            type=str,
+            help="Configs passed as a single json string",
+        )
+        config = json.loads(parser.parse_args(args).json_args)
+        self.__resolve_endpoints(config)
+        self.__parse_compressor_configs(config)
+        return config
+
     def load_configs(self, sys_args):
         """Load yaml config at conf_src Path as python dict"""
         parser = argparse.ArgumentParser()
@@ -18,6 +34,9 @@ class ImagingJobConfigurationLoader:
         parser.add_argument(
             "-r", "--raw-data-source", required=False, type=str
         )
+        parser.add_argument(
+            "-s", "--script-dir", required=False, type=str
+        )
         args = parser.parse_args(sys_args)
         conf_src = args.conf_file_location
         with open(conf_src) as f:
@@ -26,6 +45,7 @@ class ImagingJobConfigurationLoader:
             config["endpoints"]["raw_data_dir"] = args.raw_data_source
         self.__resolve_endpoints(config)
         self.__parse_compressor_configs(config)
+        config["script_dir"] = args.script_dir
         return config
 
     @staticmethod
