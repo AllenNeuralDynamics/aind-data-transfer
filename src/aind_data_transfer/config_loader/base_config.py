@@ -485,3 +485,15 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             help="Configs passed as a single json string",
         )
         return cls(**json.loads(parser.parse_args(args).json_args))
+
+
+class ConfigError(Exception):
+    """Exception raised for errors in the config file."""
+
+    def __init__(self, message: str):
+        """Constructs the error message."""
+        self.message = message
+
+    def __str__(self):
+        """Returns the error message."""
+        return repr(self.message)
