@@ -503,7 +503,10 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
     x.attrib["type"] = "relative"
     x.text = "."
     #add_sequence_description(spim_data,log_dict, filtered_tiles)
-    add_sequence_description(spim_data, log_dict, new_filtered_tilenames)
+    if acquisition_style=='interleaved':
+        add_sequence_description(spim_data, log_dict, new_filtered_tilenames)
+    else:
+        add_sequence_description(spim_data, log_dict, filtered_tiles)
     add_view_registrations(spim_data, filtered_translations)
 
     return ET.ElementTree(spim_data)
