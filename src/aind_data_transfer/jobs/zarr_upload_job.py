@@ -15,11 +15,14 @@ from aind_data_transfer.config_loader.base_config import (
     BasicJobEndpoints,
 )
 from aind_data_transfer.jobs.basic_job import BasicJob
+from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
 from aind_data_transfer.transformations.ome_zarr import write_files
 from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
+from aind_data_transfer.transformations.file_io import read_toml, read_imaging_log, write_acq_json, write_xml
+
 from numcodecs import blosc
 from pydantic import Field
 
@@ -302,32 +305,34 @@ class ZarrUploadJob(BasicJob):
         super().__init__(job_configs=job_configs)
 
         if len(self.job_configs.modalities) != 1:
-            raise ConfigError("ZarrUploadJob only supports one modality.")
+            raise ConfigError("ZarrUploadJob only supports one modality at a time.")
 
-        modality_config = self.job_configs.modalities[0]
-        if modality_config.modality not in (Modality.EXASPIM, Modality.DISPIM):
+        self._modality_config = self.job_configs.modalities[0]
+        if self._modality_config.modality not in (Modality.EXASPIM, Modality.DISPIM):
             raise ConfigError(
                 "ZarrUploadJob only supports EXASPIM and DISPIM modalities."
             )
 
-        self._data_src_dir = modality_config.source
+        self._data_src_dir = self._modality_config.source
         if not self._data_src_dir.exists():
             raise FileNotFoundError(
                 f"data source directory {self._data_src_dir} does not exist"
             )
         self._raw_image_dir = (
-            self._data_src_dir / modality_config.modality.value.abbreviation
+            self._data_src_dir / self._modality_config.modality.value.abbreviation
         )
         if not self._raw_image_dir.exists():
-            raise FileNotFoundError(
-                f"raw image directory {self._raw_image_dir} does not exist"
-            )
+            self._raw_image_dir = self._data_src_dir / "micr"
+            if not self._raw_image_dir.exists():
+                raise FileNotFoundError(
+                    f"raw image directory {self._raw_image_dir} does not exist"
+                )
         self._derivatives_dir = self._data_src_dir / "derivatives"
         if not self._derivatives_dir.exists():
             raise FileNotFoundError(
                 f"derivatives directory {self._derivatives_dir} does not exist"
             )
-        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{modality_config.modality.value.abbreviation}.zarr"
+        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.value.abbreviation}.zarr"
 
     def _compress_raw_data(self, temp_dir: Path) -> None:
         """Not implemented for ZarrUploadJob."""
@@ -388,6 +393,35 @@ class ZarrUploadJob(BasicJob):
             bkg_img_dir=bkg_img_dir,
         )
 
+    def _create_dispim_metadata(self) -> None:
+        self._instance_logger.info("Creating xml files for diSPIM data")
+        # convert imaging log to acq json
+        log_file = self._data_src_dir.joinpath('imaging_log.log')
+        toml_dict = read_toml(self._data_src_dir.joinpath('config.toml'))
+
+        # read log file into dict
+        log_dict = read_imaging_log(log_file)
+        log_dict['data_src_dir'] = (self._data_src_dir.as_posix())
+        log_dict['config_toml'] = toml_dict
+        # convert to acq json
+        acq_json = log_to_acq_json(log_dict)
+        acq_json_path = self._data_src_dir.joinpath('acquisition.json')
+
+        try:
+            write_acq_json(acq_json, acq_json_path)
+            self._instance_logger.info('Finished writing acq json')
+        except Exception as e:
+            self._instance_logger.error(f"Failed to write acquisition.json: {e}")
+
+        # convert acq json to xml
+        is_zarr = True
+        condition = "channel=='405'"
+        acq_xml = acq_json_to_xml(acq_json, log_dict, self._data_src_dir.stem + '/diSPIM.zarr', is_zarr, condition)  # needs relative path to zarr file (as seen by code ocean)
+
+        # write xml to file
+        xml_file_path = self._data_src_dir.joinpath('Camera_405.xml')  #
+        write_xml(acq_xml, xml_file_path)
+
     def run_job(self):
         """Runs the job. Creates a temp directory to compile the files before
         uploading."""
@@ -399,10 +433,14 @@ class ZarrUploadJob(BasicJob):
         ) as td:
             self._instance_logger.info("Checking write credentials...")
             self._test_upload(temp_dir=Path(td))
+
         self._instance_logger.info("Compiling metadata...")
         self._compile_metadata(
             temp_dir=self._data_src_dir, process_start_time=process_start_time
         )
+        if self._modality_config.modality == Modality.DISPIM:
+            self._create_dispim_metadata()
+
         self._instance_logger.info("Starting s3 upload...")
         # Exclude raw image directory, this is uploaded separately
         self._upload_to_s3(
