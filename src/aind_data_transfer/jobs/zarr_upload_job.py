@@ -24,6 +24,9 @@ from numcodecs import blosc
 from pydantic import Field
 
 
+_CLIENT_CLOSE_TIMEOUT = 300  # seconds
+
+
 class ZarrUploadJobConfigs(BasicUploadJobConfigs):
     """Configurations for ZarrUploadJob."""
 
@@ -429,8 +432,9 @@ if __name__ == "__main__":
         deployment = "slurm"
     CLIENT, _ = get_client(deployment, worker_options=worker_options)
 
-    job = ZarrUploadJob(job_configs=job_configs_from_main)
-    job.run_job()
-
-    CLIENT.shutdown()
-    CLIENT.close()
+    try:
+        job = ZarrUploadJob(job_configs=job_configs_from_main)
+        job.run_job()
+    finally:
+        CLIENT.shutdown()
+        CLIENT.close(timeout=_CLIENT_CLOSE_TIMEOUT)
