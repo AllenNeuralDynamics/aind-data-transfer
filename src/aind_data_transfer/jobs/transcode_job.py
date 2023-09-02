@@ -276,8 +276,8 @@ def main():
 
                 #convert acq json to xml
                 is_zarr = True
-                condition = "channel==405"
-                acq_xml = acq_json_to_xml(acq_json, data_src_dir.stem +'/'+(job_configs["data"]["name"]+'.zarr'), is_zarr, condition) #needs relative path to zarr file (as seen by code ocean)
+                condition = "channel=='405'"
+                acq_xml = acq_json_to_xml(acq_json, log_dict, data_src_dir.stem +'/'+(job_configs["data"]["name"]+'.zarr'), is_zarr, condition) #needs relative path to zarr file (as seen by code ocean)
 
                 #write xml to file
                 xml_file_path = data_src_dir.joinpath('Camera_405.xml') #
