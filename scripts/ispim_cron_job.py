@@ -36,7 +36,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
 )
 from aind_data_transfer.transformations.file_io import read_toml
-from smartspim_cron_job import _find_scripts_dir, ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions
+from smartspim_cron_job import _find_scripts_dir, ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions, get_default_config
 # from aind_data_transfer.config_loader.imaging_configuration_loader import ImagingJobConfigurationLoader
 
 
@@ -278,7 +278,7 @@ def get_upload_datasets(
 
     return pending_datasets_config
 
-def get_voxel_size_from_config_toml(config_path: PathLike) -> List:
+def get_voxel_size_from_config_toml(config_path: PathLike) -> list:
     """Reads voxel size from config_toml file in dataset folder and returns it as a list
     Parameters
     ----------
@@ -318,7 +318,7 @@ def get_subject_id_from_config_toml(config_path: PathLike) -> str:
 
     return subject_id
 
-def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike):
+def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, new_config_path: PathLike = None):
     """
     This function copies the transcode_job_config.yml into a temporary upload data folder
     It updates the dataset path (raw_data_dir), subject_id, and voxel_size. 
@@ -364,7 +364,10 @@ def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike):
     yml_config["transcode_job"]["voxsize"] = " ".join(map(str, voxel_size))
     yml_config["data"]["subject_id"] = subject_id
 
-    new_config_path = config_path.parent.joinpath("current_transcode_job_config.yml")
+    #TODO inquire what the best strategy for this is
+    # Creating new config path
+    if new_config_path is None:
+        new_config_path = config_path.parent.joinpath(f"{subject_id}_transcode_job_config.yml")
     # Writing config
     file_utils.write_dict_to_yaml(yml_config, new_config_path)
 
@@ -374,12 +377,110 @@ def main():
     """main to execute the diSPIM job"""
     config_param = ArgSchemaParser(schema_type=ConfigFile)
 
-    #need to write transcode_job_configs.yml ? 
-    # needs to update the path of the endpoints."raw_data_dir"
-    #the data.subject_id
-    #and the transcode_job.voxsize
 
     #scripts to run during upload
-    SUBMIT_HPC_PATH = Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/transcode_job.py')
+    SUBMIT_TRANSCODE_JOB = Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/transcode_job.py')
 
+    config_file_path = config_param.args["config_file"]
+    config = get_default_config(config_file_path)
+
+    root_folder = Path(config["root_folder"])
+
+    (
+        raw_datasets_ready,
+        raw_datasets_rejected,
+    ) = get_ispim_folders_with_file(
+        root_folder=root_folder, search_file="processing_manifest.json"
+    )
+
+    provide_folder_permissions(
+        root_folder=root_folder, paths=raw_datasets_ready, permissions="755"
+    )
+
+    logger.warning(f"Raw datasets rejected: {raw_datasets_rejected}")
+
+    new_dataset_paths, ready_datasets = organize_datasets(
+        root_folder,
+        raw_datasets_ready,
+        config["metadata_service_domain"])
+
+
+    processing_manifest_path = "derivatives/processing_manifest.json"
+
+    pending_datasets_config = get_upload_datasets(
+        dataset_folder=root_folder,
+        config_path=processing_manifest_path,  # Pointing to this folder due to data conventions
+        info_manager_path=config["info_manager_path"],
+    )
+
+    mod = ArgSchemaParser(input_data=config, schema_type=CopyDatasets)
+    args = mod.args
+
+    logger.info(f"Uploading {pending_datasets_config}")
+
+
+    #processing all the datasets that are pending
+    for dataset in pending_datasets_config:
+
+        dataset_path = dataset["path"]
+        dataset_name = Path(dataset_path).stem
+        new_config_path = update_transcode_job_config(config_file_path, dataset_path)
+
+        if os.path.isdir(dataset_path):
+            dataset_dest_path = dest_data_dir.joinpath(dataset_name)
+
+            if config["transfer_type"]["type"] == "HPC":
+                # dataset_dumped = json.dumps(dataset).replace('"', "[token]")
+                cmd = f"""python {SUBMIT_TRANSCODE_JOB} -c {new_config_path}"""
+
+                # Setting dataset_status as 'uploading'
+                pre_upload_smartspim(dataset_path, processing_manifest_path)
+
+                # HPC run
+                logger.info(f"Uploading dataset: {dataset_name}")
+                for out in file_utils.execute_command(cmd):
+                    logger.info(out)
+
+                # Error with slurm logs directory
+                time.sleep(30)
+            else:
+                # Local
+                raise NotImplementedError
+                # sys.argv = [
+                #     "",
+                #     f"--input={dataset_path}",
+                #     f"--bucket={s3_bucket}",
+                #     f"--s3_path={dataset_dest_path}",
+                #     f"--nthreads={nthreads}",
+                #     "--trigger_code_ocean",
+                #     f"--pipeline_config={dataset}",
+                #     "--recursive",
+                # ]
+
+                # # Local
+                # s3_upload.main()
+
+                # now_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                # dataset_config_path = Path(dataset_path).joinpath(
+                #     processing_manifest_path
+                # )
+                # msg = f"uploaded - Upload time: {now_datetime} - Bucket: {s3_bucket}"
+
+                # file_utils.update_json_key(
+                #     json_path=dataset_config_path,
+                #     key="dataset_status",
+                #     new_value=msg,
+                # )
+
+        else:
+            logger.warning(f"Path {dataset_path} does not exist. Ignoring...")
+
+    pending_datasets = get_upload_datasets(
+        dataset_folder=root_folder,
+        config_path=processing_manifest_path,  # Pointing to this folder due to data conventions
+        info_manager_path=config["info_manager_path"],
+    )
+
+if __name__ == "__main__":
+    main()
 
