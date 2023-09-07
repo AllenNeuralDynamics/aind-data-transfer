@@ -66,6 +66,41 @@ class ImagingReaders:
             return ImagingReaders.Readers.generic.value
 
 
+    @staticmethod
+    def read_dispim_folders(path: PathLike) -> List[str]:
+        """
+        Reads diSPIM datasets in a folder
+        based on data conventions
+
+        Parameters
+        -----------------
+        path: PathLike
+            Path where the datasets are located
+
+        Returns
+        -----------------
+        List[str]
+            List with the found diSPIM datasets
+        """
+        dispim_datasets = []
+
+        if os.path.isdir(path):
+            datasets = os.listdir(path)
+
+            for dataset in datasets:
+                if re.match(
+                    ImagingReaders.SourceRegexPatterns.dispim_acquisition.value,
+                    dataset,
+                ):
+                    dispim_datasets.append(dataset)
+
+        else:
+            raise ValueError(f"Path {path} is not a folder.")
+
+        return dispim_datasets
+
+
+
 class SmartSPIMReader:
     """Reader for smartspim datasets"""
 
