@@ -1,38 +1,33 @@
-import argparse
-import json
 import os
 import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from time import sleep
 from typing import Any, Optional
 
-from aind_data_schema.data_description import Modality, ExperimentType
+import yaml
+from aind_data_schema.data_description import Modality
 from aind_data_transfer.config_loader.base_config import (
     ConfigError,
     BasicUploadJobConfigs,
-    ModalityConfigs,
-    BasicJobEndpoints,
 )
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
 from aind_data_transfer.transformations.ome_zarr import write_files
-from aind_data_transfer.util.dask_utils import get_client
+from aind_data_transfer.util.dask_utils import get_client, get_deployment
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
 from aind_data_transfer.transformations.file_io import read_toml, read_imaging_log, write_acq_json, write_xml
 
 from numcodecs import blosc
-from pydantic import Field
-
+from pydantic import Field, BaseSettings
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
 
 
-class ZarrUploadJobConfigs(BasicUploadJobConfigs):
-    """Configurations for ZarrUploadJob."""
-
+class ZarrConversionConfigs(BaseSettings):
     n_levels: Optional[int] = Field(
         1, description="Number of levels to use for the pyramid. Default is 1."
     )
@@ -64,248 +59,21 @@ class ZarrUploadJobConfigs(BasicUploadJobConfigs):
     )
 
     @classmethod
-    def from_args(cls, args: list):
-        """Adds ability to construct settings from a list of arguments."""
-
-        def _help_message(key: str) -> str:
-            """Construct help message from field description"""
-            return ZarrUploadJobConfigs.schema()["properties"][key][
-                "description"
-            ]
-
-        parser = argparse.ArgumentParser()
-        # Required
-        parser.add_argument(
-            "-a",
-            "--acq-date",
-            required=True,
-            type=str,
-            help="Date data was acquired, yyyy-MM-dd or dd/MM/yyyy",
-        )
-        parser.add_argument(
-            "-b",
-            "--s3-bucket",
-            required=True,
-            type=str,
-            help=_help_message("s3_bucket"),
-        )
-        parser.add_argument(
-            "-e",
-            "--experiment-type",
-            required=True,
-            type=str,
-            help=_help_message("experiment_type"),
-        )
-        parser.add_argument(
-            "-m",
-            "--modalities",
-            required=True,
-            type=str,
-            help=(
-                f"String that can be parsed as json list where each entry "
-                f"has fields: {ModalityConfigs.__fields__}"
-            ),
-        )
-        parser.add_argument(
-            "-p",
-            "--endpoints-parameters",
-            required=True,
-            type=str,
-            help=(
-                "Either a string that can be parsed as a json object or a name"
-                " that points to an aws parameter store location"
-            ),
-        )
-        parser.add_argument(
-            "-s",
-            "--subject-id",
-            required=True,
-            type=str,
-            help=_help_message("subject_id"),
-        )
-        parser.add_argument(
-            "-t",
-            "--acq-time",
-            required=True,
-            type=str,
-            help="Time data was acquired, HH-mm-ss or HH:mm:ss",
-        )
-        # Optional
-        parser.add_argument(
-            "-l",
-            "--log-level",
-            required=False,
-            type=str,
-            help=_help_message("log_level"),
-        )
-        parser.add_argument(
-            "-n",
-            "--temp-directory",
-            required=False,
-            type=str,
-            help=_help_message("temp_directory"),
-        )
-        parser.add_argument(
-            "-v",
-            "--behavior-dir",
-            required=False,
-            type=str,
-            help=_help_message("behavior_dir"),
-        )
-        parser.add_argument(
-            "-x",
-            "--metadata-dir",
-            required=False,
-            type=str,
-            help=_help_message("metadata_dir"),
-        )
-        parser.add_argument(
-            "--dry-run", action="store_true", help=_help_message("dry_run")
-        )
-        parser.add_argument(
-            "--metadata-dir-force",
-            action="store_true",
-            help=_help_message("metadata_dir_force"),
-        )
-        parser.add_argument(
-            "--force-cloud-sync",
-            action="store_true",
-            help=_help_message("force_cloud_sync"),
-        )
-        parser.add_argument(
-            "-i",
-            "--codeocean-process-capsule-id",
-            required=False,
-            type=str,
-            help=_help_message("codeocean_process_capsule_id"),
-        )
-        # Now add arguments for ZarrUploadJobConfigs
-        parser.add_argument(
-            "--n-levels",
-            required=False,
-            type=int,
-            help=_help_message("n_levels"),
-        )
-        parser.add_argument(
-            "--scale-factor",
-            required=False,
-            type=int,
-            help=_help_message("scale_factor"),
-        )
-        parser.add_argument(
-            "--chunk-shape",
-            required=False,
-            type=str,
-            help=_help_message("chunk_shape"),
-        )
-        parser.add_argument(
-            "--voxel-size",
-            required=False,
-            type=str,
-            help=_help_message("voxel_size"),
-        )
-        parser.add_argument(
-            "--codec",
-            required=False,
-            type=str,
-            help=_help_message("codec"),
-        )
-        parser.add_argument(
-            "--clevel",
-            required=False,
-            type=int,
-            help=_help_message("clevel"),
-        )
-        parser.add_argument(
-            "--do-bkg-subtraction",
-            action="store_true",
-            help=_help_message("do_bkg_subtraction"),
-        )
-        parser.add_argument(
-            "--exclude-patterns",
-            required=False,
-            type=str,
-            help=_help_message("exclude_patterns"),
-        )
-        parser.set_defaults(dry_run=False)
-        parser.set_defaults(metadata_dir_force=False)
-        parser.set_defaults(force_cloud_sync=False)
-        job_args = parser.parse_args(args)
-        acq_date = job_args.acq_date
-        acq_time = job_args.acq_time
-        behavior_dir = (
-            None
-            if job_args.behavior_dir is None
-            else Path(os.path.abspath(job_args.behavior_dir))
-        )
-        metadata_dir = (
-            None
-            if job_args.metadata_dir is None
-            else Path(os.path.abspath(job_args.metadata_dir))
-        )
-        temp_directory = (
-            None
-            if job_args.temp_directory is None
-            else Path(os.path.abspath(job_args.temp_directory))
-        )
-        log_level = (
-            BasicUploadJobConfigs.__fields__["log_level"].default
-            if job_args.log_level is None
-            else job_args.log_level
-        )
-        # The user can define the endpoints explicitly as an object that can be
-        # parsed with json.loads()
-        try:
-            params_from_json = BasicJobEndpoints.parse_obj(
-                json.loads(job_args.endpoints_parameters)
-            )
-            endpoints_param_dict = params_from_json.dict()
-        # If the endpoints are not defined explicitly, then we can check if
-        # the input defines an aws parameter store name
-        except json.decoder.JSONDecodeError:
-            endpoints_param_dict = {
-                "aws_param_store_name": job_args.endpoints_parameters
-            }
-        if job_args.codeocean_process_capsule_id is not None:
-            endpoints_param_dict[
-                "codeocean_process_capsule_id"
-            ] = job_args.codeocean_process_capsule_id
-        modalities_json = json.loads(job_args.modalities)
-        modalities = [ModalityConfigs.parse_obj(m) for m in modalities_json]
-        return cls(
-            s3_bucket=job_args.s3_bucket,
-            subject_id=job_args.subject_id,
-            experiment_type=ExperimentType(job_args.experiment_type),
-            modalities=modalities,
-            acq_date=acq_date,
-            acq_time=acq_time,
-            behavior_dir=behavior_dir,
-            temp_directory=temp_directory,
-            metadata_dir=metadata_dir,
-            dry_run=job_args.dry_run,
-            metadata_dir_force=job_args.metadata_dir_force,
-            force_cloud_sync=job_args.force_cloud_sync,
-            log_level=log_level,
-            n_levels=job_args.n_levels,
-            scale_factor=job_args.scale_factor,
-            chunk_shape=job_args.chunk_shape,
-            voxel_size=job_args.voxel_size,
-            codec=job_args.codec,
-            clevel=job_args.clevel,
-            do_bkg_subtraction=job_args.do_bkg_subtraction,
-            exclude_patterns=job_args.exclude_patterns,
-            **endpoints_param_dict,
-        )
+    def from_yaml(cls, yaml_path: Path):
+        with open(yaml_path, 'r') as f:
+            yaml_dict = yaml.safe_load(f)
+        return cls(**yaml_dict)
 
 
 class ZarrUploadJob(BasicJob):
-    job_configs: ZarrUploadJobConfigs
 
-    def __init__(self, job_configs: ZarrUploadJobConfigs):
+    def __init__(self, job_configs: BasicUploadJobConfigs):
         super().__init__(job_configs=job_configs)
 
         if len(self.job_configs.modalities) != 1:
             raise ConfigError("ZarrUploadJob only supports one modality at a time.")
+
+        self._instance_logger.info(f"Using job configs: {self.job_configs}")
 
         self._modality_config = self.job_configs.modalities[0]
         if self._modality_config.modality not in (Modality.EXASPIM, Modality.DISPIM):
@@ -318,6 +86,8 @@ class ZarrUploadJob(BasicJob):
             raise FileNotFoundError(
                 f"data source directory {self._data_src_dir} does not exist"
             )
+        self._instance_logger.info(f"Using data source directory: {self._data_src_dir}")
+
         self._raw_image_dir = (
             self._data_src_dir / self._modality_config.modality.value.abbreviation
         )
@@ -327,12 +97,30 @@ class ZarrUploadJob(BasicJob):
                 raise FileNotFoundError(
                     f"raw image directory {self._raw_image_dir} does not exist"
                 )
+        self._instance_logger.info(f"Using raw image directory: {self._raw_image_dir}")
+
         self._derivatives_dir = self._data_src_dir / "derivatives"
         if not self._derivatives_dir.exists():
             raise FileNotFoundError(
                 f"derivatives directory {self._derivatives_dir} does not exist"
             )
+        self._instance_logger.info(f"Using derivatives directory: {self._derivatives_dir}")
+
         self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.value.abbreviation}.zarr"
+        self._instance_logger.info(f"Output zarr path: {self._zarr_path}")
+
+        self._resolve_zarr_configs()
+        self._instance_logger.info(f"Using zarr configs: {self._zarr_configs}")
+
+    def _resolve_zarr_configs(self) -> None:
+        config_path = self._modality_config.extra_configs
+        if config_path is not None:
+            if not config_path.exists():
+                raise FileNotFoundError(f"Extra config file {config_path} does not exist.")
+            self._zarr_configs = ZarrConversionConfigs.from_yaml(config_path)
+        else:
+            # use defaults
+            self._zarr_configs = ZarrConversionConfigs()
 
     def _compress_raw_data(self, temp_dir: Path) -> None:
         """Not implemented for ZarrUploadJob."""
@@ -356,7 +144,7 @@ class ZarrUploadJob(BasicJob):
     def _upload_zarr(self) -> None:
         images = set(
             get_images(
-                self._raw_image_dir, exclude=self.job_configs.exclude_patterns
+                self._raw_image_dir, exclude=self._zarr_configs.exclude_patterns
             )
         )
         self._instance_logger.info(
@@ -370,26 +158,20 @@ class ZarrUploadJob(BasicJob):
         self._instance_logger.info(f"Writing {len(images)} images to OME-Zarr")
         self._instance_logger.info(f"Writing OME-Zarr to {self._zarr_path}")
 
-        compressor = blosc.Blosc(
-            self.job_configs.codec,
-            self.job_configs.clevel,
-            shuffle=blosc.SHUFFLE,
-        )
-
         bkg_img_dir = None
-        if self.job_configs.do_bkg_subtraction:
+        if self._zarr_configs.do_bkg_subtraction:
             bkg_img_dir = str(self._derivatives_dir)
 
         write_files(
             images,
             self._zarr_path,
-            self.job_configs.n_levels,
-            self.job_configs.scale_factor,
+            self._zarr_configs.n_levels,
+            self._zarr_configs.scale_factor,
             True,
             None,
-            self.job_configs.chunk_shape,
-            self.job_configs.voxel_size,
-            compressor,
+            self._zarr_configs.chunk_shape,
+            self._zarr_configs.voxel_size,
+            compressor=blosc.Blosc(self._zarr_configs.codec, self._zarr_configs.clevel, shuffle=blosc.SHUFFLE),
             bkg_img_dir=bkg_img_dir,
         )
 
@@ -454,25 +236,23 @@ class ZarrUploadJob(BasicJob):
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
     if "--json-args" in sys_args:
-        job_configs_from_main = ZarrUploadJobConfigs.from_json_args(sys_args)
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
     else:
-        job_configs_from_main = ZarrUploadJobConfigs.from_args(sys_args)
+        job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
+
     worker_options = {
         "env": {
             "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
             "HDF5_USE_FILE_LOCKING": "FALSE",
         }
     }
-    if os.getenv("SLURM_JOBID") is None:
-        deployment = "local"
-    else:
-        # we're running on the Allen HPC
-        deployment = "slurm"
-    CLIENT, _ = get_client(deployment, worker_options=worker_options)
+
+    CLIENT, _ = get_client(get_deployment(), worker_options=worker_options)
 
     try:
         job = ZarrUploadJob(job_configs=job_configs_from_main)
         job.run_job()
     finally:
         CLIENT.shutdown()
+        sleep(30)
         CLIENT.close(timeout=_CLIENT_CLOSE_TIMEOUT)
