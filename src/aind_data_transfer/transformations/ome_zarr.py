@@ -31,7 +31,6 @@ from aind_data_transfer.transformations.flatfield_correction import (
 )
 
 
-logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 

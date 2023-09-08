@@ -8,7 +8,6 @@ import distributed
 from dask_mpi import initialize
 from distributed import Client, LocalCluster
 
-logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
