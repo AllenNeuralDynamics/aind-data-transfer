@@ -87,7 +87,9 @@ class TestZarrUploadJob(unittest.TestCase):
     }
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def _get_test_configs(self, modality: Modality, extra=None):
+    def _get_test_configs(
+        self, modality: Modality, extra: Path = None
+    ) -> BasicUploadJobConfigs:
         if modality == Modality.DISPIM:
             data_dir = DISPIM_DATA_DIR
         elif modality == Modality.EXASPIM:
@@ -107,19 +109,10 @@ class TestZarrUploadJob(unittest.TestCase):
         config.temp_directory = "some_dir"
         return config
 
-    @patch("builtins.open", new_callable=mock_open)
-    @patch(
-        "aind_data_transfer.transformations.file_io.read_toml", return_value={}
-    )
-    @patch(
-        "aind_data_transfer.transformations.file_io.read_imaging_log",
-        return_value={},
-    )
-    def test_init_dispim(
-        self, mock_read_toml, mock_read_imaging_log, mock_open
-    ):
+    def test_init_dispim(self) -> None:
         test_job_configs = self._get_test_configs(Modality.DISPIM)
         job = ZarrUploadJob(job_configs=test_job_configs)
+
         self.assertEqual(job._modality_config.modality, Modality.DISPIM)
         self.assertEqual(job._data_src_dir, DISPIM_DATA_DIR)
         self.assertEqual(job._raw_image_dir, DISPIM_RAW_IMAGE_DIR)
@@ -130,19 +123,12 @@ class TestZarrUploadJob(unittest.TestCase):
         )
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
-    @patch("builtins.open", new_callable=mock_open)
-    @patch(
-        "aind_data_transfer.transformations.file_io.read_toml", return_value={}
-    )
-    @patch(
-        "aind_data_transfer.transformations.file_io.read_imaging_log",
-        return_value={},
-    )
     def test_init_exaspim(
-        self, mock_read_toml, mock_read_imaging_log, mock_open
-    ):
+        self,
+    ) -> None:
         test_job_configs = self._get_test_configs(Modality.EXASPIM)
         job = ZarrUploadJob(job_configs=test_job_configs)
+
         self.assertEqual(job._modality_config.modality, Modality.EXASPIM)
         self.assertEqual(job._data_src_dir, EXASPIM_DATA_DIR)
         self.assertEqual(job._raw_image_dir, EXASPIM_RAW_IMAGE_DIR)
@@ -174,13 +160,13 @@ class TestZarrUploadJob(unittest.TestCase):
     )
     def test_run_job_dispim(
         self,
-        mock_s3_check,
-        mock_test_upload,
-        mock_compile_metadata,
-        mock_create_dispim_metadata,
+        mock_s3_check: MagicMock,
+        mock_test_upload: MagicMock,
+        mock_compile_metadata: MagicMock,
+        mock_create_dispim_metadata: MagicMock,
         mock_upload_to_s3: MagicMock,
         mock_upload_zarr: MagicMock,
-        mock_tempfile,
+        mock_tempfile: MagicMock,
         mock_datetime: MagicMock,
         mock_create_neuroglancer_link: MagicMock,
     ) -> None:
@@ -234,13 +220,13 @@ class TestZarrUploadJob(unittest.TestCase):
     )
     def test_run_job_exaspim(
         self,
-        mock_s3_check,
-        mock_test_upload,
-        mock_compile_metadata,
+        mock_s3_check: MagicMock,
+        mock_test_upload: MagicMock,
+        mock_compile_metadata: MagicMock,
         mock_create_dispim_metadata: MagicMock,
         mock_upload_to_s3: MagicMock,
         mock_upload_zarr: MagicMock,
-        mock_tempfile,
+        mock_tempfile: MagicMock,
         mock_datetime: MagicMock,
         mock_create_neuroglancer_link: MagicMock,
     ) -> None:
@@ -284,13 +270,13 @@ class TestZarrUploadJob(unittest.TestCase):
     @patch("aind_data_transfer.jobs.zarr_upload_job.write_xml")
     def test_create_dispim_metadata(
         self,
-        mock_write_xml,
-        mock_acq_json_to_xml,
-        mock_write_acq_json,
-        mock_log_to_acq_json,
-        mock_read_imaging_log,
-        mock_read_toml,
-    ):
+        mock_write_xml: MagicMock,
+        mock_acq_json_to_xml: MagicMock,
+        mock_write_acq_json: MagicMock,
+        mock_log_to_acq_json: MagicMock,
+        mock_read_imaging_log: MagicMock,
+        mock_read_toml: MagicMock,
+    ) -> None:
         test_job_configs = self._get_test_configs(Modality.DISPIM)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._create_dispim_metadata()
@@ -310,7 +296,7 @@ class TestZarrUploadJob(unittest.TestCase):
     def test_upload_to_s3(
         self,
         mock_upload: MagicMock,
-    ):
+    ) -> None:
         """Tests that the data is uploaded to S3"""
         test_job_configs = self._get_test_configs(Modality.DISPIM)
         job = ZarrUploadJob(job_configs=test_job_configs)
@@ -328,7 +314,11 @@ class TestZarrUploadJob(unittest.TestCase):
         "aind_data_transfer.jobs.zarr_upload_job.get_images",
         return_value=["/path/to/image1", "/path/to/image2"],
     )
-    def test_upload_zarr(self, mock_get_images, mock_write_files):
+    def test_upload_zarr(
+        self,
+        mock_get_images: MagicMock,
+        mock_write_files: MagicMock,
+    ) -> None:
         test_job_configs = self._get_test_configs(Modality.DISPIM)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._upload_zarr()
@@ -377,7 +367,9 @@ class TestZarrUploadJob(unittest.TestCase):
         "aind_data_transfer.jobs.zarr_upload_job.get_images",
         return_value=[],
     )
-    def test_upload_zarr_no_images(self, mock_get_images, mock_write_files):
+    def test_upload_zarr_no_images(
+        self, mock_get_images: MagicMock, mock_write_files: MagicMock
+    ) -> None:
         test_job_configs = self._get_test_configs(Modality.DISPIM)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._upload_zarr()
