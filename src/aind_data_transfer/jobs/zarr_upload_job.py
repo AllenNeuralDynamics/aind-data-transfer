@@ -4,7 +4,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from time import sleep
-from typing import Any, Optional
+from typing import Any, Optional, Tuple, List
 
 import yaml
 from aind_data_schema.data_description import Modality
@@ -34,11 +34,11 @@ class ZarrConversionConfigs(BaseSettings):
     scale_factor: Optional[int] = Field(
         2, description="Scale factor to use for the pyramid. Default is 2."
     )
-    chunk_shape: Optional[tuple] = Field(
+    chunk_shape: Optional[Tuple[int, int, int, int, int]] = Field(
         (1, 1, 256, 256, 256),
         description="5D Chunk shape to use for the zarr Array. Default is (1, 1, 256, 256, 256).",
     )
-    voxel_size: Optional[tuple] = Field(
+    voxel_size: Optional[Tuple[float, float, float]] = Field(
         None,
         description="Voxel size to use for the zarr Array. if None, will attempt to parse from the image metadata. Default is None.",
     )
@@ -53,7 +53,7 @@ class ZarrConversionConfigs(BaseSettings):
         False,
         description="Whether to subtract the background image from the raw data. Default is False.",
     )
-    exclude_patterns: Optional[list] = Field(
+    exclude_patterns: Optional[List[str]] = Field(
         None,
         description="List of patterns to exclude from the zarr conversion. Default is None.",
     )
