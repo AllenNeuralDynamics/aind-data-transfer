@@ -20,9 +20,11 @@ from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
 from aind_data_transfer.transformations.file_io import read_toml, read_imaging_log, write_acq_json, write_xml
+from aind_data_transfer.transformations.ng_link_creation import write_json_from_zarr
 
 from numcodecs import blosc
 from pydantic import Field, BaseSettings
+
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
 
@@ -56,6 +58,18 @@ class ZarrConversionConfigs(BaseSettings):
     exclude_patterns: Optional[List[str]] = Field(
         None,
         description="List of patterns to exclude from the zarr conversion. Default is None.",
+    )
+    create_ng_link: Optional[bool] = Field(
+        False,
+        description="Whether to create a neuroglancer link. Default is False.",
+    )
+    ng_vmin: Optional[float] = Field(
+        0,
+        description="Default minimum of the neuroglancer display range. Default is 0."
+    )
+    ng_vmax: Optional[float] = Field(
+        200.0,
+        description="Default maximum of the neuroglancer display range. Default is 200."
     )
 
     @classmethod
@@ -204,6 +218,14 @@ class ZarrUploadJob(BasicJob):
         xml_file_path = self._data_src_dir.joinpath('Camera_405.xml')  #
         write_xml(acq_xml, xml_file_path)
 
+    def _create_neuroglancer_link(self) -> None:
+        write_json_from_zarr(
+            input_zarr=self._zarr_path,
+            out_json_dir=str(self._data_src_dir),
+            vmin=self._zarr_configs.ng_vmin,
+            vmax=self._zarr_configs.ng_vmax
+        )
+
     def run_job(self):
         """Runs the job. Creates a temp directory to compile the files before
         uploading."""
@@ -223,14 +245,19 @@ class ZarrUploadJob(BasicJob):
         if self._modality_config.modality == Modality.DISPIM:
             self._create_dispim_metadata()
 
+        self._instance_logger.info("Starting zarr upload...")
+        self._upload_zarr()
+
+        if self._zarr_configs.create_ng_link:
+            self._instance_logger.info("Creating neuroglancer link...")
+            self._create_neuroglancer_link()
+
         self._instance_logger.info("Starting s3 upload...")
         # Exclude raw image directory, this is uploaded separately
         self._upload_to_s3(
             dir=self._data_src_dir,
             excluded=os.path.join(self._raw_image_dir, "*"),
         )
-        self._instance_logger.info("Starting zarr upload...")
-        self._upload_zarr()
 
 
 if __name__ == "__main__":

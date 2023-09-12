@@ -153,6 +153,9 @@ class TestZarrUploadJob(unittest.TestCase):
         )
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
+    @patch(
+        "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_neuroglancer_link"
+    )
     @patch("aind_data_transfer.jobs.zarr_upload_job.datetime")
     @patch("tempfile.TemporaryDirectory")
     @patch(
@@ -179,7 +182,8 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_upload_zarr: MagicMock,
         mock_tempfile,
         mock_datetime: MagicMock,
-    ):
+        mock_create_neuroglancer_link: MagicMock,
+    ) -> None:
         mock_datetime.now.return_value = datetime(2023, 4, 9)
 
         mock_tempfile.return_value.__enter__.return_value = (
@@ -207,7 +211,11 @@ class TestZarrUploadJob(unittest.TestCase):
         )
 
         mock_upload_zarr.assert_called_once()
+        mock_create_neuroglancer_link.assert_not_called()
 
+    @patch(
+        "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_neuroglancer_link"
+    )
     @patch("aind_data_transfer.jobs.zarr_upload_job.datetime")
     @patch("tempfile.TemporaryDirectory")
     @patch(
@@ -234,14 +242,17 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_upload_zarr: MagicMock,
         mock_tempfile,
         mock_datetime: MagicMock,
-    ):
+        mock_create_neuroglancer_link: MagicMock,
+    ) -> None:
         mock_datetime.now.return_value = datetime(2023, 4, 9)
 
         mock_tempfile.return_value.__enter__.return_value = (
             Path("some_dir") / "tmp"
         )
 
-        test_job_configs = self._get_test_configs(Modality.EXASPIM)
+        test_job_configs = self._get_test_configs(
+            Modality.EXASPIM, extra=EXASPIM_DATA_DIR / "zarr_configs.yaml"
+        )
         job = ZarrUploadJob(job_configs=test_job_configs)
         job.run_job()
 
@@ -262,6 +273,8 @@ class TestZarrUploadJob(unittest.TestCase):
         )
 
         mock_upload_zarr.assert_called_once()
+
+        mock_create_neuroglancer_link.assert_called_once()
 
     @patch("aind_data_transfer.jobs.zarr_upload_job.read_toml")
     @patch("aind_data_transfer.jobs.zarr_upload_job.read_imaging_log")
@@ -361,11 +374,42 @@ class TestZarrUploadJob(unittest.TestCase):
         self.assertEqual(
             job._zarr_configs.exclude_patterns, ["pattern1", "pattern2"]
         )
+        self.assertEqual(job._zarr_configs.create_ng_link, True)
+        self.assertEqual(job._zarr_configs.ng_vmin, 50)
+        self.assertEqual(job._zarr_configs.ng_vmax, 5000)
 
         # test defaults
         test_job_configs = self._get_test_configs(Modality.EXASPIM, extra=None)
         job = ZarrUploadJob(job_configs=test_job_configs)
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
+
+    @patch("aind_data_transfer.jobs.zarr_upload_job.write_json_from_zarr")
+    def test_create_neuroglancer_link(
+        self, mock_write_json_from_zarr: MagicMock
+    ):
+        config_path = EXASPIM_DATA_DIR / "zarr_configs.yaml"
+        test_job_configs = self._get_test_configs(
+            Modality.EXASPIM, extra=config_path
+        )
+        job = ZarrUploadJob(job_configs=test_job_configs)
+        job._create_neuroglancer_link()
+        mock_write_json_from_zarr.assert_called_with(
+            input_zarr="s3://some_bucket/confocal_12345_2020-10-10_10-10-10/exaSPIM.zarr",
+            out_json_dir=str(EXASPIM_DATA_DIR),
+            vmin=50,
+            vmax=5000,
+        )
+
+        # test default values
+        test_job_configs = self._get_test_configs(Modality.EXASPIM, extra=None)
+        job = ZarrUploadJob(job_configs=test_job_configs)
+        job._create_neuroglancer_link()
+        mock_write_json_from_zarr.assert_called_with(
+            input_zarr="s3://some_bucket/confocal_12345_2020-10-10_10-10-10/exaSPIM.zarr",
+            out_json_dir=str(EXASPIM_DATA_DIR),
+            vmin=0,
+            vmax=200,
+        )
 
 
 if __name__ == "__main__":

@@ -6,3 +6,6 @@ codec: "zstd"
 clevel: 2
 do_bkg_subtraction: True
 exclude_patterns: ["pattern1", "pattern2"]
+create_ng_link: True
+ng_vmin: 50
+ng_vmax: 5000
