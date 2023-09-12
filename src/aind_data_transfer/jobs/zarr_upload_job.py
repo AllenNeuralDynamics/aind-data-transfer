@@ -239,11 +239,18 @@ class ZarrUploadJob(BasicJob):
             self._test_upload(temp_dir=Path(td))
 
         self._instance_logger.info("Compiling metadata...")
-        self._compile_metadata(
-            temp_dir=self._data_src_dir, process_start_time=process_start_time
-        )
+        try:
+            self._compile_metadata(
+                temp_dir=self._data_src_dir, process_start_time=process_start_time
+            )
+        except Exception as e:
+            self._instance_logger.error(f"Failed to compile metadata: {e}")
+
         if self._modality_config.modality == Modality.DISPIM:
-            self._create_dispim_metadata()
+            try:
+                self._create_dispim_metadata()
+            except Exception as e:
+                self._instance_logger.error(f"Failed to create diSPIM metadata: {e}")
 
         self._instance_logger.info("Starting zarr upload...")
         self._upload_zarr()
