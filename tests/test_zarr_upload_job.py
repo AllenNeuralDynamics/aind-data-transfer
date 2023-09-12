@@ -349,6 +349,32 @@ class TestZarrUploadJob(unittest.TestCase):
     @patch("aind_data_transfer.jobs.zarr_upload_job.write_files")
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.get_images",
+        return_value=["/path/to/image1", "/path/to/image2"],
+    )
+    def test_upload_zarr_with_bkg_subtraction(
+        self, mock_get_images: MagicMock, mock_write_files: MagicMock
+    ) -> None:
+        test_job_configs = self._get_test_configs(Modality.DISPIM)
+        job = ZarrUploadJob(job_configs=test_job_configs)
+        job._zarr_configs.do_bkg_subtraction = True
+        job._upload_zarr()
+        mock_get_images.assert_called_once()
+        mock_write_files.assert_called_once_with(
+            {"/path/to/image1", "/path/to/image2"},
+            "s3://some_bucket/confocal_12345_2020-10-10_10-10-10/diSPIM.zarr",
+            1,
+            2,
+            True,
+            None,
+            (1, 1, 256, 256, 256),
+            None,
+            compressor=blosc.Blosc("zstd", 1, shuffle=blosc.SHUFFLE),
+            bkg_img_dir=str(DISPIM_DERIVATIVES_DIR),
+        )
+
+    @patch("aind_data_transfer.jobs.zarr_upload_job.write_files")
+    @patch(
+        "aind_data_transfer.jobs.zarr_upload_job.get_images",
         return_value=[],
     )
     def test_upload_zarr_no_images(self, mock_get_images, mock_write_files):
