@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from shutil import copytree, ignore_patterns
 from typing import Union, Optional
+from warnings import warn
 
 from numcodecs import Blosc
 
@@ -24,6 +25,13 @@ from aind_data_transfer.transformations.metadata_creation import (
 
 from aind_data_transfer.transformations.file_io import read_log_file, read_toml, write_xml, read_imaging_log, write_acq_json
 from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
+
+warn(
+    f"The module {__name__} is deprecated and will be removed in future "
+    f"versions.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
