@@ -112,7 +112,74 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
                        local_storage_directory=local_storage_directory,
                        external_storage_directory=external_storage_directory)
 
+def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
+    """
+    Parameters
+    ----------
+    log_dict: dict
+        Output of file_io.read_log_file. 
+        log_dict formats general metadata as flat dictionary, and tile metadata in a nested dict. 
+    Returns 
+    -------
+    Acquisition
+        Acquisition instance
+    """
 
+    experimenter_full_name: str = 'ISpim Group'
+    specimen_id: str = log_dict['specimen_id']
+    subject_id: str = log_dict['subject_id']
+    instrument_id: str = log_dict['instrument_id']
+    session_start_time: datetime = log_dict['session_start_time']
+    session_end_time: datetime = log_dict['session_end_time']
+
+    tiles: list[AcquisitionTile] = []
+    for tile_dict in log_dict['tiles']:
+        ch = Channel(channel_name=tile_dict['channel_name'], 
+                     laser_wavelength=int(tile_dict['laser_wavelength']), 
+                     laser_power=tile_dict['laser_power'],
+                     filter_wheel_index=tile_dict['filter_wheel_index'])
+        scale_tfm = Scale3dTransform(scale=[float(tile_dict['x_voxel_size']), 
+                                            float(tile_dict['y_voxel_size']), 
+                                            float(tile_dict['z_voxel_size'])])
+        translation_tfm = Translation3dTransform(translation=
+                        [float(tile_dict['tile_x_position']) * 1000. / float(tile_dict['x_voxel_size']), 
+                        float(tile_dict['tile_y_position']) * 1000. / float(tile_dict['y_voxel_size']),
+                        float(tile_dict['tile_z_position']) * 1000. / float(tile_dict['z_voxel_size'])])
+        tile = AcquisitionTile(channel=ch, 
+                               file_name=tile_dict['file_name'],
+                               imaging_angle=tile_dict['lightsheet_angle'], 
+                               coordinate_transformations=[scale_tfm, translation_tfm])
+        tiles.append(tile)
+
+
+    # NOTE: Made up directions
+    axes: list[Axis] = []
+    axes.append(Axis(name=AxisName.X, 
+                     dimension=2, 
+                     direction=Direction.LR))  
+    axes.append(Axis(name=AxisName.Y, 
+                     dimension=1, 
+                     direction=Direction.AP))
+    axes.append(Axis(name=AxisName.Z, 
+                     dimension=0, 
+                     direction=Direction.IS))
+
+    chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion_medium'], 
+                                             refractive_index=log_dict['chamber_immersion_refractive_index'])
+    local_storage_directory: str = log_dict['local_storage_directory']
+    external_storage_directory: str = log_dict['external_storage_directory']
+
+    return Acquisition(experimenter_full_name=["blank name"], 
+                       specimen_id=specimen_id, 
+                       subject_id=subject_id, 
+                       instrument_id=instrument_id, 
+                       session_start_time=session_start_time, 
+                       session_end_time=session_end_time, 
+                       tiles=tiles, 
+                       axes=axes,
+                       chamber_immersion=chamber_immersion, 
+                       local_storage_directory=local_storage_directory,
+                       external_storage_directory=external_storage_directory)
 
 def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: bool = True, condition: str = "") -> ET.ElementTree:
     """
