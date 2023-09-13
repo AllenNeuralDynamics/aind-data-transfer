@@ -146,7 +146,7 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
                         float(tile_dict['tile_y_position']) * 1000. / float(tile_dict['y_voxel_size']),
                         float(tile_dict['tile_z_position']) * 1000. / float(tile_dict['z_voxel_size'])])
         tile = AcquisitionTile(channel=ch, 
-                               file_name=tile_dict['file_name'],
+                               file_name=tile_dict['file_name'][0],
                                imaging_angle=tile_dict['lightsheet_angle'], 
                                coordinate_transformations=[scale_tfm, translation_tfm])
         tiles.append(tile)
@@ -169,7 +169,7 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
     local_storage_directory: str = log_dict['local_storage_directory']
     external_storage_directory: str = log_dict['external_storage_directory']
 
-    return Acquisition(experimenter_full_name=["blank name"], 
+    return Acquisition(experimenter_full_name=experimenter_full_name, 
                        specimen_id=specimen_id, 
                        subject_id=subject_id, 
                        instrument_id=instrument_id, 
@@ -326,7 +326,11 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
                 ribo_regex = r"(?:Rn28s-(\d+)?)"
                 channel_regex = r".*_ch_(\d+(?:_\d+)*)[_cam_]*(\d)?\."
-                ribo_channel = re.search(ribo_regex, filename).groups()[0]
+                try:
+                    ribo_channel = re.search(ribo_regex, filename).groups()[0]
+                except:
+                    #grab the first channel
+                    ribo_channel = acq_obj.tiles[0].channel.channel_name
                 if len(ribo_channel)>0:
                     #first convention, which means we need to only return the ribo channel 
                     condition = f"channel=='{ribo_channel}'"

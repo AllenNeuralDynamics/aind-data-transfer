@@ -167,55 +167,55 @@ def read_imaging_log(log_path: str) -> dict:
     return log_dict
 
      
-# def read_log_file(log_path: str) -> dict: 
-#     with open(log_path, 'r') as f: 
-#         lines = f.readlines()
+def read_log_file(log_path: str) -> dict: 
+    with open(log_path, 'r') as f: 
+        lines = f.readlines()
 
-#     log_dict = {}
-#     log_dict['tiles']: list[dict] = []
-#     for i, line in enumerate(lines): 
-#         line = line.replace("\'", "\"")  # replace single quotes with double quotes
-#         try: 
-#             tmp = json.loads(f'{line}')
-#             # print(tmp)
-#         except json.decoder.JSONDecodeError as e: 
-#             print(f'Error decoding line {i}: {line} with error {e}')
-#             # continue
-#             raise e
-#         if i == 0: 
-#             log_dict['session_start_time'] = datetime.datetime.fromisoformat(tmp['created_strftime'])
-#         if 'local_storage_directory' in tmp.keys():
-#             tmp.pop('name')
-#             tmp.pop('msg')
-#             tmp.pop('levelname')
-#             tmp.pop('created')
-#             tmp.pop('created_strftime')
-#             log_dict = {**log_dict, **tmp}
-#         if 'file_name' in tmp.keys():
-#             print(f'Found file name: {tmp["file_name"]}')
+    log_dict = {}
+    log_dict['tiles']: list[dict] = []
+    for i, line in enumerate(lines): 
+        line = line.replace("\'", "\"")  # replace single quotes with double quotes
+        try: 
+            tmp = json.loads(f'{line}')
+            # print(tmp)
+        except json.decoder.JSONDecodeError as e: 
+            print(f'Error decoding line {i}: {line} with error {e}')
+            # continue
+            raise e
+        if i == 0: 
+            log_dict['session_start_time'] = datetime.datetime.fromisoformat(tmp['created_strftime'])
+        if 'local_storage_directory' in tmp.keys():
+            tmp.pop('name')
+            tmp.pop('msg')
+            tmp.pop('levelname')
+            tmp.pop('created')
+            tmp.pop('created_strftime')
+            log_dict = {**log_dict, **tmp}
+        if 'file_name' in tmp.keys():
+            print(f'Found file name: {tmp["file_name"]}')
 
-#             tmp.pop('name')
-#             tmp.pop('msg')
-#             tmp.pop('levelname')
-#             tmp.pop('created')
-#             tmp.pop('created_strftime')
-#             log_dict['tiles'].append(tmp)
+            tmp.pop('name')
+            tmp.pop('msg')
+            tmp.pop('levelname')
+            tmp.pop('created')
+            tmp.pop('created_strftime')
+            log_dict['tiles'].append(tmp)
         
-#         #for iSPIM schema_log, where file_name is embdedded in the 'message'
-#         if 'message' in tmp.keys() and 'file_name' in tmp['message']:
-#             print(f'Found file name: {tmp["message"]["file_name"]}')
+        #for iSPIM schema_log, where file_name is embdedded in the 'message'
+        if 'message' in tmp.keys() and 'file_name' in tmp['message']:
+            print(f'Found file name: {tmp["message"]["file_name"]}')
 
-#             tmp.pop('name')
-#             tmp.pop('msg')
-#             tmp.pop('levelname')
-#             tmp.pop('created')
-#             tmp.pop('created_strftime')
-#             log_dict['tiles'].append(tmp)
+            tmp.pop('name')
+            tmp.pop('msg')
+            tmp.pop('levelname')
+            tmp.pop('created')
+            tmp.pop('created_strftime')
+            log_dict['tiles'].append(tmp)
 
-#         if i == len(lines) - 1: 
-#             log_dict['session_end_time'] = datetime.datetime.fromisoformat(tmp['created_strftime'])
+        if i == len(lines) - 1: 
+            log_dict['session_end_time'] = datetime.datetime.fromisoformat(tmp['created_strftime'])
 
-#     return log_dict
+    return log_dict
 
 
 def read_schema_log_file(log_path: str) -> dict: 
@@ -226,6 +226,13 @@ def read_schema_log_file(log_path: str) -> dict:
     log_dict['tiles']: list[dict] = []
     for i, line in enumerate(lines): 
         line = line.replace("\'", "\"")
+        #remove windows path   
+        line = line.replace('WindowsPath(','').replace(')', '')
+
+        #escape file_name quotations marks with \\
+        if 'file_name, [' in line:
+            line = line.replace('file_name, ["', 'file_name, [\\"').replace('tiff"]', 'tiff\\"]')
+
         tmp = json.loads(f'{line}')
         
         # Only specific lines matter:
