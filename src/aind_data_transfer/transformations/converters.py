@@ -145,10 +145,19 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
                         [float(tile_dict['tile_x_position']) * 1000. / float(tile_dict['x_voxel_size']), 
                         float(tile_dict['tile_y_position']) * 1000. / float(tile_dict['y_voxel_size']),
                         float(tile_dict['tile_z_position']) * 1000. / float(tile_dict['z_voxel_size'])])
-        tile = AcquisitionTile(channel=ch, 
-                               file_name=tile_dict['file_name'][0],
-                               imaging_angle=tile_dict['lightsheet_angle'], 
-                               coordinate_transformations=[scale_tfm, translation_tfm])
+        
+        if type(tile_dict['file_name']) == list:
+            tile = AcquisitionTile(channel=ch, 
+                                file_name=tile_dict['file_name'][0],
+                                imaging_angle=tile_dict['lightsheet_angle'], 
+                                coordinate_transformations=[scale_tfm, translation_tfm])
+        elif type(tile_dict['file_name']) == str:
+            tile = AcquisitionTile(channel=ch, 
+                                file_name=tile_dict['file_name'],
+                                imaging_angle=tile_dict['lightsheet_angle'], 
+                                coordinate_transformations=[scale_tfm, translation_tfm])
+        else: 
+            raise TypeError(f"tile_dict['file_name'] is of type {type(tile_dict['file_name'])}, but should be of type list or str")
         tiles.append(tile)
 
 
@@ -163,9 +172,12 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
     axes.append(Axis(name=AxisName.Z, 
                      dimension=0, 
                      direction=Direction.IS))
-
-    chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion_medium'], 
+    if 'chamber_immersion_medium' in log_dict.keys():
+        chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion_medium'], 
                                              refractive_index=log_dict['chamber_immersion_refractive_index'])
+    elif 'chamber_immersion' in log_dict.keys():
+        chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion']['medium'], 
+                                             refractive_index=log_dict['chamber_immersion']['refractive_index'])
     local_storage_directory: str = log_dict['local_storage_directory']
     external_storage_directory: str = log_dict['external_storage_directory']
 
