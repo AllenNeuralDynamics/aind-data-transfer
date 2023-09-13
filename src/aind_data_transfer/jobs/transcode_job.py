@@ -22,7 +22,7 @@ from aind_data_transfer.transformations.metadata_creation import (
 )
 
 from aind_data_transfer.transformations.file_io import read_log_file, read_toml, write_xml, read_imaging_log, write_acq_json, read_schema_log_file
-from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
+from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml, schema_log_to_acq_json
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
@@ -260,6 +260,7 @@ def main():
 
                 #TODO add this to YML file or make default with more testing
                 use_schema_log = True
+
                 if use_schema_log:
                     log_file = data_src_dir.joinpath('schema_log.log')
                     log_dict = read_schema_log_file(log_file)
@@ -273,7 +274,8 @@ def main():
                 log_dict['data_src_dir'] = (data_src_dir.as_posix())
                 log_dict['config_toml'] = toml_dict
                 #convert to acq json
-                acq_json = log_to_acq_json(log_dict)
+                func = schema_log_to_acq_json if use_schema_log else log_to_acq_json
+                acq_json = func(log_dict)
                 acq_json_path = Path(data_src_dir).joinpath('acquisition.json')
 
                 try:

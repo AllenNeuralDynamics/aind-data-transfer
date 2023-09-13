@@ -100,7 +100,7 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
     
     external_storage_directory: str = log_dict['external_storage_directory']
 
-    return Acquisition(experimenter_full_name=experimenter_full_name, 
+    return Acquisition(experimenter_full_name=[experimenter_full_name], 
                        specimen_id=specimen_id, 
                        subject_id=subject_id, 
                        instrument_id=instrument_id, 
@@ -181,7 +181,7 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
     local_storage_directory: str = log_dict['local_storage_directory']
     external_storage_directory: str = log_dict['external_storage_directory']
 
-    return Acquisition(experimenter_full_name=experimenter_full_name, 
+    return Acquisition(experimenter_full_name=[experimenter_full_name], 
                        specimen_id=specimen_id, 
                        subject_id=subject_id, 
                        instrument_id=instrument_id, 
