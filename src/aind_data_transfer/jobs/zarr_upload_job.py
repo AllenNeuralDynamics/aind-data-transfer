@@ -6,8 +6,7 @@ from pathlib import Path
 from time import sleep
 from typing import Any, Optional, Tuple, List
 
-import yaml
-from aind_data_schema.data_description import Modality
+from aind_data_transfer.util import setup_logging
 from aind_data_transfer.config_loader.base_config import (
     ConfigError,
     BasicUploadJobConfigs,
@@ -22,8 +21,10 @@ from aind_data_transfer.util.s3_utils import upload_to_s3
 from aind_data_transfer.transformations.file_io import read_toml, read_imaging_log, write_acq_json, write_xml
 from aind_data_transfer.transformations.ng_link_creation import write_json_from_zarr
 
+import yaml
 from numcodecs import blosc
 from pydantic import Field, BaseSettings
+from aind_data_schema.data_description import Modality
 
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
