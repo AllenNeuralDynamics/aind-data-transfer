@@ -102,7 +102,7 @@ class TestSubjectMetadata(unittest.TestCase):
         "message": "Valid Model.",
         "data": {
             "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/subject.py",
-            "schema_version": "0.4.1",
+            "schema_version": "0.4.2",
             "species": {
                 "name": "Mus musculus",
                 "abbreviation": None,
@@ -353,7 +353,7 @@ class TestProceduresMetadata(unittest.TestCase):
         "message": "Valid Model.",
         "data": {
             "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/procedures.py",
-            "schema_version": "0.8.1",
+            "schema_version": "0.9.2",
             "subject_id": "436083",
             "subject_procedures": [
                 {
