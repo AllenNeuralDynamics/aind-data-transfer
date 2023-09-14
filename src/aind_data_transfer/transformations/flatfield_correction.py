@@ -5,7 +5,6 @@ from enum import Enum
 
 import dask.array as da
 
-logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.INFO)
 
