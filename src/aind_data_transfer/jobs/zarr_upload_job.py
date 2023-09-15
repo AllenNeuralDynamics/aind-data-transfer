@@ -28,6 +28,7 @@ from aind_data_schema.data_description import Modality
 
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
+_CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
 
 
 class ZarrConversionConfigs(BaseSettings):
@@ -289,5 +290,5 @@ if __name__ == "__main__":
         job.run_job()
     finally:
         CLIENT.shutdown()
-        sleep(30)
+        sleep(_CLIENT_SHUTDOWN_SLEEP_TIME)
         CLIENT.close(timeout=_CLIENT_CLOSE_TIMEOUT)
