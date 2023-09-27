@@ -483,13 +483,18 @@ class SmartSPIMWriter:
         if "institution" not in dataset_info:
             raise ValueError("Please, provide the institution in the manifest")
         else:
-            institution = dataset_info["institution"]
+            institution = dataset_info["institution"]["abbreviation"]
 
-        funding_source = file_utils.helper_validate_key_dict(
+        funding_sources = file_utils.helper_validate_key_dict(
             dictionary=dataset_info,
-            key="funding_source",
-            default_return=institution,
+            key="funding",
+            default_return=[Funding(funder=Institution.AI)], # setting Allen Institute by default
         )
+        funding_sources = [
+            Funding.parse_obj(funding_source)
+            for funding_source in funding_sources
+        ]
+
         project_name = file_utils.helper_validate_key_dict(
             dictionary=dataset_info, key="project"
         )
@@ -497,7 +502,7 @@ class SmartSPIMWriter:
             dictionary=dataset_info, key="project_id"
         )
         group = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info, key="group", default_return="MSMA"
+            dictionary=dataset_info, key="group", default_return=None
         )
 
         # Creating data description
@@ -514,8 +519,9 @@ class SmartSPIMWriter:
             group=group,
             project_name=project_name,
             project_id=project_id,
-            funding_source=[Funding(funder=funding_source)],
+            funding_source=funding_sources,
             experiment_type=ExperimentType.SMARTSPIM,
+            investigators=[],
         )
 
         data_description_path = str(
@@ -527,7 +533,7 @@ class SmartSPIMWriter:
 
     def __create_subject(self, mouse_id: str, output_path: PathLike):
         """
-        Creates the data description json.
+        Creates the subject json.
 
         Parameters
         ------------------------
@@ -541,6 +547,56 @@ class SmartSPIMWriter:
         client = AindMetadataServiceClient(self.__metadata_domain)
 
         response = client.get_subject(mouse_id)
+
+        if response.status_code == 200:
+            data = response.json()["data"]
+
+            subject = Subject(
+                species=data["species"],
+                subject_id=data["subject_id"],
+                sex=data["sex"],
+                date_of_birth=data["date_of_birth"],
+                genotype=data["genotype"],
+                mgi_allele_ids=data["mgi_allele_ids"],
+                background_strain=data["background_strain"],
+                source=data["source"],
+                rrid=data["rrid"],
+                restrictions=data["restrictions"],
+                breeding_group=data["breeding_group"],
+                maternal_id=data["maternal_id"],
+                maternal_genotype=data["maternal_genotype"],
+                paternal_id=data["paternal_id"],
+                paternal_genotype=data["paternal_genotype"],
+                wellness_reports=data["wellness_reports"],
+                notes=data["notes"],
+            )
+
+            subject_path = str(output_path.joinpath("subject.json"))
+
+            with open(subject_path, "w") as f:
+                f.write(subject.json(indent=3))
+
+        else:
+            logger.error(
+                f"Mouse {mouse_id} does not have subject information - res status: {response.status_code}"
+            )
+
+    def __create_procedures(self, mouse_id: str, output_path: PathLike):
+        """
+        Creates the procedures json.
+
+        Parameters
+        ------------------------
+        mouse_id: str
+            Mouse id for the dataset
+
+        output_path: PathLike
+            Path where the dataset is located
+        """
+
+        client = AindMetadataServiceClient(self.__metadata_domain)
+
+        response = client.get_procedures(mouse_id)
 
         if response.status_code == 200:
             data = response.json()["data"]
@@ -634,53 +690,81 @@ class SmartSPIMWriter:
 
         asi_file = original_dataset_path.joinpath("ASI_logging.txt")
         mdata_file = original_dataset_path.joinpath("metadata.txt")
+
+        mdata_json_file = original_dataset_path.joinpath("metadata.json")
+
+        if not os.path.exists(asi_file):
+            raise FileNotFoundError(f"File {asi_file} does not exist")
+
+        session_end_time = get_session_end(asi_file)
         filter_mapping = self.__get_excitation_emission_waves(
             original_dataset_path
         )
 
-        with open(mdata_file, "rb") as f:
-            lc_mdata_result = chardet.detect(f.read())
+        session_config = None
+        wavelength_config = None
+        tile_config = None
 
-        with open(mdata_file, "r", encoding=lc_mdata_result["encoding"]) as f:
-            lc_mdata = f.readlines()
+        # Checking if json file exists
+        if os.path.exists(mdata_json_file):
+            metadata_info = read_json_as_dict(mdata_json_file)
+            
+            session_config = metadata_info["session_config"]
+            wavelength_config = metadata_info["wavelength_config"]
+            tile_config = metadata_info["tile_config"]
 
-        # Get information where starts each metadata block
-        # in the metadata file
-        line_indices = get_line_indices_metadata_file(lc_mdata)
+        elif os.path.exists(mdata_file):
 
-        # Parse first section
-        session_config = get_session_config(lines=lc_mdata)
+            with open(mdata_file, "rb") as f:
+                lc_mdata_result = chardet.detect(f.read())
 
-        # Getting wavelengths
-        wavelength_config = get_wavelength_config(
-            lines=lc_mdata,
-            start_index=line_indices["wavelength_start"] + 1,
-            end_index=line_indices["tile_acquisition_start"],
-        )
+            with open(mdata_file, "r", encoding=lc_mdata_result["encoding"]) as f:
+                lc_mdata = f.readlines()
 
-        # Getting tile info
-        tile_config = get_tile_info(
-            lines=lc_mdata,
-            start_index=line_indices["tile_acquisition_start"] + 1,
-        )
+            # Get information where starts each metadata block
+            # in the metadata file
+            line_indices = get_line_indices_metadata_file(lc_mdata)
 
+            # Parse first section
+            session_config = get_session_config(lines=lc_mdata)
+
+            # Getting wavelengths
+            wavelength_config = get_wavelength_config(
+                lines=lc_mdata,
+                start_index=line_indices["wavelength_start"] + 1,
+                end_index=line_indices["tile_acquisition_start"],
+            )
+
+            # Getting tile info
+            tile_config = get_tile_info(
+                lines=lc_mdata,
+                start_index=line_indices["tile_acquisition_start"] + 1,
+            )
+
+        else:
+            # No metadata found
+            raise FileNotFoundError("No metadata file found")
+
+
+        if None in [session_config, wavelength_config, tile_config]:
+            raise ValueError("Not able to parse the metadata") 
+
+        # Metadata dictionary
         metadata_dict = {
             "session_config": session_config,
             "wavelength_config": wavelength_config,
             "tile_config": tile_config,
         }
 
-        session_end_time = get_session_end(asi_file)
-
         # Validating data in config
         instrument_id = file_utils.helper_validate_key_dict(
             dictionary=dataset_info, key="instrument_id"
         )
         experimenter_full_name = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info, key="experimenter"
+            dictionary=dataset_info, key="experimenter_full_name"
         )
         local_storage_directory = file_utils.helper_validate_key_dict(
-            dictionary=dataset_info, key="local_storage"
+            dictionary=dataset_info, key="local_storage_directory"
         )
         chamber_immersion_medium = file_utils.helper_validate_key_dict(
             dictionary=dataset_info["chamber_immersion"], key="medium"
@@ -714,7 +798,7 @@ class SmartSPIMWriter:
         acquisition_model = acquisition.Acquisition(
             specimen_id="",
             instrument_id=instrument_id,
-            experimenter_full_name=experimenter_full_name,
+            experimenter_full_name=[experimenter_full_name],
             subject_id=parsed_data["mouse_id"],
             session_start_time=parsed_data["mouse_date"],
             session_end_time=session_end_time,
@@ -776,6 +860,14 @@ class SmartSPIMWriter:
 
         output_path = Path(output_path)
 
+        # moving instrument.json
+        file_utils.move_folders_or_files(
+            original_dataset_path,
+            output_path,
+            "instrument.json",
+            mode="move",
+        )
+
         # Creates the data description json
         if "data_description" in dataset_info:
             self.__create_data_description(
@@ -783,7 +875,7 @@ class SmartSPIMWriter:
             )
         else:
             logger.error(
-                f"data_description.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
+                f"data_description.json was not created for {parsed_data['mouse_id']}."
             )
 
         # Creates the subject metadata json
@@ -798,11 +890,11 @@ class SmartSPIMWriter:
                     original_dataset_path,
                     output_path,
                 )
-            except ValueError:
-                logger.error("Error creating acquisition schema")
+            except ValueError as e:
+                logger.error(f"Error creating acquisition schema {e}")
         else:
             logger.error(
-                f"acquisition.json was not created for {parsed_data['mouse_id']}. Add it to the YAML configuration."
+                f"acquisition.json was not created for {parsed_data['mouse_id']}. Acquisition was not found in processing manifest."
             )
 
     def prepare_datasets(

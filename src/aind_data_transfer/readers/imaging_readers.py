@@ -84,7 +84,7 @@ class SmartSPIMReader:
         # Regex expressions for inner folders inside root
         regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
         regex_channels_MIP = r"Ex_(\d{3})_Em_(\d{3}_MIP)$"
-        regex_files = r'[^"]*.(txt|ini|json)$'
+        regex_files = r'[^"]*.(txt|ini|json|tif|png)$'
 
     @staticmethod
     def read_raw_smartspim_folders(path: PathLike) -> List[str]:
