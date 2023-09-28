@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
 
-from aind_data_schema.data_description import ExperimentType, Modality
+from aind_data_schema.data_description import Platform, Modality
 
 from aind_data_transfer.config_loader.base_config import (
     BasicJobEndpoints,
@@ -121,7 +121,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         "AIND_DATA_TRANSFER_REPO_LOCATION": "some_dtr_location",
         "VIDEO_ENCRYPTION_PASSWORD": "some_password",
         "S3_BUCKET": "some_bucket",
-        "EXPERIMENT_TYPE": "confocal",
+        "PLATFORM": "confocal",
         "MODALITIES": f'[{{"modality":"CONFOCAL",'
         f'"source":"{str(DATA_DIR)}"}}]',
         "SUBJECT_ID": "12345",
@@ -164,7 +164,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("some_bucket", basic_job_configs.s3_bucket)
         self.assertEqual(
-            ExperimentType.CONFOCAL, basic_job_configs.experiment_type
+            Platform.CONFOCAL, basic_job_configs.platform
         )
         self.assertEqual(
             [ModalityConfigs(modality=Modality.CONFOCAL, source=DATA_DIR)],
@@ -197,9 +197,9 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "SmartSPIM",
+            "smartSPIM",
             "-m",
-            f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}"}}]',
+            f'[{{"modality":"POPHYS","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "2022-10-10",
             "-t",
@@ -242,10 +242,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("some_bucket", basic_job_configs.s3_bucket)
         self.assertEqual(
-            ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
+            Platform.SMARTSPIM, basic_job_configs.platform
         )
         self.assertEqual(
-            [ModalityConfigs(modality=Modality.OPHYS, source=DATA_DIR)],
+            [ModalityConfigs(modality=Modality.POPHYS, source=DATA_DIR)],
             basic_job_configs.modalities,
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
@@ -258,7 +258,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_time,
         )
         self.assertEqual(
-            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
         self.assertEqual("WARNING", basic_job_configs.log_level)
         self.assertFalse(basic_job_configs.dry_run)
@@ -275,9 +275,9 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "SmartSPIM",
+            "smartSPIM",
             "-m",
-            f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}",'
+            f'[{{"modality":"POPHYS","source":"{str(DATA_DIR)}",'
             f'"extra_configs":"{str(CONFIG_FILE)}"}}]',
             "-l",
             "INFO",
@@ -332,12 +332,12 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("some_bucket", basic_job_configs.s3_bucket)
         self.assertEqual(
-            ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
+            Platform.SMARTSPIM, basic_job_configs.platform
         )
         self.assertEqual(
             [
                 ModalityConfigs(
-                    modality=Modality.OPHYS,
+                    modality=Modality.POPHYS,
                     source=DATA_DIR,
                     extra_configs=CONFIG_FILE,
                 )
@@ -354,7 +354,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_time,
         )
         self.assertEqual(
-            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
         self.assertEqual("INFO", basic_job_configs.log_level)
         self.assertTrue(basic_job_configs.dry_run)
@@ -382,7 +382,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "SmartSPIM",
+            "smartSPIM",
             "-m",
             f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
             "-a",
@@ -399,7 +399,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "SmartSPIM",
+            "smartSPIM",
             "-m",
             f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
             "-a",
@@ -416,7 +416,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "SmartSPIM",
+            "smartSPIM",
             "-m",
             f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
             "-a",
@@ -433,7 +433,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "SmartSPIM",
+            "smartSPIM",
             "-m",
             f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
             "-a",
@@ -464,7 +464,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("some_bucket", basic_job_configs.s3_bucket)
         self.assertEqual(
-            ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
+            Platform.SMARTSPIM, basic_job_configs.platform
         )
         self.assertEqual(
             [ModalityConfigs(modality=Modality.CONFOCAL, source=DATA_DIR)],
@@ -480,7 +480,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_time,
         )
         self.assertEqual(
-            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
         self.assertFalse(basic_job_configs.dry_run)
         self.assertIsNone(basic_job_configs.behavior_dir)
@@ -503,11 +503,11 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
 
     def test_from_json_args(self):
         """Tests that the required configs can be set from a json string"""
-        modalities = f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}"}}]'
+        modalities = f'[{{"modality":"POPHYS","source":"{str(DATA_DIR)}"}}]'
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
             f'"subject_id": "12345", '
-            f'"experiment_type": "SmartSPIM", '
+            f'"platform": "smartSPIM", '
             f'"modalities": {modalities}, '
             f'"acq_date": "2022-10-10", '
             f'"acq_time": "13-24-01", '
@@ -537,10 +537,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("some_bucket", basic_job_configs.s3_bucket)
         self.assertEqual(
-            ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
+            Platform.SMARTSPIM, basic_job_configs.platform
         )
         self.assertEqual(
-            [ModalityConfigs(modality=Modality.OPHYS, source=DATA_DIR)],
+            [ModalityConfigs(modality=Modality.POPHYS, source=DATA_DIR)],
             basic_job_configs.modalities,
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
@@ -553,19 +553,19 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_time,
         )
         self.assertEqual(
-            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
 
     def test_skip_staging(self):
         """Tests that the required configs can be set from a json string"""
         modalities = (
-            f'[{{"modality":"OPHYS","source":"{str(DATA_DIR)}",'
+            f'[{{"modality":"POPHYS","source":"{str(DATA_DIR)}",'
             f'"skip_staging":"true"}}]'
         )
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
             f'"subject_id": "12345", '
-            f'"experiment_type": "SmartSPIM", '
+            f'"platform": "smartSPIM", '
             f'"modalities": {modalities}, '
             f'"acq_date": "2022-10-10", '
             f'"acq_time": "13-24-01", '
@@ -595,12 +595,12 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("some_bucket", basic_job_configs.s3_bucket)
         self.assertEqual(
-            ExperimentType.SMARTSPIM, basic_job_configs.experiment_type
+            Platform.SMARTSPIM, basic_job_configs.platform
         )
         self.assertEqual(
             [
                 ModalityConfigs(
-                    modality=Modality.OPHYS,
+                    modality=Modality.POPHYS,
                     source=DATA_DIR,
                     skip_staging=True,
                 )
@@ -617,7 +617,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_time,
         )
         self.assertEqual(
-            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
 
 

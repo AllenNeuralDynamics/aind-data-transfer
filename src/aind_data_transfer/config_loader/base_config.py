@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from aind_data_access_api.secrets import get_parameter
 from aind_data_schema.data_description import (
-    ExperimentType,
+    Platform,
     Modality,
     build_data_name,
 )
@@ -195,8 +195,8 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
     )
-    experiment_type: ExperimentType = Field(
-        ..., description="Experiment type", title="Experiment Type"
+    platform: Platform = Field(
+        ..., description="Platform", title="Platform"
     )
     modalities: List[ModalityConfigs] = Field(
         ...,
@@ -266,7 +266,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
     def s3_prefix(self):
         """Construct s3_prefix from configs."""
         return build_data_name(
-            label=f"{self.experiment_type.value}_{self.subject_id}",
+            label=f"{self.platform.value.abbreviation}_{self.subject_id}",
             creation_date=self.acq_date,
             creation_time=self.acq_time,
         )
@@ -323,10 +323,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         )
         parser.add_argument(
             "-e",
-            "--experiment-type",
+            "--platform",
             required=True,
             type=str,
-            help=_help_message("experiment_type"),
+            help=_help_message("platform"),
         )
         parser.add_argument(
             "-m",
@@ -459,7 +459,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         return cls(
             s3_bucket=job_args.s3_bucket,
             subject_id=job_args.subject_id,
-            experiment_type=ExperimentType(job_args.experiment_type),
+            platform=Platform(job_args.platform),
             modalities=modalities,
             acq_date=acq_date,
             acq_time=acq_time,

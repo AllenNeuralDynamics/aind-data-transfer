@@ -74,7 +74,7 @@ Required
 
 ```
 s3_bucket: S3 Bucket name
-experiment_type: One of [ecephys, exaSPIM, confocal, diSPIM, FIP, fMOST, HSFP, mesoSPIM, merfish, MRI, multiplane-ophys, slap, SmartSPIM, single-plane-ophys, trained-behavior, Other] (pulled from the Modality.abbreviation field)
+platform: One of [ecephys, exaSPIM, confocal, diSPIM, FIP, fMOST, HSFP, mesoSPIM, merfish, MRI, multiplane-ophys, slap, SmartSPIM, single-plane-ophys, trained-behavior, Other] (pulled from the Modality.abbreviation field)
 modality: One of [BEHAVIOR_VIDEOS, CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, FIB, FISH, MESOSPIM, MERFISH, MPOPHYS, MRI, OPHYS, SLAP, SMARTSPIM, SPIM, SPOPHYS, TRAINED_BEHAVIOR]
 subject_id: ID of the subject
 acq_date: Format can be either yyyy-MM-dd or MM/dd/yyyy
@@ -150,7 +150,7 @@ will compress the raw data source and run a dry run for all jobs defined in the 
 An example csv file might look like:
 
 ```
-data-source, s3-bucket, subject-id, modality, experiment_type, acq-date, acq-time, aws_param_store_name
+data-source, s3-bucket, subject-id, modality, platform, acq-date, acq-time, aws_param_store_name
 dir/data_set_1, some_bucket, 123454, ECEPHYS, ecephys, 2020-10-10, 14-10-10, /aind/data/transfer/endpoints
 dir/data_set_2, some_bucket2, 123456, OPHYS, Other, 2020-10-11, 13-10-10, /aind/data/transfer/endpoints
 ```
@@ -161,7 +161,7 @@ Read the previous section on defining a csv file. Retrieve the capsule id from t
 You can add an extra parameter to define a custom processing capsule that gets executed aftet the data is uploaded:
 
 ```
-codeocean_process_capsule_id, data-source, s3-bucket, subject-id, modality, experiment_type, acq-date, acq-time, aws_param_store_name
+codeocean_process_capsule_id, data-source, s3-bucket, subject-id, modality, platform, acq-date, acq-time, aws_param_store_name
 xyz-123-456, dir/data_set_1, some_bucket, 123454, ECEPHYS, ecephys, 2020-10-10, 14-10-10, /aind/data/transfer/endpoints
 xyz-123-456, dir/data_set_2, some_bucket2, 123456, OPHYS, Other, 2020-10-11, 13-10-10, /aind/data/transfer/endpoints
 ```
