@@ -122,7 +122,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         "VIDEO_ENCRYPTION_PASSWORD": "some_password",
         "S3_BUCKET": "some_bucket",
         "PLATFORM": "confocal",
-        "MODALITIES": f'[{{"modality":"CONFOCAL",'
+        "MODALITIES": f'[{{"modality":"confocal",'
         f'"source":"{str(DATA_DIR)}"}}]',
         "SUBJECT_ID": "12345",
         "ACQ_DATE": "2020-10-10",
@@ -199,7 +199,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "smartSPIM",
             "-m",
-            f'[{{"modality":"POPHYS","source":"{str(DATA_DIR)}"}}]',
+            f'[{{"modality":"ophys","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "2022-10-10",
             "-t",
@@ -277,7 +277,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "smartSPIM",
             "-m",
-            f'[{{"modality":"POPHYS","source":"{str(DATA_DIR)}",'
+            f'[{{"modality":"ophys","source":"{str(DATA_DIR)}",'
             f'"extra_configs":"{str(CONFIG_FILE)}"}}]',
             "-l",
             "INFO",
@@ -384,7 +384,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "smartSPIM",
             "-m",
-            f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
+            f'[{{"modality":"confocal","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "10/10/2022",
             "-t",
@@ -401,7 +401,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "smartSPIM",
             "-m",
-            f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
+            f'[{{"modality":"confocal","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "12/12/20225",
             "-t",
@@ -418,7 +418,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "smartSPIM",
             "-m",
-            f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
+            f'[{{"modality":"confocal","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "10/10/2022",
             "-t",
@@ -435,7 +435,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "smartSPIM",
             "-m",
-            f'[{{"modality":"CONFOCAL","source":"{str(DATA_DIR)}"}}]',
+            f'[{{"modality":"confocal","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "10/10/2022",
             "-t",
@@ -503,7 +503,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
 
     def test_from_json_args(self):
         """Tests that the required configs can be set from a json string"""
-        modalities = f'[{{"modality":"POPHYS","source":"{str(DATA_DIR)}"}}]'
+        modalities = f'[{{"modality":"ophys","source":"{str(DATA_DIR)}"}}]'
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
             f'"subject_id": "12345", '
@@ -559,7 +559,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
     def test_skip_staging(self):
         """Tests that the required configs can be set from a json string"""
         modalities = (
-            f'[{{"modality":"POPHYS","source":"{str(DATA_DIR)}",'
+            f'[{{"modality":"ophys","source":"{str(DATA_DIR)}",'
             f'"skip_staging":"true"}}]'
         )
         json_arg_string = (

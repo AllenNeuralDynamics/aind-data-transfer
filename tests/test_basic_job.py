@@ -48,7 +48,7 @@ class TestBasicJob(unittest.TestCase):
         "CODEOCEAN_API_TOKEN": "some_api_token",
         "S3_BUCKET": "some_bucket",
         "MODALITIES": f'[{{"modality":"MRI",' f'"source":"{str(DATA_DIR)}"}}]',
-        "EXPERIMENT_TYPE": "confocal",
+        "PLATFORM": "confocal",
         "SUBJECT_ID": "12345",
         "ACQ_DATE": "2020-10-10",
         "ACQ_TIME": "10:10:10",
