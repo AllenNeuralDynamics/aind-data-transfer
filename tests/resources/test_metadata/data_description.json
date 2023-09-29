@@ -41,7 +41,7 @@
          "abbreviation": "SPIM"
       }
    ],
-   "experiment_type": "diSPIM",
+   "platform": "diSPIM",
    "subject_id": "12345",
    "related_data": [],
    "data_summary": null
