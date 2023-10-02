@@ -215,6 +215,8 @@ def _store_file(
                 reader.get_shape()[-2:],
                 chunks[-2:],
             )
+            # keep background image in distributed memory
+            bkg = bkg.persist()
             bkg_img_pyramid = create_pyramid(bkg, n_levels, scale_factors[1:])
             for i in range(len(bkg_img_pyramid)):
                 pyramid[i] = BkgSubtraction.subtract(
@@ -260,6 +262,8 @@ def _store_file(
                 reader.get_shape()[-2:],
                 chunks[-2:],
             )
+            # keep background image in distributed memory
+            bkg = bkg.persist()
             arr = BkgSubtraction.subtract(arr, bkg)
 
         arr = ensure_array_5d(arr)
