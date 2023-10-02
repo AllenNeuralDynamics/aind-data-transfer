@@ -300,8 +300,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             )
         )
         self.assertTrue(
-            (Platform.ECEPHYS, job0.job_configs.experiment_type)
-            and (Platform.CONFOCAL, job1.job_configs.experiment_type)
+            (Platform.ECEPHYS, job0.job_configs.platform)
+            and (Platform.CONFOCAL, job1.job_configs.platform)
         )
         self.assertTrue(
             ("xyz-123", job0.job_configs.codeocean_process_capsule_id)

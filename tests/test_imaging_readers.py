@@ -15,7 +15,7 @@ class TestImagingReaders(unittest.TestCase):
     imaging_dir = RESOURCES_DIR / "imaging"
     exaspim_dir = imaging_dir / "exaSPIM_125L_2022-08-05_17-25-36"
     mesospim_dir = imaging_dir / "mesoSPIM_125L_2022-08-18_17-05-00"
-    dispim_dir = imaging_dir / "diSPIM_12345_2023-03-16_00-00-00"
+    dispim_dir = imaging_dir / "smartSPIM_12345_2023-03-16_00-00-00"
     generic_dir = imaging_dir / "12345-random-sample"
 
     @parameterized.expand(
