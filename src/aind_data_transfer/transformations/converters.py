@@ -141,11 +141,18 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
         scale_tfm = Scale3dTransform(scale=[float(tile_dict['x_voxel_size']), 
                                             float(tile_dict['y_voxel_size']), 
                                             float(tile_dict['z_voxel_size'])])
-        translation_tfm = Translation3dTransform(translation=
+        #want this to be in pixels 
+        if tile_dict['tile_position_units'] == 'millimeters':
+            translation_tfm = Translation3dTransform(translation=
                         [float(tile_dict['tile_x_position']) * 1000. / float(tile_dict['x_voxel_size']), 
                         float(tile_dict['tile_y_position']) * 1000. / float(tile_dict['y_voxel_size']),
                         float(tile_dict['tile_z_position']) * 1000. / float(tile_dict['z_voxel_size'])])
-        
+        elif tile_dict['tile_position_units'] == 'microns':
+            translation_tfm = Translation3dTransform(translation=
+                            [float(tile_dict['tile_x_position']) / float(tile_dict['x_voxel_size']), 
+                            float(tile_dict['tile_y_position'])  / float(tile_dict['y_voxel_size']),
+                            float(tile_dict['tile_z_position'])  / float(tile_dict['z_voxel_size'])])
+            
         if type(tile_dict['file_name']) == list:
             tile = AcquisitionTile(channel=ch, 
                                 file_name=tile_dict['file_name'][0],

@@ -259,12 +259,14 @@ def main():
 
 
                 #TODO add this to YML file or make default with more testing
-                use_schema_log = True
+                use_schema_log = False
 
                 if use_schema_log:
+                # try:
                     log_file = data_src_dir.joinpath('schema_log.log')
                     log_dict = read_schema_log_file(log_file)
                 else:
+                # except:
                     #convert imaging log to acq json
                     log_file = data_src_dir.joinpath('imaging_log.log')
                     #read log file into dict
