@@ -82,10 +82,12 @@ def main():
 
     _LOGGER.setLevel(args.log_level)
 
-    image_paths = collect_filepaths(
-        args.input,
-        recursive=True,
-        include_exts=DataReaderFactory().VALID_EXTENSIONS,
+    image_paths = list(
+        collect_filepaths(
+            args.input,
+            recursive=True,
+            include_exts=DataReaderFactory().VALID_EXTENSIONS,
+        )
     )
 
     exclude_paths = set()

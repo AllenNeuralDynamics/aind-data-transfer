@@ -5,7 +5,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, Generator
 
 import yaml
 
@@ -19,7 +19,7 @@ def collect_filepaths(
     recursive: bool = True,
     include_exts: Optional[List[str]] = None,
     exclude_dirs: Optional[List[str]] = None,
-) -> List[str]:
+) -> Generator[str, None, None]:
     """Get the absolute paths for all files in folder
     Args:
         folder (str): the directory to look for files
@@ -28,11 +28,10 @@ def collect_filepaths(
                                  e.g., ['.tiff', '.h5', '.ims']
         exclude_dirs (optional): list of directories to exclude from the search
     Returns:
-        list of filepaths
+        a generator of filepaths
     """
     if exclude_dirs is None:
         exclude_dirs = []
-    filepaths = []
     for root, _, files in os.walk(folder):
         root_name = Path(root).name
         if root_name in exclude_dirs:
@@ -41,10 +40,47 @@ def collect_filepaths(
             path = os.path.join(root, f)
             _, ext = os.path.splitext(path)
             if include_exts is None or ext in include_exts:
-                filepaths.append(path)
+                yield path
         if not recursive:
             break
-    return filepaths
+
+
+def batch_files_by_size(filepaths: Any, target_size: int) -> Generator[List[str], None, None]:
+    """
+    Generates batches of file paths where the total size of the files in each batch
+    is close to the target size.
+
+    :param filepaths: A collection or generator of file paths.
+    :param target_size: The target total size for each batch of files, in bytes.
+    :return: A generator yielding batches of file paths.
+    """
+    batch = []
+    batch_size = 0
+
+    for filepath in filepaths:
+        file_size = os.path.getsize(filepath)
+
+        if file_size > target_size:
+            # Yield the current batch if it's not empty
+            if batch:
+                yield batch
+                batch = []
+                batch_size = 0
+            # Yield the large file on its own
+            yield [filepath]
+            continue
+
+        if batch_size + file_size > target_size and batch:
+            yield batch
+            batch = []
+            batch_size = 0
+
+        batch.append(filepath)
+        batch_size += file_size
+
+    # Yield any remaining files
+    if batch:
+        yield batch
 
 
 def get_images(
@@ -65,10 +101,12 @@ def get_images(
     """
     if exclude is None:
         exclude = []
-    image_paths = collect_filepaths(
-        image_folder,
-        recursive=recursive,
-        include_exts=include_exts,
+    image_paths = list(
+        collect_filepaths(
+            image_folder,
+            recursive=recursive,
+            include_exts=include_exts,
+        )
     )
 
     exclude_paths = set()
