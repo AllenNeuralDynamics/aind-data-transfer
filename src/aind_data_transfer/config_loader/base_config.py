@@ -267,8 +267,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         """Construct s3_prefix from configs."""
         return build_data_name(
             label=f"{self.platform.value.abbreviation}_{self.subject_id}",
-            creation_date=self.acq_date,
-            creation_time=self.acq_time,
+            creation_datetime=datetime.combine(self.acq_date, self.acq_time)
         )
 
     @validator("acq_date", pre=True)

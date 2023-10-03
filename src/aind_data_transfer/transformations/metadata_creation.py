@@ -385,7 +385,6 @@ class RawDataDescriptionMetadata(MetadataCreation):
         cls,
         name: str,
         modality: List[Modality],
-        platform: Platform,
         institution: Optional[Institution] = Institution.AIND,
         funding_source: Optional[Tuple] = (
             Funding(funder=Institution.AIND.value.abbreviation),
@@ -420,7 +419,6 @@ class RawDataDescriptionMetadata(MetadataCreation):
             modality=modality,
             funding_source=funding_source_list,
             investigators=investigators,
-            platform=platform,
             **basic_settings,
         )
         # Do this to use enum strings instead of classes in dict representation
