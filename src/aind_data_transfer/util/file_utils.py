@@ -15,10 +15,11 @@ PathLike = Union[str, Path]
 
 
 def collect_filepaths(
-    folder: Union[str, os.PathLike],
+    folder: Union[str, Path],
     recursive: bool = True,
     include_exts: Optional[List[str]] = None,
     exclude_dirs: Optional[List[str]] = None,
+    return_size: bool = False,
 ) -> Generator[str, None, None]:
     """Get the absolute paths for all files in folder
     Args:
@@ -27,25 +28,37 @@ def collect_filepaths(
         include_exts (optional): list of valid file extensions to include.
                                  e.g., ['.tiff', '.h5', '.ims']
         exclude_dirs (optional): list of directories to exclude from the search
+        return_size (bool): whether to return the file size
     Returns:
         a generator of filepaths
     """
     if exclude_dirs is None:
         exclude_dirs = []
-    for root, _, files in os.walk(folder):
-        root_name = Path(root).name
-        if root_name in exclude_dirs:
-            continue
-        for f in files:
-            path = os.path.join(root, f)
-            _, ext = os.path.splitext(path)
-            if include_exts is None or ext in include_exts:
-                yield path
-        if not recursive:
-            break
+
+    for entry in os.scandir(folder):
+        if entry.is_file():
+            if include_exts is None or os.path.splitext(entry.name)[1] in include_exts:
+                if return_size:
+                    yield entry.path, entry.stat().st_size
+                else:
+                    yield entry.path
+        elif entry.is_dir() and recursive and entry.name not in exclude_dirs:
+            yield from collect_filepaths(
+                entry.path,
+                recursive=recursive,
+                include_exts=include_exts,
+                exclude_dirs=exclude_dirs,
+                return_size=return_size
+            )
 
 
-def batch_files_by_size(filepaths: Any, target_size: int) -> Generator[List[str], None, None]:
+def batch_files_by_size(
+        folder: Union[str, Path],
+        target_size: int,
+        recursive: bool = True,
+        include_exts: Optional[List[str]] = None,
+        exclude_dirs: Optional[List[str]] = None,
+) -> Generator[List[str], None, None]:
     """
     Generates batches of file paths where the total size of the files in each batch
     is close to the target size.
@@ -57,26 +70,26 @@ def batch_files_by_size(filepaths: Any, target_size: int) -> Generator[List[str]
     batch = []
     batch_size = 0
 
-    for filepath in filepaths:
-        file_size = os.path.getsize(filepath)
-
-        if file_size > target_size:
+    for fp, fsize in collect_filepaths(
+            folder, recursive, include_exts, exclude_dirs, return_size=True
+    ):
+        if fsize > target_size:
             # Yield the current batch if it's not empty
             if batch:
                 yield batch
                 batch = []
                 batch_size = 0
             # Yield the large file on its own
-            yield [filepath]
+            yield [fp]
             continue
 
-        if batch_size + file_size > target_size and batch:
+        if batch_size + fsize > target_size and batch:
             yield batch
             batch = []
             batch_size = 0
 
-        batch.append(filepath)
-        batch_size += file_size
+        batch.append(fp)
+        batch_size += fsize
 
     # Yield any remaining files
     if batch:

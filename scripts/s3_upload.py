@@ -59,7 +59,7 @@ def run_cluster_job(
     logger.info(f"Client has {ntasks} registered workers")
 
     futures = []
-    for batch in batch_files_by_size(collect_filepaths(input_dir, recursive, exclude_dirs), batch_size):
+    for batch in batch_files_by_size(input_dir, batch_size, recursive, exclude_dirs=exclude_dirs):
         futures.append(
             client.submit(
                 upload_files_job,

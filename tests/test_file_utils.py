@@ -1,90 +1,137 @@
+import os
+import shutil
+import tempfile
 import unittest
-from unittest.mock import patch
 
 from aind_data_transfer.util.file_utils import collect_filepaths, batch_files_by_size
 
 
+def _create_dir_tree_with_sizes(base_dir, structure):
+    for key, value in structure.items():
+        if isinstance(value, dict):  # directory
+            new_dir = os.path.join(base_dir, key)
+            os.makedirs(new_dir, exist_ok=False)
+            _create_dir_tree_with_sizes(new_dir, value)
+        else:  # file
+            file_path = os.path.join(base_dir, key)
+            with open(file_path, 'w') as file:
+                file.write('0' * value)  # creating a file of the specified size
+
+
 class TestFileUtils(unittest.TestCase):
-
     def setUp(self):
-        self.mock_files = [
-            ('/root', ['subdir1', 'subdir2'], ['file1.txt', 'file2.tiff']),
-            ('/root/subdir1', [], ['file3.h5']),
-            ('/root/subdir2', [], ['file4.ims', 'file5.txt'])
-        ]
+        self.test_dir = tempfile.mkdtemp()
 
-        self.mock_file_sizes = {
-            '/root/file1.txt': 5,
-            '/root/file2.tiff': 10,
-            '/root/subdir1/file3.h5': 50,
-            '/root/subdir2/file4.ims': 40,
-            '/root/subdir2/file5.txt': 20,
+        # Complex directory structure and files with their sizes
+        dir_tree = {
+            'dir1': {
+                'file1.txt': 100,
+                'file2.tiff': 150,
+                'sub_dir1': {
+                    'file3.h5': 80,
+                    'file4.ims': 120,
+                    'sub_sub_dir1': {
+                        'file5.txt': 50,
+                        'file6.tiff': 70
+                    }
+                }
+            },
+            'dir2': {
+                'file7.ims': 130,
+                'file8.txt': 60
+            },
+            'exclude_dir': {
+                'file9.h5': 110
+            }
         }
 
-    def test_collect_filepaths(self):
-        with patch('os.walk') as mock_walk:
-            mock_walk.return_value = self.mock_files
+        _create_dir_tree_with_sizes(self.test_dir, dir_tree)
 
-            # Test without any filters
-            paths = list(collect_filepaths('/root'))
-            expected_paths = [
-                '/root/file1.txt',
-                '/root/file2.tiff',
-                '/root/subdir1/file3.h5',
-                '/root/subdir2/file4.ims',
-                '/root/subdir2/file5.txt'
-            ]
-            self.assertEqual(paths, expected_paths)
+    def tearDown(self):
+        shutil.rmtree(self.test_dir)
 
-            # Test with include_exts filter
-            paths = list(collect_filepaths('/root', include_exts=['.tiff', '.h5']))
-            expected_paths = ['/root/file2.tiff', '/root/subdir1/file3.h5']
-            self.assertEqual(paths, expected_paths)
+    def test_collect_filepaths_complex(self):
+        # Testing basic recursive behavior
+        result = sorted(list(collect_filepaths(self.test_dir, recursive=True)))
+        expected_result = [
+            "dir1/file1.txt",
+            "dir1/file2.tiff",
+            "dir1/sub_dir1/file3.h5",
+            "dir1/sub_dir1/file4.ims",
+            "dir1/sub_dir1/sub_sub_dir1/file5.txt",
+            "dir1/sub_dir1/sub_sub_dir1/file6.tiff",
+            "dir2/file7.ims",
+            "dir2/file8.txt",
+            "exclude_dir/file9.h5"
+        ]
+        expected_result = [os.path.join(self.test_dir, path) for path in expected_result]
+        self.assertEqual(result, expected_result)
 
-            # Test with exclude_dirs filter
-            paths = list(collect_filepaths('/root', exclude_dirs=['subdir2']))
-            expected_paths = ['/root/file1.txt', '/root/file2.tiff', '/root/subdir1/file3.h5']
-            self.assertEqual(paths, expected_paths)
+        # Testing with excluded directory and included extensions
+        result = sorted(list(collect_filepaths(self.test_dir, recursive=True, include_exts=['.tiff', '.h5'],
+                                               exclude_dirs=['sub_sub_dir1'])))
+        expected_result = [
+            "dir1/file2.tiff",
+            "dir1/sub_dir1/file3.h5",
+            "exclude_dir/file9.h5"
+        ]
+        expected_result = [os.path.join(self.test_dir, path) for path in expected_result]
+        self.assertEqual(result, expected_result)
 
-            # Test non-recursive
-            paths = list(collect_filepaths('/root', recursive=False))
-            expected_paths = ['/root/file1.txt', '/root/file2.tiff']
-            self.assertEqual(paths, expected_paths)
+        # Testing return size
+        result_with_size = sorted(list(collect_filepaths(self.test_dir, recursive=True, return_size=True)))
+        expected_result_with_size = [
+            ("dir1/file1.txt", 100),
+            ("dir1/file2.tiff", 150),
+            ("dir1/sub_dir1/file3.h5", 80),
+            ("dir1/sub_dir1/file4.ims", 120),
+            ("dir1/sub_dir1/sub_sub_dir1/file5.txt", 50),
+            ("dir1/sub_dir1/sub_sub_dir1/file6.tiff", 70),
+            ("dir2/file7.ims", 130),
+            ("dir2/file8.txt", 60),
+            ("exclude_dir/file9.h5", 110)
+        ]
+        expected_result_with_size = [(os.path.join(self.test_dir, path), size) for path, size in expected_result_with_size]
+        self.assertEqual(result_with_size, expected_result_with_size)
 
-    def test_batch_files_by_size(self):
-        with patch('os.path.getsize', side_effect=lambda x: self.mock_file_sizes[x]):
-            filepaths = [
-                '/root/file1.txt',
-                '/root/file2.tiff',
-                '/root/subdir1/file3.h5',
-                '/root/subdir2/file4.ims',
-                '/root/subdir2/file5.txt',
-            ]
+    def test_batch_files_by_size_complex(self):
+        # Test target size of 250
+        batches = list(batch_files_by_size(self.test_dir, target_size=250))
+        expected_batches = [
+            ["dir1/file1.txt", "dir1/file2.tiff"],
+            ["dir1/sub_dir1/file3.h5", "dir1/sub_dir1/file4.ims", "dir1/sub_dir1/sub_sub_dir1/file5.txt"],
+            ["dir1/sub_dir1/sub_sub_dir1/file6.tiff", "dir2/file7.ims"],
+            ["dir2/file8.txt", "exclude_dir/file9.h5"]
+        ]
+        expected_batches = [[os.path.join(self.test_dir, path) for path in batch] for batch in expected_batches]
+        self.assertEqual(batches, expected_batches)
 
-            # Test batching by size
-            batches = list(batch_files_by_size(filepaths, target_size=10))
-            expected_batches = [['/root/file1.txt'], ['/root/file2.tiff'],
-                                ['/root/subdir1/file3.h5'], ['/root/subdir2/file4.ims'], ['/root/subdir2/file5.txt']]
-            self.assertEqual(batches, expected_batches)
+        # Test target size of 100
+        batches = list(batch_files_by_size(self.test_dir, target_size=100))
+        expected_batches = [
+            ["dir1/file1.txt"],
+            ["dir1/file2.tiff"],
+            ["dir1/sub_dir1/file3.h5"],
+            ["dir1/sub_dir1/file4.ims"],
+            ["dir1/sub_dir1/sub_sub_dir1/file5.txt"],
+            ["dir1/sub_dir1/sub_sub_dir1/file6.tiff"],
+            ["dir2/file7.ims"],
+            ["dir2/file8.txt"],
+            ["exclude_dir/file9.h5"]
+        ]
+        expected_batches = [[os.path.join(self.test_dir, path) for path in batch] for batch in expected_batches]
+        self.assertEqual(batches, expected_batches)
 
-            # Increase target size to group files
-            batches = list(batch_files_by_size(filepaths, target_size=100))
-            expected_batches = [['/root/file1.txt', '/root/file2.tiff', '/root/subdir1/file3.h5'],
-                                ['/root/subdir2/file4.ims', '/root/subdir2/file5.txt']]
-            self.assertEqual(batches, expected_batches)
-
-            # Test with one large file exceeding the target size
-            batches = list(batch_files_by_size(filepaths, target_size=45))
-            expected_batches = [['/root/file1.txt', '/root/file2.tiff'],
-                                ['/root/subdir1/file3.h5'], ['/root/subdir2/file4.ims'], ['/root/subdir2/file5.txt']]
-            self.assertEqual(batches, expected_batches)
-
-            # Test with multiple files just fitting the target size
-            batches = list(batch_files_by_size(filepaths, target_size=60))
-            expected_batches = [['/root/file1.txt', '/root/file2.tiff'], ['/root/subdir1/file3.h5'],
-                                ['/root/subdir2/file4.ims', '/root/subdir2/file5.txt']]
-            self.assertEqual(batches, expected_batches)
+        # Test all files in one batch
+        batches = list(batch_files_by_size(self.test_dir, target_size=1000))
+        expected_batches = [
+            ["dir1/file1.txt", "dir1/file2.tiff", "dir1/sub_dir1/file3.h5", "dir1/sub_dir1/file4.ims",
+             "dir1/sub_dir1/sub_sub_dir1/file5.txt", "dir1/sub_dir1/sub_sub_dir1/file6.tiff",
+             "dir2/file7.ims", "dir2/file8.txt", "exclude_dir/file9.h5"]
+        ]
+        expected_batches = [[os.path.join(self.test_dir, path) for path in batch] for batch in expected_batches]
+        self.assertEqual(batches, expected_batches)
 
 
 if __name__ == '__main__':
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)
+    unittest.main()
