@@ -195,20 +195,23 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
     )
-    platform: Platform = Field(
-        ..., description="Platform", title="Platform"
-    )
+    platform: Platform = Field(..., description="Platform", title="Platform")
     modalities: List[ModalityConfigs] = Field(
         ...,
         description="Data collection modalities and their directory location",
         title="Modalities",
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
-    acq_date: date = Field(
-        ..., description="Date data was acquired", title="Acquisition Date"
+    acq_datetime: datetime = Field(
+        ..., description="Datetime data was acquired", title="Acquisition Datetime"
     )
-    acq_time: time = Field(
-        ...,
+    # deprecated
+    acq_date: Optional[date] = Field(
+        None, description="Date data was acquired", title="Acquisition Date"
+    )
+    # deprecated
+    acq_time: Optional[time] = Field(
+        None,
         description="Time of day data was acquired",
         title="Acquisition Time",
     )
@@ -267,7 +270,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         """Construct s3_prefix from configs."""
         return build_data_name(
             label=f"{self.platform.value.abbreviation}_{self.subject_id}",
-            creation_datetime=datetime.combine(self.acq_date, self.acq_time)
+            creation_datetime=self.acq_datetime,
         )
 
     @validator("acq_date", pre=True)
