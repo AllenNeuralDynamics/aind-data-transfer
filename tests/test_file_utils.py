@@ -96,7 +96,7 @@ class TestFileUtils(unittest.TestCase):
 
     def test_batch_files_by_size_complex(self):
         # Test target size of 250
-        batches = list(batch_files_by_size(self.test_dir, target_size=250))
+        batches = sorted(list(batch_files_by_size(self.test_dir, target_size=250)))
         expected_batches = [
             ["dir1/file1.txt", "dir1/file2.tiff"],
             ["dir1/sub_dir1/file3.h5", "dir1/sub_dir1/file4.ims", "dir1/sub_dir1/sub_sub_dir1/file5.txt"],
@@ -107,7 +107,7 @@ class TestFileUtils(unittest.TestCase):
         self.assertEqual(batches, expected_batches)
 
         # Test target size of 100
-        batches = list(batch_files_by_size(self.test_dir, target_size=100))
+        batches = sorted(list(batch_files_by_size(self.test_dir, target_size=100)))
         expected_batches = [
             ["dir1/file1.txt"],
             ["dir1/file2.tiff"],
@@ -123,7 +123,7 @@ class TestFileUtils(unittest.TestCase):
         self.assertEqual(batches, expected_batches)
 
         # Test all files in one batch
-        batches = list(batch_files_by_size(self.test_dir, target_size=1000))
+        batches = sorted(list(batch_files_by_size(self.test_dir, target_size=1000)))
         expected_batches = [
             ["dir1/file1.txt", "dir1/file2.tiff", "dir1/sub_dir1/file3.h5", "dir1/sub_dir1/file4.ims",
              "dir1/sub_dir1/sub_sub_dir1/file5.txt", "dir1/sub_dir1/sub_sub_dir1/file6.tiff",
