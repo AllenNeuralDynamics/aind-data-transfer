@@ -77,8 +77,7 @@ s3_bucket: S3 Bucket name
 platform: One of [behavior, confocal, ecephys, exaSPIM, FIP, HCR, HSFP, mesoSPIM, merfish, MRI, multiplane-ophys, single-plane-ophys, SLAP2, smartSPIM] (pulled from the Platform.abbreviation field)
 modality: One of [behavior-videos, confocal, ecephys, fMOST, icephys, fib, merfish, MRI, ophys, slap, SPIM, trained-behavior] (pulled from the Modality.abbreviation field)
 subject_id: ID of the subject
-acq_date: Format can be either yyyy-MM-dd or MM/dd/yyyy
-acq_time: Format can be either HH:mm:ss or HH-mm-ss
+acq_datetime: Format can be either YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P
 ```
 
 One or more modalities need to be set. The csv headers can look like:
@@ -150,9 +149,9 @@ will compress the raw data source and run a dry run for all jobs defined in the 
 An example csv file might look like:
 
 ```
-data-source, s3-bucket, subject-id, modality, platform, acq-date, acq-time, aws_param_store_name
-dir/data_set_1, some_bucket, 123454, ecephys, ecephys, 2020-10-10, 14-10-10, /aind/data/transfer/endpoints
-dir/data_set_2, some_bucket2, 123456, ophys, multiplane-ophys, 2020-10-11, 13-10-10, /aind/data/transfer/endpoints
+data-source, s3-bucket, subject-id, modality, platform, acq-datetime, aws_param_store_name
+dir/data_set_1, some_bucket, 123454, ecephys, ecephys, 2020-10-10 14:10:10, /aind/data/transfer/endpoints
+dir/data_set_2, some_bucket2, 123456, ophys, multiplane-ophys, 2020-10-11 13:10:10, /aind/data/transfer/endpoints
 ```
 
 ### Defining a custom processing capsule to run in code ocean
@@ -161,9 +160,9 @@ Read the previous section on defining a csv file. Retrieve the capsule id from t
 You can add an extra parameter to define a custom processing capsule that gets executed aftet the data is uploaded:
 
 ```
-codeocean_process_capsule_id, data-source, s3-bucket, subject-id, modality, platform, acq-date, acq-time, aws_param_store_name
-xyz-123-456, dir/data_set_1, some_bucket, 123454, ecephys, ecephys, 2020-10-10, 14-10-10, /aind/data/transfer/endpoints
-xyz-123-456, dir/data_set_2, some_bucket2, 123456, ophys, multiplane-ophys, 2020-10-11, 13-10-10, /aind/data/transfer/endpoints
+codeocean_process_capsule_id, data-source, s3-bucket, subject-id, modality, platform, acq-datetime, aws_param_store_name
+xyz-123-456, dir/data_set_1, some_bucket, 123454, ecephys, ecephys, 2020-10-10 14:10:10, /aind/data/transfer/endpoints
+xyz-123-456, dir/data_set_2, some_bucket2, 123456, ophys, multiplane-ophys, 2020-10-11 13:10:10, /aind/data/transfer/endpoints
 ```
 
 ## Contributing

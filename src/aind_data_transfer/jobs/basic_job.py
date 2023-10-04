@@ -299,7 +299,10 @@ class BasicJob:
             "trigger_codeocean_job": {
                 "job_type": job_type,
                 "modalities": (
-                    [m.modality.value.abbreviation for m in self.job_configs.modalities]
+                    [
+                        m.modality.value.abbreviation
+                        for m in self.job_configs.modalities
+                    ]
                 ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
                 "process_capsule_id": (

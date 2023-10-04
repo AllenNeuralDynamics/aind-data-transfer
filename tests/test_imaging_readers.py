@@ -11,7 +11,6 @@ RESOURCES_DIR = TEST_DIR / "resources"
 
 
 class TestImagingReaders(unittest.TestCase):
-
     imaging_dir = RESOURCES_DIR / "imaging"
     exaspim_dir = imaging_dir / "exaSPIM_125L_2022-08-05_17-25-36"
     mesospim_dir = imaging_dir / "mesoSPIM_125L_2022-08-18_17-05-00"
@@ -36,7 +35,7 @@ class TestImagingReaders(unittest.TestCase):
             ImagingReaders.Readers.exaspim.value,
             ImagingReaders.Readers.mesospim.value,
             ImagingReaders.Readers.dispim.value,
-            ImagingReaders.Readers.generic.value
+            ImagingReaders.Readers.generic.value,
         ]
     )
     def test_get_raw_data_dir_fails(self, reader):

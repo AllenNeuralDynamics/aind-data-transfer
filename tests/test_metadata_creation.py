@@ -12,7 +12,12 @@ from aind_data_schema import (
     RawDataDescription,
     Subject,
 )
-from aind_data_schema.data_description import Modality, Funding, Institution, Platform
+from aind_data_schema.data_description import (
+    Modality,
+    Funding,
+    Institution,
+    Platform,
+)
 from aind_data_schema.processing import ProcessName
 from requests import ConnectionError, Response
 
@@ -87,7 +92,7 @@ class TestProcessingMetadata(unittest.TestCase):
 
         self.assertEqual(
             json.loads(expected_processing_instance.json()),
-            processing_metadata.model_obj
+            processing_metadata.model_obj,
         )
         self.assertEqual(Processing, processing_metadata._model())
         self.assertEqual(
@@ -108,9 +113,9 @@ class TestSubjectMetadata(unittest.TestCase):
                 "abbreviation": None,
                 "registry": {
                     "name": "National Center for Biotechnology Information",
-                    "abbreviation": "NCBI"
+                    "abbreviation": "NCBI",
                 },
-                "registry_identifier": "10090"
+                "registry_identifier": "10090",
             },
             "subject_id": "632269",
             "sex": "Female",
@@ -128,8 +133,8 @@ class TestSubjectMetadata(unittest.TestCase):
             "paternal_genotype": "RCL-somBiPoles_mCerulean-WPRE/wt",
             "wellness_reports": None,
             "housing": None,
-            "notes": None
-        }
+            "notes": None,
+        },
     }
 
     multiple_subjects_response = {
@@ -369,7 +374,7 @@ class TestProceduresMetadata(unittest.TestCase):
                     "anaesthesia": {
                         "type": "isoflurane",
                         "duration_unit": "minute",
-                        "level": 1.5
+                        "level": 1.5,
                     },
                     "notes": None,
                     "procedure_type": "Headframe",
@@ -377,7 +382,7 @@ class TestProceduresMetadata(unittest.TestCase):
                     "headframe_part_number": "0160-100-10 Rev A",
                     "headframe_material": None,
                     "well_part_number": None,
-                    "well_type": "CAM-style"
+                    "well_type": "CAM-style",
                 },
                 {
                     "start_date": "2019-01-09",
@@ -391,21 +396,23 @@ class TestProceduresMetadata(unittest.TestCase):
                         "type": "isoflurane",
                         "duration": None,
                         "duration_unit": "minute",
-                        "level": 1.5
+                        "level": 1.5,
                     },
                     "notes": None,
-                    "injection_materials": [{
-                        "material_id": None,
-                        "full_genome_name": None,
-                        "plasmid_name": None,
-                        "genome_copy": None,
-                        "titer": None,
-                        "titer_unit": "gc/mL",
-                        "prep_lot_number": None,
-                        "prep_date": None,
-                        "prep_type": None,
-                        "prep_protocol": None
-                    }],
+                    "injection_materials": [
+                        {
+                            "material_id": None,
+                            "full_genome_name": None,
+                            "plasmid_name": None,
+                            "genome_copy": None,
+                            "titer": None,
+                            "titer_unit": "gc/mL",
+                            "prep_lot_number": None,
+                            "prep_date": None,
+                            "prep_type": None,
+                            "prep_protocol": None,
+                        }
+                    ],
                     "recovery_time": None,
                     "recovery_time_unit": "minute",
                     "injection_duration": 10,
@@ -425,7 +432,7 @@ class TestProceduresMetadata(unittest.TestCase):
                     "injection_hemisphere": "Left",
                     "procedure_type": "Nanoject injection",
                     "injection_volume": 200,
-                    "injection_volume_unit": "nanoliter"
+                    "injection_volume_unit": "nanoliter",
                 },
                 {
                     "start_date": "2019-01-09",
@@ -438,7 +445,7 @@ class TestProceduresMetadata(unittest.TestCase):
                     "anaesthesia": {
                         "type": "isoflurane",
                         "duration_unit": "minute",
-                        "level": 1.5
+                        "level": 1.5,
                     },
                     "notes": None,
                     "procedure_type": "Craniotomy",
@@ -457,12 +464,12 @@ class TestProceduresMetadata(unittest.TestCase):
                     "protective_material": None,
                     "workstation_id": "SWS 6",
                     "recovery_time": None,
-                    "recovery_time_unit": "minute"
-                }
+                    "recovery_time_unit": "minute",
+                },
             ],
             "specimen_procedures": [],
-            "notes": None
-        }
+            "notes": None,
+        },
     }
 
     @patch(

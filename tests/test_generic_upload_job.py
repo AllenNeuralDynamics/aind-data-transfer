@@ -215,12 +215,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         jobs = GenericS3UploadJobList(args=args)
         job0 = jobs.job_list[0]
         job1 = jobs.job_list[1]
-        self.assertEqual(
-            Platform.ECEPHYS, job0.job_configs.platform
-        )
-        self.assertEqual(
-            Platform.CONFOCAL, job1.job_configs.platform
-        )
+        self.assertEqual(Platform.ECEPHYS, job0.job_configs.platform)
+        self.assertEqual(Platform.CONFOCAL, job1.job_configs.platform)
         expected_source = Path(
             "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
         )
@@ -233,7 +229,9 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             )
             and (
                 ModalityConfigs(
-                    modality=Modality.CONFOCAL, source=expected_source, compress_raw_data=True
+                    modality=Modality.CONFOCAL,
+                    source=expected_source,
+                    compress_raw_data=True,
                 )
                 in job0.job_configs.modalities
             )
@@ -276,12 +274,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         jobs = GenericS3UploadJobList(args=args)
         job0 = jobs.job_list[0]
         job1 = jobs.job_list[1]
-        self.assertEqual(
-            Platform.ECEPHYS, job0.job_configs.platform
-        )
-        self.assertEqual(
-            Platform.CONFOCAL, job1.job_configs.platform
-        )
+        self.assertEqual(Platform.ECEPHYS, job0.job_configs.platform)
+        self.assertEqual(Platform.CONFOCAL, job1.job_configs.platform)
         expected_source = Path(
             "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
         )
@@ -294,7 +288,9 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             )
             and (
                 ModalityConfigs(
-                    modality=Modality.CONFOCAL, source=expected_source, compress_raw_data=True
+                    modality=Modality.CONFOCAL,
+                    source=expected_source,
+                    compress_raw_data=True,
                 )
                 in job0.job_configs.modalities
             )

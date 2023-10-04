@@ -280,7 +280,7 @@ def _store_file(
             scale_factors,
             voxel_size,
             origin,
-            compressor
+            compressor,
         )
         write_time = time.time() - t0
 
@@ -368,7 +368,7 @@ def _store_interleaved_file(
             scale_factors,
             voxel_size,
             origin,
-            compressor
+            compressor,
         )
         write_time = time.time() - t0
 
@@ -391,7 +391,16 @@ def _store_interleaved_file(
     return tile_metrics
 
 
-def _gen_and_store_pyramid(arr, group, tile_name, n_levels, scale_factors, voxel_size, origin, compressor):
+def _gen_and_store_pyramid(
+    arr,
+    group,
+    tile_name,
+    n_levels,
+    scale_factors,
+    voxel_size,
+    origin,
+    compressor,
+):
     """
     Progressively downsample the input array and store the results as separate arrays in a Zarr group.
 
@@ -826,7 +835,7 @@ def store_array(
     path: str,
     block_shape: tuple,
     compressor: Codec = None,
-    dimension_separator: str = "/"
+    dimension_separator: str = "/",
 ) -> zarr.Array:
     """
     Store the full resolution layer of a Dask pyramid into a Zarr group.
@@ -914,7 +923,11 @@ def downsample_and_store(
     return pyramid
 
 
-def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple, reducer: WindowedReducer = windowed_mean) -> da.Array:
+def _get_first_mipmap_level(
+    arr: da.Array,
+    scale_factors: tuple,
+    reducer: WindowedReducer = windowed_mean,
+) -> da.Array:
     """
     Generate a mipmap pyramid from the input array and return the first mipmap level.
 
@@ -929,7 +942,9 @@ def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple, reducer: Window
         The first mipmap level of the input array.
     """
     n_lvls = 2
-    pyramid = create_pyramid(arr, n_lvls, scale_factors, arr.chunksize, reducer)
+    pyramid = create_pyramid(
+        arr, n_lvls, scale_factors, arr.chunksize, reducer
+    )
     return ensure_array_5d(pyramid[1])
 
 

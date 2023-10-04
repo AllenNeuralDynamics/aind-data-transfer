@@ -423,7 +423,6 @@ class DataReaderFactory:
 
 
 class BlockedArrayWriter:
-
     @staticmethod
     def gen_slices(
         arr_shape: Tuple[int, ...], block_shape: Tuple[int, ...]

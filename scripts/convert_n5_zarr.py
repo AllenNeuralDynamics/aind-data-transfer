@@ -36,16 +36,13 @@ def parse_arguments() -> argparse.Namespace:
         description="Convert an N5 dataset to OME-Zarr."
     )
     parser.add_argument(
-        "--n5",
-        type=str,
-        help="Path to the input N5 container.",
-        required=True
+        "--n5", type=str, help="Path to the input N5 container.", required=True
     )
     parser.add_argument(
         "--output-zarr",
         type=str,
         help="Path to the output Zarr array.",
-        required=True
+        required=True,
     )
     parser.add_argument(
         "--voxel-size", type=float, nargs="+", default=[1.0, 1.0, 1.0]
@@ -156,7 +153,7 @@ def main():
             scale_factors,
             block_shape,
             codec,
-            reducer
+            reducer,
         )
 
     else:
@@ -171,7 +168,7 @@ def main():
         n_levels,
         scale_factors[-3:],  # must be 3D
         tuple(reversed(args.voxel_size)),  # must be 3D ZYX
-        metadata=metadata
+        metadata=metadata,
     )
     _LOGGER.info(f"Done. Took {time.time() - t0} seconds")
 

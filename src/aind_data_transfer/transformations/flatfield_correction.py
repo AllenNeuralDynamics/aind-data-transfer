@@ -10,7 +10,6 @@ _LOGGER.setLevel(logging.INFO)
 
 
 class BkgSubtraction:
-
     class Regexes(Enum):
         tile_xyz_pattern = r"tile_[xX]_\d{4}_[yY]_\d{4}_[zZ]_\d{4}"
 
@@ -28,10 +27,13 @@ class BkgSubtraction:
         """
         bkg_da = da.pad(
             bkg_da,
-            [(0, im.shape[1] - bkg_da.shape[0]), (0, im.shape[2] - bkg_da.shape[1])],
-            mode="edge"
+            [
+                (0, im.shape[1] - bkg_da.shape[0]),
+                (0, im.shape[2] - bkg_da.shape[1]),
+            ],
+            mode="edge",
         )
-        return da.clip((im + 100) - bkg_da, 100, 2 ** 16 - 1) - 100
+        return da.clip((im + 100) - bkg_da, 100, 2**16 - 1) - 100
 
     @staticmethod
     def get_bkg_path(tile_path: str, bkg_im_dir: str) -> str:
@@ -47,11 +49,7 @@ class BkgSubtraction:
         """
         m = re.search(BkgSubtraction.Regexes.tile_xyz_pattern.value, tile_path)
         if m is None:
-            raise ValueError(f"tile name does not follow convention: {tile_path}")
+            raise ValueError(
+                f"tile name does not follow convention: {tile_path}"
+            )
         return os.path.join(bkg_im_dir, "bkg_" + m.group(0) + ".tiff")
-
-
-
-
-
-

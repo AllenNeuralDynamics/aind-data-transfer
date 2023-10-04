@@ -13,7 +13,7 @@ from aind_data_schema.data_description import (
     Institution,
     Modality,
     RawDataDescription,
-    Platform
+    Platform,
 )
 from aind_data_schema.procedures import Procedures
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
