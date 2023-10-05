@@ -1,5 +1,7 @@
 from datetime import datetime
 import xml.etree.ElementTree as ET
+from typing import List
+
 import pandas as pd
 
 import aind_data_transfer.transformations.file_io as file_io
@@ -25,7 +27,7 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
         Acquisition instance
     """
 
-    experimenter_full_name: str = 'ISpim Group'
+    experimenter_full_name: List[str] = ['ISpim Group']
     specimen_id: str = log_dict['specimen_id']
     subject_id: str = log_dict['subject_id']
     instrument_id: str = log_dict['instrument_id']
@@ -593,7 +595,10 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
     x.attrib["type"] = "relative"
     x.text = "."
     #add_sequence_description(spim_data,log_dict, filtered_tiles)
-    add_sequence_description(spim_data, log_dict, new_filtered_tilenames)
+    if acquisition_style=='interleaved':
+        add_sequence_description(spim_data, log_dict, new_filtered_tilenames)
+    else:
+        add_sequence_description(spim_data, log_dict, filtered_tiles)
     add_view_registrations(spim_data, filtered_translations)
 
     return ET.ElementTree(spim_data)
