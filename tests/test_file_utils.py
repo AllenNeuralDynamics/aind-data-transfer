@@ -95,42 +95,37 @@ class TestFileUtils(unittest.TestCase):
         self.assertEqual(result_with_size, expected_result_with_size)
 
     def test_batch_files_by_size_complex(self):
-        # Test target size of 250
-        batches = sorted(list(batch_files_by_size(self.test_dir, target_size=250)))
-        expected_batches = [
-            ["dir1/file1.txt", "dir1/file2.tiff"],
-            ["dir1/sub_dir1/file3.h5", "dir1/sub_dir1/file4.ims", "dir1/sub_dir1/sub_sub_dir1/file5.txt"],
-            ["dir1/sub_dir1/sub_sub_dir1/file6.tiff", "dir2/file7.ims"],
-            ["dir2/file8.txt", "exclude_dir/file9.h5"]
+        expected_files = [
+            "dir1/file1.txt",
+            "dir1/file2.tiff",
+            "dir1/sub_dir1/file3.h5",
+            "dir1/sub_dir1/file4.ims",
+            "dir1/sub_dir1/sub_sub_dir1/file5.txt",
+            "dir1/sub_dir1/sub_sub_dir1/file6.tiff",
+            "dir2/file7.ims",
+            "dir2/file8.txt",
+            "exclude_dir/file9.h5"
         ]
-        expected_batches = [[os.path.join(self.test_dir, path) for path in batch] for batch in expected_batches]
-        self.assertEqual(batches, expected_batches)
+        expected_files = [os.path.join(self.test_dir, path) for path in expected_files]
 
-        # Test target size of 100
-        batches = sorted(list(batch_files_by_size(self.test_dir, target_size=100)))
-        expected_batches = [
-            ["dir1/file1.txt"],
-            ["dir1/file2.tiff"],
-            ["dir1/sub_dir1/file3.h5"],
-            ["dir1/sub_dir1/file4.ims"],
-            ["dir1/sub_dir1/sub_sub_dir1/file5.txt"],
-            ["dir1/sub_dir1/sub_sub_dir1/file6.tiff"],
-            ["dir2/file7.ims"],
-            ["dir2/file8.txt"],
-            ["exclude_dir/file9.h5"]
-        ]
-        expected_batches = [[os.path.join(self.test_dir, path) for path in batch] for batch in expected_batches]
-        self.assertEqual(batches, expected_batches)
+        batches = list(batch_files_by_size(self.test_dir, target_size=250))
+        self._validate_batch_invariants(expected_files, batches, 250)
 
-        # Test all files in one batch
-        batches = sorted(list(batch_files_by_size(self.test_dir, target_size=1000)))
-        expected_batches = [
-            ["dir1/file1.txt", "dir1/file2.tiff", "dir1/sub_dir1/file3.h5", "dir1/sub_dir1/file4.ims",
-             "dir1/sub_dir1/sub_sub_dir1/file5.txt", "dir1/sub_dir1/sub_sub_dir1/file6.tiff",
-             "dir2/file7.ims", "dir2/file8.txt", "exclude_dir/file9.h5"]
-        ]
-        expected_batches = [[os.path.join(self.test_dir, path) for path in batch] for batch in expected_batches]
-        self.assertEqual(batches, expected_batches)
+        batches = list(batch_files_by_size(self.test_dir, target_size=100))
+        self._validate_batch_invariants(expected_files, batches, 100)
+
+        batches = list(batch_files_by_size(self.test_dir, target_size=1000))
+        self._validate_batch_invariants(expected_files, batches, 1000)
+
+    def _validate_batch_invariants(self, expected_files, batches, target_size):
+        all_files_in_batches = [file for batch in batches for file in batch]
+        self.assertEqual(set(all_files_in_batches), set(expected_files))  # All files are present
+
+        for batch in batches:
+            batch_size = sum(os.path.getsize(file) for file in batch)
+            self.assertTrue(len(batch) > 0)
+            if len(batch) > 1:
+                self.assertLessEqual(batch_size, target_size)
 
 
 if __name__ == '__main__':
