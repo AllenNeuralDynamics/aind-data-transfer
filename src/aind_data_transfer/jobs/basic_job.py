@@ -294,12 +294,15 @@ class BasicJob:
             job_type = JobTypes.RUN_GENERIC_PIPELINE.value
         else:
             # Handle legacy way we set up parameters...
-            job_type = self.job_configs.experiment_type.value
+            job_type = self.job_configs.platform.value.abbreviation
         trigger_capsule_params = {
             "trigger_codeocean_job": {
                 "job_type": job_type,
                 "modalities": (
-                    [m.modality.name for m in self.job_configs.modalities]
+                    [
+                        m.modality.value.abbreviation
+                        for m in self.job_configs.modalities
+                    ]
                 ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
                 "process_capsule_id": (

@@ -12,8 +12,7 @@ LOGGER.setLevel(logging.INFO)
 
 
 def log_dashboard_address(
-        client: distributed.Client,
-        login_node_address: str = "hpc-login"
+    client: distributed.Client, login_node_address: str = "hpc-login"
 ) -> None:
     """
     Logs the terminal command required to access the Dask dashboard
@@ -23,7 +22,7 @@ def log_dashboard_address(
         login_node_address: the address of the cluster login node
     """
     host = client.run_on_scheduler(socket.gethostname)
-    port = client.scheduler_info()['services']['dashboard']
+    port = client.scheduler_info()["services"]["dashboard"]
     user = os.getenv("USER")
     LOGGER.info(
         f"To access the dashboard, run the following in a terminal: ssh -L {port}:{host}:{port} {user}@"
@@ -32,9 +31,9 @@ def log_dashboard_address(
 
 
 def get_client(
-        deployment: str = "local",
-        worker_options: Optional[dict] = None,
-        n_workers: int = 1
+    deployment: str = "local",
+    worker_options: Optional[dict] = None,
+    n_workers: int = 1,
 ) -> Tuple[distributed.Client, int]:
     """
     Create a distributed Client
@@ -59,15 +58,18 @@ def get_client(
             nthreads=int(os.getenv("SLURM_CPUS_PER_TASK", 1)),
             local_directory=f"/scratch/fast/{slurm_job_id}",
             worker_class="distributed.nanny.Nanny",
-            worker_options=worker_options
+            worker_options=worker_options,
         )
         client = Client()
         log_dashboard_address(client)
         n_workers = int(os.getenv("SLURM_NTASKS"))
     elif deployment == "local":
         import platform
+
         use_procs = False if platform.system() == "Windows" else True
-        cluster = LocalCluster(n_workers=n_workers, processes=use_procs, threads_per_worker=1)
+        cluster = LocalCluster(
+            n_workers=n_workers, processes=use_procs, threads_per_worker=1
+        )
         client = Client(cluster)
     else:
         raise NotImplementedError

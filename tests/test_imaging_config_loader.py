@@ -14,7 +14,6 @@ CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
 
 
 class TestImagingJobConfigs(unittest.TestCase):
-
     code_repo_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
     """Basic config loads test"""

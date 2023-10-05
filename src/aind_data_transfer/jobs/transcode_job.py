@@ -21,8 +21,17 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
 )
 
-from aind_data_transfer.transformations.file_io import read_log_file, read_toml, write_xml, read_imaging_log, write_acq_json
-from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
+from aind_data_transfer.transformations.file_io import (
+    read_log_file,
+    read_toml,
+    write_xml,
+    read_imaging_log,
+    write_acq_json,
+)
+from aind_data_transfer.transformations.converters import (
+    log_to_acq_json,
+    acq_json_to_xml,
+)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
@@ -96,7 +105,10 @@ def _build_gcs_cmd(
 
 
 def _build_ome_zar_cmd(
-    raw_image_dir: str, zarr_out: str, job_configs: dict, bkg_im_dir: Optional[Union[str, Path]] = None
+    raw_image_dir: str,
+    zarr_out: str,
+    job_configs: dict,
+    bkg_im_dir: Optional[Union[str, Path]] = None,
 ) -> str:
     compression_opts = _resolve_compression_options(job_configs)
     job_opts = job_configs["transcode_job"]
@@ -215,9 +227,13 @@ def main():
         if job_configs["jobs"]["background_subtraction"]:
             bkg_im_dir = data_src_dir / "derivatives"
             if not bkg_im_dir.is_dir():
-                raise Exception(f"background image directory not found: {bkg_im_dir}")
+                raise Exception(
+                    f"background image directory not found: {bkg_im_dir}"
+                )
             LOGGER.info(f"Using background image directory: {bkg_im_dir}")
-        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs, bkg_im_dir)
+        job_cmd = _build_ome_zar_cmd(
+            raw_image_dir, zarr_out, job_configs, bkg_im_dir
+        )
         submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
         subprocess.run(submit_cmd, shell=True)
         LOGGER.info("Submitted transcode job to cluster")
@@ -229,7 +245,6 @@ def main():
             f"--output={data_src_dir} "
             f"--vmin={job_configs['create_ng_link_job']['vmin']} "
             f"--vmax={job_configs['create_ng_link_job']['vmax']}"
-
         )
         subprocess.run(ng_link_cmd, shell=True)
         output_json = data_src_dir / "process_output.json"
@@ -253,36 +268,45 @@ def main():
                 )
             else:
                 raise Exception(f"Unsupported cloud storage: {provider}")
-            
-            if job_configs["data"]["name"]=='diSPIM': #convert metadata log to xml 
-                LOGGER.info("Creating xml files for diSPIM data")
-                #convert imaging log to acq json
-                log_file = data_src_dir.joinpath('imaging_log.log')
-                toml_dict = read_toml(data_src_dir.joinpath('config.toml'))
 
-                #read log file into dict
+            if (
+                job_configs["data"]["name"] == "diSPIM"
+            ):  # convert metadata log to xml
+                LOGGER.info("Creating xml files for diSPIM data")
+                # convert imaging log to acq json
+                log_file = data_src_dir.joinpath("imaging_log.log")
+                toml_dict = read_toml(data_src_dir.joinpath("config.toml"))
+
+                # read log file into dict
                 log_dict = read_imaging_log(log_file)
-                log_dict['data_src_dir'] = (data_src_dir.as_posix())
-                log_dict['config_toml'] = toml_dict
-                #convert to acq json
+                log_dict["data_src_dir"] = data_src_dir.as_posix()
+                log_dict["config_toml"] = toml_dict
+                # convert to acq json
                 acq_json = log_to_acq_json(log_dict)
-                acq_json_path = Path(data_src_dir).joinpath('acquisition.json')
+                acq_json_path = Path(data_src_dir).joinpath("acquisition.json")
 
                 try:
                     write_acq_json(acq_json, acq_json_path)
-                    LOGGER.info('Finished writing acq json')
+                    LOGGER.info("Finished writing acq json")
                 except Exception as e:
                     LOGGER.error(f"Failed to write acquisition.json: {e}")
 
-                #convert acq json to xml
+                # convert acq json to xml
                 is_zarr = True
                 condition = "channel=='405'"
-                acq_xml = acq_json_to_xml(acq_json, log_dict, data_src_dir.stem +'/'+(job_configs["data"]["name"]+'.zarr'), is_zarr, condition) #needs relative path to zarr file (as seen by code ocean)
+                acq_xml = acq_json_to_xml(
+                    acq_json,
+                    log_dict,
+                    data_src_dir.stem
+                    + "/"
+                    + (job_configs["data"]["name"] + ".zarr"),
+                    is_zarr,
+                    condition,
+                )  # needs relative path to zarr file (as seen by code ocean)
 
-                #write xml to file
-                xml_file_path = data_src_dir.joinpath('Camera_405.xml') #
+                # write xml to file
+                xml_file_path = data_src_dir.joinpath("Camera_405.xml")  #
                 write_xml(acq_xml, xml_file_path)
-
 
             subprocess.run(cmd, shell=True)
         else:
@@ -290,13 +314,12 @@ def main():
                 data_src_dir,
                 dest_data_dir,
                 ignore=ignore_patterns(raw_image_dir_name),
-                dirs_exist_ok=True
+                dirs_exist_ok=True,
             )
         LOGGER.info(
             f"Finished uploading auxiliary data, took {time.time() - t0}"
         )
 
 
- 
 if __name__ == "__main__":
     main()
