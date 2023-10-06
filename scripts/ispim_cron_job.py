@@ -21,6 +21,7 @@ from argschema import ArgSchema, ArgSchemaParser
 import yaml
 import toml
 import json
+import pandas as pd
 
 from numcodecs import Blosc
 
@@ -453,6 +454,50 @@ date
 
     return sbatch_script
 
+def write_csv_from_dataset(dataset_loc: PathLike, csv_path: PathLike):
+    """Writes a csv file to be submitted to the metadata service from a dataset that needs uploading
+    
+    Parameters
+    ------------------------
+    dataset_loc: PathLike
+        Path to the dataset
+    
+    csv_path: PathLike
+        Path to the csv file to write
+    
+    Returns
+    ------------------------
+    csv_path: PathLike
+        Path to the csv file that was written"""
+    
+    #get the subject id
+    subject_id = get_subject_id_from_config_toml(dataset_loc.joinpath('config.toml'))
+
+    #get the acquisition date and time
+    acq_date, acq_time = get_date_time_from_schema_log(dataset_loc.joinpath("schema_log.log"))
+
+    dict_to_write = {
+        "s3_bucket": "aind-open-data",
+        "experiment_type": "diSPIM",
+        "modality0": "DISPIM",
+        "modality0.source": str(dataset_loc),
+        "modality0.extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml",
+        "subject_id": subject_id,
+        "acq_date": acq_date,
+        "acq_time": acq_time,
+        "force_cloud_sync": "true",
+        "codeocean_domain": "https://codeocean.allenneuraldynamics.org",
+        "metadata_service_domain": "http://aind-metadata-service",
+        "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", 
+        "log_level": "INFO"
+    }
+
+    #write the csv
+    pd.DataFrame(dict_to_write, index=[0]).to_csv(csv_path, index=False)
+
+    return csv_path
+
+
 def main():
     """main to execute the diSPIM job"""
     config_param = ArgSchemaParser(schema_type=ConfigFile)
@@ -510,10 +555,11 @@ def main():
 
         #temporarily we will rewrite a file to be run with sbatch. It will have the HPC configs 
         #and the args for zarr upload job in a json-like format. 
+        zarr_sbatch_cmd = write_zarr_upload_sbatch(dataset_path, sbatch_file_path)
 
         #the longer term solution TODO, is to write a csv file with the HPC configs and the args for zarr upload job
         #and then read that csv file with the new upload service job. 
-        zarr_sbatch_cmd = write_zarr_upload_sbatch(dataset_path, sbatch_file_path)
+    
 
 
         if os.path.isdir(dataset_path):
