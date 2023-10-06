@@ -10,7 +10,6 @@ RESOURCES_DIR = TEST_DIR / "resources"
 
 
 class TestEphysReaders(unittest.TestCase):
-
     open_ephys_dir = RESOURCES_DIR / "v0.6.x_neuropixels_multiexp_multistream"
 
     nidaq_rec_prefix = (

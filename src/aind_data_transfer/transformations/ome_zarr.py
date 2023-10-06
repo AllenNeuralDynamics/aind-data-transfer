@@ -4,10 +4,9 @@ import time
 from pathlib import Path
 from typing import List, Optional, Dict, cast
 
-import tifffile
 import zarr
 from numcodecs.abc import Codec
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 from ome_zarr.format import CurrentFormat
 from ome_zarr.io import parse_url
 from ome_zarr.writer import write_multiscales_metadata
@@ -209,19 +208,20 @@ def _store_file(
         )
 
         if bkg_img_dir is not None:
-            bkg_img_pyramid = create_pyramid(
-                tifffile.imread(
-                    BkgSubtraction.get_bkg_path(
-                        reader.get_filepath(), bkg_img_dir
-                    )
+            bkg = BkgSubtraction.darray_from_bkg_path(
+                BkgSubtraction.get_bkg_path(
+                    reader.get_filepath(), bkg_img_dir
                 ),
-                n_levels,
-                scale_factors[1:],
+                reader.get_shape()[-2:],
+                chunks[-2:],
             )
+            # keep background image in distributed memory
+            bkg = bkg.persist()
+            bkg_img_pyramid = create_pyramid(bkg, n_levels, scale_factors[1:])
             for i in range(len(bkg_img_pyramid)):
                 pyramid[i] = BkgSubtraction.subtract(
                     pyramid[i],
-                    da.from_array(bkg_img_pyramid[i], chunks=(128, 128)),
+                    bkg_img_pyramid[i],
                 )
 
         # The background subtraction can change the chunks,
@@ -255,16 +255,16 @@ def _store_file(
         arr = reader.as_dask_array(chunks=reader_chunks)
 
         if bkg_img_dir is not None:
-            bkg_img = (
-                tifffile.imread(
-                    BkgSubtraction.get_bkg_path(
-                        reader.get_filepath(), bkg_img_dir
-                    )
+            bkg = BkgSubtraction.darray_from_bkg_path(
+                BkgSubtraction.get_bkg_path(
+                    reader.get_filepath(), bkg_img_dir
                 ),
+                reader.get_shape()[-2:],
+                chunks[-2:],
             )
-            arr = BkgSubtraction.subtract(
-                arr, da.from_array(bkg_img, chunks=(128, 128))
-            )
+            # keep background image in distributed memory
+            bkg = bkg.persist()
+            arr = BkgSubtraction.subtract(arr, bkg)
 
         arr = ensure_array_5d(arr)
         # The background subtraction can change the chunks,
@@ -280,7 +280,7 @@ def _store_file(
             scale_factors,
             voxel_size,
             origin,
-            compressor
+            compressor,
         )
         write_time = time.time() - t0
 
@@ -368,7 +368,7 @@ def _store_interleaved_file(
             scale_factors,
             voxel_size,
             origin,
-            compressor
+            compressor,
         )
         write_time = time.time() - t0
 
@@ -391,7 +391,16 @@ def _store_interleaved_file(
     return tile_metrics
 
 
-def _gen_and_store_pyramid(arr, group, tile_name, n_levels, scale_factors, voxel_size, origin, compressor):
+def _gen_and_store_pyramid(
+    arr,
+    group,
+    tile_name,
+    n_levels,
+    scale_factors,
+    voxel_size,
+    origin,
+    compressor,
+):
     """
     Progressively downsample the input array and store the results as separate arrays in a Zarr group.
 
@@ -826,7 +835,7 @@ def store_array(
     path: str,
     block_shape: tuple,
     compressor: Codec = None,
-    dimension_separator: str = "/"
+    dimension_separator: str = "/",
 ) -> zarr.Array:
     """
     Store the full resolution layer of a Dask pyramid into a Zarr group.
@@ -914,7 +923,11 @@ def downsample_and_store(
     return pyramid
 
 
-def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple, reducer: WindowedReducer = windowed_mean) -> da.Array:
+def _get_first_mipmap_level(
+    arr: da.Array,
+    scale_factors: tuple,
+    reducer: WindowedReducer = windowed_mean,
+) -> da.Array:
     """
     Generate a mipmap pyramid from the input array and return the first mipmap level.
 
@@ -929,7 +942,9 @@ def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple, reducer: Window
         The first mipmap level of the input array.
     """
     n_lvls = 2
-    pyramid = create_pyramid(arr, n_lvls, scale_factors, arr.chunksize, reducer)
+    pyramid = create_pyramid(
+        arr, n_lvls, scale_factors, arr.chunksize, reducer
+    )
     return ensure_array_5d(pyramid[1])
 
 
