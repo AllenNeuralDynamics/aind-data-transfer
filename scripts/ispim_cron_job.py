@@ -20,6 +20,7 @@ import datetime
 from argschema import ArgSchema, ArgSchemaParser
 import yaml
 import toml
+import json
 
 from numcodecs import Blosc
 
@@ -318,6 +319,36 @@ def get_subject_id_from_config_toml(config_path: PathLike) -> str:
 
     return subject_id
 
+def get_date_time_from_schema_log(schema_log_path: PathLike) -> tuple:
+
+    """Reads session_start_time from schema_log.log file, which is in json format
+    and returns date and time as strings
+    Parameters
+    ----------
+    schema_log_path: PathLike
+        Path to schema_log.log file in dataset folder
+    
+    Returns
+    ----------
+    Date
+        The date when the dataset was acquired
+        format: YYYY-MM-DD
+    Time
+        The time when the dataset was acquired
+        format: HH-MM-SS
+
+    """
+
+    with open(schema_log_path) as f:
+        schema_log = json.load(f)
+
+    # Getting date and time
+    date_time = schema_log["session_start_time"]
+    date = date_time.split("T")[0]
+    time = date_time.split("T")[1].split(".")[0]
+
+    return date, time
+
 def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, new_config_path: PathLike = None):
     """
     This function copies the transcode_job_config.yml into a temporary upload data folder
@@ -373,13 +404,63 @@ def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, n
 
     return new_config_path
 
+# temporary function to write the zarr upload config 
+def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathLike) -> str:
+    
+    subject_id = get_subject_id_from_config_toml(dataset_path.joinpath('config.toml'))
+    
+
+    acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
+
+
+    sbatch_script = f"""
+#!/bin/bash
+
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=8000
+#SBATCH --exclude=n69,n74
+#SBATCH --tmp=64MB
+#SBATCH --time=30:00:00
+#SBATCH --partition=aind
+#SBATCH --output=/allen/programs/mindscope/workgroups/omfish/carsonb/hpc_outputs/%j_zarr_upload.log
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=carson.berry@alleninstitute.org
+#SBATCH --ntasks=64
+#SBATCH --nodelist=n111
+
+set -e
+
+pwd; date
+[[ -f "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" ]] && source "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" adt-upload-clone
+
+module purge
+module load mpi/mpich-3.2-x86_64
+
+# Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
+# are not sitting idle while the workers (rank 2...N) work
+# See https://edbennett.github.io/high-performance-python/11-dask/ for details.
+mpiexec -np $(( SLURM_NTASKS + 2 )) python -m aind_data_transfer.jobs.zarr_upload_job --json-args '{"s3_bucket": "aind-open-data", "experiment_type": "diSPIM", "modalities":[{"modality": "DISPIM","source":"{dataset_path}", "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": "{subject_id}", "acq_date": "{acq_date}", "acq_time": "{acq_time}", "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}'
+
+echo "Done"
+
+date
+    """
+    #write sbatch script
+    assert Path(sbatch_path_to_write).parent.exists(), f"Parent directory of {sbatch_path_to_write} does not exist"
+    with open(sbatch_path_to_write, "w") as f:
+        f.write(sbatch_script)
+
+
+    return sbatch_script
+
 def main():
     """main to execute the diSPIM job"""
     config_param = ArgSchemaParser(schema_type=ConfigFile)
 
 
     #scripts to run during upload
-    SUBMIT_TRANSCODE_JOB = Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/transcode_job.py')
+    SUBMIT_TRANSCODE_JOB =  Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/transcode_job.py')
+    SUBMIT_ZARR_JOB =       Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/zarr_upload_job.py')
 
     config_file_path = config_param.args["config_file"]
     config = get_default_config(config_file_path)
@@ -418,20 +499,30 @@ def main():
 
     logger.info(f"Uploading {pending_datasets_config}")
 
+    sbatch_file_path = Path(__file__).parent.parent.joinpath('bin/zarr_upload_sbatch.sh')
 
     #processing all the datasets that are pending
     for dataset in pending_datasets_config:
 
         dataset_path = dataset["path"]
         dataset_name = Path(dataset_path).stem
-        new_config_path = update_transcode_job_config(config_file_path, dataset_path)
+        # new_config_path = update_transcode_job_config(config_file_path, dataset_path)
+
+        #temporarily we will rewrite a file to be run with sbatch. It will have the HPC configs 
+        #and the args for zarr upload job in a json-like format. 
+
+        #the longer term solution TODO, is to write a csv file with the HPC configs and the args for zarr upload job
+        #and then read that csv file with the new upload service job. 
+        zarr_sbatch_cmd = write_zarr_upload_sbatch(dataset_path, sbatch_file_path)
+
 
         if os.path.isdir(dataset_path):
-            dataset_dest_path = dest_data_dir.joinpath(dataset_name)
+            # dataset_dest_path = dest_data_dir.joinpath(dataset_name)
 
             if config["transfer_type"]["type"] == "HPC":
                 # dataset_dumped = json.dumps(dataset).replace('"', "[token]")
-                cmd = f"""python {SUBMIT_TRANSCODE_JOB} -c {new_config_path}"""
+                # cmd = f"""python {SUBMIT_ZARR_JOB} -c {new_config_path}"""
+                cmd = f"""sbatch {sbatch_file_path.as_posix()}"""
 
                 # Setting dataset_status as 'uploading'
                 pre_upload_smartspim(dataset_path, processing_manifest_path)
