@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from aind_data_schema.data_description import Modality
+from aind_data_schema.data_description import Platform, Modality
 from numcodecs import blosc
 
 from aind_data_transfer.config_loader.base_config import (
@@ -78,28 +78,27 @@ class TestZarrUploadJob(unittest.TestCase):
         "VIDEO_ENCRYPTION_PASSWORD": "some_password",
         "CODEOCEAN_API_TOKEN": "some_api_token",
         "S3_BUCKET": "some_bucket",
-        "EXPERIMENT_TYPE": "confocal",
         "SUBJECT_ID": "12345",
-        "ACQ_DATE": "2020-10-10",
-        "ACQ_TIME": "10:10:10",
+        "ACQ_DATETIME": "2020-10-10 10:10:10",
         "DATA_SOURCE": str(DISPIM_DATA_DIR),
         "DRY_RUN": "false",
     }
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def _get_test_configs(
-        self, modality: Modality, extra: Path = None
+        self, platform: Platform, extra: Path = None
     ) -> BasicUploadJobConfigs:
-        if modality == Modality.DISPIM:
+        if platform == Platform.HCR:
             data_dir = DISPIM_DATA_DIR
-        elif modality == Modality.EXASPIM:
+        elif platform == Platform.EXASPIM:
             data_dir = EXASPIM_DATA_DIR
         else:
-            raise ValueError(f"Unsupported modality: {modality}")
+            raise ValueError(f"Unsupported modality: {platform}")
         config = BasicUploadJobConfigs(
+            platform=platform,
             modalities=[
                 ModalityConfigs(
-                    modality=modality,
+                    modality=Modality.SPIM,
                     source=data_dir,
                     extra_configs=extra,
                 )
@@ -110,32 +109,31 @@ class TestZarrUploadJob(unittest.TestCase):
         return config
 
     def test_init_dispim(self) -> None:
-        test_job_configs = self._get_test_configs(Modality.DISPIM)
+        test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
-
-        self.assertEqual(job._modality_config.modality, Modality.DISPIM)
+        self.assertEqual(job.job_configs.platform, Platform.HCR)
         self.assertEqual(job._data_src_dir, DISPIM_DATA_DIR)
         self.assertEqual(job._raw_image_dir, DISPIM_RAW_IMAGE_DIR)
         self.assertEqual(job._derivatives_dir, DISPIM_DERIVATIVES_DIR)
         self.assertEqual(
             job._zarr_path,
-            "s3://some_bucket/confocal_12345_2020-10-10_10-10-10/diSPIM.zarr",
+            "s3://some_bucket/HCR_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
         )
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
     def test_init_exaspim(
         self,
     ) -> None:
-        test_job_configs = self._get_test_configs(Modality.EXASPIM)
+        test_job_configs = self._get_test_configs(Platform.EXASPIM)
         job = ZarrUploadJob(job_configs=test_job_configs)
 
-        self.assertEqual(job._modality_config.modality, Modality.EXASPIM)
+        self.assertEqual(job.job_configs.platform, Platform.EXASPIM)
         self.assertEqual(job._data_src_dir, EXASPIM_DATA_DIR)
         self.assertEqual(job._raw_image_dir, EXASPIM_RAW_IMAGE_DIR)
         self.assertEqual(job._derivatives_dir, EXASPIM_DERIVATIVES_DIR)
         self.assertEqual(
             job._zarr_path,
-            "s3://some_bucket/confocal_12345_2020-10-10_10-10-10/exaSPIM.zarr",
+            "s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
         )
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
@@ -176,7 +174,7 @@ class TestZarrUploadJob(unittest.TestCase):
             Path("some_dir") / "tmp"
         )
 
-        test_job_configs = self._get_test_configs(Modality.DISPIM)
+        test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job.run_job()
 
@@ -237,7 +235,7 @@ class TestZarrUploadJob(unittest.TestCase):
         )
 
         test_job_configs = self._get_test_configs(
-            Modality.EXASPIM, extra=EXASPIM_DATA_DIR / "zarr_configs.yaml"
+            Platform.EXASPIM, extra=EXASPIM_DATA_DIR / "zarr_configs.yaml"
         )
         job = ZarrUploadJob(job_configs=test_job_configs)
         job.run_job()
@@ -277,7 +275,7 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_read_imaging_log: MagicMock,
         mock_read_toml: MagicMock,
     ) -> None:
-        test_job_configs = self._get_test_configs(Modality.DISPIM)
+        test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._create_dispim_metadata()
 
@@ -298,13 +296,13 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_upload: MagicMock,
     ) -> None:
         """Tests that the data is uploaded to S3"""
-        test_job_configs = self._get_test_configs(Modality.DISPIM)
+        test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._upload_to_s3(dir=Path("some_dir"), excluded=Path("exclude_dir"))
         mock_upload.assert_called_once_with(
             directory_to_upload=Path("some_dir"),
             s3_bucket="some_bucket",
-            s3_prefix="confocal_12345_2020-10-10_10-10-10",
+            s3_prefix="HCR_12345_2020-10-10_10-10-10",
             excluded=Path("exclude_dir"),
             dryrun=False,
         )
@@ -319,13 +317,13 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_get_images: MagicMock,
         mock_write_files: MagicMock,
     ) -> None:
-        test_job_configs = self._get_test_configs(Modality.DISPIM)
+        test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._upload_zarr()
         mock_get_images.assert_called_once()
         mock_write_files.assert_called_once_with(
             {"/path/to/image1", "/path/to/image2"},
-            "s3://some_bucket/confocal_12345_2020-10-10_10-10-10/diSPIM.zarr",
+            "s3://some_bucket/HCR_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
             1,
             2,
             True,
@@ -344,14 +342,14 @@ class TestZarrUploadJob(unittest.TestCase):
     def test_upload_zarr_with_bkg_subtraction(
         self, mock_get_images: MagicMock, mock_write_files: MagicMock
     ) -> None:
-        test_job_configs = self._get_test_configs(Modality.DISPIM)
+        test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._zarr_configs.do_bkg_subtraction = True
         job._upload_zarr()
         mock_get_images.assert_called_once()
         mock_write_files.assert_called_once_with(
             {"/path/to/image1", "/path/to/image2"},
-            "s3://some_bucket/confocal_12345_2020-10-10_10-10-10/diSPIM.zarr",
+            "s3://some_bucket/HCR_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
             1,
             2,
             True,
@@ -370,7 +368,7 @@ class TestZarrUploadJob(unittest.TestCase):
     def test_upload_zarr_no_images(
         self, mock_get_images: MagicMock, mock_write_files: MagicMock
     ) -> None:
-        test_job_configs = self._get_test_configs(Modality.DISPIM)
+        test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._upload_zarr()
         mock_get_images.assert_called_once()
@@ -379,7 +377,7 @@ class TestZarrUploadJob(unittest.TestCase):
     def test_resolve_zarr_configs(self):
         config_path = EXASPIM_DATA_DIR / "zarr_configs.yaml"
         test_job_configs = self._get_test_configs(
-            Modality.EXASPIM, extra=config_path
+            Platform.EXASPIM, extra=config_path
         )
         job = ZarrUploadJob(job_configs=test_job_configs)
         self.assertEqual(job._zarr_configs.n_levels, 2)
@@ -397,7 +395,7 @@ class TestZarrUploadJob(unittest.TestCase):
         self.assertEqual(job._zarr_configs.ng_vmax, 5000)
 
         # test defaults
-        test_job_configs = self._get_test_configs(Modality.EXASPIM, extra=None)
+        test_job_configs = self._get_test_configs(Platform.EXASPIM, extra=None)
         job = ZarrUploadJob(job_configs=test_job_configs)
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
@@ -407,23 +405,23 @@ class TestZarrUploadJob(unittest.TestCase):
     ):
         config_path = EXASPIM_DATA_DIR / "zarr_configs.yaml"
         test_job_configs = self._get_test_configs(
-            Modality.EXASPIM, extra=config_path
+            Platform.EXASPIM, extra=config_path
         )
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._create_neuroglancer_link()
         mock_write_json_from_zarr.assert_called_with(
-            input_zarr="s3://some_bucket/confocal_12345_2020-10-10_10-10-10/exaSPIM.zarr",
+            input_zarr="s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
             out_json_dir=str(EXASPIM_DATA_DIR),
             vmin=50,
             vmax=5000,
         )
 
         # test default values
-        test_job_configs = self._get_test_configs(Modality.EXASPIM, extra=None)
+        test_job_configs = self._get_test_configs(Platform.EXASPIM, extra=None)
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._create_neuroglancer_link()
         mock_write_json_from_zarr.assert_called_with(
-            input_zarr="s3://some_bucket/confocal_12345_2020-10-10_10-10-10/exaSPIM.zarr",
+            input_zarr="s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
             out_json_dir=str(EXASPIM_DATA_DIR),
             vmin=0,
             vmax=200,
