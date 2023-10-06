@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from shutil import copytree, ignore_patterns
 from typing import Union, Optional
+from warnings import warn
 
 from numcodecs import Blosc
 
@@ -14,6 +15,7 @@ from aind_data_transfer.config_loader.imaging_configuration_loader import (
 )
 from aind_data_schema.data_description import Modality
 from aind_data_transfer.readers.imaging_readers import ImagingReaders
+from aind_data_transfer.transformations.ng_link_creation import write_json_from_zarr
 from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
 from aind_data_transfer.transformations.metadata_creation import (
     SubjectMetadata,
@@ -23,6 +25,13 @@ from aind_data_transfer.transformations.metadata_creation import (
 
 from aind_data_transfer.transformations.file_io import read_log_file, read_toml, write_xml, read_imaging_log, write_acq_json
 from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
+
+warn(
+    f"The module {__name__} is deprecated and will be removed in future "
+    f"versions.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
@@ -48,8 +57,6 @@ if not _GCS_SCRIPT.is_file():
 _OME_ZARR_SCRIPT = _SCRIPTS_DIR / "write_ome_zarr.py"
 if not _OME_ZARR_SCRIPT.is_file():
     raise Exception(f"script not found: {_OME_ZARR_SCRIPT}")
-
-_NG_LINK_SCRIPT = _SCRIPTS_DIR / "create_neuroglancer_links.py"
 
 _SUBMIT_SCRIPT = _SCRIPTS_DIR / "cluster" / "submit.py"
 if not _SUBMIT_SCRIPT.is_file():
@@ -223,15 +230,12 @@ def main():
         LOGGER.info("Submitted transcode job to cluster")
 
     if job_configs["jobs"]["create_ng_link"]:
-        ng_link_cmd = (
-            f"python {_NG_LINK_SCRIPT} "
-            f"--input={zarr_out} "
-            f"--output={data_src_dir} "
-            f"--vmin={job_configs['create_ng_link_job']['vmin']} "
-            f"--vmax={job_configs['create_ng_link_job']['vmax']}"
-
+        write_json_from_zarr(
+            zarr_out,
+            str(data_src_dir),
+            job_configs['create_ng_link_job']['vmin'],
+            job_configs['create_ng_link_job']['vmax']
         )
-        subprocess.run(ng_link_cmd, shell=True)
         output_json = data_src_dir / "process_output.json"
         if not output_json.is_file():
             LOGGER.error(

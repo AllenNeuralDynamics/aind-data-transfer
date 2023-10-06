@@ -4,10 +4,9 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from time import sleep
-from typing import Any, Optional
+from typing import Any, Optional, Tuple, List
 
-import yaml
-from aind_data_schema.data_description import Modality
+from aind_data_transfer.util import setup_logging
 from aind_data_transfer.config_loader.base_config import (
     ConfigError,
     BasicUploadJobConfigs,
@@ -20,11 +19,16 @@ from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
 from aind_data_transfer.transformations.file_io import read_toml, read_imaging_log, write_acq_json, write_xml
+from aind_data_transfer.transformations.ng_link_creation import write_json_from_zarr
 
+import yaml
 from numcodecs import blosc
 from pydantic import Field, BaseSettings
+from aind_data_schema.data_description import Modality
+
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
+_CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
 
 
 class ZarrConversionConfigs(BaseSettings):
@@ -34,11 +38,11 @@ class ZarrConversionConfigs(BaseSettings):
     scale_factor: Optional[int] = Field(
         2, description="Scale factor to use for the pyramid. Default is 2."
     )
-    chunk_shape: Optional[tuple] = Field(
+    chunk_shape: Optional[Tuple[int, int, int, int, int]] = Field(
         (1, 1, 256, 256, 256),
         description="5D Chunk shape to use for the zarr Array. Default is (1, 1, 256, 256, 256).",
     )
-    voxel_size: Optional[tuple] = Field(
+    voxel_size: Optional[Tuple[float, float, float]] = Field(
         None,
         description="Voxel size to use for the zarr Array. if None, will attempt to parse from the image metadata. Default is None.",
     )
@@ -53,9 +57,21 @@ class ZarrConversionConfigs(BaseSettings):
         False,
         description="Whether to subtract the background image from the raw data. Default is False.",
     )
-    exclude_patterns: Optional[list] = Field(
+    exclude_patterns: Optional[List[str]] = Field(
         None,
         description="List of patterns to exclude from the zarr conversion. Default is None.",
+    )
+    create_ng_link: Optional[bool] = Field(
+        False,
+        description="Whether to create a neuroglancer link. Default is False.",
+    )
+    ng_vmin: Optional[float] = Field(
+        0,
+        description="Default minimum of the neuroglancer display range. Default is 0."
+    )
+    ng_vmax: Optional[float] = Field(
+        200.0,
+        description="Default maximum of the neuroglancer display range. Default is 200."
     )
 
     @classmethod
@@ -204,6 +220,14 @@ class ZarrUploadJob(BasicJob):
         xml_file_path = self._data_src_dir.joinpath('Camera_405.xml')  #
         write_xml(acq_xml, xml_file_path)
 
+    def _create_neuroglancer_link(self) -> None:
+        write_json_from_zarr(
+            input_zarr=self._zarr_path,
+            out_json_dir=str(self._data_src_dir),
+            vmin=self._zarr_configs.ng_vmin,
+            vmax=self._zarr_configs.ng_vmax
+        )
+
     def run_job(self):
         """Runs the job. Creates a temp directory to compile the files before
         uploading."""
@@ -217,11 +241,25 @@ class ZarrUploadJob(BasicJob):
             self._test_upload(temp_dir=Path(td))
 
         self._instance_logger.info("Compiling metadata...")
-        self._compile_metadata(
-            temp_dir=self._data_src_dir, process_start_time=process_start_time
-        )
+        try:
+            self._compile_metadata(
+                temp_dir=self._data_src_dir, process_start_time=process_start_time
+            )
+        except Exception as e:
+            self._instance_logger.error(f"Failed to compile metadata: {e}")
+
         if self._modality_config.modality == Modality.DISPIM:
-            self._create_dispim_metadata()
+            try:
+                self._create_dispim_metadata()
+            except Exception as e:
+                self._instance_logger.error(f"Failed to create diSPIM metadata: {e}")
+
+        self._instance_logger.info("Starting zarr upload...")
+        self._upload_zarr()
+
+        if self._zarr_configs.create_ng_link:
+            self._instance_logger.info("Creating neuroglancer link...")
+            self._create_neuroglancer_link()
 
         self._instance_logger.info("Starting s3 upload...")
         # Exclude raw image directory, this is uploaded separately
@@ -229,8 +267,6 @@ class ZarrUploadJob(BasicJob):
             dir=self._data_src_dir,
             excluded=os.path.join(self._raw_image_dir, "*"),
         )
-        self._instance_logger.info("Starting zarr upload...")
-        self._upload_zarr()
 
 
 if __name__ == "__main__":
@@ -254,5 +290,5 @@ if __name__ == "__main__":
         job.run_job()
     finally:
         CLIENT.shutdown()
-        sleep(30)
+        sleep(_CLIENT_SHUTDOWN_SLEEP_TIME)
         CLIENT.close(timeout=_CLIENT_CLOSE_TIMEOUT)

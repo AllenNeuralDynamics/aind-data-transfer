@@ -5,11 +5,15 @@ from enum import Enum
 from typing import Optional, Tuple
 
 import distributed
-from dask_mpi import initialize
 from distributed import Client, LocalCluster
 
+try:
+    from dask_mpi import initialize
+    DASK_MPI_INSTALLED = True
+except ImportError:
+    DASK_MPI_INSTALLED = False
+
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
 
 
 class Deployment(Enum):
@@ -64,6 +68,10 @@ def get_client(
         the distributed Client and number of workers
     """
     if deployment == Deployment.SLURM.value:
+        if not DASK_MPI_INSTALLED:
+            raise ImportError(
+                "dask-mpi must be installed to use the SLURM deployment"
+            )
         if worker_options is None:
             worker_options = {}
         slurm_job_id = os.getenv("SLURM_JOBID")
