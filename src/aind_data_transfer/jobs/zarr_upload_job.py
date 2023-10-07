@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import tempfile
@@ -296,6 +297,10 @@ if __name__ == "__main__":
     try:
         job = ZarrUploadJob(job_configs=job_configs_from_main)
         job.run_job()
+    except Exception as e:
+        # Catching the exception is necessary to ensure that the Dask client
+        # is properly closed and shut down.
+        logging.exception("ZarrUploadJob failed.")
     finally:
         CLIENT.shutdown()
         sleep(_CLIENT_SHUTDOWN_SLEEP_TIME)
