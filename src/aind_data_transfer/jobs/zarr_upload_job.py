@@ -115,9 +115,9 @@ class ZarrUploadJob(BasicJob):
             )
         if not self._raw_image_dir.exists():
             self._instance_logger.warning(
-                f"raw image directory {self._raw_image_dir} does not exist. Trying diSPIM/"
+                f"raw image directory {self._raw_image_dir} does not exist. Trying micr/"
             )
-            self._raw_image_dir = self._data_src_dir / "diSPIM"
+            self._raw_image_dir = self._data_src_dir / "micr"
             if not self._raw_image_dir.exists():
                 raise FileNotFoundError(
                     f"raw image directory {self._raw_image_dir} does not exist"
