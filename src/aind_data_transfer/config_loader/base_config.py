@@ -33,7 +33,7 @@ class BasicJobEndpoints(BaseSettings):
     aws_param_store_name: Optional[str] = Field(default=None, repr=False)
 
     codeocean_domain: str = Field(...)
-    codeocean_trigger_capsule_id: str = Field(...)
+    codeocean_trigger_capsule_id: Optional[str] = Field(None)
     codeocean_trigger_capsule_version: Optional[str] = Field(None)
     metadata_service_domain: str = Field(...)
     aind_data_transfer_repo_location: str = Field(...)
@@ -455,3 +455,15 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             help="Configs passed as a single json string",
         )
         return cls(**json.loads(parser.parse_args(args).json_args))
+
+
+class ConfigError(Exception):
+    """Exception raised for errors in the config file."""
+
+    def __init__(self, message: str):
+        """Constructs the error message."""
+        self.message = message
+
+    def __str__(self):
+        """Returns the error message."""
+        return repr(self.message)
