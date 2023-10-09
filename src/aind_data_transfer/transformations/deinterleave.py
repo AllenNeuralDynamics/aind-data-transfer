@@ -7,7 +7,6 @@ import numpy as np
 
 
 class Deinterleave:
-
     @staticmethod
     def deinterleave(
         a: Union[da.Array, np.ndarray],
@@ -39,7 +38,6 @@ class Deinterleave:
 
 
 class ChannelParser:
-
     class RegexPatterns(Enum):
         channel_pattern = r"ch_([0-9_]{3,})(_cam(0|1))?\."
         tile_xyz_pattern = r"([a-zA-Z0-9_]+)_[xX]_\d{4}_[yY]_\d{4}_[zZ]_\d{4}"
@@ -59,9 +57,13 @@ class ChannelParser:
         List of channel wavelength strings, e.g., ["488", "561"]
         """
         filepath = str(filepath)
-        m = re.search(ChannelParser.RegexPatterns.channel_pattern.value, filepath)
+        m = re.search(
+            ChannelParser.RegexPatterns.channel_pattern.value, filepath
+        )
         if m is None:
-            raise ValueError(f"file name does not match channel pattern: {filepath}")
+            raise ValueError(
+                f"file name does not match channel pattern: {filepath}"
+            )
         wavelengths = m.group(1).strip().split("_")
         return wavelengths
 
@@ -80,9 +82,13 @@ class ChannelParser:
         the tile coordinate prefix, e.g., "tile_X_0000_Y_0001_Z_0002"
         """
         filepath = str(filepath)
-        m = re.search(ChannelParser.RegexPatterns.tile_xyz_pattern.value, filepath)
+        m = re.search(
+            ChannelParser.RegexPatterns.tile_xyz_pattern.value, filepath
+        )
         if m is None:
-            raise ValueError(f"file name does not match tile pattern: {filepath}")
+            raise ValueError(
+                f"file name does not match tile pattern: {filepath}"
+            )
         return m.group(0)
 
 

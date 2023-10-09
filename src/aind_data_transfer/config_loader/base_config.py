@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from aind_data_access_api.secrets import get_parameter
 from aind_data_schema.data_description import (
-    ExperimentType,
+    Platform,
     Modality,
     build_data_name,
 )
@@ -185,32 +185,23 @@ class ModalityConfigs(BaseSettings):
 class BasicUploadJobConfigs(BasicJobEndpoints):
     """Configuration for the basic upload job"""
 
-    _DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-    _DATE_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
-    _TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
-    _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
+    _DATETIME_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+    _DATETIME_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [APap][Mm]$")
 
     s3_bucket: str = Field(
         ...,
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
     )
-    experiment_type: ExperimentType = Field(
-        ..., description="Experiment type", title="Experiment Type"
-    )
+    platform: Platform = Field(..., description="Platform", title="Platform")
     modalities: List[ModalityConfigs] = Field(
         ...,
         description="Data collection modalities and their directory location",
         title="Modalities",
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
-    acq_date: date = Field(
-        ..., description="Date data was acquired", title="Acquisition Date"
-    )
-    acq_time: time = Field(
-        ...,
-        description="Time of day data was acquired",
-        title="Acquisition Time",
+    acq_datetime: datetime = Field(
+        ..., description="Datetime data was acquired", title="Acquisition Datetime"
     )
     process_name: ProcessName = Field(
         default=ProcessName.OTHER,
@@ -266,33 +257,21 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
     def s3_prefix(self):
         """Construct s3_prefix from configs."""
         return build_data_name(
-            label=f"{self.experiment_type.value}_{self.subject_id}",
-            creation_date=self.acq_date,
-            creation_time=self.acq_time,
+            label=f"{self.platform.value.abbreviation}_{self.subject_id}",
+            creation_datetime=self.acq_datetime,
         )
 
-    @validator("acq_date", pre=True)
-    def _parse_date(cls, date_str: str) -> date:
-        """Parses date string to %YYYY-%MM-%DD format"""
-        if re.match(BasicUploadJobConfigs._DATE_PATTERN1, date_str):
-            return date.fromisoformat(date_str)
-        elif re.match(BasicUploadJobConfigs._DATE_PATTERN2, date_str):
-            return datetime.strptime(date_str, "%m/%d/%Y").date()
+    @validator("acq_datetime", pre=True)
+    def _parse_datetime(cls, datetime_str: str) -> datetime:
+        """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
+        # TODO: do this in data transfer service
+        if re.match(BasicUploadJobConfigs._DATETIME_PATTERN1, datetime_str):
+            return datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+        elif re.match(BasicUploadJobConfigs._DATETIME_PATTERN2, datetime_str):
+            return datetime.strptime(datetime_str, "%m/%d/%Y %I:%M:%S %p")
         else:
             raise ValueError(
-                "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
-            )
-
-    @validator("acq_time", pre=True)
-    def _parse_time(cls, time_str: str) -> time:
-        """Parses time string to "%HH-%MM-%SS format"""
-        if re.match(BasicUploadJobConfigs._TIME_PATTERN1, time_str):
-            return datetime.strptime(time_str, "%H-%M-%S").time()
-        elif re.match(BasicUploadJobConfigs._TIME_PATTERN2, time_str):
-            return time.fromisoformat(time_str)
-        else:
-            raise ValueError(
-                "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
+                "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P"
             )
 
     @classmethod
@@ -309,10 +288,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         # Required
         parser.add_argument(
             "-a",
-            "--acq-date",
+            "--acq-datetime",
             required=True,
             type=str,
-            help="Date data was acquired, yyyy-MM-dd or dd/MM/yyyy",
+            help="Datetime data was acquired, YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P",
         )
         parser.add_argument(
             "-b",
@@ -323,10 +302,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         )
         parser.add_argument(
             "-e",
-            "--experiment-type",
+            "--platform",
             required=True,
             type=str,
-            help=_help_message("experiment_type"),
+            help=_help_message("platform"),
         )
         parser.add_argument(
             "-m",
@@ -354,13 +333,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             required=True,
             type=str,
             help=_help_message("subject_id"),
-        )
-        parser.add_argument(
-            "-t",
-            "--acq-time",
-            required=True,
-            type=str,
-            help="Time data was acquired, HH-mm-ss or HH:mm:ss",
         )
         # Optional
         parser.add_argument(
@@ -415,8 +387,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         parser.set_defaults(metadata_dir_force=False)
         parser.set_defaults(force_cloud_sync=False)
         job_args = parser.parse_args(args)
-        acq_date = job_args.acq_date
-        acq_time = job_args.acq_time
+        acq_datetime = job_args.acq_datetime
         behavior_dir = (
             None
             if job_args.behavior_dir is None
@@ -459,10 +430,9 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         return cls(
             s3_bucket=job_args.s3_bucket,
             subject_id=job_args.subject_id,
-            experiment_type=ExperimentType(job_args.experiment_type),
+            platform=Platform(job_args.platform),
             modalities=modalities,
-            acq_date=acq_date,
-            acq_time=acq_time,
+            acq_datetime=acq_datetime,
             behavior_dir=behavior_dir,
             temp_directory=temp_directory,
             metadata_dir=metadata_dir,

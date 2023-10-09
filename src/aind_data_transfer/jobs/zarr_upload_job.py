@@ -1,3 +1,5 @@
+
+import logging
 import os
 import sys
 import tempfile
@@ -24,7 +26,8 @@ from aind_data_transfer.transformations.ng_link_creation import write_json_from_
 import yaml
 from numcodecs import blosc
 from pydantic import Field, BaseSettings
-from aind_data_schema.data_description import Modality
+
+from aind_data_schema.data_description import Modality, Platform
 
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
@@ -92,9 +95,9 @@ class ZarrUploadJob(BasicJob):
         self._instance_logger.info(f"Using job configs: {self.job_configs}")
 
         self._modality_config = self.job_configs.modalities[0]
-        if self._modality_config.modality not in (Modality.EXASPIM, Modality.DISPIM):
+        if self._modality_config.modality != Modality.SPIM:
             raise ConfigError(
-                "ZarrUploadJob only supports EXASPIM and DISPIM modalities."
+                "ZarrUploadJob only supports SPIM modality."
             )
 
         self._data_src_dir = self._modality_config.source
@@ -104,10 +107,18 @@ class ZarrUploadJob(BasicJob):
             )
         self._instance_logger.info(f"Using data source directory: {self._data_src_dir}")
 
-        self._raw_image_dir = (
-            self._data_src_dir / self._modality_config.modality.value.abbreviation
-        )
+        if self.job_configs.platform == Platform.HCR:
+            self._raw_image_dir = self._data_src_dir / "diSPIM"
+        elif self.job_configs.platform == Platform.EXASPIM:
+            self._raw_image_dir = self._data_src_dir / "exaSPIM"
+        else:
+            raise ConfigError(
+                "ZarrUploadJob only supports HCR and EXASPIM platforms."
+            )
         if not self._raw_image_dir.exists():
+            self._instance_logger.warning(
+                f"raw image directory {self._raw_image_dir} does not exist. Trying micr/"
+            )
             self._raw_image_dir = self._data_src_dir / "micr"
             if not self._raw_image_dir.exists():
                 raise FileNotFoundError(
@@ -122,7 +133,7 @@ class ZarrUploadJob(BasicJob):
             )
         self._instance_logger.info(f"Using derivatives directory: {self._derivatives_dir}")
 
-        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.value.abbreviation}.zarr"
+        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.value.abbreviation}.ome.zarr"
         self._instance_logger.info(f"Output zarr path: {self._zarr_path}")
 
         self._resolve_zarr_configs()
@@ -214,7 +225,7 @@ class ZarrUploadJob(BasicJob):
         # convert acq json to xml
         is_zarr = True
         condition = "channel=='405'"
-        acq_xml = acq_json_to_xml(acq_json, log_dict, self._data_src_dir.stem + '/diSPIM.zarr', is_zarr, condition)  # needs relative path to zarr file (as seen by code ocean)
+        acq_xml = acq_json_to_xml(acq_json, log_dict, self.job_configs.s3_prefix + f'/{self._modality_config.modality.value.abbreviation}.ome.zarr', is_zarr, condition)  # needs relative path to zarr file (as seen by code ocean)
 
         # write xml to file
         xml_file_path = self._data_src_dir.joinpath('Camera_405.xml')  #
@@ -248,7 +259,7 @@ class ZarrUploadJob(BasicJob):
         except Exception as e:
             self._instance_logger.error(f"Failed to compile metadata: {e}")
 
-        if self._modality_config.modality == Modality.DISPIM:
+        if self.job_configs.platform == Platform.HCR:
             try:
                 self._create_dispim_metadata()
             except Exception as e:
@@ -288,6 +299,10 @@ if __name__ == "__main__":
     try:
         job = ZarrUploadJob(job_configs=job_configs_from_main)
         job.run_job()
+    except Exception as e:
+        # Catching the exception is necessary to ensure that the Dask client
+        # is properly closed and shut down.
+        logging.exception("ZarrUploadJob failed.")
     finally:
         CLIENT.shutdown()
         sleep(_CLIENT_SHUTDOWN_SLEEP_TIME)

@@ -33,6 +33,13 @@ warn(
     stacklevel=2,
 )
 
+warn(
+    f"The module {__name__} is deprecated and will be removed in future "
+    f"versions.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
