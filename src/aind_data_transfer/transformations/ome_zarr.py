@@ -488,10 +488,12 @@ def write_folder(
     if exclude is None:
         exclude = []
 
-    image_paths = collect_filepaths(
-        input,
-        recursive=recursive,
-        include_exts=DataReaderFactory().VALID_EXTENSIONS,
+    image_paths = list(
+        collect_filepaths(
+            input,
+            recursive=recursive,
+            include_exts=DataReaderFactory().VALID_EXTENSIONS,
+        )
     )
 
     exclude_paths = set()
