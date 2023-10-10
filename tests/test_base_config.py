@@ -194,7 +194,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-m",
             f'[{{"modality":"ophys","source":"{str(DATA_DIR)}"}}]',
             "-a",
-            "2022-10-10 13:24:01",
+            "2022-10-10T13:24:01",
             "-p",
             "/aws/param/store",
         ]
