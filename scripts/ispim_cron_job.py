@@ -350,6 +350,16 @@ def get_date_time_from_schema_log(schema_log_path: PathLike) -> tuple:
 
     return date, time
 
+def get_acq_datetime_from_schema_log(schema_log_path: PathLike) -> datetime:
+    with open(schema_log_path) as f:
+        schema_log = json.load(f)
+
+    # Getting date and time
+    date_time = schema_log["session_start_time"]
+    date_time = date_time.replace("T", " ")
+
+    return date_time
+
 def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, new_config_path: PathLike = None):
     """
     This function copies the transcode_job_config.yml into a temporary upload data folder
@@ -411,7 +421,8 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
     subject_id = get_subject_id_from_config_toml(dataset_path.joinpath('config.toml'))
     
 
-    acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
+    # acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
+    acq_datetime = get_acq_datetime_from_schema_log(dataset_path.joinpath("schema_log.log"))
 
 
     sbatch_script = f"""
@@ -440,7 +451,7 @@ module load mpi/mpich-3.2-x86_64
 # Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
 # are not sitting idle while the workers (rank 2...N) work
 # See https://edbennett.github.io/high-performance-python/11-dask/ for details.
-mpiexec -np $(( SLURM_NTASKS + 2 )) python -m aind_data_transfer.jobs.zarr_upload_job --json-args '{"s3_bucket": "aind-open-data", "experiment_type": "diSPIM", "modalities":[{"modality": "DISPIM","source":"{dataset_path}", "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": "{subject_id}", "acq_date": "{acq_date}", "acq_time": "{acq_time}", "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}'
+mpiexec -np $(( SLURM_NTASKS + 2 )) python -m aind_data_transfer.jobs.zarr_upload_job --json-args '{"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source":"{dataset_path}", "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": "{subject_id}", "acq_datetime": "{acq_datetime}", "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}'
 
 echo "Done"
 
@@ -474,17 +485,17 @@ def write_csv_from_dataset(dataset_loc: PathLike, csv_path: PathLike):
     subject_id = get_subject_id_from_config_toml(dataset_loc.joinpath('config.toml'))
 
     #get the acquisition date and time
-    acq_date, acq_time = get_date_time_from_schema_log(dataset_loc.joinpath("schema_log.log"))
+    # acq_date, acq_time = get_date_time_from_schema_log(dataset_loc.joinpath("schema_log.log"))
+    acq_datetime = get_acq_datetime_from_schema_log(dataset_loc.joinpath("schema_log.log"))
 
     dict_to_write = {
         "s3_bucket": "aind-open-data",
-        "experiment_type": "diSPIM",
-        "modality0": "DISPIM",
+        "platform": "HCR",
+        "modality0": "SPIM",
         "modality0.source": str(dataset_loc),
         "modality0.extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml",
         "subject_id": subject_id,
-        "acq_date": acq_date,
-        "acq_time": acq_time,
+        "acq_datetime": acq_datetime,
         "force_cloud_sync": "true",
         "codeocean_domain": "https://codeocean.allenneuraldynamics.org",
         "metadata_service_domain": "http://aind-metadata-service",
