@@ -13,11 +13,11 @@ from aind_data_schema.data_description import (
     Institution,
     Modality,
     RawDataDescription,
-    Platform,
 )
 from aind_data_schema.procedures import Procedures
 from aind_data_schema.processing import DataProcess, Processing, ProcessName
 from aind_data_schema.subject import Subject
+from aind_data_schema.metadata import Metadata, MetadataStatus
 from aind_metadata_service.client import AindMetadataServiceClient
 from pydantic import validate_model
 from requests import Response
@@ -423,4 +423,58 @@ class RawDataDescriptionMetadata(MetadataCreation):
         )
         # Do this to use enum strings instead of classes in dict representation
         contents = json.loads(data_description_instance.json())
+        return cls(model_obj=contents)
+
+
+class MetadataRecord(MetadataCreation):
+    """Class to handle the creation of the metadata record file."""
+
+    @staticmethod
+    def _model() -> Type[aind_data_schema.base.AindCoreModel]:
+        """AindDataSchema model"""
+        return Metadata
+
+    @classmethod
+    def from_inputs(
+            cls,
+            id: str,
+            name: str,
+            created: datetime,
+            last_modified: datetime,
+            location: str,
+            subject_metadata: SubjectMetadata,
+            procedures_metadata: ProceduresMetadata,
+            processing_metadata: ProcessingMetadata,
+            data_description_metadata: RawDataDescriptionMetadata,
+    ):
+        """
+        Build a RawDataDescriptionMetadata instance using some basic
+        parameters.
+        Parameters
+        ----------
+        name : str
+          Name of the raw data
+        modality : List[Modality]
+          Modalities of experiment data
+        institution : Optional[Institution]
+          Primary Institution. Defaults to AIND.
+        funding_source : Optional[Tuple]
+          Tuple of funding sources. Defaults to (AIND)
+        investigators : Optional[List[str]]
+
+        """
+        metadata_instance = Metadata(
+            id=id,
+            name=name,
+            created=created,
+            last_modified=last_modified,
+            location=location,
+            metadata_status=MetadataStatus.UNKNOWN,
+            subject=subject_metadata.model_obj,
+            procedures=procedures_metadata.model_obj,
+            processing=processing_metadata.model_obj,
+            data_description=data_description_metadata.model_obj
+        )
+        # Do this to use enum strings instead of classes in dict representation
+        contents = json.loads(metadata_instance.json())
         return cls(model_obj=contents)

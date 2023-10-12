@@ -27,6 +27,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
+    MetadataRecord
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
 
@@ -199,7 +200,9 @@ class BasicJob:
         return None
 
     def _compile_metadata(
-        self, temp_dir: Path, process_start_time: datetime
+        self, temp_dir: Path, process_start_time: datetime, data_asset_id: str,
+            data_asset_name: str, created: datetime, last_modified: datetime,
+            data_asset_location: str
     ) -> None:
         """Compile metadata files. Keeps the data in the temp_dir before
         uploading to s3."""
@@ -241,6 +244,21 @@ class BasicJob:
         )
         processing_file_name = temp_dir / processing_metadata.output_filename
         processing_metadata.write_to_json(processing_file_name)
+
+        metadata = MetadataRecord.from_inputs(
+            id=data_asset_id,
+            name=data_asset_name,
+            created=created,
+            last_modified=last_modified,
+            location=data_asset_location,
+            subject_metadata=subject_metadata,
+            procedures_metadata=procedures_metadata,
+            processing_metadata=processing_metadata,
+            data_description_metadata=data_description_metadata
+        )
+
+        metadata_file_name = temp_dir / metadata.output_filename
+        metadata.write_to_json(metadata_file_name)
 
         # Check user defined metadata
         if self.job_configs.metadata_dir:
