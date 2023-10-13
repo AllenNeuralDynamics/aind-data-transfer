@@ -23,7 +23,7 @@ from validate_datasets import validate_dataset
 
 from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
 from aind_data_transfer.util import file_utils
-from aind_data_transfer.writers.imaging_writers import SmartSPIMWriter
+# from aind_data_transfer.writers.imaging_writers import SmartSPIMWriter
 
 warnings.filterwarnings("ignore")
 
@@ -86,7 +86,7 @@ class CopyDatasets(ArgSchema):
     )
 
     codeocean_credentials_path = Str(
-        required=True,
+        required=False,
         metadata={
             "description": "Path where the code ocean credentials are saved"
         },
@@ -94,7 +94,7 @@ class CopyDatasets(ArgSchema):
     )
 
     co_capsule_id = Str(
-        required=True,
+        required=False,
         metadata={"description": "Capsule id of smartspim pipeline"},
     )
 

@@ -12,11 +12,12 @@ import os.path
 import subprocess
 import sys
 import time
+from typing import Optional, Tuple, Union
 from pathlib import Path
 PathLike = Union[str, Path]
 from shutil import copytree, ignore_patterns
 from typing import Union, Optional
-import datetime
+from datetime import datetime
 from argschema import ArgSchema, ArgSchemaParser
 import yaml
 import toml
@@ -38,22 +39,15 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
 )
 from aind_data_transfer.transformations.file_io import read_toml
-from smartspim_cron_job import _find_scripts_dir, ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions, get_default_config
+from smartspim_cron_job import ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions, get_default_config
 # from aind_data_transfer.config_loader.imaging_configuration_loader import ImagingJobConfigurationLoader
-
-
-from watchdog.observers import Observer
-from watchdog.events import PatternMatchingEventHandler
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
-
-
 def get_ispim_folders_with_file(
     root_folder: PathLike, search_file: str
-) -> Tuple[List]:
+) -> Tuple[list]:
     """
     Get the ispim folder that
     contain the search filename in
@@ -79,14 +73,15 @@ def get_ispim_folders_with_file(
     """
 
     root_folder = Path(root_folder)
-    raw_datasets = ImagingReaders.get_raw_data_dir(
-        "diSPIM", 
+    raw_datasets = ImagingReaders.read_dispim_folders(
+         #TODO change back to diSPIM when running from VAST
         root_folder
     )
-
+    # raw_datasets = [Path(raw_dataset).name for raw_dataset in raw_datasets]
     raw_datasets_accepted = []
     raw_datasets_rejected = []
 
+    print(f'raw_datasets: {raw_datasets}')
     for raw_dataset in raw_datasets:
         file_path = root_folder.joinpath(raw_dataset, search_file)
 
@@ -167,7 +162,7 @@ def get_upload_datasets(
     dataset_folder: PathLike,
     config_path: PathLike,
     info_manager_path: Optional[PathLike] = None,
-) -> List:
+) -> list:
     """
     This function gets the datasets and
     classifies them in pending, uploaded
@@ -212,6 +207,7 @@ def get_upload_datasets(
     dataset_folder = Path(dataset_folder)
     dispim_datasets = ImagingReaders.read_dispim_folders(dataset_folder)
 
+    print(f'dispim_datasets: {dispim_datasets}')
     # Checking status
     for dataset in dispim_datasets:
         dataset_path = dataset_folder.joinpath(dataset)
@@ -341,6 +337,8 @@ def get_date_time_from_schema_log(schema_log_path: PathLike) -> tuple:
     """
 
     with open(schema_log_path) as f:
+        # f = f.read()
+        f = f.replace("'", '"')
         schema_log = json.load(f)
 
     # Getting date and time
@@ -352,13 +350,24 @@ def get_date_time_from_schema_log(schema_log_path: PathLike) -> tuple:
 
 def get_acq_datetime_from_schema_log(schema_log_path: PathLike) -> datetime:
     with open(schema_log_path) as f:
-        schema_log = json.load(f)
+        lines = f.readlines()
+        # f = f.replace("'", '"')
 
-    # Getting date and time
-    date_time = schema_log["session_start_time"]
-    date_time = date_time.replace("T", " ")
+    for line in lines:
+        line = line.replace("\'", "\"")
+        #remove windows path   
+        line = line.replace('WindowsPath(','').replace(')', '')
+        f = line.replace("'", '"')
+        schema_log = json.loads(f)
 
-    return date_time
+        if "session_start_time" in schema_log:
+        # Getting date and time
+            date_time = schema_log["session_start_time"]
+            date_time = date_time.replace("T", " ")
+            
+            
+
+            return date_time
 
 def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, new_config_path: PathLike = None):
     """
@@ -418,16 +427,20 @@ def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, n
 # temporary function to write the zarr upload config 
 def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathLike) -> str:
     
-    subject_id = get_subject_id_from_config_toml(dataset_path.joinpath('config.toml'))
+    subject_id = get_subject_id_from_config_toml(Path(dataset_path).joinpath('config.toml'))
     
+    dataset_path = str(dataset_path)
 
     # acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
-    acq_datetime = get_acq_datetime_from_schema_log(dataset_path.joinpath("schema_log.log"))
+    acq_datetime = get_acq_datetime_from_schema_log(dataset_path + "/schema_log.log")
+
+    my_json_dict = {"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
+
+    #convert dict to json
+    my_json_string = json.dumps(my_json_dict)
 
 
-    sbatch_script = f"""
-#!/bin/bash
-
+    sbatch_script = f"""#!/bin/bash
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=8000
 #SBATCH --exclude=n69,n74
@@ -451,10 +464,9 @@ module load mpi/mpich-3.2-x86_64
 # Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
 # are not sitting idle while the workers (rank 2...N) work
 # See https://edbennett.github.io/high-performance-python/11-dask/ for details.
-mpiexec -np $(( SLURM_NTASKS + 2 )) python -m aind_data_transfer.jobs.zarr_upload_job --json-args '{"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source":"{dataset_path}", "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": "{subject_id}", "acq_datetime": "{acq_datetime}", "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}'
+mpiexec -np $(( SLURM_NTASKS + 2 )) python -m aind_data_transfer.jobs.zarr_upload_job --json-args '{my_json_string}'
 
 echo "Done"
-
 date
     """
     #write sbatch script
@@ -521,13 +533,15 @@ def main():
     config_file_path = config_param.args["config_file"]
     config = get_default_config(config_file_path)
 
+    # print(f'config: {config}')
     root_folder = Path(config["root_folder"])
+    print(f'root_folder: {root_folder}')
 
     (
         raw_datasets_ready,
         raw_datasets_rejected,
     ) = get_ispim_folders_with_file(
-        root_folder=root_folder, search_file="processing_manifest.json"
+        root_folder=root_folder, search_file="derivatives/processing_manifest.json"
     )
 
     provide_folder_permissions(
@@ -536,10 +550,10 @@ def main():
 
     logger.warning(f"Raw datasets rejected: {raw_datasets_rejected}")
 
-    new_dataset_paths, ready_datasets = organize_datasets(
-        root_folder,
-        raw_datasets_ready,
-        config["metadata_service_domain"])
+    # new_dataset_paths, ready_datasets = organize_datasets(
+    #     root_folder,
+    #     raw_datasets_ready,
+    #     config["metadata_service_domain"])
 
 
     processing_manifest_path = "derivatives/processing_manifest.json"
@@ -550,13 +564,14 @@ def main():
         info_manager_path=config["info_manager_path"],
     )
 
-    mod = ArgSchemaParser(input_data=config, schema_type=CopyDatasets)
-    args = mod.args
+    # mod = ArgSchemaParser(input_data=config, schema_type=CopyDatasets)
+    # args = mod.args
 
     logger.info(f"Uploading {pending_datasets_config}")
 
-    sbatch_file_path = Path(__file__).parent.parent.joinpath('bin/zarr_upload_sbatch.sh')
+    sbatch_file_path = Path(__file__).parent.parent.joinpath('scripts/bin/zarr_upload_sbatch.sh')
 
+    print(f'pending_datasets_config: {pending_datasets_config}')
     #processing all the datasets that are pending
     for dataset in pending_datasets_config:
 

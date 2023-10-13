@@ -23,7 +23,7 @@ module load mpi/mpich-3.2-x86_64
 # Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
 # are not sitting idle while the workers (rank 2...N) work
 # See https://edbennett.github.io/high-performance-python/11-dask/ for details.
-mpiexec -np $(( SLURM_NTASKS + 2 )) python -m aind_data_transfer.jobs.zarr_upload_job --json-args '{"s3_bucket": "aind-open-data", "experiment_type": "diSPIM", "modalities":[{"modality": "DISPIM","source":"/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM_667829-ID_2023-08-12_16-34-32", "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": "667829", "acq_date": "2023-08-12", "acq_time": "16-34-32", "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}'
+mpiexec -np $(( SLURM_NTASKS + 2 )) python -m aind_data_transfer.jobs.zarr_upload_job --json-args '{"s3_bucket": "aind-open-data", "platform": "HCR", "modalities":[{"modality": "SPIM","source":"/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM/HCR_662680-CON-R1-ID_2023-10-12_08-32-18", "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": "662680", "acq_datetime": "2023-10-12 08:32:18", "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}'
 
 echo "Done"
 
