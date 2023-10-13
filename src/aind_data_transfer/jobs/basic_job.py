@@ -256,7 +256,6 @@ class BasicJob:
             processing_metadata=processing_metadata,
             data_description_metadata=data_description_metadata
         )
-
         metadata_file_name = temp_dir / metadata.output_filename
         metadata.write_to_json(metadata_file_name)
 

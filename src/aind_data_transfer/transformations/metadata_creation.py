@@ -448,10 +448,11 @@ class MetadataRecord(MetadataCreation):
             data_description_metadata: RawDataDescriptionMetadata,
     ):
         """
-        Build a RawDataDescriptionMetadata instance using some basic
-        parameters.
+        Build a Metadata instance using some basic parameters.
         Parameters
         ----------
+        id : str
+          Data Asset Record ID.
         name : str
           Name of the raw data
         modality : List[Modality]
@@ -464,7 +465,7 @@ class MetadataRecord(MetadataCreation):
 
         """
         metadata_instance = Metadata(
-            id=id,
+            _id=id,
             name=name,
             created=created,
             last_modified=last_modified,

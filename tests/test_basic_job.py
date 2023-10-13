@@ -232,21 +232,33 @@ class TestBasicJob(unittest.TestCase):
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9)
+            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
+            data_asset_id="000000", data_asset_name="Test Name",
+            created=datetime(2023, 9, 27, 0, 0, 0),
+            last_modified=datetime(2023, 9, 28, 10, 20, 30),
+            data_asset_location="Test Location",
         )
 
         # Test where metadata directory is defined
         basic_job_configs.metadata_dir = METADATA_DIR
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9)
+            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
+            data_asset_id="000000", data_asset_name="Test Name",
+            created=datetime(2023, 9, 27, 0, 0, 0),
+            last_modified=datetime(2023, 9, 28, 10, 20, 30),
+            data_asset_location="Test Location",
         )
 
         # Test where metadata dir forced is true
         basic_job_configs.metadata_dir_force = True
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9)
+            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
+            data_asset_id="000000", data_asset_name="Test Name",
+            created=datetime(2023, 9, 27, 0, 0, 0),
+            last_modified=datetime(2023, 9, 28, 10, 20, 30),
+            data_asset_location="Test Location",
         )
 
         mock_json_write.assert_has_calls(
@@ -255,6 +267,7 @@ class TestBasicJob(unittest.TestCase):
                 call(Path("some_dir/procedures.json")),
                 call(Path("some_dir/data_description.json")),
                 call(Path("some_dir/processing.json")),
+                call(Path("some_dir/metadata.json"))
             ],
             any_order=True,
         )
@@ -276,6 +289,10 @@ class TestBasicJob(unittest.TestCase):
                 call(
                     str(METADATA_DIR / "procedures.json"),
                     Path("some_dir/procedures.json"),
+                ),
+                call(
+                    str(METADATA_DIR / "metadata.json"),
+                    Path("some_dir/metadata.json"),
                 ),
             ],
             any_order=True,
