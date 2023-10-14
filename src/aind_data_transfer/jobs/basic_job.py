@@ -359,7 +359,11 @@ class BasicJob:
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
-    if "--json-args" in sys_args:
+    # First check if json args are set as an environment variable
+    if os.getenv("UPLOAD_JOB_JSON_ARGS") is not None and len(sys_args) == 0:
+        env_args = ["--json-args", os.getenv("UPLOAD_JOB_JSON_ARGS")]
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(env_args)
+    elif "--json-args" in sys_args:
         job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
     else:
         job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
