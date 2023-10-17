@@ -63,14 +63,14 @@ def read_dispim_aquisition(acq_path: str) -> Acquisition:
         # rewrite the tranlsation transform to be in microns
         if tile_dict['tile_position_units'] == 'millimeters':
             translation_tfm = Translation3dTransform(translation=
-                        [float(tile_dict['tile_x_position']) * 1000. / float(tile_dict['x_voxel_size']), 
-                        float(tile_dict['tile_y_position']) * 1000. / float(tile_dict['y_voxel_size']),
-                        float(tile_dict['tile_z_position']) * 1000. / float(tile_dict['z_voxel_size'])])
+                        [float(tile_dict['tile_x_position']) * 1000., 
+                        float(tile_dict['tile_y_position']) * 1000. ,
+                        float(tile_dict['tile_z_position']) * 1000. ])
         elif tile_dict['tile_position_units'] == 'microns':
             translation_tfm = Translation3dTransform(translation=
-                            [float(tile_dict['tile_x_position']) / float(tile_dict['x_voxel_size']), 
-                            float(tile_dict['tile_y_position'])  / float(tile_dict['y_voxel_size']),
-                            float(tile_dict['tile_z_position'])  / float(tile_dict['z_voxel_size'])])
+                            [float(tile_dict['tile_x_position']) , 
+                            float(tile_dict['tile_y_position'])  ,
+                            float(tile_dict['tile_z_position'])  ])
         
         scale_tfm = Scale3dTransform(scale=[float(tile_dict['x_voxel_size']), 
                                             float(tile_dict['y_voxel_size']), 
@@ -279,14 +279,14 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
         #want this to be in pixels 
         if tile_dict['tile_position_units'] == 'millimeters':
             translation_tfm = Translation3dTransform(translation=
-                        [float(tile_dict['tile_x_position']) * 1000. / float(tile_dict['x_voxel_size']), 
-                        float(tile_dict['tile_y_position']) * 1000. / float(tile_dict['y_voxel_size']),
-                        float(tile_dict['tile_z_position']) * 1000. / float(tile_dict['z_voxel_size'])])
+                        [float(tile_dict['tile_x_position']) * 1000., 
+                        float(tile_dict['tile_y_position']) * 1000. ,
+                        float(tile_dict['tile_z_position']) * 1000. ])
         elif tile_dict['tile_position_units'] == 'microns':
             translation_tfm = Translation3dTransform(translation=
-                            [float(tile_dict['tile_x_position']) / float(tile_dict['x_voxel_size']), 
-                            float(tile_dict['tile_y_position'])  / float(tile_dict['y_voxel_size']),
-                            float(tile_dict['tile_z_position'])  / float(tile_dict['z_voxel_size'])])
+                            [float(tile_dict['tile_x_position']) , 
+                            float(tile_dict['tile_y_position'])  ,
+                            float(tile_dict['tile_z_position'])  ])
             
         if type(tile_dict['file_name']) == list:
             tile = AcquisitionTile(channel=ch, 
@@ -318,8 +318,12 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
         chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion_medium'], 
                                              refractive_index=log_dict['chamber_immersion_refractive_index'])
     elif 'chamber_immersion' in log_dict.keys():
-        chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion']['medium'], 
+        if type(log_dict['chamber_immersion']) == dict:
+            chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion']['medium'], 
                                              refractive_index=log_dict['chamber_immersion']['refractive_index'])
+        else:
+            chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion'], 
+                                             refractive_index=log_dict['chamber_immersion_refractive_index'])
     local_storage_directory: str = log_dict['local_storage_directory']
     external_storage_directory: str = log_dict['external_storage_directory']
 
@@ -372,7 +376,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             # zero the translations from the first tile
             if tile == acq_obj.tiles[0]:
                 [offset_z, offset_y, offset_x] = [
-                    i / j
+                    i /j
                     for i, j in zip(
                         tile.coordinate_transformations[1].translation,
                         tile.coordinate_transformations[0].scale,
@@ -380,8 +384,9 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
                 ]
                 offset = [offset_z, offset_y, offset_x]
 
+
             translation: list[float] = [
-                i / j
+                i /j
                 for i, j in zip(
                     tile.coordinate_transformations[1].translation,
                     tile.coordinate_transformations[0].scale,

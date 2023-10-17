@@ -250,15 +250,21 @@ class ZarrUploadJob(BasicJob):
 
 
         toml_dict = read_toml(self._data_src_dir.joinpath('config.toml'))
+        
 
         # read log file into dict
-        log_dict = read_imaging_log(log_file)
-        log_dict['data_src_dir'] = (self._data_src_dir.as_posix())
-        log_dict['config_toml'] = toml_dict
+        if not log_file.exists():
+            log_dict = read_imaging_log(log_file)
+            log_dict['data_src_dir'] = (self._data_src_dir.as_posix())
+            log_dict['config_toml'] = toml_dict
+        
+        else: 
+            log_dict = {'imaging_log_file': None} #set this to none to read schema_log
 
 
         if acq_file.exists():
             acq_json = read_dispim_aquisition(acq_file)
+            
 
         #if any of the values of log_dict are None, then get it from schema_log
         elif any(v is None for v in log_dict.values()):
