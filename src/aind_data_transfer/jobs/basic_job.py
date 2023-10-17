@@ -245,7 +245,7 @@ class BasicJob:
         processing_metadata.write_to_json(processing_file_name)
 
         created = datetime.utcnow()
-        last_modified = datetime.utcnow()
+        last_modified = created
         data_asset_id = str(uuid.uuid4())
 
         metadata = MetadataRecord.from_inputs(
