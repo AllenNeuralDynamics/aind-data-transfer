@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 import tempfile
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from importlib import import_module
@@ -200,9 +201,7 @@ class BasicJob:
         return None
 
     def _compile_metadata(
-        self, temp_dir: Path, process_start_time: datetime, data_asset_id: str,
-            data_asset_name: str, created: datetime, last_modified: datetime,
-            data_asset_location: str
+        self, temp_dir: Path, process_start_time: datetime
     ) -> None:
         """Compile metadata files. Keeps the data in the temp_dir before
         uploading to s3."""
@@ -245,12 +244,16 @@ class BasicJob:
         processing_file_name = temp_dir / processing_metadata.output_filename
         processing_metadata.write_to_json(processing_file_name)
 
+        created = datetime.utcnow()
+        last_modified = datetime.utcnow()
+        data_asset_id = str(uuid.uuid4())
+
         metadata = MetadataRecord.from_inputs(
             id=data_asset_id,
-            name=data_asset_name,
+            name=self.job_configs.s3_prefix,
             created=created,
             last_modified=last_modified,
-            location=data_asset_location,
+            location=self.job_configs.s3_bucket,
             subject_metadata=subject_metadata,
             procedures_metadata=procedures_metadata,
             processing_metadata=processing_metadata,

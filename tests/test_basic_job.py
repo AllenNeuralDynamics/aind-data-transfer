@@ -233,10 +233,6 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
             Path("some_dir"), process_start_time=datetime(2023, 4, 9),
-            data_asset_id="000000", data_asset_name="Test Name",
-            created=datetime(2023, 9, 27, 0, 0, 0),
-            last_modified=datetime(2023, 9, 28, 10, 20, 30),
-            data_asset_location="Test Location",
         )
 
         # Test where metadata directory is defined
@@ -244,10 +240,6 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
             Path("some_dir"), process_start_time=datetime(2023, 4, 9),
-            data_asset_id="000000", data_asset_name="Test Name",
-            created=datetime(2023, 9, 27, 0, 0, 0),
-            last_modified=datetime(2023, 9, 28, 10, 20, 30),
-            data_asset_location="Test Location",
         )
 
         # Test where metadata dir forced is true
@@ -255,10 +247,6 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
             Path("some_dir"), process_start_time=datetime(2023, 4, 9),
-            data_asset_id="000000", data_asset_name="Test Name",
-            created=datetime(2023, 9, 27, 0, 0, 0),
-            last_modified=datetime(2023, 9, 28, 10, 20, 30),
-            data_asset_location="Test Location",
         )
 
         mock_json_write.assert_has_calls(
