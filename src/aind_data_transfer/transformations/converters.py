@@ -1,6 +1,7 @@
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from typing import List
+import numpy as np
 
 import pandas as pd
 
@@ -28,6 +29,7 @@ from aind_data_transfer.transformations.deinterleave import (
     Deinterleave,
 )
 
+MM_TO_UM = 100
 
 def read_dispim_aquisition(acq_path: str) -> Acquisition:
     """Read json formatted acquisition file, output by iSPIM rig
@@ -63,9 +65,9 @@ def read_dispim_aquisition(acq_path: str) -> Acquisition:
         # rewrite the tranlsation transform to be in microns
         if tile_dict['tile_position_units'] == 'millimeters':
             translation_tfm = Translation3dTransform(translation=
-                        [float(tile_dict['tile_x_position']) * 1000., 
-                        float(tile_dict['tile_y_position']) * 1000. ,
-                        float(tile_dict['tile_z_position']) * 1000. ])
+                        [float(tile_dict['tile_x_position']) * MM_TO_UM , #TODO there's a bug where these should be 1000, but the mm is recorded wrong. 
+                        float(tile_dict['tile_y_position']) * MM_TO_UM ,
+                        float(tile_dict['tile_z_position']) * MM_TO_UM ])
         elif tile_dict['tile_position_units'] == 'microns':
             translation_tfm = Translation3dTransform(translation=
                             [float(tile_dict['tile_x_position']) , 
@@ -279,9 +281,9 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
         #want this to be in pixels 
         if tile_dict['tile_position_units'] == 'millimeters':
             translation_tfm = Translation3dTransform(translation=
-                        [float(tile_dict['tile_x_position']) * 1000., 
-                        float(tile_dict['tile_y_position']) * 1000. ,
-                        float(tile_dict['tile_z_position']) * 1000. ])
+                        [float(tile_dict['tile_x_position']) * MM_TO_UM, 
+                        float(tile_dict['tile_y_position']) * MM_TO_UM ,
+                        float(tile_dict['tile_z_position']) * MM_TO_UM ])
         elif tile_dict['tile_position_units'] == 'microns':
             translation_tfm = Translation3dTransform(translation=
                             [float(tile_dict['tile_x_position']) , 
@@ -375,14 +377,14 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
         for tile in acq_obj.tiles:
             # zero the translations from the first tile
             if tile == acq_obj.tiles[0]:
-                [offset_z, offset_y, offset_x] = [
+                [offset_x, offset_y, offset_z] = [
                     i /j
                     for i, j in zip(
                         tile.coordinate_transformations[1].translation,
                         tile.coordinate_transformations[0].scale,
                     )
                 ]
-                offset = [offset_z, offset_y, offset_x]
+                offset = [offset_x, offset_y, offset_z] 
 
 
             translation: list[float] = [
@@ -395,9 +397,15 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
             filename: str = tile.file_name
 
+
             tile_transforms[filename] = [
                 el2 - el1 for el1, el2 in zip(translation, offset)
             ]
+
+            #TODO remove this -1 once MICAH confirms that the y-basis has been flipped on the rig
+            tile_transforms[filename][1] = tile_transforms[filename][1] * -1
+
+            
 
         return tile_transforms
 
@@ -746,7 +754,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
     # Define transformations applied to tiles
     def add_view_registrations(
-        parent: ET.Element, filtered_translations: list[list[float]]
+        parent: ET.Element, filtered_translations: list[list[float]], log_dict : dict
     ) -> None:
         view_registrations = ET.SubElement(parent, "ViewRegistrations")
         for i, tr in enumerate(filtered_translations):
@@ -763,7 +771,21 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             # TODO THERE IS AN ACQUISITION BUG where X and Y are switched between acqusition and bigstitcher
             # WHEN THIS BUG IS FIXED, this should go back to tr 0 1 2
 
-            affine.text = f"1.0 0.0 0.0 {tr[1]} 0.0 1.0 0.0 {tr[0]} 0.0 0.0 1.0 {tr[2]+tr[1]}"
+            # affine.text = f"1.0 0.0 0.0 {tr[1]} 0.0 1.0 0.0 {tr[0]} 0.0 0.0 1.0 {tr[2]+tr[1]}"
+            x = float(tr[0])
+            y = float(tr[1])
+            z = float(tr[2])
+
+            x_prime = x
+            y_prime = y
+
+            y_voxel_size = float(log_dict['tiles'][0]['y_voxel_size'])
+            z_voxel_size = float(log_dict['tiles'][0]['z_voxel_size'])
+            z_prime = z + y*y_voxel_size/z_voxel_size #convert y pixels to z pixels
+
+
+            affine.text = f"1.0 0.0 0.0 {str(y_prime)} 0.0 1.0 0.0 {str(x_prime)} 0.0 0.0 1.0 {str(z_prime)}"
+
 
             vr.append(vt)
 
@@ -799,6 +821,6 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
         add_sequence_description(spim_data, log_dict, new_filtered_tilenames)
     else:
         add_sequence_description(spim_data, log_dict, filtered_tiles)
-    add_view_registrations(spim_data, filtered_translations)
+    add_view_registrations(spim_data, filtered_translations, log_dict)
 
     return ET.ElementTree(spim_data)
