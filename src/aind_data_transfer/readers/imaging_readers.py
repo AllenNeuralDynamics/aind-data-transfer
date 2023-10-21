@@ -82,8 +82,8 @@ class SmartSPIMReader:
         raw_smartspim_regex = r"((20[0-9]{2}[0-9][0-9]{1}[0-9][0-9]{1})_(\d{2}_\d{2}_\d{2})_(\d+|[a-zA-Z]*\d+)$)"
 
         # Regex expressions for inner folders inside root
-        regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
-        regex_channels_MIP = r"Ex_(\d{3})_Em_(\d{3}_MIP)$"
+        regex_channels = r"Ex_(\d{3})_(Ch(\d{1})|Em_(\d{3}))$"
+        regex_channels_MIP = r"Ex_(\d{3})_(Ch(\d{1})|Em_(\d{3}))_MIP$"
         regex_files = r'[^"]*.(txt|ini|json|tif|png)$'
 
     @staticmethod

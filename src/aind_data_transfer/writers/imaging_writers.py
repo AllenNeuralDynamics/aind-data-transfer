@@ -631,16 +631,17 @@ class SmartSPIMWriter:
                 f"Mouse {mouse_id} does not have subject information - res status: {response.status_code}"
             )
 
-    def __get_excitation_emission_waves(self, dataset_path: PathLike) -> dict:
+    def __get_excitation_emission_waves(self, channels: List) -> dict:
         """
         Gets the excitation and emission waves for
         the existing channels within a dataset
 
         Parameters
         ------------
-        dataset_path: PathLike
-            Path where the channels of the dataset
-            are stored
+        channels: List[str]
+            List with the channels.
+            They must contain the emmision
+            wavelenght in the name
 
         Returns
         ------------
@@ -648,16 +649,7 @@ class SmartSPIMWriter:
             Dictionary with the excitation
             and emission waves
         """
-        regex_channels = self.__regex_expressions.regex_channels.value
-        excitation_emission_channels = {}
-
-        elements = [
-            element
-            for element in os.listdir(dataset_path)
-            if re.match(regex_channels, element)
-        ]
-
-        for channel in elements:
+        for channel in channels:
             channel = channel.replace("Em_", "").replace("Ex_", "")
             splitted = channel.split("_")
             excitation_emission_channels[int(splitted[0])] = int(splitted[1])
@@ -670,6 +662,7 @@ class SmartSPIMWriter:
         dataset_info: dict,
         original_dataset_path: PathLike,
         output_path: PathLike,
+        channels: List
     ):
         """
         Creates the data description json.
@@ -686,6 +679,9 @@ class SmartSPIMWriter:
         output_path: PathLike
             Path where the dataset is located
 
+        channels: List
+            List of channels in the dataset. These must contain
+            the emmision wavelength in the name.
         """
 
         asi_file = original_dataset_path.joinpath("ASI_logging.txt")
@@ -698,7 +694,7 @@ class SmartSPIMWriter:
 
         session_end_time = get_session_end(asi_file)
         filter_mapping = self.__get_excitation_emission_waves(
-            original_dataset_path
+            channels
         )
 
         session_config = None
@@ -841,6 +837,7 @@ class SmartSPIMWriter:
         dataset_info: dict,
         original_dataset_path: PathLike,
         output_path: PathLike,
+        channels: List
     ) -> None:
         """
         Creates the data description json.
@@ -856,9 +853,30 @@ class SmartSPIMWriter:
 
         dataset_path: PathLike
             Path where the dataset is located
+        
+        channels: List
+            List of channels in the dataset. These must contain
+            the emmision wavelength in the name.
         """
 
         output_path = Path(output_path)
+
+        # Creates the data description json
+        self.__create_data_description(
+            parsed_data, dataset_info["prelim_data_description"], output_path
+        )
+
+        # Creates the subject metadata json
+        self.__create_subject(parsed_data["mouse_id"], output_path)
+
+        # Creates the acquisition json
+        self.__create_acquisition(
+            parsed_data,
+            dataset_info["prelim_acquisition"],
+            original_dataset_path,
+            output_path,
+            channels
+        )
 
         # moving instrument.json
         file_utils.move_folders_or_files(
@@ -867,35 +885,6 @@ class SmartSPIMWriter:
             "instrument.json",
             mode="move",
         )
-
-        # Creates the data description json
-        if "data_description" in dataset_info:
-            self.__create_data_description(
-                parsed_data, dataset_info["data_description"], output_path
-            )
-        else:
-            logger.error(
-                f"data_description.json was not created for {parsed_data['mouse_id']}."
-            )
-
-        # Creates the subject metadata json
-        self.__create_subject(parsed_data["mouse_id"], output_path)
-
-        # Creates the acquisition json
-        if "acquisition" in dataset_info:
-            try:
-                self.__create_acquisition(
-                    parsed_data,
-                    dataset_info["acquisition"],
-                    original_dataset_path,
-                    output_path,
-                )
-            except ValueError as e:
-                logger.error(f"Error creating acquisition schema {e}")
-        else:
-            logger.error(
-                f"acquisition.json was not created for {parsed_data['mouse_id']}. Acquisition was not found in processing manifest."
-            )
 
     def prepare_datasets(
         self, mode: str = "move", delete_empty: bool = True
@@ -942,7 +931,23 @@ class SmartSPIMWriter:
                     file_utils.create_folder(derivatives_path, True)
                     file_utils.create_folder(smartspim_channels_path, True)
 
-                    # Temporary while we are able to find a way to get all metadata from datasets
+                    smartspim_channel_translation:dict = dataset_info.get("channel_translation")
+                    if smartspim_channel_translation is None:
+                        raise ValueError("We need a channel translation for the LifeCanvas microscope!")
+                    
+                    channels = [
+                        element
+                        for element in os.listdir(dataset_path)
+                        if re.match(self.__regex_expressions.regex_channels.value, element)
+                    ]
+
+                    check_map = min([
+                        channel in smartspim_channel_translation
+                        for channel in channels
+                    ])
+
+                    if not check_map:
+                        raise ValueError(f"Missing channels in the map, provided {channels} - Map: {smartspim_channel_translation.keys()}")
 
                     # Create smartspim metadata
                     self.__create_smartspim_metadata(
@@ -950,15 +955,29 @@ class SmartSPIMWriter:
                         dataset_info=dataset_info,
                         original_dataset_path=dataset_path,
                         output_path=new_dataset_path,
+                        channels=list(smartspim_channel_translation.values())
                     )
 
                     # Moving channels
+                    # Using smartspim_channel_translation since the new
+                    # LifeCanvas software modifies removed the Emission
+                    # wavelength
                     file_utils.move_folders_or_files(
                         dataset_path,
                         new_dataset_path.joinpath("SmartSPIM"),
                         self.__regex_expressions.regex_channels.value,
                         mode=mode,
+                        map_dictionary=smartspim_channel_translation
                     )
+
+                    modified_channel_translation = None
+                    if smartspim_channel_translation:
+                        postfix = "_MIP"
+                        modified_channel_translation = {}
+                        for orig_ch, mod_ch in smartspim_channel_translation.items():
+                            modified_key = orig_ch + postfix
+                            modified_value = mod_ch + postfix
+                            modified_channel_translation[modified_key] = modified_value
 
                     # Moving maximal intensity projections per channel
                     file_utils.move_folders_or_files(
@@ -966,6 +985,7 @@ class SmartSPIMWriter:
                         new_dataset_path.joinpath("derivatives"),
                         self.__regex_expressions.regex_channels_MIP.value,
                         mode=mode,
+                        map_dictionary=modified_channel_translation
                     )
 
                     # Moving metadata files

@@ -309,15 +309,16 @@ def post_upload_smartspim(args: dict, s3_path: str, n_failed_uploads: int):
                 # Making the created data asset available for everyone
                 make_data_viewable(co_api, response_contents)
 
-                # Avoiding triggering pipeline until okta auth is fixed
-                """
+                data_assets = [
+                    {"id": response_contents["id"], "mount": "smartspim_test_dataset"}
+                ]
+                
                 run_response = co_api.run_capsule(
                     capsule_id=capsule_id,
-                    data_assets=[],
-                    parameters=[json.dumps(job_configs)],
+                    data_assets=data_assets,
+                    parameters=None,
                 )
                 logger.info(f"Run response: {run_response.json()}")
-                """
 
             except ValueError as err:
                 logger.error(f"Error communicating with Code Ocean API {err}")

@@ -243,6 +243,7 @@ def move_folders_or_files(
     dest_path: PathLike,
     regex_folders: str,
     mode: Optional[str] = "move",
+    map_dictionary: Optional[dict] = None
 ) -> None:
     """
     Move/copy folders or files to another location.
@@ -261,10 +262,17 @@ def move_folders_or_files(
     mode:str
         Mode to move data. It could be move or copy.
 
+    map_dictionary: Optional[dict]
+        Map dictionary to change the source directories
+        to the map folders. e.g., source -> "Ex_488_Ch1"
+        and the map dict is: {"Ex_488_Ch1":"Ex_488_Em_525"}
+        the destination folder will be "Ex_488_Em_525"
     """
+    if map_dictionary is None:
+        map_dictionary = {}
 
     orig_path = Path(orig_path)
-    dest_path = Path(dest_path)
+    base_dest_path = Path(dest_path)
 
     # Convert to regular expression format
     regex_folders = "({})".format(regex_folders)
@@ -280,12 +288,30 @@ def move_folders_or_files(
         ]
 
         for element in elements:
+            # Changing folder name if necessary using
+            # mapping dictionary
+            mapped_name = map_dictionary.get(element)
+            dest_path = base_dest_path
+
+            if mapped_name:
+                dest_path = base_dest_path.joinpath(mapped_name)
+            
+            # Source path
             move_path = orig_path.joinpath(element)
 
             if mode == "move":
                 shutil.move(str(move_path), str(dest_path))
             elif mode == "copy":
-                dest_copy_path = dest_path.joinpath(element)
+                # For copy mode, we need to add the element
+                # By default we set the same name as it is
+                # in the original folder
+                dest_copy_path = dest_path
+
+                # However, if mapped name is not none
+                # we change the destination path to the new
+                # folder name
+                if mapped_name is None:
+                    dest_copy_path = base_dest_path.joinpath(element)
 
                 if os.path.isdir(move_path):
                     shutil.copytree(str(move_path), str(dest_copy_path))
