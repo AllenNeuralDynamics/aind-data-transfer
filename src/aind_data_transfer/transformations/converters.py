@@ -403,7 +403,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             ]
 
             #TODO remove this -1 once MICAH confirms that the y-basis has been flipped on the rig
-            tile_transforms[filename][1] = tile_transforms[filename][1] * -1
+            tile_transforms[filename][1] = float(tile_transforms[filename][1]) * -1 * np.sqrt(2)
 
             
 
@@ -781,7 +781,9 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
             y_voxel_size = float(log_dict['tiles'][0]['y_voxel_size'])
             z_voxel_size = float(log_dict['tiles'][0]['z_voxel_size'])
-            z_prime = z + y*y_voxel_size/z_voxel_size #convert y pixels to z pixels
+
+            #TODO REFactor this to be more general
+            z_prime = z + (y*y_voxel_size/np.sqrt(2))/z_voxel_size #convert y pixels to z pixels
 
 
             affine.text = f"1.0 0.0 0.0 {str(y_prime)} 0.0 1.0 0.0 {str(x_prime)} 0.0 0.0 1.0 {str(z_prime)}"
