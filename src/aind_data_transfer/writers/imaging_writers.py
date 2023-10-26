@@ -322,24 +322,60 @@ def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
         channels[wavelength] = channel
 
     # Scale metadata
+    session_config = metadata_dict.get("session_config")
+
+    x_res = y_res = session_config.get("µm/pix")
+    z_res = float(session_config.get("z_step_um"))
+    
+    # utf-8 error with micron symbol
+    if x_res is None:
+        x_res = y_res = session_config.get("m/pix")
+        if x_res is None:
+            raise KeyError("Failed getting the x and y resolution from metadata.json")
+
+    x_res = float(x_res)
+    y_res = float(y_res)
+    z_res = float(z_res)
+
     scale = tile.Scale3dTransform(
         scale=[
-            metadata_dict["session_config"]["µm/pix"],  # X res
-            metadata_dict["session_config"]["µm/pix"],  # Y res
-            metadata_dict["session_config"]["z_step_um"],  # Z res
+            x_res,  # X res
+            y_res,  # Y res
+            z_res,  # Z res
         ]
     )
 
     for tile_key, tile_info in metadata_dict["tile_config"].items():
+
+        tile_info_x = tile_info.get("x")
+        tile_info_y = tile_info.get("y")
+        tile_info_z = tile_info.get("z")
+
+        # For some reason, Jeff changed the lower case to upper case
+        if tile_info_x is None:
+            tile_info_x = tile_info.get("X")
+
+        if tile_info_y is None:
+            tile_info_y = tile_info.get("Y")
+
+        if tile_info_z is None:
+            tile_info_z = tile_info.get("Z")
+
+        tile_info_x = float(tile_info_x)
+        tile_info_y = float(tile_info_y)
+        tile_info_z = float(tile_info_z)
+
         tile_transform = tile.Translation3dTransform(
             translation=[
-                tile_info["x"] / 10,
-                tile_info["y"] / 10,
-                tile_info["z"] / 10,
+                int(tile_info_x) / 10,
+                int(tile_info_y) / 10,
+                int(tile_info_z) / 10,
             ]
         )
-
-        channel = channels[tile_info["wavelength"]]
+        
+        channel = channels[tile_info["Laser"]]
+        exaltation_wave = int(tile_info["Laser"])
+        emission_wave = filter_mapping[exaltation_wave]
 
         tile_acquisition = tile.AcquisitionTile(
             channel=channel,
@@ -347,7 +383,7 @@ def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
                 "\nLaser power is in percentage of total, it needs calibration"
             ),
             coordinate_transformations=[tile_transform, scale],
-            file_name=f"Ex_{tile_info['wavelength']}_Em_{filter_mapping[tile_info['wavelength']]}/{tile_info['x']}/{tile_info['x']}_{tile_info['y']}/",
+            file_name=f"Ex_{exaltation_wave}_Em_{emission_wave}/{tile_info_x}/{tile_info_x}_{tile_info_y}/",
         )
 
         tile_acquisitions.append(tile_acquisition)
@@ -649,6 +685,8 @@ class SmartSPIMWriter:
             Dictionary with the excitation
             and emission waves
         """
+        excitation_emission_channels = {}
+
         for channel in channels:
             channel = channel.replace("Em_", "").replace("Ex_", "")
             splitted = channel.split("_")
@@ -703,7 +741,7 @@ class SmartSPIMWriter:
 
         # Checking if json file exists
         if os.path.exists(mdata_json_file):
-            metadata_info = read_json_as_dict(mdata_json_file)
+            metadata_info = file_utils.read_json_as_dict(mdata_json_file)
             
             session_config = metadata_info["session_config"]
             wavelength_config = metadata_info["wavelength_config"]
@@ -794,7 +832,7 @@ class SmartSPIMWriter:
         acquisition_model = acquisition.Acquisition(
             specimen_id="",
             instrument_id=instrument_id,
-            experimenter_full_name=[experimenter_full_name],
+            experimenter_full_name=experimenter_full_name,
             subject_id=parsed_data["mouse_id"],
             session_start_time=parsed_data["mouse_date"],
             session_end_time=session_end_time,
