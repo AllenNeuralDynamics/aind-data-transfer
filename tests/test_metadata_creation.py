@@ -138,7 +138,6 @@ class TestProcessingMetadata(unittest.TestCase):
         )
 
         # Hack to get match version to be the same as in the example file
-        print(expected_processing_instance_json)
         expected_processing_instance_json["processing_pipeline"]["data_processes"][0][
             "software_version"
         ] = processing_metadata.model_obj["processing_pipeline"]["data_processes"][0]["software_version"]
