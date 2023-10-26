@@ -4,7 +4,7 @@
     "data_processes": [
         {
             "name": "Ephys preprocessing",
-            "version": "0.0.3",
+            "software_version": "0.0.3",
             "start_date_time": "2020-10-20 00:00:00+00:00",
             "end_date_time": "2020-10-20 01:00:00+00:00",
             "input_location": "some_input_location",

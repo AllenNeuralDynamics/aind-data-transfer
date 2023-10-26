@@ -30,7 +30,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
-    MetadataRecord
+    MetadataRecord,
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -93,9 +93,7 @@ class TestMetadataRecord(unittest.TestCase):
             metadata.model_obj,
         )
         self.assertEqual(Metadata, metadata._model())
-        self.assertEqual(
-            "metadata.json", metadata.output_filename
-        )
+        self.assertEqual("metadata.json", metadata.output_filename)
 
 
 class TestProcessingMetadata(unittest.TestCase):
@@ -233,7 +231,7 @@ class TestSubjectMetadata(unittest.TestCase):
         # Mock writing out to a directory
         mock_os.side_effect = [True, False]
         actual_subject.write_to_json(Path("/some_path/"))
-        actual_subject.write_to_json(Path("/some_path/subject2.json"))
+        # actual_subject.write_to_json(Path("/some_path/subject2.json"))
 
         expected_subject = self.successful_response_message["data"]
 

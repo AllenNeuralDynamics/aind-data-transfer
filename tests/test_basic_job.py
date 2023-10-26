@@ -232,30 +232,36 @@ class TestBasicJob(unittest.TestCase):
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
+            Path("some_dir"),
+            process_start_time=datetime(2023, 4, 9),
+            processor_full_name="Hazel Nutt",
         )
 
         # Test where metadata directory is defined
         basic_job_configs.metadata_dir = METADATA_DIR
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
+            Path("some_dir"),
+            process_start_time=datetime(2023, 4, 9),
+            processor_full_name="Hazel Nutt",
         )
 
         # Test where metadata dir forced is true
         basic_job_configs.metadata_dir_force = True
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
+            Path("some_dir"),
+            process_start_time=datetime(2023, 4, 9),
+            processor_full_name="Hazel Nutt",
         )
 
         mock_json_write.assert_has_calls(
             [
-                call(Path("some_dir/subject.json")),
-                call(Path("some_dir/procedures.json")),
-                call(Path("some_dir/data_description.json")),
-                call(Path("some_dir/processing.json")),
-                call(Path("some_dir/metadata.json"))
+                call(path=Path("some_dir/")),
+                call(path=Path("some_dir/")),
+                call(path=Path("some_dir/")),
+                call(path=Path("some_dir/")),
+                call(path=Path("some_dir/"), suffix=".aind.json"),
             ],
             any_order=True,
         )

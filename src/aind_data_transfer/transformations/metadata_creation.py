@@ -15,7 +15,12 @@ from aind_data_schema.data_description import (
     RawDataDescription,
 )
 from aind_data_schema.procedures import Procedures
-from aind_data_schema.processing import DataProcess, Processing, ProcessName
+from aind_data_schema.processing import (
+    DataProcess,
+    Processing,
+    ProcessName,
+    PipelineProcess,
+)
 from aind_data_schema.subject import Subject
 from aind_data_schema.metadata import Metadata, MetadataStatus
 from aind_metadata_service.client import AindMetadataServiceClient
@@ -90,7 +95,7 @@ class MetadataCreation(ABC):
             logging.info("Model is valid.")
             return True
 
-    def write_to_json(self, path: Path) -> None:
+    def write_to_json(self, path: Path, suffix: str = None) -> None:
         """
         Write the model_obj to a json file. If the Path is a directory, it will
         use the output_filename method to generate the filename.
@@ -104,14 +109,8 @@ class MetadataCreation(ABC):
         None
 
         """
-
-        if os.path.isdir(path):
-            out_path = path / self.output_filename
-        else:
-            out_path = path
-
-        with open(out_path, "w") as outfile:
-            outfile.write(json.dumps(self.model_obj, indent=3, default=str))
+        model = self._model()(**self.model_obj)
+        return model.write_standard_file(output_directory=path, suffix=suffix)
 
 
 class ServiceMetadataCreation(MetadataCreation):
@@ -273,6 +272,7 @@ class ProcessingMetadata(MetadataCreation):
         process_name: ProcessName,
         start_date_time: datetime,
         end_date_time: datetime,
+        processor_full_name: str,
         input_location: str,
         output_location: str,
         code_url: str,
@@ -303,7 +303,7 @@ class ProcessingMetadata(MetadataCreation):
         """
         data_processing_instance = DataProcess(
             name=process_name.value,
-            version=aind_data_transfer_version,
+            software_version=aind_data_transfer_version,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=input_location,
@@ -312,8 +312,12 @@ class ProcessingMetadata(MetadataCreation):
             parameters=parameters,
             notes=notes,
         )
+        pipeline_process_instance = PipelineProcess(
+            data_processes=[data_processing_instance],
+            processor_full_name=processor_full_name,
+        )
         processing_instance = Processing(
-            data_processes=[data_processing_instance]
+            processing_pipeline=pipeline_process_instance
         )
         # Do this to use enum strings instead of classes in dict representation
         contents = json.loads(processing_instance.json())
@@ -325,6 +329,7 @@ class ProcessingMetadata(MetadataCreation):
         modality_configs: List[ModalityConfigs],
         start_date_time: datetime,
         end_date_time: datetime,
+        processor_full_name: str,
         output_location: str,
         code_url: str,
         notes: Optional[str] = None,
@@ -355,7 +360,7 @@ class ProcessingMetadata(MetadataCreation):
                 process_name = ProcessName.OTHER
             data_processing_instance = DataProcess(
                 name=process_name.value,
-                version=aind_data_transfer_version,
+                software_version=aind_data_transfer_version,
                 start_date_time=start_date_time,
                 end_date_time=end_date_time,
                 input_location=str(modality_config.source),
@@ -365,7 +370,13 @@ class ProcessingMetadata(MetadataCreation):
                 notes=notes,
             )
             data_processes.append(data_processing_instance)
-        processing_instance = Processing(data_processes=data_processes)
+        pipeline_process_instance = PipelineProcess(
+            data_processes=data_processes,
+            processor_full_name=processor_full_name,
+        )
+        processing_instance = Processing(
+            processing_pipeline=pipeline_process_instance
+        )
         # Do this to use enum strings instead of classes in dict representation
         contents = json.loads(processing_instance.json())
         return cls(model_obj=contents)
@@ -436,16 +447,16 @@ class MetadataRecord(MetadataCreation):
 
     @classmethod
     def from_inputs(
-            cls,
-            id: str,
-            name: str,
-            created: datetime,
-            last_modified: datetime,
-            location: str,
-            subject_metadata: SubjectMetadata,
-            procedures_metadata: ProceduresMetadata,
-            processing_metadata: ProcessingMetadata,
-            data_description_metadata: RawDataDescriptionMetadata,
+        cls,
+        id: str,
+        name: str,
+        created: datetime,
+        last_modified: datetime,
+        location: str,
+        subject_metadata: SubjectMetadata,
+        procedures_metadata: ProceduresMetadata,
+        processing_metadata: ProcessingMetadata,
+        data_description_metadata: RawDataDescriptionMetadata,
     ):
         """
         Build a Metadata instance using some basic parameters.
@@ -471,10 +482,11 @@ class MetadataRecord(MetadataCreation):
             last_modified=last_modified,
             location=location,
             metadata_status=MetadataStatus.UNKNOWN,
+            external_links=[],
             subject=subject_metadata.model_obj,
             procedures=procedures_metadata.model_obj,
             processing=processing_metadata.model_obj,
-            data_description=data_description_metadata.model_obj
+            data_description=data_description_metadata.model_obj,
         )
         # Do this to use enum strings instead of classes in dict representation
         contents = json.loads(metadata_instance.json())

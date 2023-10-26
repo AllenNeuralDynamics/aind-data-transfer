@@ -28,7 +28,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
-    MetadataRecord
+    MetadataRecord,
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
 
@@ -201,7 +201,10 @@ class BasicJob:
         return None
 
     def _compile_metadata(
-        self, temp_dir: Path, process_start_time: datetime
+        self,
+        temp_dir: Path,
+        process_start_time: datetime,
+        processor_full_name: str,
     ) -> None:
         """Compile metadata files. Keeps the data in the temp_dir before
         uploading to s3."""
@@ -211,38 +214,45 @@ class BasicJob:
             domain=self.job_configs.metadata_service_domain,
             subject_id=self.job_configs.subject_id,
         )
-        subject_file_name = temp_dir / subject_metadata.output_filename
-        subject_metadata.write_to_json(subject_file_name)
+        # subject_file_name = temp_dir / subject_metadata.output_filename
+        # subject_metadata.write_to_json(subject_file_name)
+        subject_metadata.write_to_json(temp_dir)
+
         procedures_metadata = ProceduresMetadata.from_service(
             domain=self.job_configs.metadata_service_domain,
             subject_id=self.job_configs.subject_id,
         )
-        procedures_file_name = temp_dir / procedures_metadata.output_filename
-        procedures_metadata.write_to_json(procedures_file_name)
+        # procedures_file_name = temp_dir / procedures_metadata.output_filename
+        # procedures_metadata.write_to_json(procedures_file_name)
+        procedures_metadata.write_to_json(temp_dir)
+
         modalities = [m.modality for m in self.job_configs.modalities]
         data_description_metadata = RawDataDescriptionMetadata.from_inputs(
             name=self.job_configs.s3_prefix,
             modality=modalities,
         )
-        data_description_file_name = (
-            temp_dir / data_description_metadata.output_filename
-        )
-        data_description_metadata.write_to_json(data_description_file_name)
+        # data_description_file_name = (
+        #     temp_dir / data_description_metadata.output_filename
+        # )
+        # data_description_metadata.write_to_json(data_description_file_name)
+        data_description_metadata.write_to_json(path=temp_dir)
 
         processing_end_time = datetime.now(timezone.utc)
         processing_metadata = ProcessingMetadata.from_modalities_configs(
             modality_configs=self.job_configs.modalities,
             start_date_time=process_start_time,
             end_date_time=processing_end_time,
+            processor_full_name=processor_full_name,
             output_location=(
                 f"s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix}"
             ),
             code_url=self.job_configs.aind_data_transfer_repo_location,
-            notes=None,
+            notes="Some notes.",
         )
-        processing_file_name = temp_dir / processing_metadata.output_filename
-        processing_metadata.write_to_json(processing_file_name)
+        # processing_file_name = temp_dir / processing_metadata.output_filename
+        # processing_metadata.write_to_json(processing_file_name)
+        processing_metadata.write_to_json(path=temp_dir)
 
         created = datetime.utcnow()
         last_modified = created
@@ -257,10 +267,10 @@ class BasicJob:
             subject_metadata=subject_metadata,
             procedures_metadata=procedures_metadata,
             processing_metadata=processing_metadata,
-            data_description_metadata=data_description_metadata
+            data_description_metadata=data_description_metadata,
         )
-        metadata_file_name = temp_dir / metadata.output_filename
-        metadata.write_to_json(metadata_file_name)
+        # metadata_file_name = temp_dir / metadata.output_filename
+        metadata.write_to_json(path=temp_dir, suffix=".aind.json")
 
         # Check user defined metadata
         if self.job_configs.metadata_dir:
