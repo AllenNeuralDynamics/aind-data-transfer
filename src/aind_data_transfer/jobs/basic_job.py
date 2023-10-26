@@ -214,16 +214,12 @@ class BasicJob:
             domain=self.job_configs.metadata_service_domain,
             subject_id=self.job_configs.subject_id,
         )
-        # subject_file_name = temp_dir / subject_metadata.output_filename
-        # subject_metadata.write_to_json(subject_file_name)
         subject_metadata.write_to_json(temp_dir)
 
         procedures_metadata = ProceduresMetadata.from_service(
             domain=self.job_configs.metadata_service_domain,
             subject_id=self.job_configs.subject_id,
         )
-        # procedures_file_name = temp_dir / procedures_metadata.output_filename
-        # procedures_metadata.write_to_json(procedures_file_name)
         procedures_metadata.write_to_json(temp_dir)
 
         modalities = [m.modality for m in self.job_configs.modalities]
@@ -231,10 +227,6 @@ class BasicJob:
             name=self.job_configs.s3_prefix,
             modality=modalities,
         )
-        # data_description_file_name = (
-        #     temp_dir / data_description_metadata.output_filename
-        # )
-        # data_description_metadata.write_to_json(data_description_file_name)
         data_description_metadata.write_to_json(path=temp_dir)
 
         processing_end_time = datetime.now(timezone.utc)
@@ -250,8 +242,6 @@ class BasicJob:
             code_url=self.job_configs.aind_data_transfer_repo_location,
             notes="Some notes.",
         )
-        # processing_file_name = temp_dir / processing_metadata.output_filename
-        # processing_metadata.write_to_json(processing_file_name)
         processing_metadata.write_to_json(path=temp_dir)
 
         created = datetime.utcnow()
@@ -269,7 +259,6 @@ class BasicJob:
             processing_metadata=processing_metadata,
             data_description_metadata=data_description_metadata,
         )
-        # metadata_file_name = temp_dir / metadata.output_filename
         metadata.write_to_json(path=temp_dir, suffix=".aind.json")
 
         # Check user defined metadata
