@@ -243,7 +243,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_datetime,
         )
         self.assertEqual(
-            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
         self.assertEqual("WARNING", basic_job_configs.log_level)
         self.assertFalse(basic_job_configs.dry_run)
@@ -367,7 +367,6 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-p",
             json.dumps(custom_endpoints),
         ]
-
 
         test_malformed_datetime_args = [
             "-b",
@@ -549,7 +548,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_datetime,
         )
         self.assertEqual(
-            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
 
 

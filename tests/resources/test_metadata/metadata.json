@@ -40,7 +40,7 @@
   },
   "data_description": {
     "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/data_description.py",
-    "schema_version": "0.10.0",
+    "schema_version": "0.10.1",
     "license": "CC-BY-4.0",
     "creation_time": "2022-02-21 16:30:01",
     "name": "exaSPIM_12345_2022-02-21_16-30-01",
@@ -186,7 +186,7 @@
     "data_processes": [
       {
         "name": "Ephys preprocessing",
-        "version": "0.0.3",
+        "software_version": "0.0.3",
         "start_date_time": "2020-10-20 00:00:00+00:00",
         "end_date_time": "2020-10-20 01:00:00+00:00",
         "input_location": "some_input_location",

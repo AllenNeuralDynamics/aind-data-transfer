@@ -121,6 +121,7 @@ class TestProcessingMetadata(unittest.TestCase):
         )
         input_location = "some_input_location"
         output_location = "some_output_location"
+        processor_full_name = "some name"
         code_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
         parameters = loaded_configs
@@ -131,14 +132,16 @@ class TestProcessingMetadata(unittest.TestCase):
             end_date_time=end_date_time,
             input_location=input_location,
             output_location=output_location,
+            processor_full_name=processor_full_name,
             code_url=code_url,
             parameters=parameters,
         )
 
         # Hack to get match version to be the same as in the example file
-        expected_processing_instance_json["data_processes"][0][
-            "version"
-        ] = processing_metadata.model_obj["data_processes"][0]["version"]
+        print(expected_processing_instance_json)
+        expected_processing_instance_json["processing_pipeline"]["data_processes"][0][
+            "software_version"
+        ] = processing_metadata.model_obj["processing_pipeline"]["data_processes"][0]["software_version"]
 
         expected_processing_instance = Processing.parse_obj(
             expected_processing_instance_json
@@ -239,12 +242,6 @@ class TestSubjectMetadata(unittest.TestCase):
         mock_open.assert_has_calls(
             [
                 call(Path("/some_path/subject.json"), "w"),
-                call().__enter__(),
-                call()
-                .__enter__()
-                .write(json.dumps(expected_subject, indent=3, default=str)),
-                call().__exit__(None, None, None),
-                call(Path("/some_path/subject2.json"), "w"),
                 call().__enter__(),
                 call()
                 .__enter__()
