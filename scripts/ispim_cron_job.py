@@ -477,6 +477,51 @@ date
 
     return sbatch_script
 
+def write_processing_manifest(dataset_path: PathLike):
+    """Writes a processing manifest to the derivatives directory of a dataset
+    Always writes it as pending (upload) status
+
+    Parameters
+    ------------------------
+    dataset_path: PathLike
+        Path to the dataset
+    
+    Returns
+    ------------------------
+    file_loc: PathLike
+        Path to the processing manifest
+    
+
+    """
+    file_loc = Path(dataset_path).joinpath("derivatives", "processing_manifest.json")
+
+    #get the subject id
+    subject_id = get_subject_id_from_config_toml(Path(dataset_path).joinpath('config.toml'))
+
+    #get the time now
+    now = datetime.now()
+    date = now.strftime("%Y-%m-%d")
+    time = now.strftime("%H:%M:%S")
+
+    #write the manifest dict
+    manifest_dict = {"specimen_id": subject_id, 
+                    "dataset_status":{
+                        "status": "pending", 
+                        "status_date": date, 
+                        "status_time": time}
+                    }
+
+    #write the json manifest to file
+    try: 
+        with open(file_loc, "w") as f:
+            json.dump(manifest_dict, f, indent=4)
+    except: 
+        logger.error(f"Could not write processing manifest to {file_loc}")
+        raise ValueError(f"Could not write processing manifest to {file_loc}")
+
+    return file_loc
+
+
 def write_csv_from_dataset(dataset_loc: PathLike, csv_path: PathLike):
     """Writes a csv file to be submitted to the metadata service from a dataset that needs uploading
     
