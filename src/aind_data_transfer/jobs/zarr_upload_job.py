@@ -328,7 +328,14 @@ class ZarrUploadJob(BasicJob):
             self._instance_logger.info("Checking write credentials...")
             self._test_upload(temp_dir=Path(td))
 
-        self._instance_logger.info("Compiling metadata...")
+
+        if self.job_configs.platform == Platform.HCR:
+            try:
+                self._create_dispim_metadata()
+            except Exception as e:
+                self._instance_logger.error(f"Failed to create diSPIM metadata: {e}")
+                self._instance_logger.info("Compiling metadata...")
+                
         try:
             self._compile_metadata(
                 temp_dir=self._data_src_dir, process_start_time=process_start_time
@@ -336,11 +343,6 @@ class ZarrUploadJob(BasicJob):
         except Exception as e:
             self._instance_logger.error(f"Failed to compile metadata: {e}")
 
-        if self.job_configs.platform == Platform.HCR:
-            try:
-                self._create_dispim_metadata()
-            except Exception as e:
-                self._instance_logger.error(f"Failed to create diSPIM metadata: {e}")
 
         self._instance_logger.info("Starting zarr upload...")
         self._upload_zarr()

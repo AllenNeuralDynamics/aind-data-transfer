@@ -29,7 +29,7 @@ from aind_data_transfer.transformations.deinterleave import (
     Deinterleave,
 )
 
-MM_TO_UM = 100
+MM_TO_UM = 1000
 
 def read_dispim_aquisition(acq_path: str) -> Acquisition:
     """Read json formatted acquisition file, output by iSPIM rig
