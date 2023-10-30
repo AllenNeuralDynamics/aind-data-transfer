@@ -5,14 +5,14 @@ import argparse
 import json
 import os
 import re
-from datetime import date, datetime, time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from aind_data_access_api.secrets import get_parameter
 from aind_data_schema.data_description import (
-    Platform,
     Modality,
+    Platform,
     build_data_name,
 )
 from aind_data_schema.processing import ProcessName
@@ -185,8 +185,12 @@ class ModalityConfigs(BaseSettings):
 class BasicUploadJobConfigs(BasicJobEndpoints):
     """Configuration for the basic upload job"""
 
-    _DATETIME_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
-    _DATETIME_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [APap][Mm]$")
+    _DATETIME_PATTERN1 = re.compile(
+        r"^\d{4}-\d{2}-\d{2}[ |T]\d{2}:\d{2}:\d{2}$"
+    )
+    _DATETIME_PATTERN2 = re.compile(
+        r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [APap][Mm]$"
+    )
 
     s3_bucket: str = Field(
         ...,
@@ -201,7 +205,9 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
     acq_datetime: datetime = Field(
-        ..., description="Datetime data was acquired", title="Acquisition Datetime"
+        ...,
+        description="Datetime data was acquired",
+        title="Acquisition Datetime",
     )
     process_name: ProcessName = Field(
         default=ProcessName.OTHER,
@@ -266,12 +272,13 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
         # TODO: do this in data transfer service
         if re.match(BasicUploadJobConfigs._DATETIME_PATTERN1, datetime_str):
-            return datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+            return datetime.fromisoformat(datetime_str)
         elif re.match(BasicUploadJobConfigs._DATETIME_PATTERN2, datetime_str):
             return datetime.strptime(datetime_str, "%m/%d/%Y %I:%M:%S %p")
         else:
             raise ValueError(
-                "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P"
+                "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss "
+                "or MM/DD/YYYY I:MM:SS P"
             )
 
     @classmethod
@@ -291,7 +298,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             "--acq-datetime",
             required=True,
             type=str,
-            help="Datetime data was acquired, YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P",
+            help=(
+                "Datetime data was acquired, YYYY-MM-DD HH:mm:ss "
+                "or MM/DD/YYYY I:MM:SS P"
+            ),
         )
         parser.add_argument(
             "-b",
