@@ -123,40 +123,77 @@ def read_imaging_log(log_path: str) -> dict:
         y_voxel_regex = r"y_voxel_size, (\d+\.\d+) micrometers"
         z_voxel_regex = r"z_voxel_size, (\d+\.\d+) micrometers"
 
-        log_dict["session_start_time"] = re.search(
-            session_start_time_regex, log_text
-        ).group(1)
-        log_dict["session_end_time"] = re.search(
-            session_end_time_regex, log_text
-        ).group(1)
-        log_dict["specimen_id"] = re.search(specimen_id_regex, log_text).group(
-            1
-        )
-        log_dict["subject_id"] = re.search(subject_id_regex, log_text).group(1)
-        log_dict["instrument_id"] = re.search(
-            instrument_id_regex, log_text
-        ).group(1)
-        log_dict["chamber_immersion_medium"] = re.search(
-            chamber_immersion_medium_regex, log_text
-        ).group(1)
-        log_dict["chamber_immersion_refractive_index"] = re.search(
-            chamber_immersion_refractive_index_regex, log_text
-        ).group(1)
-        log_dict["x_voxel_size"] = re.search(x_voxel_regex, log_text).group(1)
-        log_dict["y_voxel_size"] = re.search(y_voxel_regex, log_text).group(1)
-        log_dict["z_voxel_size"] = re.search(z_voxel_regex, log_text).group(1)
-        log_dict["lightsheet_angle"] = str(
-            re.search(lightsheet_angle_regex, log_text).group(1)
-        )
-        log_dict["local_storage_directory"] = re.search(
-            local_storage_dir_regex, log_text
-        ).group(
-            1
-        )  # these are the directories at time of writing the log file, but are specific to aquisition computer computer, which if it is saving to a NAS, breaks the rest of the workflow
-        log_dict["external_storage_directory"] = re.search(
-            external_storage_dir_regex, log_text
-        ).group(1)
+        try: 
+            log_dict["session_start_time"] = re.search(
+                session_start_time_regex, log_text).group(1)
+        except: 
+            print(f'Could not find session start time in {log_path}')
+            log_dict["session_start_time"] = None
+        try:
+            log_dict["session_end_time"] = re.search(
+                session_end_time_regex, log_text).group(1)
+        except:
+            print(f'Could not find session end time in {log_path}')
+            log_dict["session_end_time"] = None
+        try:
+            log_dict["specimen_id"] = re.search(specimen_id_regex, log_text).group(1)
+        except: 
+            print(f'Could not find specimen id in {log_path}')
+            log_dict["specimen_id"] = None
+        try:
+            log_dict["subject_id"] = re.search(subject_id_regex, log_text).group(1)
+        except:
+            print(f'Could not find subject id in {log_path}')
+            log_dict["subject_id"] = None
+        try:
+            log_dict["instrument_id"] = re.search(
+                instrument_id_regex, log_text).group(1)
+        except: 
+            print(f'Could not find instrument id in {log_path}')
+            log_dict["instrument_id"] = None
 
+        try:
+            log_dict["chamber_immersion_medium"] = re.search(
+                chamber_immersion_medium_regex, log_text
+            ).group(1)
+        except: 
+            print(f'Could not find chamber immersion medium in {log_path}')
+            log_dict["chamber_immersion_medium"] = None
+        try:
+            log_dict["chamber_immersion_refractive_index"] = re.search(
+                chamber_immersion_refractive_index_regex, log_text
+            ).group(1)
+        except:
+            print(f'Could not find chamber immersion refractive index in {log_path}')
+            log_dict["chamber_immersion_refractive_index"] = None
+        try:
+            log_dict["x_voxel_size"] = re.search(x_voxel_regex, log_text).group(1)
+            log_dict["y_voxel_size"] = re.search(y_voxel_regex, log_text).group(1)
+            log_dict["z_voxel_size"] = re.search(z_voxel_regex, log_text).group(1)
+        except:
+            print(f'Could not find voxel size in {log_path}')
+            log_dict["x_voxel_size"] = None
+            log_dict["y_voxel_size"] = None
+            log_dict["z_voxel_size"] = None
+        try:
+            log_dict["lightsheet_angle"] = str(
+                re.search(lightsheet_angle_regex, log_text).group(1))
+        except:
+            print(f'Could not find lightsheet angle in {log_path}')
+            log_dict["lightsheet_angle"] = None
+        try:
+            log_dict["local_storage_directory"] = re.search(
+                local_storage_dir_regex, log_text).group(1)  # these are the directories at time of writing the log file, but are specific to aquisition computer computer, which if it is saving to a NAS, breaks the rest of the workflow
+        except: 
+            print(f'Could not find local storage directory in {log_path}')
+            log_dict["local_storage_directory"] = None
+        try:
+            log_dict["external_storage_directory"] = re.search(
+                external_storage_dir_regex, log_text).group(1)
+        except: 
+            print(f'Could not find external storage directory in {log_path}')
+            log_dict["external_storage_directory"] = None
+        
         return log_dict
 
     # now the log file is a list of strings, each string is a line in the log file
@@ -174,8 +211,13 @@ def read_imaging_log(log_path: str) -> dict:
                 match = re.search(tile_loc_regex, line)
                 if match:
                     # print(match.groups())
-                    x = match.group(1)
-                    y = match.group(2)
+                    try:
+                        x = match.group(1)
+                        y = match.group(2)
+                    except:
+                        print(f'Could not find x and y coordinates in {log_path}')
+                        x = None
+                        y = None
                     if len(match.group(3)) > 3:
                         channel = match.group(3).split(", ")
                     else:
@@ -184,11 +226,14 @@ def read_imaging_log(log_path: str) -> dict:
 
                     # move to next next line in log_list without using next
                     line = log_list[log_list.index(line) + 2]
-
-                    z = (
-                        float(re.search(tile_z_position_regex, line).group(1))
-                        * 1000
-                    )  # convert to micrometers
+                    try: 
+                        z = (
+                            float(re.search(tile_z_position_regex, line).group(1))
+                            * 1000
+                        )  # convert to micrometers
+                    except:
+                        print(f'Could not find z coordinate in {log_path}')
+                        z = None
                     tile_dict[file_name] = {
                         "tile_x_position": x,
                         "tile_y_position": y,
@@ -264,7 +309,56 @@ def read_log_file(log_path: str) -> dict:
     return log_dict
 
 
-def write_xml(tree: ET.ElementTree, path: Union[Path, str]) -> None:
+def read_schema_log_file(log_path: str) -> dict: 
+    with open(log_path, 'r') as f: 
+        lines = f.readlines()
+
+    log_dict = {}
+    log_dict['tiles']: list[dict] = []
+    for i, line in enumerate(lines): 
+        line = line.replace("\'", "\"")
+        #remove windows path   
+        line = line.replace('WindowsPath(','').replace(')', '')
+
+        #escape file_name quotations marks with \\
+        if 'file_name, [' in line:
+            line = line.replace('file_name, ["', 'file_name, [\\"').replace('tiff"]', 'tiff\\"]')
+
+        # if 'None' in line:
+        #     line = line.replace('None', '"None"')
+
+        # if '"["' in line and 'tiff"]' in line:
+        #     line = line.replace('"["', "['")
+        #     line = line.replace('tiff"]', "tiff'],")
+            
+    
+        try:
+            tmp = json.loads(f'{line}')
+        except: 
+            pass
+        # Only specific lines matter:
+        if i == 0: 
+            log_dict['session_start_time'] = datetime.datetime.fromisoformat(tmp['created_strftime'])
+        if 'local_storage_directory' in tmp.keys():
+            tmp.pop('name')
+            tmp.pop('msg')
+            tmp.pop('levelname')
+            tmp.pop('created')
+            tmp.pop('created_strftime')
+            log_dict = {**log_dict, **tmp}
+        if 'file_name' in tmp.keys():
+            tmp.pop('name')
+            tmp.pop('msg')
+            tmp.pop('levelname')
+            tmp.pop('created')
+            tmp.pop('created_strftime')
+            log_dict['tiles'].append(tmp)
+        if i == len(lines) - 1: 
+            log_dict['session_end_time'] = datetime.datetime.fromisoformat(tmp['created_strftime'])
+
+    return log_dict
+
+def write_xml(tree: ET.ElementTree, path: Union[Path, str]) -> None: 
     ET.indent(tree, space="\t", level=0)
 
     # write xml to file
