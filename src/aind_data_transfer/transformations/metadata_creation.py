@@ -272,7 +272,6 @@ class ProcessingMetadata(MetadataCreation):
         process_name: ProcessName,
         start_date_time: datetime,
         end_date_time: datetime,
-        processor_full_name: str,
         input_location: str,
         output_location: str,
         code_url: str,
@@ -313,8 +312,7 @@ class ProcessingMetadata(MetadataCreation):
             notes=notes,
         )
         pipeline_process_instance = PipelineProcess(
-            data_processes=[data_processing_instance],
-            processor_full_name=processor_full_name,
+            data_processes=[data_processing_instance]
         )
         processing_instance = Processing(
             processing_pipeline=pipeline_process_instance
@@ -329,7 +327,6 @@ class ProcessingMetadata(MetadataCreation):
         modality_configs: List[ModalityConfigs],
         start_date_time: datetime,
         end_date_time: datetime,
-        processor_full_name: str,
         output_location: str,
         code_url: str,
         notes: Optional[str] = None,
@@ -371,8 +368,7 @@ class ProcessingMetadata(MetadataCreation):
             )
             data_processes.append(data_processing_instance)
         pipeline_process_instance = PipelineProcess(
-            data_processes=data_processes,
-            processor_full_name=processor_full_name,
+            data_processes=data_processes
         )
         processing_instance = Processing(
             processing_pipeline=pipeline_process_instance
