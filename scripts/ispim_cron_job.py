@@ -451,7 +451,6 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=carson.berry@alleninstitute.org
 #SBATCH --ntasks=64
-#SBATCH --nodelist=n111
 
 set -e
 
@@ -521,6 +520,10 @@ def write_processing_manifest(dataset_path: PathLike):
 
     return file_loc
 
+def check_if_processing_manifest_exists(dataset_path: PathLike):
+    """Checks if a processing manifest exists for a dataset"""
+    file_loc = Path(dataset_path).joinpath("derivatives", "processing_manifest.json")
+    return file_loc.exists()
 
 def write_csv_from_dataset(dataset_loc: PathLike, csv_path: PathLike):
     """Writes a csv file to be submitted to the metadata service from a dataset that needs uploading
@@ -594,6 +597,12 @@ def main():
     )
 
     logger.warning(f"Raw datasets rejected: {raw_datasets_rejected}")
+
+    #make processing manifest for rejected datasets if they don't already exist: 
+    for rejected_dataset in raw_datasets_rejected:
+        if not check_if_processing_manifest_exists(rejected_dataset):
+            write_processing_manifest(rejected_dataset)
+    
 
     # new_dataset_paths, ready_datasets = organize_datasets(
     #     root_folder,
