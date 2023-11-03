@@ -12,14 +12,8 @@ from aind_data_schema import (
     RawDataDescription,
     Subject,
 )
-from aind_data_schema.data_description import (
-    Modality,
-    Funding,
-    Institution,
-)
-
+from aind_data_schema.data_description import Funding, Institution, Modality
 from aind_data_schema.processing import ProcessName
-from aind_data_schema.metadata import Metadata
 from requests import ConnectionError, Response
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
@@ -30,7 +24,6 @@ from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
-    MetadataRecord,
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -51,49 +44,6 @@ with open(METADATA_DIR / "subject.json", "r") as f:
 
 with open(METADATA_DIR / "procedures.json", "r") as f:
     expected_procedures_instance_json = json.load(f)
-
-
-class TestMetadataRecord(unittest.TestCase):
-    """Tests methods in DataDescriptionMetadata class"""
-
-    def test_create_metadata_record(self) -> None:
-        """
-        Tests that the data description metadata is created correctly.
-        """
-        mock_subject_metadata = SubjectMetadata(
-            model_obj=expected_subject_instance_json
-        )
-        mock_procedures_metadata = ProceduresMetadata(
-            model_obj=expected_procedures_instance_json
-        )
-        mock_processing_metadata = ProcessingMetadata(
-            model_obj=expected_processing_instance_json
-        )
-        mock_data_description_metadata = RawDataDescriptionMetadata(
-            model_obj=expected_data_description_instance_json
-        )
-        metadata = MetadataRecord.from_inputs(
-            id="000000",
-            name="Test Name",
-            created=datetime.datetime(2023, 9, 27, 0, 0, 0),
-            last_modified=datetime.datetime(2023, 9, 28, 10, 20, 30),
-            location="Test Location",
-            subject_metadata=mock_subject_metadata,
-            processing_metadata=mock_processing_metadata,
-            data_description_metadata=mock_data_description_metadata,
-            procedures_metadata=mock_procedures_metadata,
-        )
-
-        expected_metadata_instance = Metadata.parse_obj(
-            expected_metadata_instance_json
-        )
-
-        self.assertEqual(
-            json.loads(expected_metadata_instance.json()),
-            metadata.model_obj,
-        )
-        self.assertEqual(Metadata, metadata._model())
-        self.assertEqual("metadata.json", metadata.output_filename)
 
 
 class TestProcessingMetadata(unittest.TestCase):
@@ -138,9 +88,17 @@ class TestProcessingMetadata(unittest.TestCase):
         )
 
         # Hack to get match version to be the same as in the example file
-        expected_processing_instance_json["processing_pipeline"]["data_processes"][0][
+        expected_processing_instance_json["processing_pipeline"][
+            "data_processes"
+        ][0]["software_version"] = processing_metadata.model_obj[
+            "processing_pipeline"
+        ][
+            "data_processes"
+        ][
+            0
+        ][
             "software_version"
-        ] = processing_metadata.model_obj["processing_pipeline"]["data_processes"][0]["software_version"]
+        ]
 
         expected_processing_instance = Processing.parse_obj(
             expected_processing_instance_json
@@ -386,7 +344,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         data_description = RawDataDescriptionMetadata.from_inputs(
             name="exaSPIM_12345_2022-02-21_16-30-01",
             modality=[Modality.SPIM],
-            funding_source=[Funding(funder=Institution.AI)],
+            funding_source=(Funding(funder=Institution.AI),),
         )
 
         expected_data_description_instance = RawDataDescription.parse_obj(

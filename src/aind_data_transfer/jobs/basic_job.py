@@ -11,13 +11,14 @@ from datetime import datetime, timezone
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
+from typing import Dict, Optional
 
 import boto3
-from aind_data_schema.base import AindCoreModel
-import aind_data_schema
 from aind_codeocean_api.codeocean import CodeOceanClient
+from aind_data_schema.base import AindCoreModel
 from aind_data_schema.data_description import Modality
-from aind_data_schema.metadata import Metadata
+from aind_data_schema.metadata import Metadata, MetadataStatus
+from aind_data_schema.processing import Processing
 
 from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
@@ -30,7 +31,6 @@ from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
-    MetadataRecord,
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
 
@@ -54,7 +54,7 @@ class BasicJob:
             .getChild(str(id(self)))
         )
         self._instance_logger.setLevel(job_configs.log_level)
-        self.metadata_record = None
+        self.metadata_record: Optional[Metadata] = None
 
     def _test_upload(self, temp_dir: Path):
         """Run upload command on empty directory to see if user has permissions
@@ -90,13 +90,21 @@ class BasicJob:
     def _initialize_metadata_record(self, temp_dir: Path):
         """Perform some metadata collection and validation before more
         time-consuming compression and upload steps."""
-        # If the user defined custom metadata, loop through the directory
-        # and check for json files that match the default file name
-        aind_core_models = self.__core_metadata_fields()
-        default_filenames = {f.default_filename() for f in aind_core_models}
-        metadata_in_folder_map = dict()
 
-        # Copy stuff from user defined metadata directory to temp folder
+        # Create a map: filename -> AindCoreModel,
+        # e.g., "subject.json" -> Subject
+        aind_core_models = self.__core_metadata_fields()
+        core_filename_map: Dict[str, AindCoreModel] = {
+            f.type_.default_filename(): f.type_ for f in aind_core_models
+        }
+        # Create a map: filename -> Metadata field name,
+        # e.g., "subject.json" -> "subject"
+        core_field_name_map = {
+            f.type_.default_filename(): f.name for f in aind_core_models
+        }
+        # If the user defined a metadata directory, create a
+        # map: filename -> Path, e.g., "subject.json" -> "dir/subject.json"
+        metadata_in_folder_map: Dict[str, Path] = dict()
         if self.job_configs.metadata_dir:
             # Check only json files in user defined metadata folder
             file_paths = glob.glob(
@@ -106,21 +114,23 @@ class BasicJob:
                 metadata_in_folder_map[Path(file_path).name] = Path(file_path)
         # Subject, Procedures, Data Description, and Processing are handled
         # as special cases
-        subject_filename = (
-            Metadata.__fields__["subject"].type_.default_filename()
-        )
-        procedures_filename = (
-            Metadata.__fields__["procedures"].type_.default_filename()
-        )
-        data_description_filename = (
-            Metadata.__fields__["data_description"].type_.default_filename()
-        )
-        processing_filename = (
-            Metadata.__fields__["processing"].type_.default_filename()
-        )
+        subject_filename = Metadata.__fields__[
+            "subject"
+        ].type_.default_filename()
+        procedures_filename = Metadata.__fields__[
+            "procedures"
+        ].type_.default_filename()
+        data_description_filename = Metadata.__fields__[
+            "data_description"
+        ].type_.default_filename()
+        processing_filename = Metadata.__fields__[
+            "processing"
+        ].type_.default_filename()
         # If subject not in user defined directory, query the service
         if metadata_in_folder_map.get(subject_filename) is not None:
-            subject_metadata = self.__download_json(metadata_in_folder_map[subject_filename])
+            subject_metadata = self.__download_json(
+                metadata_in_folder_map[subject_filename]
+            )
             file_path = metadata_in_folder_map.get(subject_filename)
             new_path = temp_dir / Path(file_path).name
             shutil.copyfile(file_path, new_path)
@@ -128,18 +138,22 @@ class BasicJob:
         else:
             subject_metadata_0 = SubjectMetadata.from_service(
                 domain=self.job_configs.metadata_service_domain,
-                subject_id=self.job_configs.subject_id,)
+                subject_id=self.job_configs.subject_id,
+            )
             subject_metadata_0.write_to_json(temp_dir)
             subject_metadata = subject_metadata_0.model_obj
-        default_filenames.remove(subject_filename)
+        del core_filename_map[subject_filename]
         # Basic check that subject_id matches
         if subject_metadata.get("subject_id") != self.job_configs.subject_id:
-            raise Exception(f"{self.job_configs.subject_id} not found in {subject_metadata}")
+            raise Exception(
+                f"Subject id {self.job_configs.subject_id} not found in {subject_metadata}!"
+            )
 
         # If procedures not in user defined directory, query the service
         if metadata_in_folder_map.get(procedures_filename) is not None:
             procedures_metadata = self.__download_json(
-                metadata_in_folder_map[procedures_filename])
+                metadata_in_folder_map[procedures_filename]
+            )
             file_path = metadata_in_folder_map.get(procedures_filename)
             new_path = temp_dir / Path(file_path).name
             shutil.copyfile(file_path, new_path)
@@ -147,95 +161,52 @@ class BasicJob:
         else:
             procedures_metadata_0 = ProceduresMetadata.from_service(
                 domain=self.job_configs.metadata_service_domain,
-                subject_id=self.job_configs.subject_id, )
+                subject_id=self.job_configs.subject_id,
+            )
             procedures_metadata_0.write_to_json(temp_dir)
             procedures_metadata = procedures_metadata_0.model_obj
-        default_filenames.remove(procedures_filename)
-
-        # If procedures not in user defined directory, query the service
-        if metadata_in_folder_map.get(procedures_filename) is not None:
-            procedures_metadata = self.__download_json(
-                metadata_in_folder_map[procedures_filename])
-            file_path = metadata_in_folder_map.get(procedures_filename)
-            new_path = temp_dir / Path(file_path).name
-            shutil.copyfile(file_path, new_path)
-            del metadata_in_folder_map[procedures_filename]
-        else:
-            procedures_metadata_0 = ProceduresMetadata.from_service(
-                domain=self.job_configs.metadata_service_domain,
-                subject_id=self.job_configs.subject_id, )
-            procedures_metadata_0.write_to_json(temp_dir)
-            procedures_metadata = procedures_metadata_0.model_obj
-        default_filenames.remove(procedures_filename)
+        del core_filename_map[procedures_filename]
 
         # If data_description not in user defined directory, create one
         if metadata_in_folder_map.get(data_description_filename) is not None:
             data_description_metadata = self.__download_json(
-                metadata_in_folder_map[data_description_filename])
+                metadata_in_folder_map[data_description_filename]
+            )
             file_path = metadata_in_folder_map.get(data_description_filename)
             new_path = temp_dir / Path(file_path).name
             shutil.copyfile(file_path, new_path)
             del metadata_in_folder_map[data_description_filename]
         else:
             modalities = [m.modality for m in self.job_configs.modalities]
-            data_description_metadata_0 = RawDataDescriptionMetadata.from_inputs(
-                name=self.job_configs.s3_prefix,
-                modality=modalities,
+            data_description_metadata_0 = (
+                RawDataDescriptionMetadata.from_inputs(
+                    name=self.job_configs.s3_prefix,
+                    modality=modalities,
+                )
             )
             data_description_metadata_0.write_to_json(temp_dir)
             data_description_metadata = data_description_metadata_0.model_obj
-        default_filenames.remove(data_description_filename)
+        del core_filename_map[data_description_filename]
 
-
-
-                # new_path = temp_dir / Path(file_path).name
-
-                # Only overwrite service defined metadata if metadata_dir_force
-                # is set to true
-                # if (
-                #         not os.path.exists(new_path)
-                #         or self.job_configs.metadata_dir_force
-                # ):
-                #     shutil.copyfile(file_path, new_path)
-        return None
-
-
-        subject_metadata = SubjectMetadata.from_service(
-            domain=self.job_configs.metadata_service_domain,
-            subject_id=self.job_configs.subject_id,
-        )
-        # subject_metadata.write_to_json(temp_dir)
-
-        procedures_metadata = ProceduresMetadata.from_service(
-            domain=self.job_configs.metadata_service_domain,
-            subject_id=self.job_configs.subject_id,
-        )
-        # procedures_metadata.write_to_json(temp_dir)
-
-        modalities = [m.modality for m in self.job_configs.modalities]
-        data_description_metadata = RawDataDescriptionMetadata.from_inputs(
+        # Update metadata record object
+        self.metadata_record = Metadata(
             name=self.job_configs.s3_prefix,
-            modality=modalities,
+            location=self.job_configs.s3_bucket,
+            subject=subject_metadata,
+            procedures=procedures_metadata,
+            data_description=data_description_metadata,
         )
-        # Check user defined metadata
-        if self.job_configs.metadata_dir:
-            # Check only json files in user defined metadata folder
-            file_paths = glob.glob(
-                str(self.job_configs.metadata_dir / "*.json")
-            )
-            for file_path in file_paths:
-                new_path = temp_dir / Path(file_path).name
-                # Only overwrite service defined metadata if metadata_dir_force
-                # is set to true
-                if (
-                        not os.path.exists(new_path)
-                        or self.job_configs.metadata_dir_force
-                ):
-                    shutil.copyfile(file_path, new_path)
-        return None
-        #data_description_metadata.write_to_json(path=temp_dir)
-
-
+        # For the remaining files in metadata dir, copy them over. We'll
+        # copy al the files regardless of whether they were generated from
+        # a core model. For the core models, we can attach the contents to
+        # the metadata record
+        for file_name, file_path in metadata_in_folder_map.items():
+            new_path = temp_dir / Path(file_path).name
+            shutil.copyfile(file_path, new_path)
+            if core_field_name_map.get(file_name) is not None:
+                model_contents = self.__download_json(file_path)
+                field_name = core_field_name_map[file_name]
+                setattr(self.metadata_record, field_name, model_contents)
 
     def _check_if_s3_location_exists(self):
         """Check if the s3 bucket and prefix already exists. If so, raise an
@@ -373,34 +344,10 @@ class BasicJob:
                     )
         return None
 
-    def _compile_metadata(
-        self,
-        temp_dir: Path,
-        process_start_time: datetime,
-    ) -> None:
-        """Compile metadata files. Keeps the data in the temp_dir before
-        uploading to s3."""
-
-        # Get metadata from service
-        subject_metadata = SubjectMetadata.from_service(
-            domain=self.job_configs.metadata_service_domain,
-            subject_id=self.job_configs.subject_id,
-        )
-        subject_metadata.write_to_json(temp_dir)
-
-        procedures_metadata = ProceduresMetadata.from_service(
-            domain=self.job_configs.metadata_service_domain,
-            subject_id=self.job_configs.subject_id,
-        )
-        procedures_metadata.write_to_json(temp_dir)
-
-        modalities = [m.modality for m in self.job_configs.modalities]
-        data_description_metadata = RawDataDescriptionMetadata.from_inputs(
-            name=self.job_configs.s3_prefix,
-            modality=modalities,
-        )
-        data_description_metadata.write_to_json(path=temp_dir)
-
+    def _add_processing_to_metadata(
+        self, temp_dir: Path, process_start_time: datetime
+    ):
+        """Append the processing metadata to the output"""
         processing_end_time = datetime.now(timezone.utc)
         processing_metadata = ProcessingMetadata.from_modalities_configs(
             modality_configs=self.job_configs.modalities,
@@ -410,30 +357,22 @@ class BasicJob:
                 f"s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix}"
             ),
+            processor_full_name=self.job_configs.processor_name,
             code_url=self.job_configs.aind_data_transfer_repo_location,
         )
         processing_metadata.write_to_json(path=temp_dir)
-
-        # Check user defined metadata
-        if self.job_configs.metadata_dir:
-            # Check only json files in user defined metadata folder
-            file_paths = glob.glob(
-                str(self.job_configs.metadata_dir / "*.json")
-            )
-            for file_path in file_paths:
-                new_path = temp_dir / Path(file_path).name
-                # Only overwrite service defined metadata if metadata_dir_force
-                # is set to true
-                if (
-                    not os.path.exists(new_path)
-                    or self.job_configs.metadata_dir_force
-                ):
-                    shutil.copyfile(file_path, new_path)
-        return None
+        processing = processing_metadata.get_model()
+        if (
+            processing_metadata.validate_obj() is False
+            and self.metadata_record.metadata_status != MetadataStatus.MISSING
+        ):
+            self.metadata_record.metadata_status = MetadataStatus.INVALID
+        self.metadata_record.processing = processing
+        self.metadata_record.write_standard_file(temp_dir, suffix=".aind.json")
 
     def _encrypt_behavior_dir(self, temp_dir: Path) -> None:
         """Encrypt the data in the behavior directory. Keeps the data in the
-        temp_dir before uploading to s3."""
+        temp_dir before uploading to s3. This feature will be deprecated."""
         if self.job_configs.behavior_dir:
             encryption_key = (
                 self.job_configs.video_encryption_password.get_secret_value()
@@ -515,12 +454,15 @@ class BasicJob:
         ) as td:
             self._instance_logger.info("Checking write credentials...")
             self._test_upload(temp_dir=Path(td))
+            self._instance_logger.info("Compiling initial metadata...")
+            self._initialize_metadata_record(temp_dir=Path(td))
             self._instance_logger.info("Processing raw data...")
             self._compress_raw_data(temp_dir=Path(td))
             self._instance_logger.info("Checking for behavior directory...")
+            # TODO: remove the encryption step
             self._encrypt_behavior_dir(temp_dir=Path(td))
-            self._instance_logger.info("Compiling metadata...")
-            self._compile_metadata(
+            self._instance_logger.info("Attaching processing metadata...")
+            self._add_processing_to_metadata(
                 temp_dir=Path(td), process_start_time=process_start_time
             )
             self._instance_logger.info("Starting s3 upload...")

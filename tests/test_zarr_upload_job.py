@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from aind_data_schema.data_description import Platform, Modality
+from aind_data_schema.data_description import Modality, Platform
 from numcodecs import blosc
 
 from aind_data_transfer.config_loader.base_config import (
@@ -93,6 +93,8 @@ class TestZarrUploadJob(unittest.TestCase):
         elif platform == Platform.EXASPIM:
             data_dir = EXASPIM_DATA_DIR
         else:
+            # TODO: unit tests shouldn't raise errors like this. This can be
+            #  a assertion somewhere in the codebase and that verified here.
             raise ValueError(f"Unsupported modality: {platform}")
         config = BasicUploadJobConfigs(
             platform=platform,
@@ -151,7 +153,8 @@ class TestZarrUploadJob(unittest.TestCase):
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_dispim_metadata"
     )
-    @patch("aind_data_transfer.jobs.basic_job.BasicJob._compile_metadata")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
     @patch(
         "aind_data_transfer.jobs.basic_job.BasicJob._check_if_s3_location_exists"
@@ -160,7 +163,8 @@ class TestZarrUploadJob(unittest.TestCase):
         self,
         mock_s3_check: MagicMock,
         mock_test_upload: MagicMock,
-        mock_compile_metadata: MagicMock,
+        mock_add_processing_to_metadata: MagicMock,
+        mock_initialize_metadata: MagicMock,
         mock_create_dispim_metadata: MagicMock,
         mock_upload_to_s3: MagicMock,
         mock_upload_zarr: MagicMock,
@@ -184,7 +188,10 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_test_upload.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
         )
-        mock_compile_metadata.assert_called_once_with(
+        mock_initialize_metadata.assert_called_once_with(
+            temp_dir=test_job_configs.modalities[0].source
+        )
+        mock_add_processing_to_metadata.assert_called_once_with(
             temp_dir=test_job_configs.modalities[0].source,
             process_start_time=datetime(2023, 4, 9),
         )
@@ -211,7 +218,8 @@ class TestZarrUploadJob(unittest.TestCase):
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_dispim_metadata"
     )
-    @patch("aind_data_transfer.jobs.basic_job.BasicJob._compile_metadata")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
     @patch(
         "aind_data_transfer.jobs.basic_job.BasicJob._check_if_s3_location_exists"
@@ -220,7 +228,8 @@ class TestZarrUploadJob(unittest.TestCase):
         self,
         mock_s3_check: MagicMock,
         mock_test_upload: MagicMock,
-        mock_compile_metadata: MagicMock,
+        mock_add_processing_to_metadata: MagicMock,
+        mock_initialize_metadata: MagicMock,
         mock_create_dispim_metadata: MagicMock,
         mock_upload_to_s3: MagicMock,
         mock_upload_zarr: MagicMock,
@@ -246,7 +255,10 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_test_upload.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
         )
-        mock_compile_metadata.assert_called_once_with(
+        mock_initialize_metadata.assert_called_once_with(
+            temp_dir=test_job_configs.modalities[0].source
+        )
+        mock_add_processing_to_metadata.assert_called_once_with(
             temp_dir=test_job_configs.modalities[0].source,
             process_start_time=datetime(2023, 4, 9),
         )
