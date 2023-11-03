@@ -23,8 +23,15 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
 )
 
-from aind_data_transfer.transformations.file_io import read_log_file, read_toml, write_xml, read_imaging_log, write_acq_json
-from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml
+from aind_data_transfer.transformations.file_io import read_log_file, read_toml, write_xml, read_imaging_log, write_acq_json, read_schema_log_file
+from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml, schema_log_to_acq_json
+
+warn(
+    f"The module {__name__} is deprecated and will be removed in future "
+    f"versions.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 warn(
     f"The module {__name__} is deprecated and will be removed in future "
@@ -260,16 +267,28 @@ def main():
             
             if job_configs["data"]["name"]=='diSPIM': #convert metadata log to xml 
                 LOGGER.info("Creating xml files for diSPIM data")
-                #convert imaging log to acq json
-                log_file = data_src_dir.joinpath('imaging_log.log')
-                toml_dict = read_toml(data_src_dir.joinpath('config.toml'))
 
-                #read log file into dict
-                log_dict = read_imaging_log(log_file)
+
+                #TODO add this to YML file or make default with more testing
+                use_schema_log = False
+
+                if use_schema_log:
+                # try:
+                    log_file = data_src_dir.joinpath('schema_log.log')
+                    log_dict = read_schema_log_file(log_file)
+                else:
+                # except:
+                    #convert imaging log to acq json
+                    log_file = data_src_dir.joinpath('imaging_log.log')
+                    #read log file into dict
+                    log_dict = read_imaging_log(log_file)
+
+                toml_dict = read_toml(data_src_dir.joinpath('config.toml'))
                 log_dict['data_src_dir'] = (data_src_dir.as_posix())
                 log_dict['config_toml'] = toml_dict
                 #convert to acq json
-                acq_json = log_to_acq_json(log_dict)
+                func = schema_log_to_acq_json if use_schema_log else log_to_acq_json
+                acq_json = func(log_dict)
                 acq_json_path = Path(data_src_dir).joinpath('acquisition.json')
 
                 try:
