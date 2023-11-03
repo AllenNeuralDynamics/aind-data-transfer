@@ -43,8 +43,8 @@ dev = [
     'Sphinx'
 ]
 ephys = [
-    'spikeinterface[full]>=0.98.0',
-    'probeinterface==0.2.17',
+    'spikeinterface[full]>=0.99.0',
+    'probeinterface==0.2.19',
     'zarr',
     'wavpack-numcodecs>=0.1.3,<=0.1.5'
 ]
