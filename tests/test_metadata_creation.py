@@ -190,12 +190,19 @@ class TestSubjectMetadata(unittest.TestCase):
         is_model_valid = actual_subject.validate_obj()
         # Mock writing out to a directory
         mock_os.side_effect = [True, False]
+        # Each call to write_to_json makes a call to validate_obj()
         actual_subject.write_to_json(Path("/some_path/"))
-        # actual_subject.write_to_json(Path("/some_path/subject2.json"))
+        actual_subject.write_to_json(Path("/some_path/subject2.json"))
 
         expected_subject = self.successful_response_message["data"]
 
-        mock_log_info.assert_called_once_with("Model is valid.")
+        mock_log_info.assert_has_calls(
+            [
+                call("Model is valid."),
+                call("Model is valid."),
+                call("Model is valid."),
+            ]
+        )
         mock_open.assert_has_calls(
             [
                 call(Path("/some_path/subject.json"), "w"),

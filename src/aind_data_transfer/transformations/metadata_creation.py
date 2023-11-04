@@ -114,7 +114,7 @@ class MetadataCreation(ABC):
         None
 
         """
-        model = self._model()(**self.model_obj)
+        model = self.get_model()
         return model.write_standard_file(output_directory=path, suffix=suffix)
 
 

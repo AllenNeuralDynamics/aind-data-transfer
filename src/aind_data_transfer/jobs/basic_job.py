@@ -18,7 +18,6 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.data_description import Modality
 from aind_data_schema.metadata import Metadata, MetadataStatus
-from aind_data_schema.processing import Processing
 
 from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
