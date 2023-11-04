@@ -8,7 +8,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 from aind_data_schema.metadata import Metadata, MetadataStatus
-from aind_data_schema.subject import Subject
 from requests import Response
 
 from aind_data_transfer import __version__
