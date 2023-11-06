@@ -1,0 +1,2807 @@
+{
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/imaging/acquisition.py",
+    "schema_version": "0.5.1",
+    "experimenter_full_name": [
+        "ISpim Group"
+    ],
+    "specimen_id": "677594-Christian",
+    "subject_id": "677594-Christian",
+    "instrument_id": "diSPIM 1",
+    "calibrations": null,
+    "maintenance": null,
+    "session_start_time": "2023-10-20T15:10:39",
+    "session_end_time": "2023-10-20T18:44:36",
+    "session_type": null,
+    "tiles": [
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0000_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0000_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0000_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0000_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0000_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0000_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0000_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0000_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0000_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0000_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0000_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0000_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0000_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0000_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0000_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0000_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0000_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0000_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0000_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -21593.600000000002,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0000_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0001_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0001_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0001_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0001_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0001_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0001_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0001_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0001_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0001_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0001_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0001_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0001_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0001_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0001_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0001_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0001_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0001_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0001_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0001_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -21078.656000000003,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0001_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0002_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0002_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0002_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -8251.4,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0000_Y_0002_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0002_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0002_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0002_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7736.456,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0001_Y_0002_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0002_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0002_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0002_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -7221.512,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0002_Y_0002_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0002_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0002_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0002_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6706.568,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0003_Y_0002_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0002_Z_0000_ch_405.tiff",
+            "channel": {
+                "channel_name": "405",
+                "light_source_name": "405",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 405,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 81.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 0,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0002_Z_0000_ch_488.tiff",
+            "channel": {
+                "channel_name": "488",
+                "light_source_name": "488",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 488,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 7.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 1,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0002_Z_0000_ch_561.tiff",
+            "channel": {
+                "channel_name": "561",
+                "light_source_name": "561",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 561,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 16.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 3,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        },
+        {
+            "coordinate_transformations": [
+                {
+                    "type": "scale",
+                    "scale": [
+                        0.298,
+                        0.298,
+                        0.8
+                    ]
+                },
+                {
+                    "type": "translation",
+                    "translation": [
+                        -6191.623999999999,
+                        -20563.712,
+                        10891.7
+                    ]
+                }
+            ],
+            "file_name": "R2.W1_X_0004_Y_0002_Z_0000_ch_638.tiff",
+            "channel": {
+                "channel_name": "638",
+                "light_source_name": "638",
+                "filter_names": [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                ],
+                "detector_name": "iSPIM",
+                "additional_device_names": null,
+                "excitation_wavelength": 638,
+                "excitation_wavelength_unit": "nanometer",
+                "excitation_power": 11.0,
+                "excitation_power_unit": "milliwatt",
+                "filter_wheel_index": 5,
+                "dilation": null,
+                "dilation_unit": "pixel",
+                "description": null
+            },
+            "notes": null,
+            "imaging_angle": 45,
+            "imaging_angle_unit": "degrees"
+        }
+    ],
+    "axes": [
+        {
+            "name": "X",
+            "dimension": 2,
+            "direction": "Left_to_right",
+            "unit": "micrometer"
+        },
+        {
+            "name": "Y",
+            "dimension": 1,
+            "direction": "Anterior_to_posterior",
+            "unit": "micrometer"
+        },
+        {
+            "name": "Z",
+            "dimension": 0,
+            "direction": "Inferior_to_superior",
+            "unit": "micrometer"
+        }
+    ],
+    "chamber_immersion": {
+        "medium": "PBS",
+        "refractive_index": 1.33
+    },
+    "sample_immersion": null,
+    "active_objectives": null,
+    "local_storage_directory": "D:\\dispim_test\\677594-Christian-ID_2023-10-20_15-10-36\\diSPIM",
+    "external_storage_directory": "Y:\\dispim\\677594-Christian-ID_2023-10-20_15-10-36\\diSPIM",
+    "processing_steps": null,
+    "notes": null
+}

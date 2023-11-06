@@ -1,0 +1,219 @@
+[imaging_specs]
+local_storage_directory = "D:\\dispim_test"
+subject_id = "677594-Christian"
+tile_prefix = "R2.W1"
+tile_overlap_x_percent = 25
+tile_overlap_y_percent = 25
+z_step_size_um = 0.8
+volume_x_um = 2500.0
+volume_y_um = 1500.0
+volume_z_um = 2500
+laser_wavelengths = [ 405, 488, 561, 638,]
+camera_streams = [ 0,]
+filetype = "Tiff"
+acquisition_style = "sequential"
+external_storage_directory = "Y:\\dispim"
+
+[experiment_specs]
+experimenters_name = "Lucas S"
+immersion_medium = "PBS"
+immersion_medium_refractive_index = 1.33
+
+[tile_specs]
+x_field_of_view_um = 686.592
+y_field_of_view_um = 686.592
+row_count_pixels = 2304
+column_count_pixels = 2304
+data_type = "uint16"
+
+[design_specs]
+slit_width_pixels = 150
+instrument_type = "diSPIM"
+instrument_num = 1
+
+[stage_specs]
+backlash_reset_distance_um = 4
+jitter_time_s = 0.03
+
+[waveform_specs]
+delay_time = 0
+rest_time = 0.004
+exposure_time = 0.03
+line_time_us = 10.850694444444445
+pre_buffer_time_s = 0.0
+post_buffer_time_s = 0.0
+laser_pre_buffer_time_s = 0.001
+laser_post_buffer_time_s = 0.001
+
+[daq_ao_names_to_channels]
+galvo_y = 2
+galvo_x = 0
+etl = 5
+camera = 6
+
+[daq_driver_kwds]
+dev_name = "Dev1"
+input_trigger_name = "PFI0"
+count_trigger_name = "PFI3"
+ao_counter_trigger_name = "PFI2"
+update_frequency_hz = 400000.0
+livestream_frequency_hz = 15
+
+[tiger_controller_driver_kwds]
+com_port = "COM5"
+
+[filter_wheel_kwds]
+tiger_axis = 0
+
+[estimates]
+tiles_per_second = 15
+network_speed_Bps = 30000000
+
+[camera_specs]
+scan_direction = "BACKWARD"
+shutter_mode = "LIGHTSHEET"
+
+[tiger_specs.axes]
+etl_left_axis = "V"
+etl_right_axis = "W"
+galvo_left_x_axis = "A"
+galvo_left_y_axis = "B"
+galvo_right_x_axis = "C"
+galvo_right_y_axis = "D"
+
+[channel_specs.594]
+driver = "obis_laser"
+module = "ObisLS"
+intensity_mode = "power"
+color = "orange"
+filter_index = 4
+ao_channel = 11
+disable_voltage = 0.0
+enable_voltage = 1
+
+[channel_specs.638]
+laser_hub = "obis_box_1"
+driver = "obis_laser"
+module = "ObisLS"
+intensity_mode = "power"
+color = "red"
+filter_index = 5
+do_channel = "port0/line0"
+disable_voltage = 0.0
+enable_voltage = 1
+
+[channel_specs.405]
+laser_hub = "obis_box_1"
+driver = "obis_laser"
+module = "ObisLS"
+intensity_mode = "power"
+color = "purple"
+filter_index = 0
+do_channel = "port0/line1"
+disable_voltage = 0.0
+enable_voltage = 1
+
+[channel_specs.488]
+laser_hub = "obis_box_1"
+driver = "obis_laser"
+module = "ObisLS"
+intensity_mode = "power"
+color = "blue"
+filter_index = 1
+do_channel = "port0/line1"
+disable_voltage = 0.0
+enable_voltage = 1
+
+[channel_specs.561]
+laser_hub = "obis_box_2"
+driver = "obis_laser"
+module = "ObisLS"
+intensity_mode = "power"
+color = "yellowgreen"
+filter_index = 3
+do_channel = "port0/line0"
+disable_voltage = 0.0
+enable_voltage = 1
+
+[sample_pose_kwds.axis_map]
+x = "y"
+y = "z"
+z = "x"
+
+[channel_specs.594.kwds]
+port = "COMxx"
+modulation_mode = "LSModulationType.DIGITAL"
+
+[channel_specs.594.etl]
+offset = 1.017
+amplitude = 0
+
+[channel_specs.594.galvo]
+x_offset = 2.425
+x_amplitude = 0.013
+y_offset = 2.593
+y_amplitude = 0.829
+
+[channel_specs.638.kwds]
+prefix = 4
+modulation_mode = "LSModulationType.DIGITAL"
+
+[channel_specs.638.etl]
+offset = 1.905
+amplitude = 0
+
+[channel_specs.638.galvo]
+x_offset = 2.447
+x_amplitude = -0.01
+y_offset = 2.564
+y_amplitude = 0.827
+
+[channel_specs.405.kwds]
+prefix = 1
+modulation_mode = "LSModulationType.DIGITAL"
+
+[channel_specs.405.etl]
+offset = 1.321
+amplitude = 0.0
+
+[channel_specs.405.galvo]
+x_offset = 2.441
+x_amplitude = 0.0
+y_offset = 2.561
+y_amplitude = 0.807
+
+[channel_specs.488.kwds]
+prefix = 3
+modulation_mode = "LSModulationType.DIGITAL"
+
+[channel_specs.488.etl]
+offset = 2.068
+amplitude = 0.0
+
+[channel_specs.488.galvo]
+x_offset = 2.437
+x_amplitude = 0.0
+y_offset = 2.538
+y_amplitude = 0.852
+
+[channel_specs.561.kwds]
+prefix = 1
+modulation_mode = "LSModulationType.DIGITAL"
+
+[channel_specs.561.etl]
+offset = 1.487
+amplitude = 0
+
+[channel_specs.561.galvo]
+x_offset = 2.439
+x_amplitude = -0.02
+y_offset = 2.569
+y_amplitude = 0.851
+
+[channel_specs.laser_hub.obis_box_1]
+port = "COM10"
+baudrate = 9600
+
+[channel_specs.laser_hub.obis_box_2]
+port = "COM11"
+baudrate = 9600
