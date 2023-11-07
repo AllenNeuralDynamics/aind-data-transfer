@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 import tempfile
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from importlib import import_module
@@ -27,6 +28,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
+    MetadataRecord
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
 
@@ -242,6 +244,24 @@ class BasicJob:
         processing_file_name = temp_dir / processing_metadata.output_filename
         processing_metadata.write_to_json(processing_file_name)
 
+        created = datetime.utcnow()
+        last_modified = created
+        data_asset_id = str(uuid.uuid4())
+
+        metadata = MetadataRecord.from_inputs(
+            id=data_asset_id,
+            name=self.job_configs.s3_prefix,
+            created=created,
+            last_modified=last_modified,
+            location=self.job_configs.s3_bucket,
+            subject_metadata=subject_metadata,
+            procedures_metadata=procedures_metadata,
+            processing_metadata=processing_metadata,
+            data_description_metadata=data_description_metadata
+        )
+        metadata_file_name = temp_dir / metadata.output_filename
+        metadata.write_to_json(metadata_file_name)
+
         # Check user defined metadata
         if self.job_configs.metadata_dir:
             # Check only json files in user defined metadata folder
@@ -359,7 +379,11 @@ class BasicJob:
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
-    if "--json-args" in sys_args:
+    # First check if json args are set as an environment variable
+    if os.getenv("UPLOAD_JOB_JSON_ARGS") is not None and len(sys_args) == 0:
+        env_args = ["--json-args", os.getenv("UPLOAD_JOB_JSON_ARGS")]
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(env_args)
+    elif "--json-args" in sys_args:
         job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
     else:
         job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
