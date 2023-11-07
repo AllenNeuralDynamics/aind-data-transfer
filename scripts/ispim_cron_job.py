@@ -479,7 +479,7 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
     acq_datetime = get_acq_datetime_from_schema_log(dataset_path + "/schema_log.log")
 
     #TODO update s3 bucket to be configurable
-    my_json_dict = {"s3_bucket": "aind-scratch-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
+    my_json_dict = {"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": "/allen/aind/scratch/diSPIM/zarr_config.yml"}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
 
     #convert dict to json
     my_json_string = json.dumps(my_json_dict)
@@ -492,7 +492,7 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
 #SBATCH --tmp=64MB
 #SBATCH --time=30:00:00
 #SBATCH --partition=aind
-#SBATCH --output=/allen/programs/mindscope/workgroups/omfish/carsonb/hpc_outputs/%j_zarr_upload.log
+#SBATCH --output=/allen/aind/scratch/carson.berry/hpc_outputs/%j_zarr_upload.log
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=carson.berry@alleninstitute.org
 #SBATCH --ntasks=64
@@ -517,9 +517,6 @@ date
     assert Path(sbatch_path_to_write).parent.exists(), f"Parent directory of {sbatch_path_to_write} does not exist"
     with open(sbatch_path_to_write, "w") as f:
         f.write(sbatch_script)
-
-    #close file
-
 
     return sbatch_script
 
@@ -615,6 +612,9 @@ def write_csv_from_dataset(dataset_loc: PathLike, csv_path: PathLike):
 
     return csv_path
 
+
+###################################################################################################################
+
 def main():
     """main to execute the diSPIM job"""
     config_param = ArgSchemaParser(schema_type=ConfigFile)
@@ -666,9 +666,6 @@ def main():
         info_manager_path=config["info_manager_path"],
     )
 
-    # mod = ArgSchemaParser(input_data=config, schema_type=CopyDatasets)
-    # args = mod.args
-
     logger.info(f"Uploading {pending_datasets_config}")
 
     sbatch_file_path = Path(__file__).parent.joinpath('bin/zarr_upload_sbatch.sh')
@@ -687,7 +684,6 @@ def main():
 
         #the longer term solution TODO, is to write a csv file with the HPC configs and the args for zarr upload job
         #and then read that csv file with the new upload service job. 
-    
 
 
         if os.path.isdir(dataset_path):
@@ -695,7 +691,6 @@ def main():
 
             if config["transfer_type"]["type"] == "HPC":
                 # dataset_dumped = json.dumps(dataset).replace('"', "[token]")
-                # cmd = f"""python {SUBMIT_ZARR_JOB} -c {new_config_path}"""
                 print(f'sbatch_file_path: {sbatch_file_path}')
                 cmd = f"""sbatch {sbatch_file_path.as_posix()}"""
 
@@ -712,32 +707,6 @@ def main():
             else:
                 # Local
                 raise NotImplementedError
-                # sys.argv = [
-                #     "",
-                #     f"--input={dataset_path}",
-                #     f"--bucket={s3_bucket}",
-                #     f"--s3_path={dataset_dest_path}",
-                #     f"--nthreads={nthreads}",
-                #     "--trigger_code_ocean",
-                #     f"--pipeline_config={dataset}",
-                #     "--recursive",
-                # ]
-
-                # # Local
-                # s3_upload.main()
-
-                # now_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                # dataset_config_path = Path(dataset_path).joinpath(
-                #     processing_manifest_path
-                # )
-                # msg = f"uploaded - Upload time: {now_datetime} - Bucket: {s3_bucket}"
-
-                # file_utils.update_json_key(
-                #     json_path=dataset_config_path,
-                #     key="dataset_status",
-                #     new_value=msg,
-                # )
-
         else:
             logger.warning(f"Path {dataset_path} does not exist. Ignoring...")
 

@@ -204,46 +204,6 @@ class ZarrUploadJob(BasicJob):
 
     def _create_dispim_metadata(self) -> None:
         self._instance_logger.info("Creating xml files for diSPIM data")
-        # convert imaging log to acq json
-        # log_file = self._data_src_dir.joinpath('imaging_log.log')
-        # toml_dict = read_toml(self._data_src_dir.joinpath('config.toml'))
-
-        # # read log file into dict
-        # log_dict = read_imaging_log(log_file)
-
-        # #if any of the values of log_dict are None, then get it from schema_log
-        # if any(v is None for v in log_dict.values()):
-        #     self._instance_logger.info('Some values in imaging_log.log are None. Reading schema_log.log')
-        #     log_file =  self._data_src_dir.joinpath('schema_log.log')
-        #     log_dict = {}
-        #     log_dict = read_schema_log_file(log_file)
-        #     log_dict['data_src_dir'] = (self._data_src_dir.as_posix())
-        #     log_dict['config_toml'] = toml_dict
-        #     self._instance_logger.info('Finished reading schema_log.log')
-        #     acq_json = schema_log_to_acq_json(log_dict)
-        #     self._instance_logger.info('Finished converting schema_log.log to acq json')
-        # else:
-        #     log_dict['data_src_dir'] = (self._data_src_dir.as_posix())
-        #     log_dict['config_toml'] = toml_dict
-        #     # convert to acq json
-        #     acq_json = log_to_acq_json(log_dict)
-        # # convert to acq json
-        # acq_json_path = self._data_src_dir.joinpath('acquisition.json')
-
-        # try:
-        #     write_acq_json(acq_json, acq_json_path)
-        #     self._instance_logger.info('Finished writing acq json')
-        # except Exception as e:
-        #     self._instance_logger.error(f"Failed to write acquisition.json: {e}")
-
-        # # convert acq json to xml
-        # is_zarr = True
-        # condition = "channel=='405'"
-        # acq_xml = acq_json_to_xml(acq_json, log_dict, self.job_configs.s3_prefix + f'/{self._modality_config.modality.value.abbreviation}.ome.zarr', is_zarr, condition)  # needs relative path to zarr file (as seen by code ocean)
-
-        # # write xml to file
-        # xml_file_path = self._data_src_dir.joinpath('Camera_405.xml')  #
-        # write_xml(acq_xml, xml_file_path)
 
         log_file = self._data_src_dir.joinpath('imaging_log.log')
         acq_file = self._data_src_dir.joinpath('dispim_acquisition.json')
@@ -251,7 +211,6 @@ class ZarrUploadJob(BasicJob):
 
         toml_dict = read_toml(self._data_src_dir.joinpath('config.toml'))
         
-
         # read log file into dict
         if not log_file.exists():
             log_dict = read_imaging_log(log_file)
@@ -268,25 +227,25 @@ class ZarrUploadJob(BasicJob):
 
         #if any of the values of log_dict are None, then get it from schema_log
         elif any(v is None for v in log_dict.values()):
-            print('Some values in imaging_log.log are None. Reading schema_log.log')
+            self._instance_logger.info('Some values in imaging_log.log are None. Reading schema_log.log')
             log_file =  self._data_src_dir.joinpath('schema_log.log')
             log_dict = {}
             log_dict = read_schema_log_file(log_file)
             log_dict['data_src_dir'] = (self._data_src_dir.as_posix())
             log_dict['config_toml'] = toml_dict
-            print('Finished reading schema_log.log')
+            self._instance_logger.info('Finished reading schema_log.log')
             try:
                 acq_json = schema_log_to_acq_json(log_dict)
-                print('Finished converting schema_log.log to acq json')
+                self._instance_logger.info('Finished converting schema_log.log to acq json')
             except Exception as e:
-                print(f"Failed to convert schema_log.log to acq json: {e}") 
+                self._instance_logger.warning(f"Failed to convert schema_log.log to acq json: {e}") 
 
         else:
             # convert imaging_log to acq json
             try:
                 acq_json = log_to_acq_json(log_dict)
             except Exception as e:
-                print(f"Failed to convert imaging_log.log to acq json: {e}")
+                self._instance_logger.warning(f"Failed to convert imaging_log.log to acq json: {e}")
 
         # convert to acq json
         acq_json_path = self._data_src_dir.joinpath('acquisition.json')
@@ -294,9 +253,9 @@ class ZarrUploadJob(BasicJob):
 
         try:
             write_acq_json(acq_json, acq_json_path)
-            print('Finished writing acq json')
+            self._instance_logger.info('Finished writing acq json')
         except Exception as e:
-            print(f"Failed to write acquisition.json: {e}")
+            self._instance_logger.error(f"Failed to write acquisition.json: {e}")
 
         # convert acq json to xml
         is_zarr = True
@@ -306,6 +265,14 @@ class ZarrUploadJob(BasicJob):
         # write xml to file
         xml_file_path = self._data_src_dir.joinpath('Camera_405.xml')  #
         write_xml(acq_xml, xml_file_path)
+        self._instance_logger.info('Finished writing xml file')
+
+        #write voxel size to self job config (so we can take it out of the zarr_config.yml)
+        z_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][2]
+        y_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][1]
+        x_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][0]
+        self._zarr_configs.voxel_size = [z_res, y_res, x_res]
+
 
 
     def _create_neuroglancer_link(self) -> None:
