@@ -367,7 +367,7 @@ class BasicJob:
         ):
             self.metadata_record.metadata_status = MetadataStatus.INVALID
         self.metadata_record.processing = processing
-        self.metadata_record.write_standard_file(temp_dir, suffix=".aind.json")
+        self.metadata_record.write_standard_file(temp_dir)
 
     def _encrypt_behavior_dir(self, temp_dir: Path) -> None:
         """Encrypt the data in the behavior directory. Keeps the data in the

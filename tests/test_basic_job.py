@@ -322,9 +322,7 @@ class TestBasicJob(unittest.TestCase):
         )
         mock_copyfile.assert_not_called()
         mock_json_write.assert_called_once_with(path=Path("some_dir"))
-        mock_write_standard_file.assert_called_once_with(
-            Path("some_dir"), suffix=".aind.json"
-        )
+        mock_write_standard_file.assert_called_once_with(Path("some_dir"))
         # Test that "invalid metadata remains invalid if valid processing
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job_configs.modalities[0].compress_raw_data = True
