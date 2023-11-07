@@ -208,7 +208,6 @@ class ZarrUploadJob(BasicJob):
         log_file = self._data_src_dir.joinpath('imaging_log.log')
         acq_file = self._data_src_dir.joinpath('dispim_acquisition.json')
 
-
         toml_dict = read_toml(self._data_src_dir.joinpath('config.toml'))
         
         # read log file into dict
@@ -227,7 +226,7 @@ class ZarrUploadJob(BasicJob):
 
         #if any of the values of log_dict are None, then get it from schema_log
         elif any(v is None for v in log_dict.values()):
-            self._instance_logger.info('Some values in imaging_log.log are None. Reading schema_log.log')
+            self._instance_logger.warn('Some values in imaging_log.log are None. Reading schema_log.log')
             log_file =  self._data_src_dir.joinpath('schema_log.log')
             log_dict = {}
             log_dict = read_schema_log_file(log_file)
@@ -240,12 +239,14 @@ class ZarrUploadJob(BasicJob):
             except Exception as e:
                 self._instance_logger.warning(f"Failed to convert schema_log.log to acq json: {e}") 
 
+                self._instance_logger.warn(f"Failed to convert schema_log.log to acq json: {e}") 
+
         else:
             # convert imaging_log to acq json
             try:
                 acq_json = log_to_acq_json(log_dict)
             except Exception as e:
-                self._instance_logger.warning(f"Failed to convert imaging_log.log to acq json: {e}")
+                self._instance_logger.warn(f"Failed to convert imaging_log.log to acq json: {e}")
 
         # convert to acq json
         acq_json_path = self._data_src_dir.joinpath('acquisition.json')
@@ -255,7 +256,7 @@ class ZarrUploadJob(BasicJob):
             write_acq_json(acq_json, acq_json_path)
             self._instance_logger.info('Finished writing acq json')
         except Exception as e:
-            self._instance_logger.error(f"Failed to write acquisition.json: {e}")
+            self._instance_logger.warn(f"Failed to write acquisition.json: {e}")
 
         # convert acq json to xml
         is_zarr = True
@@ -272,6 +273,7 @@ class ZarrUploadJob(BasicJob):
         y_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][1]
         x_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][0]
         self._zarr_configs.voxel_size = [z_res, y_res, x_res]
+
 
 
 
@@ -302,7 +304,6 @@ class ZarrUploadJob(BasicJob):
             except Exception as e:
                 self._instance_logger.error(f"Failed to create diSPIM metadata: {e}")
                 self._instance_logger.info("Compiling metadata...")
-                
         try:
             self._compile_metadata(
                 temp_dir=self._data_src_dir, process_start_time=process_start_time

@@ -16,9 +16,10 @@ from aind_data_schema.data_description import (
     Modality,
     Funding,
     Institution,
-    Platform,
 )
+
 from aind_data_schema.processing import ProcessName
+from aind_data_schema.metadata import Metadata
 from requests import ConnectionError, Response
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
@@ -29,6 +30,7 @@ from aind_data_transfer.transformations.metadata_creation import (
     ProcessingMetadata,
     RawDataDescriptionMetadata,
     SubjectMetadata,
+    MetadataRecord
 )
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -40,6 +42,60 @@ with open(METADATA_DIR / "processing.json", "r") as f:
 
 with open(METADATA_DIR / "data_description.json", "r") as f:
     expected_data_description_instance_json = json.load(f)
+
+with open(METADATA_DIR / "metadata.json", "r") as f:
+    expected_metadata_instance_json = json.load(f)
+
+with open(METADATA_DIR / "subject.json", "r") as f:
+    expected_subject_instance_json = json.load(f)
+
+with open(METADATA_DIR / "procedures.json", "r") as f:
+    expected_procedures_instance_json = json.load(f)
+
+
+class TestMetadataRecord(unittest.TestCase):
+    """Tests methods in DataDescriptionMetadata class"""
+
+    def test_create_metadata_record(self) -> None:
+        """
+        Tests that the data description metadata is created correctly.
+        """
+        mock_subject_metadata = SubjectMetadata(
+            model_obj=expected_subject_instance_json
+        )
+        mock_procedures_metadata = ProceduresMetadata(
+            model_obj=expected_procedures_instance_json
+        )
+        mock_processing_metadata = ProcessingMetadata(
+            model_obj=expected_processing_instance_json
+        )
+        mock_data_description_metadata = RawDataDescriptionMetadata(
+            model_obj=expected_data_description_instance_json
+        )
+        metadata = MetadataRecord.from_inputs(
+            id="000000",
+            name="Test Name",
+            created=datetime.datetime(2023, 9, 27, 0, 0, 0),
+            last_modified=datetime.datetime(2023, 9, 28, 10, 20, 30),
+            location="Test Location",
+            subject_metadata=mock_subject_metadata,
+            processing_metadata=mock_processing_metadata,
+            data_description_metadata=mock_data_description_metadata,
+            procedures_metadata=mock_procedures_metadata,
+        )
+
+        expected_metadata_instance = Metadata.parse_obj(
+            expected_metadata_instance_json
+        )
+
+        self.assertEqual(
+            json.loads(expected_metadata_instance.json()),
+            metadata.model_obj,
+        )
+        self.assertEqual(Metadata, metadata._model())
+        self.assertEqual(
+            "metadata.json", metadata.output_filename
+        )
 
 
 class TestProcessingMetadata(unittest.TestCase):
