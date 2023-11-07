@@ -409,8 +409,6 @@ def get_acq_datetime_from_schema_log(schema_log_path: PathLike) -> datetime:
             date_time = schema_log["session_start_time"]
             date_time = date_time.replace("T", " ")
             
-            
-
             return date_time
 
 def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, new_config_path: PathLike = None):
