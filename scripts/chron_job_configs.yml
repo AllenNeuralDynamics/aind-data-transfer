@@ -1,0 +1,23 @@
+# This configuration allows to upload smartspim datasets
+# automatically by using a processing_manifest.json located
+# in the row level directory of the dataset
+transfer_type:
+  type: "HPC" # string - HPC or LOCAL
+  hpc_account: "carson.berry" # string - HPC account to upload data
+  logs_folder: "/allen/programs/mindscope/workgroups/omfish/carsonb/hpc_outputs" # string - Logs folder
+  conda_env: "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/envs/adt-upload-clone" # string - Path to conda environment
+  hpc_queue: "braintv" # string - HPC queue name
+  tasks_per_node: "4" # integer - task per node
+  nodes: "8" # integer - number of nodes
+  cpus_per_task: "1" # integer - cpus per task
+  mem_per_cpu: "8000" # integer - max memory per cpu
+  walltime: "24:00:00" # string - wallime in format hh:mm:ss
+  mail_user: "carson.berry@alleninstitute.org" # string - email to send notification of hpc job
+metadata_service_domain: "http://aind-metadata-service" # string - host of metadata service
+# codeocean_credentials_path: "" # string - path to code ocean credentials
+# co_capsule_id: "" # string - Code Ocean capsule ID for smartspim pipeline
+root_folder: "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM" # string - Folder where smartspim datasets are located
+dest_data_dir: "aind-scratch-data/carson.berry/" # string - prefix to where the data will be uploaded
+s3_bucket: "aind-scratch-data" # string - S3 bucket where the data will be uploaded
+nthreads: "10" # integer - Number of threads. Only works with local option
+info_manager_path: "/allen/programs/mindscope/workgroups/omfish/carsonb/hpc_outputs/status_dispim_datasets.yaml" # string - path to output information about dataset status per dataset

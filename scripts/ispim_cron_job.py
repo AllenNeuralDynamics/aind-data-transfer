@@ -3,8 +3,6 @@ Script that automatically uploads new iSPIM data from specified directories to t
 This script is intended to be run as a cron job on a server that has access to the raw data directories.
 
 
-
-
 """
 
 import logging
@@ -39,11 +37,40 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
 )
 from aind_data_transfer.transformations.file_io import read_toml
-from smartspim_cron_job import ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions, get_default_config
+from smartspim_cron_job import ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions
 # from aind_data_transfer.config_loader.imaging_configuration_loader import ImagingJobConfigurationLoader
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+def get_default_config(filename: str) -> dict:
+    """
+    Get default configuration from a YAML file.
+
+    Parameters
+    ------------------------
+    filename: str
+        String where the YAML file is located.
+
+    Returns
+    ------------------------
+    Dict
+        Dictionary with the configuration
+    """
+
+    # filename = Path(os.path.dirname(__file__)).joinpath(filename)
+    filename = Path(filename)
+
+
+    config = None
+    try:
+        with open(filename, "r") as stream:
+            config = yaml.safe_load(stream)
+    except Exception as error:
+        raise error
+
+    return config
+
 
 def get_ispim_folders_with_file(
     root_folder: PathLike, search_file: str
@@ -222,6 +249,15 @@ def get_upload_datasets(
             dataset_config, "dataset_status"
         )
 
+
+        # print(f'dataset_status: {dataset_status}')
+        # print(f'is datasets_status a dict? {isinstance(dataset_status, dict)}')
+        #if dataset_status is a dict, get just the status
+        if isinstance(dataset_status, dict):
+            dataset_status = dataset_status['status']
+
+        # print(f'dataset_status: {dataset_status}')
+
         if dataset_status is None:
             warning_datasets.append(dataset_path)
             continue
@@ -234,17 +270,15 @@ def get_upload_datasets(
             dataset_config, "pipeline_processing"
         )
 
-        if dataset_status == "pending" and pipeline_processing is not None:
+        # print(f'pipeline_processing: {pipeline_processing}')
+
+        #TODO add pipeline processing to the processing_manifest.json
+        if dataset_status == "pending":
             # Datasets to upload
             pending_datasets.append(dataset_path)
-            pending_datasets_config.append(
-                {
-                    "path": dataset_path,
-                    "pipeline_processing": build_pipeline_config(
-                        pipeline_processing, default_pipeline_config
-                    ),
-                }
-            )
+            pending_datasets_config.append({"path": dataset_path})
+
+
 
         elif dataset_status == "uploading":
             # Datasets that are currently being uploaded
@@ -258,6 +292,16 @@ def get_upload_datasets(
         else:
             # Datasets that have issues
             warning_datasets.append(dataset_path)
+        
+        if pipeline_processing is not None:
+            pending_datasets_config.append(
+                {
+                    "path": dataset_path,
+                    "pipeline_processing": build_pipeline_config(
+                        pipeline_processing, default_pipeline_config
+                    ),
+                }
+            )
 
     info_manager = {
         "generated_date": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
@@ -434,7 +478,8 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
     # acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
     acq_datetime = get_acq_datetime_from_schema_log(dataset_path + "/schema_log.log")
 
-    my_json_dict = {"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
+    #TODO update s3 bucket to be configurable
+    my_json_dict = {"s3_bucket": "aind-scratch-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/zarr_config.yml"}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
 
     #convert dict to json
     my_json_string = json.dumps(my_json_dict)
@@ -472,6 +517,8 @@ date
     assert Path(sbatch_path_to_write).parent.exists(), f"Parent directory of {sbatch_path_to_write} does not exist"
     with open(sbatch_path_to_write, "w") as f:
         f.write(sbatch_script)
+
+    #close file
 
 
     return sbatch_script
@@ -568,7 +615,6 @@ def write_csv_from_dataset(dataset_loc: PathLike, csv_path: PathLike):
 
     return csv_path
 
-
 def main():
     """main to execute the diSPIM job"""
     config_param = ArgSchemaParser(schema_type=ConfigFile)
@@ -600,14 +646,16 @@ def main():
 
     #make processing manifest for rejected datasets if they don't already exist: 
     for rejected_dataset in raw_datasets_rejected:
-        if not check_if_processing_manifest_exists(rejected_dataset):
-            write_processing_manifest(rejected_dataset)
+        if not check_if_processing_manifest_exists(root_folder.joinpath(rejected_dataset)):
+            write_processing_manifest(root_folder.joinpath(rejected_dataset))
+            logger.info(f"Processing manifest written for rejected dataset: {rejected_dataset}")
     
 
     # new_dataset_paths, ready_datasets = organize_datasets(
     #     root_folder,
     #     raw_datasets_ready,
     #     config["metadata_service_domain"])
+
 
 
     processing_manifest_path = "derivatives/processing_manifest.json"
@@ -623,7 +671,7 @@ def main():
 
     logger.info(f"Uploading {pending_datasets_config}")
 
-    sbatch_file_path = Path(__file__).parent.parent.joinpath('scripts/bin/zarr_upload_sbatch.sh')
+    sbatch_file_path = Path(__file__).parent.joinpath('bin/zarr_upload_sbatch.sh')
 
     print(f'pending_datasets_config: {pending_datasets_config}')
     #processing all the datasets that are pending
@@ -648,6 +696,7 @@ def main():
             if config["transfer_type"]["type"] == "HPC":
                 # dataset_dumped = json.dumps(dataset).replace('"', "[token]")
                 # cmd = f"""python {SUBMIT_ZARR_JOB} -c {new_config_path}"""
+                print(f'sbatch_file_path: {sbatch_file_path}')
                 cmd = f"""sbatch {sbatch_file_path.as_posix()}"""
 
                 # Setting dataset_status as 'uploading'

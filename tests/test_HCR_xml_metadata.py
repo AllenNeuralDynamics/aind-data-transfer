@@ -111,6 +111,5 @@ class TestXMLMetadata(unittest.TestCase):
         xml_file_path.unlink()
         
 
-
 if __name__ == "__main__":
     unittest.main()
