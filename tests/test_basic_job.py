@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
+from aind_data_schema.metadata import Metadata, MetadataStatus
 from requests import Response
 
 from aind_data_transfer import __version__
@@ -49,7 +50,7 @@ class TestBasicJob(unittest.TestCase):
         "S3_BUCKET": "some_bucket",
         "MODALITIES": f'[{{"modality":"MRI",' f'"source":"{str(DATA_DIR)}"}}]',
         "PLATFORM": "confocal",
-        "SUBJECT_ID": "12345",
+        "SUBJECT_ID": "643054",
         "ACQ_DATETIME": "2020-10-10 10:10:10",
         "DATA_SOURCE": str(DATA_DIR),
         "DRY_RUN": "true",
@@ -73,7 +74,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload_to_s3.assert_called_once_with(
             directory_to_upload=Path("some_dir"),
             s3_bucket="some_bucket",
-            s3_prefix="confocal_12345_2020-10-10_10-10-10",
+            s3_prefix="confocal_643054_2020-10-10_10-10-10",
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -187,7 +188,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload.assert_called_once_with(
             directory_to_upload=DATA_DIR,
             s3_bucket="some_bucket",
-            s3_prefix="confocal_12345_2020-10-10_10-10-10/mri",
+            s3_prefix="confocal_643054_2020-10-10_10-10-10/mri",
             dryrun=True,
             excluded=None,
         )
@@ -206,14 +207,12 @@ class TestBasicJob(unittest.TestCase):
         "aind_data_transfer.transformations.metadata_creation."
         "MetadataCreation.write_to_json"
     )
-    @patch("os.path.exists")
     @patch("shutil.copyfile")
     @patch("aind_data_transfer.jobs.basic_job.datetime")
-    def test_compile_metadata(
+    def test_initialize_metadata(
         self,
         mock_datetime: MagicMock,
         mock_copyfile: MagicMock,
-        mock_path_exists: MagicMock,
         mock_json_write: MagicMock,
         mock_procedures_service: MagicMock,
         mock_subject_service: MagicMock,
@@ -221,7 +220,6 @@ class TestBasicJob(unittest.TestCase):
         """Tests that the metadata files are compiled correctly."""
 
         mock_datetime.now.return_value = datetime(2023, 4, 9)
-        mock_path_exists.return_value = True
         mock_subject_service.return_value = SubjectMetadata(
             model_obj=example_subject_instance_json
         )
@@ -231,59 +229,17 @@ class TestBasicJob(unittest.TestCase):
 
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
-        )
+        basic_job._initialize_metadata_record(temp_dir=Path("some_dir"))
 
-        # Test where metadata directory is defined
-        basic_job_configs.metadata_dir = METADATA_DIR
-        basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
-        )
-
-        # Test where metadata dir forced is true
-        basic_job_configs.metadata_dir_force = True
-        basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._compile_metadata(
-            Path("some_dir"), process_start_time=datetime(2023, 4, 9),
-        )
-
-        mock_json_write.assert_has_calls(
-            [
-                call(Path("some_dir/subject.json")),
-                call(Path("some_dir/procedures.json")),
-                call(Path("some_dir/data_description.json")),
-                call(Path("some_dir/processing.json")),
-                call(Path("some_dir/metadata.json"))
-            ],
-            any_order=True,
-        )
-
-        mock_copyfile.assert_has_calls(
-            [
-                call(
-                    str(METADATA_DIR / "data_description.json"),
-                    Path("some_dir/data_description.json"),
-                ),
-                call(
-                    str(METADATA_DIR / "processing.json"),
-                    Path("some_dir/processing.json"),
-                ),
-                call(
-                    str(METADATA_DIR / "subject.json"),
-                    Path("some_dir/subject.json"),
-                ),
-                call(
-                    str(METADATA_DIR / "procedures.json"),
-                    Path("some_dir/procedures.json"),
-                ),
-                call(
-                    str(METADATA_DIR / "metadata.json"),
-                    Path("some_dir/metadata.json"),
-                ),
-            ],
-            any_order=True,
+        expected_write_to_json_calls = [
+            call(Path("some_dir")),
+            call(Path("some_dir")),
+            call(Path("some_dir")),
+        ]
+        mock_json_write.assert_has_calls(expected_write_to_json_calls)
+        mock_copyfile.assert_not_called()
+        self.assertEqual(
+            "643054", basic_job.metadata_record.subject.subject_id
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -331,6 +287,58 @@ class TestBasicJob(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_data_schema.base.AindCoreModel.write_standard_file")
+    @patch(
+        "aind_data_transfer.transformations.metadata_creation."
+        "MetadataCreation.write_to_json"
+    )
+    @patch("shutil.copyfile")
+    @patch("aind_data_transfer.jobs.basic_job.datetime")
+    def test_add_processing_to_metadata(
+        self,
+        mock_datetime: MagicMock,
+        mock_copyfile: MagicMock,
+        mock_json_write: MagicMock,
+        mock_write_standard_file: MagicMock,
+    ):
+        """Tests that the processing metadata files are compiled correctly."""
+        mock_datetime.now.return_value = datetime(2023, 4, 9)
+
+        basic_job_configs = BasicUploadJobConfigs()
+        # Change compress_raw_data to true to check process
+        # Test that "valid metadata remains valid if valid processing
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        basic_job_configs.modalities[0].compress_raw_data = True
+        basic_job.metadata_record = Metadata(
+            name="some_name", location="some_bucket"
+        )
+        # Test that "valid metadata remains valid if valid processing
+        basic_job.metadata_record.metadata_status = MetadataStatus.VALID
+        basic_job._add_processing_to_metadata(
+            temp_dir=Path("some_dir"), process_start_time=datetime(2023, 4, 8)
+        )
+        self.assertEqual(
+            MetadataStatus.VALID, basic_job.metadata_record.metadata_status
+        )
+        mock_copyfile.assert_not_called()
+        mock_json_write.assert_called_once_with(path=Path("some_dir"))
+        mock_write_standard_file.assert_called_once_with(Path("some_dir"))
+        # Test that "invalid metadata remains invalid if valid processing
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        basic_job_configs.modalities[0].compress_raw_data = True
+        basic_job.metadata_record = Metadata(
+            name="some_name", location="some_bucket"
+        )
+        # Test that "valid metadata remains valid if valid processing
+        basic_job.metadata_record.metadata_status = MetadataStatus.INVALID
+        basic_job._add_processing_to_metadata(
+            temp_dir=Path("some_dir"), process_start_time=datetime(2023, 4, 8)
+        )
+        self.assertEqual(
+            MetadataStatus.INVALID, basic_job.metadata_record.metadata_status
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
     def test_upload_to_s3(
         self,
@@ -343,7 +351,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload.assert_called_once_with(
             directory_to_upload=Path("some_dir"),
             s3_bucket="some_bucket",
-            s3_prefix="confocal_12345_2020-10-10_10-10-10",
+            s3_prefix="confocal_643054_2020-10-10_10-10-10",
             dryrun=True,
         )
 
@@ -380,7 +388,7 @@ class TestBasicJob(unittest.TestCase):
                 '"capsule_id": "some_capsule_id", '
                 '"process_capsule_id": null, '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
+                '"prefix": "confocal_643054_2020-10-10_10-10-10", '
                 f'"aind_data_transfer_version": "{__version__}"'
                 "}}"
             ],
@@ -416,7 +424,7 @@ class TestBasicJob(unittest.TestCase):
                 '"capsule_id": "some_capsule_id", '
                 '"process_capsule_id": "xyz-456", '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
+                '"prefix": "confocal_643054_2020-10-10_10-10-10", '
                 f'"aind_data_transfer_version": "{__version__}"'
                 "}}"
             ],
@@ -428,9 +436,14 @@ class TestBasicJob(unittest.TestCase):
         "aind_data_transfer.jobs.basic_job.BasicJob."
         "_check_if_s3_location_exists"
     )
+    @patch(
+        "aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record"
+    )
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._compress_raw_data")
-    @patch("aind_data_transfer.jobs.basic_job.BasicJob._compile_metadata")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._encrypt_behavior_dir")
+    @patch(
+        "aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata"
+    )
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._upload_to_s3")
     @patch(
         "aind_data_transfer.jobs.basic_job.BasicJob."
@@ -444,9 +457,10 @@ class TestBasicJob(unittest.TestCase):
         mock_datetime: MagicMock,
         mock_trigger_pipeline: MagicMock,
         mock_upload_to_s3: MagicMock,
+        mock_add_processing_to_metadata: MagicMock,
         mock_encrypt_behavior: MagicMock,
-        mock_compile_metadata: MagicMock,
         mock_compress_raw_data: MagicMock,
+        mock_initialize_metadata: MagicMock,
         mock_s3_check: MagicMock,
         mock_tempfile: MagicMock,
     ):
@@ -468,15 +482,18 @@ class TestBasicJob(unittest.TestCase):
         )
         mock_tempfile.assert_called_once_with(dir="some_dir")
         mock_s3_check.assert_called_once()
+        mock_initialize_metadata.assert_called_once_with(
+            temp_dir=(Path("some_dir") / "tmp")
+        )
         mock_compress_raw_data.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
         )
-        mock_compile_metadata.assert_called_once_with(
-            temp_dir=(Path("some_dir") / "tmp"),
-            process_start_time=datetime(2023, 4, 9),
-        )
         mock_encrypt_behavior.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
+        )
+        mock_add_processing_to_metadata.assert_called_once_with(
+            temp_dir=(Path("some_dir") / "tmp"),
+            process_start_time=datetime(2023, 4, 9),
         )
         mock_upload_to_s3.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")

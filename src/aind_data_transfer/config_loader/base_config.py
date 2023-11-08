@@ -15,7 +15,6 @@ from aind_data_schema.data_description import (
     Platform,
     build_data_name,
 )
-from aind_data_schema.processing import ProcessName
 from pydantic import (
     BaseSettings,
     DirectoryPath,
@@ -209,11 +208,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Datetime data was acquired",
         title="Acquisition Datetime",
     )
-    process_name: ProcessName = Field(
-        default=ProcessName.OTHER,
-        description="Type of processing performed on the raw data source.",
-        title="Process Name",
-    )
     temp_directory: Optional[DirectoryPath] = Field(
         default=None,
         description=(
@@ -257,6 +251,11 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             "Force syncing of data folder even if location exists in cloud"
         ),
         title="Force Cloud Sync",
+    )
+    processor_name = Field(
+        default="service",
+        description="Name of entity processing the data",
+        title="Processor Name",
     )
 
     @property

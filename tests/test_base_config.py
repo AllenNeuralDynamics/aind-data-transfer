@@ -2,12 +2,12 @@
 import json
 import os
 import unittest
-from datetime import date, time, datetime
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
 
-from aind_data_schema.data_description import Platform, Modality
+from aind_data_schema.data_description import Modality, Platform
 
 from aind_data_transfer.config_loader.base_config import (
     BasicJobEndpoints,
@@ -190,7 +190,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "smartSPIM",
+            "SmartSPIM",
             "-m",
             f'[{{"modality":"ophys","source":"{str(DATA_DIR)}"}}]',
             "-a",
@@ -243,7 +243,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_datetime,
         )
         self.assertEqual(
-            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
         self.assertEqual("WARNING", basic_job_configs.log_level)
         self.assertFalse(basic_job_configs.dry_run)
@@ -260,7 +260,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "smartSPIM",
+            "SmartSPIM",
             "-m",
             f'[{{"modality":"ophys","source":"{str(DATA_DIR)}",'
             f'"extra_configs":"{str(CONFIG_FILE)}"}}]',
@@ -331,7 +331,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_datetime,
         )
         self.assertEqual(
-            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
         self.assertEqual("INFO", basic_job_configs.log_level)
         self.assertTrue(basic_job_configs.dry_run)
@@ -359,7 +359,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "smartSPIM",
+            "SmartSPIM",
             "-m",
             f'[{{"modality":"confocal","source":"{str(DATA_DIR)}"}}]',
             "-a",
@@ -368,14 +368,13 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             json.dumps(custom_endpoints),
         ]
 
-
         test_malformed_datetime_args = [
             "-b",
             "some_bucket",
             "-s",
             "12345",
             "-e",
-            "smartSPIM",
+            "SmartSPIM",
             "-m",
             f'[{{"modality":"confocal","source":"{str(DATA_DIR)}"}}]',
             "-a",
@@ -390,7 +389,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-s",
             "12345",
             "-e",
-            "smartSPIM",
+            "SmartSPIM",
             "-m",
             f'[{{"modality":"confocal","source":"{str(DATA_DIR)}"}}]',
             "-a",
@@ -429,7 +428,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_datetime,
         )
         self.assertEqual(
-            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
         self.assertFalse(basic_job_configs.dry_run)
         self.assertIsNone(basic_job_configs.behavior_dir)
@@ -453,7 +452,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
             f'"subject_id": "12345", '
-            f'"platform": "smartSPIM", '
+            f'"platform": "SmartSPIM", '
             f'"modalities": {modalities}, '
             f'"acq_datetime": "2022-10-10 13:24:01", '
             f'"codeocean_domain": "some_domain", '
@@ -492,7 +491,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_datetime,
         )
         self.assertEqual(
-            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
 
     def test_skip_staging(self):
@@ -504,7 +503,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
             f'"subject_id": "12345", '
-            f'"platform": "smartSPIM", '
+            f'"platform": "SmartSPIM", '
             f'"modalities": {modalities}, '
             f'"acq_datetime": "2022-10-10 13:24:01", '
             f'"codeocean_domain": "some_domain", '
@@ -549,7 +548,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             basic_job_configs.acq_datetime,
         )
         self.assertEqual(
-            "smartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
+            "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
         )
 
 
