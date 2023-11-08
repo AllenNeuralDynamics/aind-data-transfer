@@ -12,10 +12,20 @@ from datetime import datetime, timezone
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
+from typing import Dict, List
 
 import boto3
 from aind_codeocean_api.codeocean import CodeOceanClient
-from aind_data_schema.data_description import Modality
+from aind_data_schema.base import AindCoreModel
+from aind_data_schema.data_description import (
+    ExperimentType,
+    Modality,
+    RawDataDescription,
+)
+from aind_data_schema.ephys.ephys_rig import EphysRig
+from aind_data_schema.ephys.ephys_session import EphysSession
+from aind_data_schema.imaging.acquisition import Acquisition
+from aind_data_schema.imaging.instrument import Instrument
 
 from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
@@ -43,6 +53,21 @@ class JobTypes(Enum):
 class BasicJob:
     """Class that defines a basic upload job."""
 
+    # List of experiment_types to verify all metadata files are defined
+    # Subject, Procedures, and Processing will be generated if not present.
+    _METADATA_COMPLETENESS_CHECK: Dict[ExperimentType, List[AindCoreModel]] = {
+        ExperimentType.ECEPHYS: [
+            RawDataDescription,
+            EphysRig,
+            EphysSession,
+        ],
+        ExperimentType.SMARTSPIM: [
+            RawDataDescription,
+            Instrument,
+            Acquisition,
+        ],
+    }
+
     def __init__(self, job_configs: BasicUploadJobConfigs):
         """Init with job_configs"""
         self.job_configs = job_configs
@@ -52,6 +77,34 @@ class BasicJob:
             .getChild(str(id(self)))
         )
         self._instance_logger.setLevel(job_configs.log_level)
+
+    def _metadata_completeness_check(self) -> bool:
+        """For the experiment types listed in the _METADATA_COMPLETENESS_CHECK,
+        check if the required files are in the directory before the data is
+        allowed to be compressed and uploaded."""
+
+        def check_dir(path_to_check) -> bool:
+            """Checks if required modality files are present"""
+            all_files = os.listdir(path_to_check)
+            json_files = [m for m in all_files if str(m).endswith(".json")]
+            required_files = [m.default_filename() for m in expected_metadata]
+            if len(set(required_files) - set(json_files)) > 0:
+                raise Exception(
+                    f"All of {required_files} required for upload!"
+                )
+            else:
+                return True
+
+        exp_type = self.job_configs.experiment_type
+        expected_metadata = self._METADATA_COMPLETENESS_CHECK.get(exp_type)
+        if expected_metadata is None:
+            check = True
+        elif self.job_configs.metadata_dir is not None:
+            check = check_dir(self.job_configs.metadata_dir)
+        else:
+            # If no metadata_dir defined, check the parent of the first source
+            check = check_dir(self.job_configs.modalities[0].source.parent)
+        return check
 
     def _test_upload(self, temp_dir: Path):
         """Run upload command on empty directory to see if user has permissions
@@ -358,6 +411,7 @@ class BasicJob:
         uploading."""
         process_start_time = datetime.now(timezone.utc)
         self._check_if_s3_location_exists()
+        self._metadata_completeness_check()
         with tempfile.TemporaryDirectory(
             dir=self.job_configs.temp_directory
         ) as td:

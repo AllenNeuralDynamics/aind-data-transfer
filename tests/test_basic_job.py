@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
+from aind_data_schema.data_description import ExperimentType
 from requests import Response
 
 from aind_data_transfer import __version__
@@ -54,6 +55,57 @@ class TestBasicJob(unittest.TestCase):
         "DATA_SOURCE": str(DATA_DIR),
         "DRY_RUN": "true",
     }
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("os.listdir")
+    def test_metadata_completeness_check(self, mock_list_dir: MagicMock):
+
+        mock_list_dir.side_effect = (
+            ["data_description.json", "ephys_rig.json", "ephys_session.json"],
+            ["data_description.json", "ephys_rig.json", "ephys_session.json"],
+            ["data_description.json", "instrument.json", "acquisition.json"],
+            ["data_description.json", "instrument.json", "acquisition.json"],
+            ["data_description.json"],  # Use this to assert error raised
+        )
+        basic_job_configs = BasicUploadJobConfigs()
+        basic_job = BasicJob(job_configs=basic_job_configs)
+        ephys_job_configs1 = BasicUploadJobConfigs(
+            experiment_type=ExperimentType.ECEPHYS
+        )
+        ephys_job1 = BasicJob(job_configs=ephys_job_configs1)
+        ephys_job_configs2 = BasicUploadJobConfigs(
+            experiment_type=ExperimentType.ECEPHYS, metadata_dir=METADATA_DIR
+        )
+        ephys_job2 = BasicJob(job_configs=ephys_job_configs2)
+        smartspim_job_configs1 = BasicUploadJobConfigs(
+            experiment_type=ExperimentType.SMARTSPIM
+        )
+        smartspim_job1 = BasicJob(job_configs=smartspim_job_configs1)
+        smartspim_job_configs2 = BasicUploadJobConfigs(
+            experiment_type=ExperimentType.SMARTSPIM, metadata_dir=METADATA_DIR
+        )
+        smartspim_job2 = BasicJob(job_configs=smartspim_job_configs2)
+        smartspim_job_configs3 = BasicUploadJobConfigs(
+            experiment_type=ExperimentType.SMARTSPIM, metadata_dir=METADATA_DIR
+        )
+        smartspim_job3 = BasicJob(job_configs=smartspim_job_configs3)
+        check1 = basic_job._metadata_completeness_check()
+        check2 = ephys_job1._metadata_completeness_check()
+        check3 = ephys_job2._metadata_completeness_check()
+        check4 = smartspim_job1._metadata_completeness_check()
+        check5 = smartspim_job2._metadata_completeness_check()
+        self.assertTrue(check1)
+        self.assertTrue(check2)
+        self.assertTrue(check3)
+        self.assertTrue(check4)
+        self.assertTrue(check5)
+        with self.assertRaises(Exception) as e:
+            smartspim_job3._metadata_completeness_check()
+        expected_error_message = (
+            "Exception(\"All of ['data_description.json', 'instrument.json',"
+            " 'acquisition.json'] required for upload!\")"
+        )
+        self.assertEqual(expected_error_message, repr(e.exception))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("tempfile.TemporaryDirectory")
@@ -438,8 +490,13 @@ class TestBasicJob(unittest.TestCase):
     )
     @patch("aind_data_transfer.jobs.basic_job.datetime")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
+    @patch(
+        "aind_data_transfer.jobs.basic_job.BasicJob."
+        "_metadata_completeness_check"
+    )
     def test_run_job(
         self,
+        mock_metadata_completeness_check: MagicMock,
         mock_test_upload: MagicMock,
         mock_datetime: MagicMock,
         mock_trigger_pipeline: MagicMock,
@@ -482,6 +539,7 @@ class TestBasicJob(unittest.TestCase):
             temp_dir=(Path("some_dir") / "tmp")
         )
         mock_trigger_pipeline.assert_called_once()
+        mock_metadata_completeness_check.assert_called_once()
 
         self.assertEqual(1, 1)
 
