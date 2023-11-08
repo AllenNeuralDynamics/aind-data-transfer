@@ -208,10 +208,8 @@ class ZarrUploadJob(BasicJob):
         log_file = self._data_src_dir.joinpath('imaging_log.log')
         acq_file = self._data_src_dir.joinpath('dispim_acquisition.json')
 
-
         toml_dict = read_toml(self._data_src_dir.joinpath('config.toml'))
         
-
         # read log file into dict
         if not log_file.exists():
             log_dict = read_imaging_log(log_file)
@@ -239,6 +237,8 @@ class ZarrUploadJob(BasicJob):
                 acq_json = schema_log_to_acq_json(log_dict)
                 self._instance_logger.info('Finished converting schema_log.log to acq json')
             except Exception as e:
+                self._instance_logger.warning(f"Failed to convert schema_log.log to acq json: {e}") 
+
                 self._instance_logger.warn(f"Failed to convert schema_log.log to acq json: {e}") 
 
         else:
@@ -266,6 +266,15 @@ class ZarrUploadJob(BasicJob):
         # write xml to file
         xml_file_path = self._data_src_dir.joinpath('Camera_405.xml')  #
         write_xml(acq_xml, xml_file_path)
+        self._instance_logger.info('Finished writing xml file')
+
+        #write voxel size to self job config (so we can take it out of the zarr_config.yml)
+        z_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][2]
+        y_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][1]
+        x_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][0]
+        self._zarr_configs.voxel_size = [z_res, y_res, x_res]
+
+
 
 
     def _create_neuroglancer_link(self) -> None:
@@ -295,7 +304,6 @@ class ZarrUploadJob(BasicJob):
             except Exception as e:
                 self._instance_logger.error(f"Failed to create diSPIM metadata: {e}")
                 self._instance_logger.info("Compiling metadata...")
-
         try:
             self._compile_metadata(
                 temp_dir=self._data_src_dir, process_start_time=process_start_time
