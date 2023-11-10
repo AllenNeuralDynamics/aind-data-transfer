@@ -15,7 +15,7 @@ set -e
 pwd; date
 [[ -f "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" ]] && source "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" adt-upload-clone
 
-python /allen/aind/scratch/carson.berry/aind_data_transfer/scripts/ispim_chron_job.py --config_file /allen/aind/scratch/carson.berry/aind-data-transfer/scritps/chron_job_configs.yml
+python /allen/aind/scratch/carson.berry/aind-data-transfer/scripts/ispim_cron_job.py --config_file /allen/aind/scratch/carson.berry/aind-data-transfer/scritps/chron_job_configs.yml
 
 echo "Done"
 date
