@@ -4,9 +4,9 @@
 transfer_type:
   type: "HPC" # string - HPC or LOCAL
   hpc_account: "carson.berry" # string - HPC account to upload data
-  logs_folder: "/allen/programs/mindscope/workgroups/omfish/carsonb/hpc_outputs" # string - Logs folder
+  logs_folder: "/allen/aind/scratch/carson.berry/hpc_outputs" # string - Logs folder
   conda_env: "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/envs/adt-upload-clone" # string - Path to conda environment
-  hpc_queue: "braintv" # string - HPC queue name
+  hpc_queue: "aind" # string - HPC queue name
   tasks_per_node: "4" # integer - task per node
   nodes: "8" # integer - number of nodes
   cpus_per_task: "1" # integer - cpus per task
@@ -16,8 +16,8 @@ transfer_type:
 metadata_service_domain: "http://aind-metadata-service" # string - host of metadata service
 # codeocean_credentials_path: "" # string - path to code ocean credentials
 # co_capsule_id: "" # string - Code Ocean capsule ID for smartspim pipeline
-root_folder: "/allen/programs/mindscope/workgroups/omfish/mfish/temp_raw/diSPIM" # string - Folder where smartspim datasets are located
+root_folder: "/allen/aind/stage/diSPIM" # string - Folder where smartspim datasets are located
 dest_data_dir: "aind-scratch-data/carson.berry/" # string - prefix to where the data will be uploaded
 s3_bucket: "aind-scratch-data" # string - S3 bucket where the data will be uploaded
 nthreads: "10" # integer - Number of threads. Only works with local option
-info_manager_path: "/allen/programs/mindscope/workgroups/omfish/carsonb/hpc_outputs/status_dispim_datasets.yaml" # string - path to output information about dataset status per dataset
+info_manager_path: "/allen/aind/scratch/carson.berry/hpc_outputs/status_dispim_datasets.yaml" # string - path to output information about dataset status per dataset
