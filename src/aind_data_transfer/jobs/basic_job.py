@@ -122,9 +122,6 @@ class BasicJob:
         data_description_filename = Metadata.__fields__[
             "data_description"
         ].type_.default_filename()
-        processing_filename = Metadata.__fields__[
-            "processing"
-        ].type_.default_filename()
         # If subject not in user defined directory, query the service
         if metadata_in_folder_map.get(subject_filename) is not None:
             subject_metadata = self.__download_json(
