@@ -13,8 +13,9 @@ from aind_data_access_api.secrets import get_parameter
 from aind_data_schema.data_description import (
     Modality,
     Platform,
-    build_data_name,
+    build_data_name
 )
+from aind_data_schema.processing import ProcessName
 from pydantic import (
     BaseSettings,
     DirectoryPath,
@@ -256,6 +257,11 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         default="service",
         description="Name of entity processing the data",
         title="Processor Name",
+    )
+    process_name: ProcessName = Field(
+        default=ProcessName.OTHER,
+        description="Type of processing performed on the raw data source.",
+        title="Process Name",
     )
 
     @property
