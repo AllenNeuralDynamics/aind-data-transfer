@@ -2,7 +2,6 @@
 
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2# Request cpus
-#SBATCH --mem=10gb
 #SBATCH --partition aind
 #SBATCH --exclude=n69,n74
 #SBATCH --tmp=64MB

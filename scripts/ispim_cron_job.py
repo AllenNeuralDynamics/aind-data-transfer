@@ -339,7 +339,7 @@ def get_voxel_size_from_config_toml(config_path: PathLike) -> list:
     Y_voxel_size = config["tile_specs"]["y_field_of_view_um"]/config["tile_specs"]["column_count_pixels"]
     X_voxel_size = config["tile_specs"]["x_field_of_view_um"]/config["tile_specs"]["row_count_pixels"]
 
-    return [X_voxel_size, Y_voxel_size, Z_voxel_size]
+    return [Z_voxel_size, Y_voxel_size, X_voxel_size]
 
 def get_subject_id_from_config_toml(config_path: PathLike) -> str:
     """Reads subject id from config_toml file in dataset folder and returns it as a string
@@ -466,6 +466,32 @@ def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, n
 
     return new_config_path
 
+def update_zarr_job_config(dataset_path: PathLike, new_config_path: PathLike = None, n_levels: int = 5, chunk_shape: list = [1,1,128,128,128]):
+    """This file writes a very simple config file for the zarr upload job.
+    Typically this file contains only the n_levels, chunk_shape, and voxel_size.
+    
+    Parameters
+    ------------------------
+    dataset_path: PathLike
+        Path to the dataset
+    new_config_path: PathLike
+        Path to the new zarr_job_config.yml with the updated fields
+    Returns
+    ------------------------
+    new_config_path: PathLike
+        Path to the new zarr_job_config.yml with the updated fields
+
+    
+    """
+    voxel_size = get_voxel_size_from_config_toml(Path(dataset_path).joinpath("config.toml"))
+
+    yml_dict = {"n_levels": n_levels, "chunk_shape": chunk_shape, "voxel_size": voxel_size}
+    file_utils.write_dict_to_yaml(yml_dict, new_config_path)
+
+    return new_config_path
+
+    
+
 # temporary function to write the zarr upload config 
 def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathLike) -> str:
     
@@ -476,8 +502,11 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
     # acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
     acq_datetime = get_acq_datetime_from_schema_log(dataset_path + "/schema_log.log")
 
+    config_file_loc = '/allen/aind/scratch/diSPIM/zarr_config_auto.yml'
+    update_zarr_job_config(dataset_path, config_file_loc)
+
     #TODO update s3 bucket to be configurable
-    my_json_dict = {"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": "/allen/aind/scratch/diSPIM/zarr_config.yml"}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
+    my_json_dict = {"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": config_file_loc}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
 
     #convert dict to json
     my_json_string = json.dumps(my_json_dict)
