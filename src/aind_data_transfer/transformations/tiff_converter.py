@@ -1,4 +1,4 @@
-import logging
+import logger
 from ScanImageTiffReader import ScanImageTiffReader
 from pathlib import Path
 import os
@@ -9,7 +9,8 @@ import json
 from datetime import datetime as dt
 from tempfile import TemporaryFile
 
-from aind_data_transfer.utils import get_logger
+logger = logger.getLogger(__name__)
+logger.setLevel(logger.INFO)
 
 class BaseConverter:
     def __init__(self, input_dir: Path, output_dir: Path, unique_id: str):
@@ -78,9 +79,9 @@ class BaseConverter:
             The filepath to the output file
         tmp_fileath: Path_str
             The filepath to the temporary file
-        image_width : int, optional
+        img_width : int, optional
             The width of the image, by default 512
-        image_height : int, optional
+        img_height : int, optional
             The height of the image, by default 512
         chunk_size : int, optional
             The chunk size to write to disk, by default 100
@@ -103,7 +104,7 @@ class BaseConverter:
             with h5.File(tmp_filepath, "r") as tmp_f:
                 chunked_time = dt.now()
                 data_length = tmp_f["data"].shape[0]
-                logging.info(f"Data length {data_length}")
+                logger.info(f"Data length {data_length}")
                 for i in range(0, data_length, chunk_size):
                     if i + chunk_size < data_length:
                         f["data"].resize(i + chunk_size, axis=0)
@@ -112,7 +113,7 @@ class BaseConverter:
                         f["data"].resize(data_length, axis=0)
                         f["data"][i:] = tmp_f["data"][i:]
                 chunked_end_time = (dt.now() - chunked_time).seconds
-                logging.info(f"Chunked write took {chunked_end_time} seconds")
+                logger.info(f"Chunked write took {chunked_end_time} seconds")
 
 
 class BergamoConverter(BaseConverter):
@@ -139,8 +140,6 @@ class BergamoConverter(BaseConverter):
                 for image_path in self.input_dir.glob("*.tif")
             ]
         )
-        # tiff_data = {key:list(self.input_dir.glob(f"{key}*.tif")) for key in tiff_set}
-        # tiff_data = {key:sorted(value, key=os.path.getctime) for (key, value) in tiff_data.items()}
         return tiff_trial_groups, sorted_tiff_images
 
     def cache_and_convert_images(
@@ -184,12 +183,14 @@ class BergamoConverter(BaseConverter):
         frames_to_store = 0
         image_buffer = np.zeros((cache_size, image_width, image_height))
         output_filepath = self.output_dir / f"{self.unique_id}.h5"
+        start_trial_count = 0
+        previous_trial_name = None
         # metadata dictionary that keeps track of the trial name and the location of the 
         # trial image in the stack
         trial_slice_location = {trial: [] for trial in trials}
         # metadata dictionary where the keys are the image filename and the 
         # values are the index of the order in which the image was read, which 
-        # trial it's associated with, and the location of the image in the stack and the 
+        # trial it's associated with,  the location of the image in the h5 stack and the 
         # image shape
         lookup_table = {str(filename): {"index": index} for index, filename in tiff_images}
         tmp_file = TemporaryFile(suffix=".h5")
@@ -201,9 +202,12 @@ class BergamoConverter(BaseConverter):
                 maxshape=(None, image_width, image_height),
             )
         for filename in lookup_table.keys():
-            logging.info(f"Processing {os.path.basename(filename)}...")
+            # Grabbing the trial name to keep track of changes and 
+            # index position of each trial in the stack. Will compare to previous_trial_name
+            trial_name = "_".join(os.path.basename(filename).split("_")[:-1])
+            logger.info(f"Processing {os.path.basename(filename)}...")
             image_shape = ScanImageTiffReader(str(filename)).shape()
-            logging.info(f"Image shape {image_shape}")
+            logger.info(f"Image shape {image_shape}")
             image_data = ScanImageTiffReader(str(filename)).data()
             if image_shape[0] + images_stored >= cache_size:
                 frames_to_store = cache_size - images_stored
@@ -223,20 +227,30 @@ class BergamoConverter(BaseConverter):
                 total_count += image_shape[0]
 
             lookup_table[filename]["image_shape"] = image_shape
-            lookup_table[filename]["trial"] = "_".join(os.path.basename(filename).split("_")[:-1])
+            lookup_table[filename]["trial"] = trial_name
             lookup_table[filename]["location_in_stack"] = [
                 total_count,
                 total_count + frames_to_store,
             ]
-            trial_slice_location["_".join(os.path.basename(filename).split("_")[:-1])].append(
-                (total_count, total_count + image_shape[0])
+            if previous_trial_name is None and start_trial_count == 0:
+                previous_trial_name = trial_name
+            elif trial_name != previous_trial_name:
+                trial_slice_location[previous_trial_name].append(
+                    (start_trial_count, total_count)
+                )
+                trial_name = lookup_table[filename]["trial"]
+                start_trial_count = total_count + 1
+                previous_trial_name = trial_name
+        # save the last trial slice location
+        trial_slice_location[trial_name].append(
+                (start_trial_count, total_count)
             )
         # if images did not get cached to disk, cache them now
         if images_stored > 0:
             final_buffer = np.zeros((images_stored, image_width, image_height))
             final_buffer[:images_stored] = image_buffer[:images_stored]
             self._cache_images(final_buffer, total_count - images_stored, tmp_file)
-        logging.info(f"Total count {total_count}")
+        logger.info(f"Total count {total_count}")
         self._write_final_output(
             output_filepath,
             tmp_file,
@@ -248,7 +262,7 @@ class BergamoConverter(BaseConverter):
         )
         os.remove(tmp_file.name)
         total_time = dt.now() - start_time
-        logging.info(f"Total time to convert {total_time.seconds} seconds")
+        logger.info(f"Total time to convert {total_time.seconds} seconds")
         return self.output_dir / f"{self.unique_id}.h5"
 
     def write_bergamo_to_h5(self, chunk_size=500) -> Path:
