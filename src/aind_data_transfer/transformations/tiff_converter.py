@@ -1,4 +1,4 @@
-import logger
+import logging
 from ScanImageTiffReader import ScanImageTiffReader
 from pathlib import Path
 import os
@@ -8,9 +8,7 @@ import numpy as np
 import json
 from datetime import datetime as dt
 from tempfile import TemporaryFile
-
-logger = logger.getLogger(__name__)
-logger.setLevel(logger.INFO)
+import re
 
 class BaseConverter:
     def __init__(self, input_dir: Path, output_dir: Path, unique_id: str):
@@ -18,8 +16,7 @@ class BaseConverter:
         self.output_dir = output_dir
         self.unique_id = unique_id
 
-    @property
-    def _read_and_sort_images(self) -> List[Path]:
+    def _read_and_sort_images(self, exclusion_pattern: str = None) -> List[Path]:
         """
         Read in all the images in a directory and sort them by creation time
 
@@ -27,7 +24,8 @@ class BaseConverter:
         ----------
         input_dir : Path
             The directory containing the images
-
+        exclusion_pattern : str
+            patterns to be excluded from the file search
         Returns
         -------
         Enumeration
@@ -35,10 +33,13 @@ class BaseConverter:
         """
         # Sort images by creation time
         sorted_tiff_images = sorted(list(self.input_dir.glob("*.tif")), key=os.path.getctime)
+        if exclusion_pattern:
+            exclude_pattern = re.compile(r"{}".format(exclusion_pattern))
+            sorted_tiff_images = [image for image in sorted_tiff_images if not exclude_pattern.search(str(image))]
         return enumerate(sorted_tiff_images)
 
     def _cache_images(
-        self, image_data_to_cache: List[np.ndarray], initial_frame: int, cache_filepath: Path | str
+        self, image_data_to_cache: List[np.ndarray], initial_frame: int, cache_filepath: Path
     ) -> None:
         """
         Cache images to disk
@@ -49,7 +50,7 @@ class BaseConverter:
             A list of image data to cache
         initial_frame : int
             The index of the first frame to concatenate to the array
-        cache_filepath : Path | str
+        cache_filepath : Path
             The filepath to the cache file (should be a temporary file)
 
         Returns
@@ -60,31 +61,18 @@ class BaseConverter:
             f["data"][
                 initial_frame : initial_frame + len(image_data_to_cache)
             ] = image_data_to_cache
-        # import pdb;pdb.set_trace()
 
     def _write_final_output(
         self,
-        output_filepath: Path | str,
-        tmp_filepath: Path | str,
-        img_width=512,
-        img_height=512,
-        chunk_size=100,
+        output_filepath: Path,
         **kwargs: dict,
     ):
         """Writes the final output to disk along with the metadata. Clears the temporary hdf5 data file
 
         Parameters
         ----------
-        output_filepath : Path | str
+        output_filepath : Path
             The filepath to the output file
-        tmp_fileath: Path_str
-            The filepath to the temporary file
-        img_width : int, optional
-            The width of the image, by default 512
-        img_height : int, optional
-            The height of the image, by default 512
-        chunk_size : int, optional
-            The chunk size to write to disk, by default 100
         **kwargs : dict
             The metadata to write to disk
 
@@ -92,28 +80,17 @@ class BaseConverter:
         -------
         None
         """
-        with h5.File(output_filepath, "w") as f:
+
+        # b/c this seems to take a long time
+        start_time = dt.now()
+        with h5.File(output_filepath, "a") as f:
             for key, value in kwargs.items():
-                f.create_dataset(key, data=value)
-            f.create_dataset(
-                "data",
-                (chunk_size, img_width, img_height),
-                chunks=True,
-                maxshape=(None, img_width, img_height),
-            )
-            with h5.File(tmp_filepath, "r") as tmp_f:
-                chunked_time = dt.now()
-                data_length = tmp_f["data"].shape[0]
-                logger.info(f"Data length {data_length}")
-                for i in range(0, data_length, chunk_size):
-                    if i + chunk_size < data_length:
-                        f["data"].resize(i + chunk_size, axis=0)
-                        f["data"][i : i + chunk_size] = tmp_f["data"][i : i + chunk_size]
-                    else:
-                        f["data"].resize(data_length, axis=0)
-                        f["data"][i:] = tmp_f["data"][i:]
-                chunked_end_time = (dt.now() - chunked_time).seconds
-                logger.info(f"Chunked write took {chunked_end_time} seconds")
+                meta_size = len(value)
+                f.create_dataset(key, (meta_size), maxshape=(meta_size,), dtype=h5.special_dtype(vlen=str))
+                f[key].resize(meta_size, axis=0)
+                f[key][:] = value 
+        total_time = (dt.now() - start_time).seconds
+        print(f"Time to add the metadata to h5 {total_time} seconds")
 
 
 class BergamoConverter(BaseConverter):
@@ -132,20 +109,20 @@ class BergamoConverter(BaseConverter):
         """
 
         ## Associate an index with each image
-        sorted_tiff_images = self._read_and_sort_images
+        sorted_tiff_images = self._read_and_sort_images(exclusion_pattern = "stack")
         # Find all the unique stages acquired
-        tiff_trial_groups = set(
+        tiff_epochs = set(
             [
                 "_".join(image_path.name.split("_")[:-1])
                 for image_path in self.input_dir.glob("*.tif")
             ]
         )
-        return tiff_trial_groups, sorted_tiff_images
+        return tiff_epochs, sorted_tiff_images
 
     def cache_and_convert_images(
         self,
         tiff_images: List,
-        trials: set,
+        epochs: set,
         cache_size=100,
         image_width: int = 512,
         image_height: int = 512,
@@ -158,8 +135,8 @@ class BergamoConverter(BaseConverter):
         ----------
         tiff_images : Enumeration
             A sorted list of paths to the images sorted by creation time
-        trials : set
-            A set of unique trial names
+        epochs : set
+            A set of unique epoch names
         cache_size : int, optional
             The number of images to cache in memory, by default 100
         image_width : int, optional
@@ -183,18 +160,18 @@ class BergamoConverter(BaseConverter):
         frames_to_store = 0
         image_buffer = np.zeros((cache_size, image_width, image_height))
         output_filepath = self.output_dir / f"{self.unique_id}.h5"
-        start_trial_count = 0
-        previous_trial_name = None
-        # metadata dictionary that keeps track of the trial name and the location of the 
-        # trial image in the stack
-        trial_slice_location = {trial: [] for trial in trials}
+        start_epoch_count = 0
+        previous_epoch_name = None
+        # metadata dictionary that keeps track of the epoch name and the location of the 
+        # epoch image in the stack
+        epoch_slice_location = {epoch: [] for epoch in epochs}
         # metadata dictionary where the keys are the image filename and the 
         # values are the index of the order in which the image was read, which 
-        # trial it's associated with,  the location of the image in the h5 stack and the 
+        # epoch it's associated with,  the location of the image in the h5 stack and the 
         # image shape
         lookup_table = {str(filename): {"index": index} for index, filename in tiff_images}
-        tmp_file = TemporaryFile(suffix=".h5")
-        with h5.File(tmp_file, "w") as f:
+        # tmp_file = TemporaryFile(suffix=".h5")
+        with h5.File(output_filepath, "w") as f:
             f.create_dataset(
                 "data",
                 (0, image_width, image_height),
@@ -202,18 +179,18 @@ class BergamoConverter(BaseConverter):
                 maxshape=(None, image_width, image_height),
             )
         for filename in lookup_table.keys():
-            # Grabbing the trial name to keep track of changes and 
-            # index position of each trial in the stack. Will compare to previous_trial_name
-            trial_name = "_".join(os.path.basename(filename).split("_")[:-1])
-            logger.info(f"Processing {os.path.basename(filename)}...")
+            # Grabbing the epoch name to keep track of changes and 
+            # index position of each epoch in the stack. Will compare to previous_epoch_name
+            epoch_name = "_".join(os.path.basename(filename).split("_")[:-1])
+            print(f"Processing {os.path.basename(filename)}...")
             image_shape = ScanImageTiffReader(str(filename)).shape()
-            logger.info(f"Image shape {image_shape}")
+            print(f"Image shape {image_shape}")
             image_data = ScanImageTiffReader(str(filename)).data()
             if image_shape[0] + images_stored >= cache_size:
                 frames_to_store = cache_size - images_stored
                 image_buffer[images_stored:cache_size] = image_data[:frames_to_store]
                 total_count += frames_to_store
-                self._cache_images(image_buffer, total_count - cache_size, tmp_file)
+                self._cache_images(image_buffer, total_count - cache_size, output_filepath)
                 images_stored = 0
                 image_buffer = np.zeros((cache_size, image_width, image_height))
                 image_buffer[images_stored : image_shape[0] - frames_to_store] = image_data[
@@ -227,42 +204,37 @@ class BergamoConverter(BaseConverter):
                 total_count += image_shape[0]
 
             lookup_table[filename]["image_shape"] = image_shape
-            lookup_table[filename]["trial"] = trial_name
+            lookup_table[filename]["epoch"] = epoch_name
             lookup_table[filename]["location_in_stack"] = [
                 total_count,
                 total_count + frames_to_store,
             ]
-            if previous_trial_name is None and start_trial_count == 0:
-                previous_trial_name = trial_name
-            elif trial_name != previous_trial_name:
-                trial_slice_location[previous_trial_name].append(
-                    (start_trial_count, total_count)
+            if previous_epoch_name is None and start_epoch_count == 0:
+                previous_epoch_name = epoch_name
+            elif epoch_name != previous_epoch_name:
+                epoch_slice_location[previous_epoch_name].append(
+                    (start_epoch_count, total_count)
                 )
-                trial_name = lookup_table[filename]["trial"]
-                start_trial_count = total_count + 1
-                previous_trial_name = trial_name
-        # save the last trial slice location
-        trial_slice_location[trial_name].append(
-                (start_trial_count, total_count)
+                epoch_name = lookup_table[filename]["epoch"]
+                start_epoch_count = total_count + 1
+                previous_epoch_name = epoch_name
+        # save the last epoch slice location
+        epoch_slice_location[epoch_name].append(
+                (start_epoch_count, total_count)
             )
         # if images did not get cached to disk, cache them now
         if images_stored > 0:
             final_buffer = np.zeros((images_stored, image_width, image_height))
             final_buffer[:images_stored] = image_buffer[:images_stored]
-            self._cache_images(final_buffer, total_count - images_stored, tmp_file)
-        logger.info(f"Total count {total_count}")
+            self._cache_images(final_buffer, total_count - images_stored, output_filepath)
+        print(f"Total count {total_count}")
         self._write_final_output(
             output_filepath,
-            tmp_file,
-            img_width=image_width,
-            img_height=image_height,
-            chunk_size=cache_size,
-            trial_slice_location=json.dumps(trial_slice_location),
+            epoch_slice_location=json.dumps(epoch_slice_location),
             lookup_table=json.dumps(lookup_table),
         )
-        os.remove(tmp_file.name)
         total_time = dt.now() - start_time
-        logger.info(f"Total time to convert {total_time.seconds} seconds")
+        print(f"Time to cache {total_time.seconds} seconds")
         return self.output_dir / f"{self.unique_id}.h5"
 
     def write_bergamo_to_h5(self, chunk_size=500) -> Path:
@@ -281,16 +253,15 @@ class BergamoConverter(BaseConverter):
         """
 
         # Convert the file and build the final metadata structure
-        tiff_trial_groups, sorted_image_list = self._build_tiff_data_structure()
+        tiff_epochs, sorted_image_list = self._build_tiff_data_structure()
         output_filepath = self.cache_and_convert_images(
             sorted_image_list,
             cache_size=chunk_size,
-            trials=tiff_trial_groups,
+            epochs=tiff_epochs,
             image_width=800,
             image_height=800,
         )
         return output_filepath
-
 
 class MesoscopeConverter(BaseConverter):
     pass
