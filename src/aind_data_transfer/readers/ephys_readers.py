@@ -84,6 +84,7 @@ class EphysReaders:
 
     @staticmethod
     def get_streams_to_clip(reader_name, input_dir):
+        input_dir = Path(input_dir).resolve()
         stream_names, stream_ids = se.get_neo_streams(reader_name, input_dir)
         for dat_file in input_dir.glob("**/*.dat"):
             oe_stream_name = dat_file.parent.name
