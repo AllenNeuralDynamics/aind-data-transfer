@@ -7,8 +7,10 @@ from typing import List
 import numpy as np
 import json
 from datetime import datetime as dt
-from tempfile import TemporaryFile
 import re
+from datetime import datetime, time
+from aind_metadata_mapper.bergamo.session import BergamoEtl, RawImageInfo, UserSettings
+
 
 class BaseConverter:
     def __init__(self, input_dir: Path, output_dir: Path, unique_id: str):
@@ -35,10 +37,12 @@ class BaseConverter:
         sorted_tiff_images = sorted(list(self.input_dir.glob("*.tif")), key=os.path.getctime)
         if exclusion_pattern:
             exclude_pattern = re.compile(r"{}".format(exclusion_pattern))
-            sorted_tiff_images = [image for image in sorted_tiff_images if not exclude_pattern.search(str(image))]
+            sorted_tiff_images = [
+                image for image in sorted_tiff_images if not exclude_pattern.search(str(image))
+            ]
         return enumerate(sorted_tiff_images)
 
-    def _cache_images(
+    def _write_images(
         self, image_data_to_cache: List[np.ndarray], initial_frame: int, cache_filepath: Path
     ) -> None:
         """
@@ -86,9 +90,11 @@ class BaseConverter:
         with h5.File(output_filepath, "a") as f:
             for key, value in kwargs.items():
                 meta_size = len(value)
-                f.create_dataset(key, (meta_size), maxshape=(meta_size,), dtype=h5.special_dtype(vlen=str))
+                f.create_dataset(
+                    key, (meta_size), maxshape=(meta_size,), dtype=h5.special_dtype(vlen=str)
+                )
                 f[key].resize(meta_size, axis=0)
-                f[key][:] = value 
+                f[key][:] = value
         total_time = (dt.now() - start_time).seconds
         print(f"Time to add the metadata to h5 {total_time} seconds")
 
@@ -109,7 +115,7 @@ class BergamoConverter(BaseConverter):
         """
 
         ## Associate an index with each image
-        sorted_tiff_images = self._read_and_sort_images(exclusion_pattern = "stack")
+        sorted_tiff_images = self._read_and_sort_images(exclusion_pattern="stack")
         # Find all the unique stages acquired
         tiff_epochs = set(
             [
@@ -162,12 +168,12 @@ class BergamoConverter(BaseConverter):
         output_filepath = self.output_dir / f"{self.unique_id}.h5"
         start_epoch_count = 0
         previous_epoch_name = None
-        # metadata dictionary that keeps track of the epoch name and the location of the 
+        # metadata dictionary that keeps track of the epoch name and the location of the
         # epoch image in the stack
         epoch_slice_location = {epoch: [] for epoch in epochs}
-        # metadata dictionary where the keys are the image filename and the 
-        # values are the index of the order in which the image was read, which 
-        # epoch it's associated with,  the location of the image in the h5 stack and the 
+        # metadata dictionary where the keys are the image filename and the
+        # values are the index of the order in which the image was read, which
+        # epoch it's associated with,  the location of the image in the h5 stack and the
         # image shape
         lookup_table = {str(filename): {"index": index} for index, filename in tiff_images}
         # tmp_file = TemporaryFile(suffix=".h5")
@@ -179,7 +185,7 @@ class BergamoConverter(BaseConverter):
                 maxshape=(None, image_width, image_height),
             )
         for filename in lookup_table.keys():
-            # Grabbing the epoch name to keep track of changes and 
+            # Grabbing the epoch name to keep track of changes and
             # index position of each epoch in the stack. Will compare to previous_epoch_name
             epoch_name = "_".join(os.path.basename(filename).split("_")[:-1])
             print(f"Processing {os.path.basename(filename)}...")
@@ -190,7 +196,7 @@ class BergamoConverter(BaseConverter):
                 frames_to_store = cache_size - images_stored
                 image_buffer[images_stored:cache_size] = image_data[:frames_to_store]
                 total_count += frames_to_store
-                self._cache_images(image_buffer, total_count - cache_size, output_filepath)
+                self._write_images(image_buffer, total_count - cache_size, output_filepath)
                 images_stored = 0
                 image_buffer = np.zeros((cache_size, image_width, image_height))
                 image_buffer[images_stored : image_shape[0] - frames_to_store] = image_data[
@@ -212,21 +218,17 @@ class BergamoConverter(BaseConverter):
             if previous_epoch_name is None and start_epoch_count == 0:
                 previous_epoch_name = epoch_name
             elif epoch_name != previous_epoch_name:
-                epoch_slice_location[previous_epoch_name].append(
-                    (start_epoch_count, total_count)
-                )
+                epoch_slice_location[previous_epoch_name].append((start_epoch_count, total_count))
                 epoch_name = lookup_table[filename]["epoch"]
                 start_epoch_count = total_count + 1
                 previous_epoch_name = epoch_name
         # save the last epoch slice location
-        epoch_slice_location[epoch_name].append(
-                (start_epoch_count, total_count)
-            )
+        epoch_slice_location[epoch_name].append((start_epoch_count, total_count))
         # if images did not get cached to disk, cache them now
         if images_stored > 0:
             final_buffer = np.zeros((images_stored, image_width, image_height))
             final_buffer[:images_stored] = image_buffer[:images_stored]
-            self._cache_images(final_buffer, total_count - images_stored, output_filepath)
+            self._write_images(final_buffer, total_count - images_stored, output_filepath)
         print(f"Total count {total_count}")
         self._write_final_output(
             output_filepath,
@@ -261,7 +263,46 @@ class BergamoConverter(BaseConverter):
             image_width=800,
             image_height=800,
         )
+        # write stack to h5
+        stack_fp = next(self.output_dir.glob("stack*.tif"), None)
+        if stack_fp:
+            with ScanImageTiffReader(stack_fp) as reader:
+                stack_data = reader.data()
+                stack_meta = reader.metadata()
+            with h5.File(self.output_dir / "stack.h5", "w") as f:
+                f.create_dataset(
+                    "data",
+                    (0, 800, 800),
+                    maxshape=(None, 800, 800),
+                )
+            self._write_images(stack_data, 0, self.output_dir / "stack.h5")
+            self._write_final_output(
+                self.output_dir / "stack.h5",
+                metadata=json.dumps(stack_meta),
+            )
+
         return output_filepath
+
+    def generate_metadata(self, output_dir: Path, user_settings: UserSettings) -> None:
+        """
+        Generates the metadata for the Bergamo session
+
+        Parameters
+        ----------
+        output_dir : Path
+            Where to write the metadata to
+        user_settings : UserSettings
+            The user settings for the Bergamo session
+
+        Returns
+        -------
+        None
+        """
+        bergamo_etl = BergamoEtl(
+            input_source=self.input_dir, output_directory=output_dir, user_settings=user_settings
+        )
+        bergamo_etl.run_job()
+
 
 class MesoscopeConverter(BaseConverter):
     pass
@@ -272,8 +313,22 @@ class FileSplitter:
 
 
 if __name__ == "__main__":
-    input_dir = Path(r"D:\bergamo\data")
-    output_dir = Path(r"D:")
-    unique_id = "bergamo"
+    input_dir = Path(r"\\allen\aind\scratch\david.feng\BCI_43_032023")
+    output_dir = Path(
+        r"\\allen\aind\scratch\2p-working-group\data-uploads\bergamo\BCI_43_032023\pophys"
+    )
+    unique_id = "631479_032023_120000"
     bergamo_converter = BergamoConverter(input_dir, output_dir, unique_id)
-    bergamo_converter.write_bergamo_to_h5()
+    # bergamo_converter.write_bergamo_to_h5()
+    user_settings = UserSettings(
+        experimenter_full_name=["Kayvon Daie"],
+        subject_id="631479",
+        session_start_time=datetime(2023, 3, 20, 12, 0, 0),
+        session_end_time=datetime(2023, 3, 20, 12, 30, 0),
+        stream_start_time=datetime(2023, 3, 20, 12, 0, 0),
+        stream_end_time=datetime(2023, 3, 20, 12, 30, 0),
+        stimulus_start_time=time(15, 15, 0),
+        stimulus_end_time=time(15, 45, 0),
+    )
+
+    bergamo_converter.generate_metadata(output_dir.parent, user_settings)
