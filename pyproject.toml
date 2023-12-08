@@ -23,7 +23,7 @@ dependencies = [
     'pyyaml==6.0.1',
     'google-cloud-storage==2.10.0',
     'pyminizip==0.2.6',
-    'aind-codeocean-api==0.1.0',
+    'aind-codeocean-api==0.3.0',
     'aind-data-schema==0.16.0',
     'aind-metadata-service[client]>=0.2.5',
     'tqdm==4.64.1',
