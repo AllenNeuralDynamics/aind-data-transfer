@@ -83,6 +83,8 @@ def write_files(
 
     all_metrics = []
 
+    check_voxel_size = voxel_size is None
+
     for impath in sorted(image_paths):
         LOGGER.info(f"Writing tile {impath}")
 
@@ -90,7 +92,7 @@ def write_files(
         # until we know the optimal chunk shape.
         with DataReaderFactory().create(impath) as reader:
             # TODO: pass units to zarr writer
-            if voxel_size is None:
+            if check_voxel_size:
                 try:
                     voxel_size, _ = reader.get_voxel_size()
                 except Exception:
