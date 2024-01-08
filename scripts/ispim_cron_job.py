@@ -497,6 +497,9 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
     
     subject_id = get_subject_id_from_config_toml(Path(dataset_path).joinpath('config.toml'))
     
+    #clean up subject_id so that it is just the subject id (6 digits)
+    subject_id = subject_id.split("-")[0]
+
     dataset_path = str(dataset_path)
 
     # acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
