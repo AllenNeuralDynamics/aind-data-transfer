@@ -14,7 +14,7 @@ _LOGGER.setLevel(logging.INFO)
 
 class BkgSubtraction:
     class Regexes(Enum):
-        tile_xyz_pattern = r"tile_[xX]_\d{4}_[yY]_\d{4}_[zZ]_\d{4}"
+        tile_xyz_pattern = r"\w*_[xX]_\d{4}_[yY]_\d{4}_[zZ]_\d{4}_ch_\d{3}"
 
     @staticmethod
     def subtract(im: da.Array, bkg_da: da.Array) -> da.Array:
