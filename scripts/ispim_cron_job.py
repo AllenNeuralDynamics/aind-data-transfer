@@ -485,7 +485,7 @@ def update_zarr_job_config(dataset_path: PathLike, new_config_path: PathLike = N
     """
     voxel_size = get_voxel_size_from_config_toml(Path(dataset_path).joinpath("config.toml"))
 
-    yml_dict = {"n_levels": n_levels, "chunk_shape": chunk_shape, "voxel_size": voxel_size, "do_bkg_subtraction": True}
+    yml_dict = {"n_levels": n_levels, "chunk_shape": chunk_shape, "voxel_size": voxel_size, "do_bkg_subtraction": False}
     file_utils.write_dict_to_yaml(yml_dict, new_config_path)
 
     return new_config_path
