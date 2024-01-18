@@ -11,15 +11,12 @@ from tempfile import TemporaryFile
 from datetime import datetime, time
 
 from aind_metadata_mapper.bergamo.session import BergamoEtl, UserSettings
-from aind_data_transfer.jobs.basic_job import BasicJob
-from aind_data_transfer.util.s3_utils import upload_to_s3
 
 
 class BaseTiffConverter:
     def __init__(
-        self, input_dir: Path, output_dir: Path, unique_id: str, job_configs: BasicUploadJobConfigs
-    ):
-        super().__init__(input_dir, output_dir, unique_id, job_configs=job_configs)
+        self, input_dir: Path, output_dir: Path, unique_id: str):
+        super().__init__(input_dir, output_dir, unique_id)
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.unique_id = unique_id
@@ -83,9 +80,9 @@ class BaseTiffConverter:
 
 class BergamoTiffConverter(BaseTiffConverter):
     def __init__(
-        self, input_dir: Path, output_dir: Path, unique_id: str, job_configs: dict
+        self, input_dir: Path, output_dir: Path, unique_id: str
     ):
-        super().__init__(input_dir, output_dir, unique_id, job_configs)
+        super().__init__(input_dir, output_dir, unique_id)
 
     def _get_index(self, file_name: str) -> int:
         """Custom sorting key function to extract the index number from the file name (assuming the index is a number)
@@ -238,16 +235,6 @@ class BergamoTiffConverter(BaseTiffConverter):
         print(f"Time to cache {total_time.seconds} seconds")
         return self.output_dir / f"{self.unique_id}.h5"
 
-    def _upload_bergamo(self, excluded: Any = None) -> None:
-        """Upload the data to s3."""
-        upload_to_s3(
-            directory_to_upload=self.output_dir,
-            s3_bucket=self.job_configs.s3_bucket,
-            s3_prefix=self.job_configs.s3_prefix,
-            dryrun=self.job_configs.dry_run,
-            excluded=excluded,
-        )
-
     def run_job(self, chunk_size=500) -> Path:
         """
         Reads in a list of tiff files from a specified path (initialized above) and converts them
@@ -277,7 +264,6 @@ class BergamoTiffConverter(BaseTiffConverter):
             image_width=800,
             image_height=800,
         )
-        self._upload_bergamo()
         # write stack to h5
         # stack_fp = next(self.input_dir.glob("stack*.tif"), None)
         # if stack_fp:
@@ -350,4 +336,4 @@ if __name__ == "__main__":
             )
 
     generate_metadata(input_dir, output_dir, user_settings)
-    bergamo_converter = BergamoTiffConverter(input_dir, output_dir, unique_id, job_configs=)
+    bergamo_converter = BergamoTiffConverter(input_dir, output_dir, unique_id)
