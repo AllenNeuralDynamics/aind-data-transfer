@@ -829,6 +829,20 @@ class SmartSPIMWriter:
         if chamber_immersion_ri is None:
             raise ValueError("Chamber immersion ri not provided in manifest")
 
+        axes = dataset_info.get("axes")
+
+        if axes is None:
+            raise ValueError("Please, check the axes orientation")
+        
+        axes = [
+            acquisition.Axis(
+                name=ax['name'],
+                dimension=ax['dimension'],
+                direction=ax['direction'],
+            )
+            for ax in axes
+        ]
+
         acquisition_model = acquisition.Acquisition(
             specimen_id="",
             instrument_id=instrument_id,
@@ -846,19 +860,7 @@ class SmartSPIMWriter:
                 medium=sample_immersion_medium,
                 refractive_index=sample_immersion_ri,
             ),
-            axes=[
-                acquisition.Axis(
-                    name="X",
-                    dimension=2,
-                    direction="Left_to_right",
-                ),
-                acquisition.Axis(
-                    name="Y", dimension=1, direction="Posterior_to_anterior"
-                ),
-                acquisition.Axis(
-                    name="Z", dimension=0, direction="Superior_to_inferior"
-                ),
-            ],
+            axes=axes,
             tiles=make_acq_tiles(
                 metadata_dict=metadata_dict, filter_mapping=filter_mapping
             ),
