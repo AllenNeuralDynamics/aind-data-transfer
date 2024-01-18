@@ -317,6 +317,8 @@ class BasicJob:
                         log_level=self.job_configs.log_level,
                     )
                     ecephys_compress_job.compress_raw_data(temp_dir=temp_dir)
+                elif modality_config.modality == Modality.POPHYS:
+                    
                 else:
                     zc = ZipCompressor(display_progress_bar=True)
                     compressed_data_folder_name = (

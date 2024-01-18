@@ -13,13 +13,9 @@ from datetime import datetime, time
 from aind_metadata_mapper.bergamo.session import BergamoEtl, UserSettings
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.util.s3_utils import upload_to_s3
-from aind_data_transfer.config_loader.base_config import (
-    ConfigError,
-    BasicUploadJobConfigs,
-)
 
 
-class BaseTiffUploadJob(BasicJob):
+class BaseTiffConverter:
     def __init__(
         self, input_dir: Path, output_dir: Path, unique_id: str, job_configs: BasicUploadJobConfigs
     ):
@@ -85,9 +81,9 @@ class BaseTiffUploadJob(BasicJob):
         print(f"Time to add the metadata to h5 {total_time} seconds")
 
 
-class BergamoTiffUploadJob(BaseTiffUploadJob):
+class BergamoTiffConverter(BaseTiffConverter):
     def __init__(
-        self, input_dir: Path, output_dir: Path, unique_id: str, job_configs: BasicUploadJobConfigs
+        self, input_dir: Path, output_dir: Path, unique_id: str, job_configs: dict
     ):
         super().__init__(input_dir, output_dir, unique_id, job_configs)
 
@@ -179,6 +175,13 @@ class BergamoTiffUploadJob(BaseTiffUploadJob):
         image_buffer = np.zeros((cache_size, image_width, image_height))
         output_filepath = self.output_dir / f"{self.unique_id}.h5"
         start_epoch_count = 0
+        with h5.File(output_filepath) as f:
+            f.create_dataset(
+                "data",
+                (0, 800, 800),
+                chunks=True,
+                maxshape=(None, 800, 800),
+            )
         # metadata dictionary that keeps track of the epoch name and the location of the
         # epoch image in the stack
         epoch_slice_location = {}
@@ -268,32 +271,13 @@ class BergamoTiffUploadJob(BaseTiffUploadJob):
         # epoch it's associated with,  the location of the image in the h5 stack and the
         # image shape
         # tmp_file = TemporaryFile(prefix=self.unique_id, suffix=".h5")
-        with TemporaryFile(prefix=self.unique_id, suffix=".h5") as f:
-            f.create_dataset(
-                "data",
-                (0, 800, 800),
-                chunks=True,
-                maxshape=(None, 800, 800),
-            )
-            output_filepath = self.write_bergamo(
-                cache_size=chunk_size,
-                epochs=epochs,
-                image_width=800,
-                image_height=800,
-            )
-            user_settings = UserSettings(
-                experimenter_full_name=["Kayvon Daie"],
-                subject_id="631479",
-                session_start_time=datetime(2023, 3, 24, 12, 0, 0),
-                session_end_time=datetime(2023, 3, 24, 12, 30, 0),
-                stream_start_time=datetime(2023, 3, 24, 12, 0, 0),
-                stream_end_time=datetime(2023, 3, 24, 12, 30, 0),
-                stimulus_start_time=time(15, 15, 0),
-                stimulus_end_time=time(15, 45, 0),
-            )
-
-            self.generate_metadata(user_settings)
-            self._upload_bergamo()
+        output_filepath = self.write_bergamo(
+            cache_size=chunk_size,
+            epochs=epochs,
+            image_width=800,
+            image_height=800,
+        )
+        self._upload_bergamo()
         # write stack to h5
         # stack_fp = next(self.input_dir.glob("stack*.tif"), None)
         # if stack_fp:
@@ -314,28 +298,34 @@ class BergamoTiffUploadJob(BaseTiffUploadJob):
 
         return output_filepath
 
-    def generate_metadata(self, user_settings: UserSettings) -> None:
-        """
-        Generates the metadata for the Bergamo session
+def generate_metadata(input_dir: Path, output_dir: Path, unique_id: str, user_settings: UserSettings) -> None:
+    """
+    Generates the metadata for the Bergamo session
 
-        Parameters
-        ----------
-        user_settings : UserSettings
-            The user settings for the Bergamo session
+    Parameters
+    ----------
+    input_dir : Path
+        The input directory containing the Bergamo files
+    output_dir : Path
+        The output directory to write the metadata to
+    unique_id : str
+        The unique id for the Bergamo session
+    user_settings : UserSettings
+        The user settings for the Bergamo session
 
-        Returns
-        -------
-        None
-        """
-        bergamo_etl = BergamoEtl(
-            input_source=self.input_dir,
-            output_directory=self.output_dir / self.unique_id,
-            user_settings=user_settings,
-        )
-        bergamo_etl.run_job()
+    Returns
+    -------
+    None
+    """
+    bergamo_etl = BergamoEtl(
+        input_source=input_dir,
+        output_directory=output_dir / unique_id,
+        user_settings=user_settings,
+    )
+    bergamo_etl.run_job()
 
 
-class MesoscopeConverter(BaseTiffUploadJob):
+class MesoscopeConverter(BaseTiffConverter):
     pass
 
 
@@ -348,4 +338,16 @@ if __name__ == "__main__":
     # input_dir = Path(r"D:\bergamo\data")
     output_dir = Path(r"\\allen\aind\scratch\2p-working-group\data-uploads\bergamo\BCI_43_032423")
     unique_id = "bergamo"
-    bergamo_converter = BergamoTiffUploadJob(input_dir, output_dir, unique_id)
+    user_settings = UserSettings(
+                experimenter_full_name=["Kayvon Daie"],
+                subject_id="631479",
+                session_start_time=datetime(2023, 3, 24, 12, 0, 0),
+                session_end_time=datetime(2023, 3, 24, 12, 30, 0),
+                stream_start_time=datetime(2023, 3, 24, 12, 0, 0),
+                stream_end_time=datetime(2023, 3, 24, 12, 30, 0),
+                stimulus_start_time=time(15, 15, 0),
+                stimulus_end_time=time(15, 45, 0),
+            )
+
+    generate_metadata(input_dir, output_dir, user_settings)
+    bergamo_converter = BergamoTiffConverter(input_dir, output_dir, unique_id, job_configs=)
