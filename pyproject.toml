@@ -26,6 +26,7 @@ dependencies = [
     'aind-codeocean-api==0.1.0',
     'aind-data-schema==0.16.0',
     'aind-metadata-service[client]>=0.2.5',
+    'aind-metadata-mapper==0.1.3'
     'tqdm==4.64.1',
     'aind-data-access-api[secrets]==0.3.0',
     'toml==0.10.2',
