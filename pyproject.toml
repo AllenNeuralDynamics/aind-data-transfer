@@ -30,7 +30,7 @@ dependencies = [
     'aind-data-access-api[secrets]==0.3.0',
     'toml==0.10.2',
     'numcodecs==0.11.0',
-    'aind-metadta-mapper @ git+ssh://git@github.com/AllenNeuralDynamics/aind-metadata-mapper.git'
+    "aind-metadata-mapper@git+https://github.com/AllenNeuralDynamics/aind-metadata-maper@main"
 ]
 
 [project.optional-dependencies]
