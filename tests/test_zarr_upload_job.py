@@ -411,9 +411,9 @@ class TestZarrUploadJob(unittest.TestCase):
         job = ZarrUploadJob(job_configs=test_job_configs)
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
-    @patch("aind_data_transfer.jobs.zarr_upload_job.write_json_from_zarr")
+    @patch("aind_data_transfer.jobs.zarr_upload_job.generate_exaspim_link")
     def test_create_neuroglancer_link(
-        self, mock_write_json_from_zarr: MagicMock
+        self, mock_generate_exaspim_link: MagicMock
     ):
         config_path = EXASPIM_DATA_DIR / "zarr_configs.yaml"
         test_job_configs = self._get_test_configs(
@@ -421,22 +421,15 @@ class TestZarrUploadJob(unittest.TestCase):
         )
         job = ZarrUploadJob(job_configs=test_job_configs)
         job._create_neuroglancer_link()
-        mock_write_json_from_zarr.assert_called_with(
-            input_zarr="s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
-            out_json_dir=str(EXASPIM_DATA_DIR),
-            vmin=50,
-            vmax=5000,
-        )
-
-        # test default values
-        test_job_configs = self._get_test_configs(Platform.EXASPIM, extra=None)
-        job = ZarrUploadJob(job_configs=test_job_configs)
-        job._create_neuroglancer_link()
-        mock_write_json_from_zarr.assert_called_with(
-            input_zarr="s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
-            out_json_dir=str(EXASPIM_DATA_DIR),
-            vmin=0,
-            vmax=200,
+        mock_generate_exaspim_link.assert_called_with(
+            None,
+            s3_path='s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr',
+            output_json_path=str(EXASPIM_DATA_DIR),
+            opacity=0.5,
+            blend='default',
+            vmin=50.0,
+            vmax=5000.0,
+            dataset_name='exaSPIM_125L_2022-08-05_17-25-36',
         )
 
 
