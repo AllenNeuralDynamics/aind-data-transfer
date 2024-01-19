@@ -14,9 +14,7 @@ from aind_metadata_mapper.bergamo.session import BergamoEtl, UserSettings
 
 
 class BaseTiffConverter:
-    def __init__(
-        self, input_dir: Path, output_dir: Path, unique_id: str):
-        super().__init__(input_dir, output_dir, unique_id)
+    def __init__(self, input_dir: Path, output_dir: Path, unique_id: str):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.unique_id = unique_id
@@ -79,9 +77,7 @@ class BaseTiffConverter:
 
 
 class BergamoTiffConverter(BaseTiffConverter):
-    def __init__(
-        self, input_dir: Path, output_dir: Path, unique_id: str
-    ):
+    def __init__(self, input_dir: Path, output_dir: Path, unique_id: str):
         super().__init__(input_dir, output_dir, unique_id)
 
     def _get_index(self, file_name: str) -> int:
@@ -172,7 +168,7 @@ class BergamoTiffConverter(BaseTiffConverter):
         image_buffer = np.zeros((cache_size, image_width, image_height))
         output_filepath = self.output_dir / f"{self.unique_id}.h5"
         start_epoch_count = 0
-        with h5.File(output_filepath) as f:
+        with h5.File(output_filepath, "w") as f:
             f.create_dataset(
                 "data",
                 (0, 800, 800),
@@ -235,7 +231,7 @@ class BergamoTiffConverter(BaseTiffConverter):
         print(f"Time to cache {total_time.seconds} seconds")
         return self.output_dir / f"{self.unique_id}.h5"
 
-    def run_job(self, chunk_size=500) -> Path:
+    def run_converter(self, chunk_size=500) -> Path:
         """
         Reads in a list of tiff files from a specified path (initialized above) and converts them
         to a single h5 file. Writes relevant metadata to the h5 file.
@@ -284,7 +280,10 @@ class BergamoTiffConverter(BaseTiffConverter):
 
         return output_filepath
 
-def generate_metadata(input_dir: Path, output_dir: Path, unique_id: str, user_settings: UserSettings) -> None:
+
+def generate_metadata(
+    input_dir: Path, output_dir: Path, unique_id: str, user_settings: UserSettings
+) -> None:
     """
     Generates the metadata for the Bergamo session
 
@@ -324,16 +323,18 @@ if __name__ == "__main__":
     # input_dir = Path(r"D:\bergamo\data")
     output_dir = Path(r"\\allen\aind\scratch\2p-working-group\data-uploads\bergamo\BCI_43_032423")
     unique_id = "bergamo"
+    btc = BergamoTiffConverter(input_dir, output_dir, unique_id)
+    btc.run_converter()
     user_settings = UserSettings(
-                experimenter_full_name=["Kayvon Daie"],
-                subject_id="631479",
-                session_start_time=datetime(2023, 3, 24, 12, 0, 0),
-                session_end_time=datetime(2023, 3, 24, 12, 30, 0),
-                stream_start_time=datetime(2023, 3, 24, 12, 0, 0),
-                stream_end_time=datetime(2023, 3, 24, 12, 30, 0),
-                stimulus_start_time=time(15, 15, 0),
-                stimulus_end_time=time(15, 45, 0),
-            )
+        experimenter_full_name=["Kayvon Daie"],
+        subject_id="631479",
+        session_start_time=datetime(2023, 3, 24, 12, 0, 0),
+        session_end_time=datetime(2023, 3, 24, 12, 30, 0),
+        stream_start_time=datetime(2023, 3, 24, 12, 0, 0),
+        stream_end_time=datetime(2023, 3, 24, 12, 30, 0),
+        stimulus_start_time=time(15, 15, 0),
+        stimulus_end_time=time(15, 45, 0),
+    )
 
-    generate_metadata(input_dir, output_dir, user_settings)
-    bergamo_converter = BergamoTiffConverter(input_dir, output_dir, unique_id)
+    # generate_metadata(input_dir, output_dir, user_settings)
+    # bergamo_converter = BergamoTiffConverter(input_dir, output_dir, unique_id)
