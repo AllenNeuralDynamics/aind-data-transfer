@@ -48,7 +48,8 @@ class BaseTiffConverter:
         output_filepath: Path,
         **kwargs: dict,
     ):
-        """Writes the final output to disk along with the metadata. Clears the temporary hdf5 data file
+        """Writes the final output to disk along with the metadata. Clears the temporary 
+        hdf5 data file
 
         Parameters
         ----------
@@ -81,7 +82,8 @@ class BergamoTiffConverter(BaseTiffConverter):
         super().__init__(input_dir, output_dir, unique_id)
 
     def _get_index(self, file_name: str) -> int:
-        """Custom sorting key function to extract the index number from the file name (assuming the index is a number)
+        """Custom sorting key function to extract the index number from the file name 
+        (assuming the index is a number)
 
         Parameters
         ----------
@@ -319,9 +321,9 @@ class FileSplitter:
 
 
 if __name__ == "__main__":
-    input_dir = Path(r"\\allen\aind\scratch\david.feng\BCI_43_032423")
+    input_dir = Path(r"\\allen\aind\scratch\BCI_43_032423")
     # input_dir = Path(r"D:\bergamo\data")
-    output_dir = Path(r"\\allen\aind\scratch\2p-working-group\data-uploads\bergamo\BCI_43_032423")
+    output_dir = Path(r"D:\bergamo")
     unique_id = "bergamo"
     btc = BergamoTiffConverter(input_dir, output_dir, unique_id)
     btc.run_converter()
@@ -335,6 +337,5 @@ if __name__ == "__main__":
         stimulus_start_time=time(15, 15, 0),
         stimulus_end_time=time(15, 45, 0),
     )
-
     # generate_metadata(input_dir, output_dir, user_settings)
     # bergamo_converter = BergamoTiffConverter(input_dir, output_dir, unique_id)
