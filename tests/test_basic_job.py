@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
+from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.metadata import Metadata, MetadataStatus
 from requests import Response
 
@@ -378,9 +379,12 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._trigger_codeocean_pipeline()
 
-        mock_run_capsule.assert_called_once_with(
+        expected_run_capsule_request = RunCapsuleRequest(
             capsule_id="some_capsule_id",
-            data_assets=[],
+            pipeline_id=None,
+            version=None,
+            resume_run_id=None,
+            data_assets=None,
             parameters=[
                 '{"trigger_codeocean_job": '
                 '{"job_type": "confocal", '
@@ -392,6 +396,12 @@ class TestBasicJob(unittest.TestCase):
                 f'"aind_data_transfer_version": "{__version__}"'
                 "}}"
             ],
+            named_parameters=None,
+            processes=None,
+        )
+
+        mock_run_capsule.assert_called_once_with(
+            request=expected_run_capsule_request
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -414,9 +424,12 @@ class TestBasicJob(unittest.TestCase):
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._trigger_codeocean_pipeline()
 
-        mock_run_capsule.assert_called_once_with(
+        expected_run_capsule_request = RunCapsuleRequest(
             capsule_id="some_capsule_id",
-            data_assets=[],
+            pipeline_id=None,
+            version=None,
+            resume_run_id=None,
+            data_assets=None,
             parameters=[
                 '{"trigger_codeocean_job": '
                 '{"job_type": "run_generic_pipeline", '
@@ -428,6 +441,12 @@ class TestBasicJob(unittest.TestCase):
                 f'"aind_data_transfer_version": "{__version__}"'
                 "}}"
             ],
+            named_parameters=None,
+            processes=None,
+        )
+
+        mock_run_capsule.assert_called_once_with(
+            request=expected_run_capsule_request
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -437,12 +456,14 @@ class TestBasicJob(unittest.TestCase):
         "_check_if_s3_location_exists"
     )
     @patch(
-        "aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record"
+        "aind_data_transfer.jobs.basic_job.BasicJob"
+        "._initialize_metadata_record"
     )
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._compress_raw_data")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._encrypt_behavior_dir")
     @patch(
-        "aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata"
+        "aind_data_transfer.jobs.basic_job.BasicJob"
+        "._add_processing_to_metadata"
     )
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._upload_to_s3")
     @patch(

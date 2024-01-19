@@ -15,6 +15,7 @@ from typing import Dict, Optional
 
 import boto3
 from aind_codeocean_api.codeocean import CodeOceanClient
+from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.data_description import Modality
 from aind_data_schema.metadata import Metadata, MetadataStatus
@@ -142,7 +143,8 @@ class BasicJob:
         # Basic check that subject_id matches
         if subject_metadata.get("subject_id") != self.job_configs.subject_id:
             raise Exception(
-                f"Subject id {self.job_configs.subject_id} not found in {subject_metadata}!"
+                f"Subject id {self.job_configs.subject_id} not found in"
+                f" {subject_metadata}!"
             )
 
         # If procedures not in user defined directory, query the service
@@ -431,11 +433,11 @@ class BasicJob:
                 f"{trigger_capsule_params}"
             )
         else:
-            response = co_client.run_capsule(
+            run_capsule_request = RunCapsuleRequest(
                 capsule_id=self.job_configs.codeocean_trigger_capsule_id,
-                data_assets=[],
                 parameters=[json.dumps(trigger_capsule_params)],
             )
+            response = co_client.run_capsule(request=run_capsule_request)
             self._instance_logger.info(
                 f"Code Ocean Response: {response.json()}"
             )
