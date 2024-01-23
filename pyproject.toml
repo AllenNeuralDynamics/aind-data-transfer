@@ -60,6 +60,7 @@ imaging = [
     'ome-zarr==0.8.0',
     'chardet==5.1.0',
     'natsort',
+    'aind-ng-link==1.0.15',
 ]
 full = [
     'aind-data-transfer[ephys]',

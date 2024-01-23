@@ -22,13 +22,11 @@ from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
 from aind_data_transfer.transformations.file_io import read_toml, \
     read_imaging_log, read_schema_log_file, write_acq_json, write_xml
-from aind_data_transfer.transformations.ng_link_creation import \
-    write_json_from_zarr
 
 import yaml
 from numcodecs import blosc
 from pydantic import Field, BaseSettings
-
+from ng_link.exaspim_link import generate_exaspim_link
 from aind_data_schema.data_description import Modality, Platform
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
@@ -282,11 +280,15 @@ class ZarrUploadJob(BasicJob):
         write_xml(acq_xml, xml_file_path)
 
     def _create_neuroglancer_link(self) -> None:
-        write_json_from_zarr(
-            input_zarr=self._zarr_path,
-            out_json_dir=str(self._data_src_dir),
+        generate_exaspim_link(
+            None,
+            s3_path=self._zarr_path,
+            opacity=0.5,
+            blend="default",
+            output_json_path=str(self._data_src_dir),
             vmin=self._zarr_configs.ng_vmin,
-            vmax=self._zarr_configs.ng_vmax
+            vmax=self._zarr_configs.ng_vmax,
+            dataset_name=self._data_src_dir.name,
         )
 
     def run_job(self):
