@@ -14,14 +14,13 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'pandas==2.0.3',
-    's3fs==0.4.2',
-    's3transfer[crt]==0.6.1',
-    'boto3==1.28.19',
-    'botocore==1.31.19',
-    'numpy==1.24.4',
+    'pandas==2.2.0',
+    's3fs==2023.12.2',
+    's3transfer[crt]==0.7.0',
+    'boto3[crt]==1.29.6',
+    'numpy==1.26.1',
     'pyyaml==6.0.1',
-    'google-cloud-storage==2.10.0',
+    'google-cloud-storage==2.12.0',
     'pyminizip==0.2.6',
     'aind-codeocean-api==0.3.0',
     'aind-data-schema==0.16.0',
@@ -29,6 +28,7 @@ dependencies = [
     'tqdm==4.64.1',
     'aind-data-access-api[secrets]==0.3.0',
     'toml==0.10.2',
+    "zarr==2.16.1",
     'numcodecs==0.11.0',
 ]
 
@@ -45,21 +45,19 @@ dev = [
 ephys = [
     'spikeinterface[full]>=0.99.0',
     'probeinterface==0.2.20',
-    'zarr',
     'wavpack-numcodecs>=0.1.3,<=0.1.5'
 ]
 imaging = [
-    'argschema',
-    'dask==2023.7.1',
-    'distributed==2023.7.1',
+    'argschema==3.0.4',
+    'dask==2024.1.0',
+    'distributed==2024.1.0',
     'bokeh!=3.0.*,>=2.4.2',
-    'gcsfs==2023.6.0',
-    'xarray-multiscale',
-    'parameterized',
-    'zarr==2.16.1',
-    'ome-zarr==0.8.0',
+    'gcsfs==2023.12.2',
+    'xarray-multiscale==2.1.0',
+    'parameterized==0.9.0',
+    'ome-zarr==0.8.3',
     'chardet==5.1.0',
-    'natsort',
+    'natsort==8.4.0',
     'aind-ng-link==1.0.15',
 ]
 full = [
