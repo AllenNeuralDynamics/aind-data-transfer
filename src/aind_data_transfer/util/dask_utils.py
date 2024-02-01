@@ -4,6 +4,7 @@ import socket
 from enum import Enum
 from typing import Optional, Tuple
 
+import requests
 import distributed
 from distributed import Client, LocalCluster
 
@@ -94,4 +95,22 @@ def get_client(
         raise NotImplementedError
     return client, n_workers
 
+
+def cancel_slurm_job(job_id: str, api_url: str, headers: dict) -> requests.Response:
+    """
+    Attempt to release resources and cancel the job
+
+    Args:
+        job_id: the SLURM job ID
+        api_url: the URL of the SLURM REST API. E.g., "http://myhost:80/api/slurm/v0.0.36"
+
+    Raises:
+        HTTPError: if the request to cancel the job fails
+    """
+    # Attempt to release resources and cancel the job
+    # Workaround for https://github.com/dask/dask-mpi/issues/87
+    endpoint = f"{api_url}/job/{job_id}"
+    response = requests.delete(endpoint, headers=headers)
+
+    return response
 

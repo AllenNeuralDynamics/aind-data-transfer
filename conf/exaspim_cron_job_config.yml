@@ -1,0 +1,18 @@
+root_folder:
+sif_path:
+manifest_filename:
+transfer_service_domain:
+codeocean_domain:
+metadata_service_domain:
+aind_data_transfer_repo_location:
+force_cloud_sync: false
+s3_bucket:
+hpc_settings:
+  memory_per_cpu: 5000
+  cpus_per_task: 1
+  partition:
+  tasks: 128
+  nodes: [16, 32] # min and max nodes
+  time_limit: 4320  # in minutes
+  mail_user:
+  mail_type:

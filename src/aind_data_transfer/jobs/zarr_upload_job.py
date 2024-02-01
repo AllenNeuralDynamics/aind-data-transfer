@@ -4,26 +4,34 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from time import sleep
 from typing import Any, Optional, Tuple, List
 
-from aind_data_transfer.util import setup_logging
+import yaml
+
 from aind_data_transfer.config_loader.base_config import (
-    ConfigError,
-    BasicUploadJobConfigs,
+    ConfigError, BasicUploadJobConfigs,
 )
 from aind_data_transfer.jobs.basic_job import BasicJob
-from aind_data_transfer.transformations.converters import log_to_acq_json, \
-    acq_json_to_xml, schema_log_to_acq_json, read_dispim_aquisition
+from aind_data_transfer.transformations.converters import (
+    log_to_acq_json,
+    acq_json_to_xml,
+    schema_log_to_acq_json,
+    read_dispim_aquisition
+)
+from aind_data_transfer.transformations.file_io import (
+    read_toml,
+    read_imaging_log,
+    read_schema_log_file,
+    write_acq_json,
+    write_xml
+)
 from aind_data_transfer.transformations.ome_zarr import write_files
-from aind_data_transfer.util.dask_utils import get_client, get_deployment
+from aind_data_transfer.util.dask_utils import (
+    get_client, get_deployment, Deployment, cancel_slurm_job
+)
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
-from aind_data_transfer.transformations.file_io import read_toml, \
-    read_imaging_log, read_schema_log_file, write_acq_json, write_xml
-
-import yaml
 from numcodecs import blosc
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -44,38 +52,38 @@ class ZarrConversionConfigs(BaseSettings):
     )
     chunk_shape: Optional[Tuple[int, int, int, int, int]] = Field(
         (1, 1, 256, 256, 256),
-        description="5D Chunk shape to use for the zarr Array. Default is (1, 1, 256, 256, 256).",
-    )
+        description="5D Chunk shape to use for the zarr Array. Default is ("
+                    "1, 1, 256, 256, 256).", )
     voxel_size: Optional[Tuple[float, float, float]] = Field(
-        None,
-        description="Voxel size to use for the zarr Array. if None, will attempt to parse from the image metadata. Default is None.",
-    )
+        None, description="Voxel size to use for the zarr Array. if None, "
+                          "will attempt to parse from the image metadata. "
+                          "Default "
+                          "is None.", )
     codec: Optional[str] = Field(
         "zstd",
-        description="Blosc codec to use for compression. Default is zstd.",
-    )
+        description="Blosc codec to use for compression. Default is zstd.", )
     clevel: Optional[int] = Field(
         1, description="Blosc compression level to use. Default is 1."
     )
     do_bkg_subtraction: Optional[bool] = Field(
         False,
-        description="Whether to subtract the background image from the raw data. Default is False.",
-    )
+        description="Whether to subtract the background image from the raw "
+                    "data. Default is False.", )
     exclude_patterns: Optional[List[str]] = Field(
         None,
-        description="List of patterns to exclude from the zarr conversion. Default is None.",
-    )
+        description="List of patterns to exclude from the zarr conversion. "
+                    "Default is None.", )
     create_ng_link: Optional[bool] = Field(
-        False,
-        description="Whether to create a neuroglancer link. Default is False.",
-    )
+        False, description="Whether to create a neuroglancer link. Default is "
+                           "False.", )
     ng_vmin: Optional[float] = Field(
-        0,
-        description="Default minimum of the neuroglancer display range. Default is 0."
+        0, description="Default minimum of the neuroglancer display range. "
+                       "Default is 0."
     )
     ng_vmax: Optional[float] = Field(
         200.0,
-        description="Default maximum of the neuroglancer display range. Default is 200."
+        description="Default maximum of the neuroglancer display range. "
+                    "Default is 200."
     )
 
     @classmethod
@@ -92,7 +100,8 @@ class ZarrUploadJob(BasicJob):
 
         if len(self.job_configs.modalities) != 1:
             raise ConfigError(
-                "ZarrUploadJob only supports one modality at a time.")
+                "ZarrUploadJob only supports one modality at a time."
+            )
 
         self._instance_logger.info(f"Using job configs: {self.job_configs}")
 
@@ -108,7 +117,8 @@ class ZarrUploadJob(BasicJob):
                 f"data source directory {self._data_src_dir} does not exist"
             )
         self._instance_logger.info(
-            f"Using data source directory: {self._data_src_dir}")
+            f"Using data source directory: {self._data_src_dir}"
+        )
 
         if self.job_configs.platform == Platform.HCR:
             self._raw_image_dir = self._data_src_dir / "diSPIM"
@@ -120,7 +130,8 @@ class ZarrUploadJob(BasicJob):
             )
         if not self._raw_image_dir.exists():
             self._instance_logger.warning(
-                f"raw image directory {self._raw_image_dir} does not exist. Trying micr/"
+                f"raw image directory {self._raw_image_dir} does not exist. "
+                f"Trying micr/"
             )
             self._raw_image_dir = self._data_src_dir / "micr"
             if not self._raw_image_dir.exists():
@@ -128,7 +139,8 @@ class ZarrUploadJob(BasicJob):
                     f"raw image directory {self._raw_image_dir} does not exist"
                 )
         self._instance_logger.info(
-            f"Using raw image directory: {self._raw_image_dir}")
+            f"Using raw image directory: {self._raw_image_dir}"
+        )
 
         self._derivatives_dir = self._data_src_dir / "derivatives"
         if not self._derivatives_dir.exists():
@@ -136,7 +148,8 @@ class ZarrUploadJob(BasicJob):
                 f"derivatives directory {self._derivatives_dir} does not exist"
             )
         self._instance_logger.info(
-            f"Using derivatives directory: {self._derivatives_dir}")
+            f"Using derivatives directory: {self._derivatives_dir}"
+        )
 
         self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.abbreviation}.ome.zarr"
         self._instance_logger.info(f"Output zarr path: {self._zarr_path}")
@@ -149,7 +162,8 @@ class ZarrUploadJob(BasicJob):
         if config_path is not None:
             if not config_path.exists():
                 raise FileNotFoundError(
-                    f"Extra config file {config_path} does not exist.")
+                    f"Extra config file {config_path} does not exist."
+                )
             self._zarr_configs = ZarrConversionConfigs.from_yaml(config_path)
         else:
             # use defaults
@@ -171,8 +185,7 @@ class ZarrUploadJob(BasicJob):
             s3_bucket=self.job_configs.s3_bucket,
             s3_prefix=self.job_configs.s3_prefix,
             dryrun=self.job_configs.dry_run,
-            excluded=excluded,
-        )
+            excluded=excluded, )
 
     def _upload_zarr(self) -> None:
         images = set(
@@ -205,11 +218,12 @@ class ZarrUploadJob(BasicJob):
             None,
             self._zarr_configs.chunk_shape,
             self._zarr_configs.voxel_size,
-            compressor=blosc.Blosc(self._zarr_configs.codec,
-                                   self._zarr_configs.clevel,
-                                   shuffle=blosc.SHUFFLE),
-            bkg_img_dir=bkg_img_dir,
-        )
+            compressor=blosc.Blosc(
+                self._zarr_configs.codec,
+                self._zarr_configs.clevel,
+                shuffle=blosc.SHUFFLE
+            ),
+            bkg_img_dir=bkg_img_dir, )
 
     def _create_dispim_metadata(self) -> None:
         self._instance_logger.info("Creating xml files for diSPIM data")
@@ -227,16 +241,20 @@ class ZarrUploadJob(BasicJob):
 
         else:
             log_dict = {
-                'imaging_log_file': None}  # set this to none to read schema_log
+                'imaging_log_file': None
+            }  # set this to none to read schema_log
 
         if acq_file.exists():
             acq_json = read_dispim_aquisition(acq_file)
 
 
-        # if any of the values of log_dict are None, then get it from schema_log
+        # if any of the values of log_dict are None, then get it from
+        # schema_log
         elif any(v is None for v in log_dict.values()):
             self._instance_logger.warn(
-                'Some values in imaging_log.log are None. Reading schema_log.log')
+                'Some values in imaging_log.log are None. Reading '
+                'schema_log.log'
+            )
             log_file = self._data_src_dir.joinpath('schema_log.log')
             log_dict = {}
             log_dict = read_schema_log_file(log_file)
@@ -246,10 +264,12 @@ class ZarrUploadJob(BasicJob):
             try:
                 acq_json = schema_log_to_acq_json(log_dict)
                 self._instance_logger.info(
-                    'Finished converting schema_log.log to acq json')
+                    'Finished converting schema_log.log to acq json'
+                )
             except Exception as e:
                 self._instance_logger.warn(
-                    f"Failed to convert schema_log.log to acq json: {e}")
+                    f"Failed to convert schema_log.log to acq json: {e}"
+                )
 
         else:
             # convert imaging_log to acq json
@@ -257,7 +277,8 @@ class ZarrUploadJob(BasicJob):
                 acq_json = log_to_acq_json(log_dict)
             except Exception as e:
                 self._instance_logger.warn(
-                    f"Failed to convert imaging_log.log to acq json: {e}")
+                    f"Failed to convert imaging_log.log to acq json: {e}"
+                )
 
         # convert to acq json
         acq_json_path = self._data_src_dir.joinpath('acquisition.json')
@@ -267,7 +288,8 @@ class ZarrUploadJob(BasicJob):
             self._instance_logger.info('Finished writing acq json')
         except Exception as e:
             self._instance_logger.warn(
-                f"Failed to write acquisition.json: {e}")
+                f"Failed to write acquisition.json: {e}"
+            )
 
         # convert acq json to xml
         is_zarr = True
@@ -290,8 +312,7 @@ class ZarrUploadJob(BasicJob):
             output_json_path=str(self._data_src_dir),
             vmin=self._zarr_configs.ng_vmin,
             vmax=self._zarr_configs.ng_vmax,
-            dataset_name=self._data_src_dir.name,
-        )
+            dataset_name=self._data_src_dir.name, )
 
     def run_job(self):
         """Runs the job. Creates a temp directory to compile the files before
@@ -310,7 +331,8 @@ class ZarrUploadJob(BasicJob):
                 self._create_dispim_metadata()
             except Exception as e:
                 self._instance_logger.error(
-                    f"Failed to create diSPIM metadata: {e}")
+                    f"Failed to create diSPIM metadata: {e}"
+                )
                 self._instance_logger.info("Compiling metadata...")
 
         try:
@@ -321,8 +343,7 @@ class ZarrUploadJob(BasicJob):
             # originally
             self._add_processing_to_metadata(
                 temp_dir=self._data_src_dir,
-                process_start_time=process_start_time,
-            )
+                process_start_time=process_start_time, )
         except Exception as e:
             self._instance_logger.error(f"Failed to compile metadata: {e}")
 
@@ -337,8 +358,38 @@ class ZarrUploadJob(BasicJob):
         # Exclude raw image directory, this is uploaded separately
         self._upload_to_s3(
             dir=self._data_src_dir,
-            excluded=os.path.join(self._raw_image_dir, "*"),
-        )
+            excluded=os.path.join(self._raw_image_dir, "*"), )
+
+
+def _cleanup(deployment: str) -> None:
+    """
+    Clean up any resources that were created during the job.
+
+    Parameters
+    ----------
+    deployment : str
+      The type of deployment. Either "local" or "slurm"
+    """
+    if deployment == Deployment.SLURM.value:
+        job_id = os.getenv("SLURM_JOBID")
+        if job_id is not None:
+            api_url = f"http://{os.environ['HPC_HOST']}"
+            api_url += f":{os.environ['HPC_PORT']}"
+            api_url += f"/{os.environ['HPC_API_ENDPOINT']}"
+            headers = {
+                "X-SLURM-USER-NAME": os.environ["HPC_USERNAME"],
+                "X-SLURM-USER-PASSWORD": os.environ["HPC_PASSWORD"],
+                "X-SLURM-USER-TOKEN": os.environ["HPC_TOKEN"],
+            }
+            logging.info(f"Cancelling SLURM job {job_id}")
+            response = cancel_slurm_job(job_id, api_url, headers)
+            if response.status_code != 200:
+                logging.error(
+                    f"Failed to cancel SLURM job {job_id}: {response.text}"
+                )
+            else:
+                # This might not run if the job is cancelled
+                logging.info(f"Cancelled SLURM job {job_id}")
 
 
 if __name__ == "__main__":
@@ -355,16 +406,13 @@ if __name__ == "__main__":
         }
     }
 
-    CLIENT, _ = get_client(get_deployment(), worker_options=worker_options)
+    deployment = get_deployment()
+    CLIENT, _ = get_client(deployment, worker_options=worker_options)
 
     try:
         job = ZarrUploadJob(job_configs=job_configs_from_main)
         job.run_job()
-    except Exception as e:
-        # Catching the exception is necessary to ensure that the Dask client
-        # is properly closed and shut down.
+    except Exception:
         logging.exception("ZarrUploadJob failed.")
     finally:
-        CLIENT.shutdown()
-        sleep(_CLIENT_SHUTDOWN_SLEEP_TIME)
-        CLIENT.close(timeout=_CLIENT_CLOSE_TIMEOUT)
+        _cleanup(deployment)
