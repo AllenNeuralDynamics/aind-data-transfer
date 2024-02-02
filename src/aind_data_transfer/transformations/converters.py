@@ -74,6 +74,12 @@ def read_dispim_aquisition(acq_path: str) -> Acquisition:
                             float(tile_dict['tile_y_position'])  ,
                             float(tile_dict['tile_z_position'])  ])
         
+        print("*"*100)
+        print(tile_dict['file_name'])
+        # print(f'tile_dict voxel size: {tile_dict["x_voxel_size"]}, {tile_dict["y_voxel_size"]}, {tile_dict["z_voxel_size"]}')
+        print(f'tile_dict voxel size: {float(tile_dict["x_voxel_size"])}, {float(tile_dict["y_voxel_size"])}, {float(tile_dict["z_voxel_size"])}')
+        print("*"*100)
+
         scale_tfm = Scale3dTransform(scale=[float(tile_dict['x_voxel_size']), 
                                             float(tile_dict['y_voxel_size']), 
                                             float(tile_dict['z_voxel_size'])])
@@ -369,11 +375,12 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
     ET.ElementTree:
         ET.ElementTree instance
     """
-
+    from decimal import Decimal
     # Retrieve map of tile names -> transforms
     def extract_tile_translation() -> dict[str, list[float]]:
         tile_transforms: dict[str, list[float]] = {}
 
+        #temp_scale = [Decimal(0.298), Decimal(0.298), Decimal(0.8)]
         for tile in acq_obj.tiles:
             # zero the translations from the first tile
             if tile == acq_obj.tiles[0]:
@@ -382,6 +389,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
                     for i, j in zip(
                         tile.coordinate_transformations[1].translation,
                         tile.coordinate_transformations[0].scale,
+                        #temp_scale #TODO change back to tile.coordinate_transformations[0].scale
                     )
                 ]
                 offset = [offset_x, offset_y, offset_z] 
@@ -391,7 +399,8 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
                 i /j
                 for i, j in zip(
                     tile.coordinate_transformations[1].translation,
-                    tile.coordinate_transformations[0].scale,
+                     tile.coordinate_transformations[0].scale,
+                    #temp_scale
                 )
             ]  # this needs to be in pixels for the xml. Not microns.
 
@@ -403,7 +412,7 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             ]
 
             #TODO remove this -1 once MICAH confirms that the y-basis has been flipped on the rig
-            tile_transforms[filename][1] = float(tile_transforms[filename][1]) * -1 * np.sqrt(2)
+            tile_transforms[filename][1] = float(tile_transforms[filename][1]) * np.sqrt(2) #*-1
 
             
 
