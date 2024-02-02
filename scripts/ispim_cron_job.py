@@ -40,6 +40,8 @@ from aind_data_transfer.transformations.file_io import read_toml
 from smartspim_cron_job import ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions
 # from aind_data_transfer.config_loader.imaging_configuration_loader import ImagingJobConfigurationLoader
 
+#for plotting tile metrics
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -481,11 +483,10 @@ def update_zarr_job_config(dataset_path: PathLike, new_config_path: PathLike = N
     new_config_path: PathLike
         Path to the new zarr_job_config.yml with the updated fields
 
-    
     """
     voxel_size = get_voxel_size_from_config_toml(Path(dataset_path).joinpath("config.toml"))
 
-    yml_dict = {"n_levels": n_levels, "chunk_shape": chunk_shape, "voxel_size": voxel_size, "do_bkg_subtraction": True}
+    yml_dict = {"n_levels": n_levels, "chunk_shape": chunk_shape, "voxel_size": voxel_size, "do_bkg_subtraction": False}
     file_utils.write_dict_to_yaml(yml_dict, new_config_path)
 
     return new_config_path
@@ -643,6 +644,60 @@ def write_csv_from_dataset(dataset_loc: PathLike, csv_path: PathLike):
     return csv_path
 
 
+# write an sbatch script to submit the tile qc job
+def write_tile_qc_sbatch_script(dataset_path: PathLike, sbatch_path_to_write: PathLike):
+    """Writes an sbatch script to submit the tile qc job for a dataset
+    
+    Parameters
+    ------------------------
+    dataset_path: PathLike
+        Path to the dataset
+    
+    sbatch_path_to_write: PathLike
+        Path to write the sbatch script
+    
+    Returns
+    ------------------------
+    sbatch_script: str
+        The sbatch script that was written"""
+    
+    #dataset_path = Path(dataset_path).stem
+    print(f'Dataset path being passed to write_tile_qc_sbatch_script: {dataset_path}')
+
+    #write the sbatch script
+    sbatch_script = f"""#!/bin/bash
+#SBATCH --cpus-per-task=8
+#SBATCH --mem-per-cpu=8000
+#SBATCH --exclude=n69,n74
+#SBATCH --tmp=64MB
+#SBATCH --time=2:00:00
+#SBATCH --partition=aind
+#SBATCH --output=/allen/aind/scratch/carson.berry/hpc_outputs/%j_plot_tile_qc.log
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=carson.berry@alleninstitute.org
+#SBATCH --ntasks=1
+
+set -e
+
+pwd; date
+[[ -f "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" ]] && source "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" adt-upload-clone
+
+# Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
+# are not sitting idle while the workers (rank 2...N) work
+# See https://edbennett.github.io/high-performance-python/11-dask/ for details.
+
+python -m /allen/aind/scratch/diSPIM_QC/hcr_review_tiles/src/hcr_review_tiles/plot_lightsheet_data_for_tile_from_tiff.py {dataset_path}
+
+echo "Done"
+date
+"""
+    assert Path(sbatch_path_to_write).parent.exists(), f"Parent directory of {sbatch_path_to_write} does not exist"
+    with open(sbatch_path_to_write, "w") as f:
+        f.write(sbatch_script)
+    
+    return
+
+
 ###################################################################################################################
 
 def main():
@@ -700,6 +755,9 @@ def main():
 
     sbatch_file_path = Path(__file__).parent.joinpath('bin/zarr_upload_sbatch.sh')
 
+    tile_qc_sbatch_filepath = Path('/allen/aind/scratch/diSPIM_QC/hcr_review_tiles/bin/plot_tile_qc_sbatch.sh')
+
+
     print(f'pending_datasets_config: {pending_datasets_config}')
     #processing all the datasets that are pending
     for dataset in pending_datasets_config:
@@ -715,14 +773,16 @@ def main():
         #the longer term solution TODO, is to write a csv file with the HPC configs and the args for zarr upload job
         #and then read that csv file with the new upload service job. 
 
+        write_tile_qc_sbatch_script(dataset_name, tile_qc_sbatch_filepath)
 
         if os.path.isdir(dataset_path):
             # dataset_dest_path = dest_data_dir.joinpath(dataset_name)
 
             if config["transfer_type"]["type"] == "HPC":
                 # dataset_dumped = json.dumps(dataset).replace('"', "[token]")
-                print(f'sbatch_file_path: {sbatch_file_path}')
+                print(f'Running sbatch_file_path: {sbatch_file_path}')
                 cmd = f"""sbatch {sbatch_file_path.as_posix()}"""
+
 
                 # Setting dataset_status as 'uploading'
                 pre_upload_smartspim(dataset_path, processing_manifest_path)
@@ -730,10 +790,17 @@ def main():
                 # HPC run
                 logger.info(f"Uploading dataset: {dataset_name}")
                 for out in file_utils.execute_command(cmd):
+                    logger.info(out) 
+
+                # Wait for 5 minutes before running tile qc (so metadata can be generated)
+                time.sleep(60*5)
+
+                cmd_tile_qc = f"""sbatch {tile_qc_sbatch_filepath.as_posix()}"""
+                for out in file_utils.execute_command(cmd_tile_qc):
                     logger.info(out)
 
-                # Error with slurm logs directory
-                time.sleep(30)
+                time.sleep(10)
+
             else:
                 # Local
                 raise NotImplementedError
