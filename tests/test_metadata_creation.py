@@ -100,12 +100,12 @@ class TestProcessingMetadata(unittest.TestCase):
             "software_version"
         ]
 
-        expected_processing_instance = Processing.parse_obj(
+        expected_processing_instance = Processing.model_validate(
             expected_processing_instance_json
         )
 
         self.assertEqual(
-            json.loads(expected_processing_instance.json()),
+            json.loads(expected_processing_instance.model_dump_json()),
             processing_metadata.model_obj,
         )
         self.assertEqual(Processing, processing_metadata._model())
@@ -354,7 +354,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
             funding_source=(Funding(funder=Institution.AI),),
         )
 
-        expected_data_description_instance = RawDataDescription.parse_obj(
+        expected_data_description_instance = RawDataDescription.model_validate(
             expected_data_description_instance_json
         )
 
