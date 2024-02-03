@@ -4,6 +4,7 @@ set -e
 
 pwd; date
 
+source ~/.bash_profile
 source /etc/profile.d/modules.sh
 
 module purge
