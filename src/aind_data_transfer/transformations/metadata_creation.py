@@ -7,22 +7,27 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
 import aind_data_schema.base
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.organizations import Organization
 from aind_data_schema.core.data_description import Funding, RawDataDescription
 from aind_data_schema.core.procedures import Procedures
-from aind_data_schema.models.process_names import ProcessName
-from aind_data_schema.core.processing import DataProcess, PipelineProcess, Processing
-
+from aind_data_schema.core.processing import (
+    DataProcess,
+    PipelineProcess,
+    Processing,
+)
 from aind_data_schema.core.subject import Subject
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.organizations import Organization
+from aind_data_schema.models.process_names import ProcessName
+from aind_data_transfer_service.configs.job_configs import ModalityConfigs
 from aind_metadata_service.client import AindMetadataServiceClient
+
 # from pydantic import validate_model
 from pydantic import ValidationError
 from requests import Response
 from requests.exceptions import ConnectionError, JSONDecodeError
 
 from aind_data_transfer import __version__ as aind_data_transfer_version
-from aind_data_transfer_service.configs.job_configs import ModalityConfigs
+
 # from aind_data_transfer.config_loader.base_config import ModalityConfigs
 
 
@@ -55,7 +60,7 @@ class MetadataCreation(ABC):
     def output_filename(self):
         """Returns the default json file name for the model as defined in
         aind_data_schema."""
-        return self._model().construct().default_filename()
+        return self._model().model_construct().default_filename()
 
     @classmethod
     def from_file(cls, file_location: Path):
@@ -186,17 +191,23 @@ class ServiceMetadataCreation(MetadataCreation):
             # Connected to the service, but no data was found
             elif status_code == 404:
                 logging.warning(f"{cls.__name__}: {response_json['message']}")
-                contents = json.loads(cls._model().model_construct().model_dump_json())
+                contents = json.loads(
+                    cls._model().model_construct().model_dump_json()
+                )
             # A serious error happened. Build a default model.
             else:
                 logging.error(f"{cls.__name__}: {response_json['message']}")
-                contents = json.loads(cls._model().model_construct().model_dump_json())
+                contents = json.loads(
+                    cls._model().model_construct().model_dump_json()
+                )
         except (ConnectionError, JSONDecodeError) as e:
             logging.error(
                 f"{cls.__name__}: An error occurred connecting to metadata "
                 f"service: {e}"
             )
-            contents = json.loads(cls._model().model_construct().model_dump_json())
+            contents = json.loads(
+                cls._model().model_construct().model_dump_json()
+            )
         return cls(model_obj=contents)
 
 
@@ -401,9 +412,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
         name: str,
         modality: List[Modality],
         institution: Optional[Organization] = Organization.AIND,
-        funding_source: Optional[Tuple] = (
-            Funding(funder=Organization.AI),
-        ),
+        funding_source: Optional[Tuple] = (Funding(funder=Organization.AI),),
         investigators: Optional[List[str]] = None,
     ):
         """

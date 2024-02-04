@@ -3,8 +3,8 @@ import os
 import unittest
 from pathlib import Path
 
-from aind_data_schema.data_description import Modality
-from aind_data_schema.processing import ProcessName
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.process_names import ProcessName
 
 from aind_data_transfer.readers.ephys_readers import DataReader
 from aind_data_transfer.transformations.ephys_compressors import (

@@ -1,35 +1,34 @@
-from datetime import datetime
+import pathlib
+import re
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from typing import List
+
 import numpy as np
-
 import pandas as pd
-
-import aind_data_transfer.transformations.file_io as file_io
-
-from aind_data_schema.imaging.acquisition import (
-    AxisName,
-    Direction,
-    Axis,
-    Immersion,
+import tifffile
+from aind_data_schema.core.acquisition import (
     Acquisition,
     AcquisitionTile,
+    Axis,
+    AxisName,
+    Direction,
+    Immersion,
 )
 from aind_data_schema.imaging.tile import (
     Channel,
     Scale3dTransform,
     Translation3dTransform,
 )
-from datetime import datetime
-import tifffile
-import re
-import pathlib
+
+import aind_data_transfer.transformations.file_io as file_io
 from aind_data_transfer.transformations.deinterleave import (
     ChannelParser,
     Deinterleave,
 )
 
 MM_TO_UM = 1000
+
 
 def read_dispim_aquisition(acq_path: str) -> Acquisition:
     """Read json formatted acquisition file, output by iSPIM rig
@@ -61,56 +60,73 @@ def read_dispim_aquisition(acq_path: str) -> Acquisition:
     external_storage_directory: str = acq_json["external_storage_directory"]
 
     tiles = []
-    for tile_dict in tiles_list: 
+    for tile_dict in tiles_list:
         # rewrite the tranlsation transform to be in microns
-        if tile_dict['tile_position_units'] == 'millimeters':
-            translation_tfm = Translation3dTransform(translation=
-                        [float(tile_dict['tile_x_position']) * MM_TO_UM , #TODO there's a bug where these should be 1000, but the mm is recorded wrong. 
-                        float(tile_dict['tile_y_position']) * MM_TO_UM ,
-                        float(tile_dict['tile_z_position']) * MM_TO_UM ])
-        elif tile_dict['tile_position_units'] == 'microns':
-            translation_tfm = Translation3dTransform(translation=
-                            [float(tile_dict['tile_x_position']) , 
-                            float(tile_dict['tile_y_position'])  ,
-                            float(tile_dict['tile_z_position'])  ])
-        
-        scale_tfm = Scale3dTransform(scale=[float(tile_dict['x_voxel_size']), 
-                                            float(tile_dict['y_voxel_size']), 
-                                            float(tile_dict['z_voxel_size'])])
-        ch = Channel(channel_name=tile_dict['channel_name'],
-                light_source_name=tile_dict['laser_wavelength'],
-                filter_names = ['0', '1', '2', '3', '4', '5'], 
-                filter_wheel_index=tile_dict['filter_wheel_index'],
-                detector_name = 'iSPIM', 
-                excitation_wavelength=tile_dict['laser_wavelength'],
-                excitation_power=tile_dict['laser_power'])
+        if tile_dict["tile_position_units"] == "millimeters":
+            translation_tfm = Translation3dTransform(
+                translation=[
+                    float(tile_dict["tile_x_position"])
+                    * MM_TO_UM,  # TODO there's a bug where these should be 1000, but the mm is recorded wrong.
+                    float(tile_dict["tile_y_position"]) * MM_TO_UM,
+                    float(tile_dict["tile_z_position"]) * MM_TO_UM,
+                ]
+            )
+        elif tile_dict["tile_position_units"] == "microns":
+            translation_tfm = Translation3dTransform(
+                translation=[
+                    float(tile_dict["tile_x_position"]),
+                    float(tile_dict["tile_y_position"]),
+                    float(tile_dict["tile_z_position"]),
+                ]
+            )
 
-        if type(tile_dict['file_name']) == list:
-            tile = AcquisitionTile(channel=ch, 
-                                file_name=tile_dict['file_name'][0],
-                                imaging_angle=tile_dict['lightsheet_angle'], 
-                                coordinate_transformations=[scale_tfm, translation_tfm])
-        elif type(tile_dict['file_name']) == str:
-            tile = AcquisitionTile(channel=ch, 
-                                file_name=tile_dict['file_name'],
-                                imaging_angle=tile_dict['lightsheet_angle'], 
-                                coordinate_transformations=[scale_tfm, translation_tfm])
-    
+        scale_tfm = Scale3dTransform(
+            scale=[
+                float(tile_dict["x_voxel_size"]),
+                float(tile_dict["y_voxel_size"]),
+                float(tile_dict["z_voxel_size"]),
+            ]
+        )
+        ch = Channel(
+            channel_name=tile_dict["channel_name"],
+            light_source_name=tile_dict["laser_wavelength"],
+            filter_names=["0", "1", "2", "3", "4", "5"],
+            filter_wheel_index=tile_dict["filter_wheel_index"],
+            detector_name="iSPIM",
+            excitation_wavelength=tile_dict["laser_wavelength"],
+            excitation_power=tile_dict["laser_power"],
+        )
+
+        if type(tile_dict["file_name"]) == list:
+            tile = AcquisitionTile(
+                channel=ch,
+                file_name=tile_dict["file_name"][0],
+                imaging_angle=tile_dict["lightsheet_angle"],
+                coordinate_transformations=[scale_tfm, translation_tfm],
+            )
+        elif type(tile_dict["file_name"]) == str:
+            tile = AcquisitionTile(
+                channel=ch,
+                file_name=tile_dict["file_name"],
+                imaging_angle=tile_dict["lightsheet_angle"],
+                coordinate_transformations=[scale_tfm, translation_tfm],
+            )
+
         tiles.append(tile)
 
-    return Acquisition(experimenter_full_name=[experimenter_full_name], 
-                       specimen_id=specimen_id, 
-                       subject_id=subject_id, 
-                       instrument_id=instrument_id, 
-                       session_start_time=session_start_time, 
-                       session_end_time=session_end_time, 
-                       tiles=tiles, 
-                       axes=axes,
-                       chamber_immersion=chamber_immersion, 
-                       local_storage_directory=local_storage_directory,
-                       external_storage_directory=external_storage_directory)
-
-
+    return Acquisition(
+        experimenter_full_name=[experimenter_full_name],
+        specimen_id=specimen_id,
+        subject_id=subject_id,
+        instrument_id=instrument_id,
+        session_start_time=session_start_time,
+        session_end_time=session_end_time,
+        tiles=tiles,
+        axes=axes,
+        chamber_immersion=chamber_immersion,
+        local_storage_directory=local_storage_directory,
+        external_storage_directory=external_storage_directory,
+    )
 
 
 def log_to_acq_json(log_dict: dict) -> Acquisition:
@@ -172,13 +188,15 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
         ):
             for channel in tile_dict["channel"]:
                 channel_dict = log_dict["channels"][channel]
-                ch = Channel(channel_name=tile_dict['channel_name'],
-                            light_source_name=tile_dict['laser_wavelength'],
-                            filter_names = ['0', '1', '2', '3', '4', '5'], 
-                            filter_wheel_index=tile_dict['filter_wheel_index'],
-                            detector_name = 'iSPIM', 
-                            excitation_wavelength=tile_dict['laser_wavelength'],
-                            excitation_power=tile_dict['laser_power'])
+                ch = Channel(
+                    channel_name=tile_dict["channel_name"],
+                    light_source_name=tile_dict["laser_wavelength"],
+                    filter_names=["0", "1", "2", "3", "4", "5"],
+                    filter_wheel_index=tile_dict["filter_wheel_index"],
+                    detector_name="iSPIM",
+                    excitation_wavelength=tile_dict["laser_wavelength"],
+                    excitation_power=tile_dict["laser_power"],
+                )
 
                 tile = AcquisitionTile(
                     channel=ch,
@@ -193,13 +211,15 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
         ):
             channel = tile_dict["channel"]
             channel_dict = log_dict["channels"][channel]
-            ch = Channel(channel_name=tile_dict['channel_name'],
-                     light_source_name=tile_dict['laser_wavelength'],
-                     filter_names = ['0', '1', '2', '3', '4', '5'], 
-                     filter_wheel_index=tile_dict['filter_wheel_index'],
-                     detector_name = 'iSPIM', 
-                     excitation_wavelength=tile_dict['laser_wavelength'],
-                     excitation_power=tile_dict['laser_power'])
+            ch = Channel(
+                channel_name=tile_dict["channel_name"],
+                light_source_name=tile_dict["laser_wavelength"],
+                filter_names=["0", "1", "2", "3", "4", "5"],
+                filter_wheel_index=tile_dict["filter_wheel_index"],
+                detector_name="iSPIM",
+                excitation_wavelength=tile_dict["laser_wavelength"],
+                excitation_power=tile_dict["laser_power"],
+            )
 
             tile = AcquisitionTile(
                 channel=ch,
@@ -225,123 +245,156 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
     ]  # should come from config.yml (in case of files being moved before uploading to s3)
     # assert local_storage_directory is accessible and exists
     if not pathlib.Path(local_storage_directory).exists():
-        local_storage_directory = log_dict['data_src_dir']
-    
-    external_storage_directory: str = log_dict['external_storage_directory']
+        local_storage_directory = log_dict["data_src_dir"]
 
-    return Acquisition(experimenter_full_name=[experimenter_full_name], 
-                       specimen_id=specimen_id, 
-                       subject_id=subject_id, 
-                       instrument_id=instrument_id, 
-                       session_start_time=session_start_time, 
-                       session_end_time=session_end_time, 
-                       tiles=tiles, 
-                       axes=axes,
-                       chamber_immersion=chamber_immersion, 
-                       local_storage_directory=local_storage_directory,
-                       external_storage_directory=external_storage_directory)
+    external_storage_directory: str = log_dict["external_storage_directory"]
+
+    return Acquisition(
+        experimenter_full_name=[experimenter_full_name],
+        specimen_id=specimen_id,
+        subject_id=subject_id,
+        instrument_id=instrument_id,
+        session_start_time=session_start_time,
+        session_end_time=session_end_time,
+        tiles=tiles,
+        axes=axes,
+        chamber_immersion=chamber_immersion,
+        local_storage_directory=local_storage_directory,
+        external_storage_directory=external_storage_directory,
+    )
+
 
 def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
     """
     Parameters
     ----------
     log_dict: dict
-        Output of file_io.read_log_file. 
-        log_dict formats general metadata as flat dictionary, and tile metadata in a nested dict. 
-    Returns 
+        Output of file_io.read_log_file.
+        log_dict formats general metadata as flat dictionary, and tile metadata in a nested dict.
+    Returns
     -------
     Acquisition
         Acquisition instance
     """
 
-    experimenter_full_name: str = 'ISpim Group'
-    specimen_id: str = log_dict['specimen_id']
-    subject_id: str = log_dict['subject_id']
-    instrument_id: str = log_dict['instrument_id']
-    session_start_time: datetime = log_dict['session_start_time']
-    session_end_time: datetime = log_dict['session_end_time']
+    experimenter_full_name: str = "ISpim Group"
+    specimen_id: str = log_dict["specimen_id"]
+    subject_id: str = log_dict["subject_id"]
+    instrument_id: str = log_dict["instrument_id"]
+    session_start_time: datetime = log_dict["session_start_time"]
+    session_end_time: datetime = log_dict["session_end_time"]
 
     tiles: list[AcquisitionTile] = []
-    for tile_dict in log_dict['tiles']:
-        # ch = Channel(channel_name=tile_dict['channel_name'], 
-        #              laser_wavelength=int(tile_dict['laser_wavelength']), 
+    for tile_dict in log_dict["tiles"]:
+        # ch = Channel(channel_name=tile_dict['channel_name'],
+        #              laser_wavelength=int(tile_dict['laser_wavelength']),
         #              laser_power=tile_dict['laser_power'],
         #              filter_wheel_index=tile_dict['filter_wheel_index'])
-        
-        ch = Channel(channel_name=tile_dict['channel_name'],
-                     light_source_name=tile_dict['laser_wavelength'],
-                     filter_names = ['0', '1', '2', '3', '4', '5'], 
-                     filter_wheel_index=tile_dict['filter_wheel_index'],
-                     detector_name = 'iSPIM', 
-                     excitation_wavelength=tile_dict['laser_wavelength'],
-                     excitation_power=tile_dict['laser_power'])
-        scale_tfm = Scale3dTransform(scale=[float(tile_dict['x_voxel_size']), 
-                                            float(tile_dict['y_voxel_size']), 
-                                            float(tile_dict['z_voxel_size'])])
-        #want this to be in pixels 
-        if tile_dict['tile_position_units'] == 'millimeters':
-            translation_tfm = Translation3dTransform(translation=
-                        [float(tile_dict['tile_x_position']) * MM_TO_UM, 
-                        float(tile_dict['tile_y_position']) * MM_TO_UM ,
-                        float(tile_dict['tile_z_position']) * MM_TO_UM ])
-        elif tile_dict['tile_position_units'] == 'microns':
-            translation_tfm = Translation3dTransform(translation=
-                            [float(tile_dict['tile_x_position']) , 
-                            float(tile_dict['tile_y_position'])  ,
-                            float(tile_dict['tile_z_position'])  ])
-            
-        if type(tile_dict['file_name']) == list:
-            tile = AcquisitionTile(channel=ch, 
-                                file_name=tile_dict['file_name'][0],
-                                imaging_angle=tile_dict['lightsheet_angle'], 
-                                coordinate_transformations=[scale_tfm, translation_tfm])
-        elif type(tile_dict['file_name']) == str:
-            tile = AcquisitionTile(channel=ch, 
-                                file_name=tile_dict['file_name'],
-                                imaging_angle=tile_dict['lightsheet_angle'], 
-                                coordinate_transformations=[scale_tfm, translation_tfm])
-        else: 
-            raise TypeError(f"tile_dict['file_name'] is of type {type(tile_dict['file_name'])}, but should be of type list or str")
-        tiles.append(tile)
 
+        ch = Channel(
+            channel_name=tile_dict["channel_name"],
+            light_source_name=tile_dict["laser_wavelength"],
+            filter_names=["0", "1", "2", "3", "4", "5"],
+            filter_wheel_index=tile_dict["filter_wheel_index"],
+            detector_name="iSPIM",
+            excitation_wavelength=tile_dict["laser_wavelength"],
+            excitation_power=tile_dict["laser_power"],
+        )
+        scale_tfm = Scale3dTransform(
+            scale=[
+                float(tile_dict["x_voxel_size"]),
+                float(tile_dict["y_voxel_size"]),
+                float(tile_dict["z_voxel_size"]),
+            ]
+        )
+        # want this to be in pixels
+        if tile_dict["tile_position_units"] == "millimeters":
+            translation_tfm = Translation3dTransform(
+                translation=[
+                    float(tile_dict["tile_x_position"]) * MM_TO_UM,
+                    float(tile_dict["tile_y_position"]) * MM_TO_UM,
+                    float(tile_dict["tile_z_position"]) * MM_TO_UM,
+                ]
+            )
+        elif tile_dict["tile_position_units"] == "microns":
+            translation_tfm = Translation3dTransform(
+                translation=[
+                    float(tile_dict["tile_x_position"]),
+                    float(tile_dict["tile_y_position"]),
+                    float(tile_dict["tile_z_position"]),
+                ]
+            )
+
+        if type(tile_dict["file_name"]) == list:
+            tile = AcquisitionTile(
+                channel=ch,
+                file_name=tile_dict["file_name"][0],
+                imaging_angle=tile_dict["lightsheet_angle"],
+                coordinate_transformations=[scale_tfm, translation_tfm],
+            )
+        elif type(tile_dict["file_name"]) == str:
+            tile = AcquisitionTile(
+                channel=ch,
+                file_name=tile_dict["file_name"],
+                imaging_angle=tile_dict["lightsheet_angle"],
+                coordinate_transformations=[scale_tfm, translation_tfm],
+            )
+        else:
+            raise TypeError(
+                f"tile_dict['file_name'] is of type {type(tile_dict['file_name'])}, but should be of type list or str"
+            )
+        tiles.append(tile)
 
     # NOTE: Made up directions
     axes: list[Axis] = []
-    axes.append(Axis(name=AxisName.X, 
-                     dimension=2, 
-                     direction=Direction.LR))  
-    axes.append(Axis(name=AxisName.Y, 
-                     dimension=1, 
-                     direction=Direction.AP))
-    axes.append(Axis(name=AxisName.Z, 
-                     dimension=0, 
-                     direction=Direction.IS))
-    if 'chamber_immersion_medium' in log_dict.keys():
-        chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion_medium'], 
-                                             refractive_index=log_dict['chamber_immersion_refractive_index'])
-    elif 'chamber_immersion' in log_dict.keys():
-        if type(log_dict['chamber_immersion']) == dict:
-            chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion']['medium'], 
-                                             refractive_index=log_dict['chamber_immersion']['refractive_index'])
+    axes.append(Axis(name=AxisName.X, dimension=2, direction=Direction.LR))
+    axes.append(Axis(name=AxisName.Y, dimension=1, direction=Direction.AP))
+    axes.append(Axis(name=AxisName.Z, dimension=0, direction=Direction.IS))
+    if "chamber_immersion_medium" in log_dict.keys():
+        chamber_immersion: Immersion = Immersion(
+            medium=log_dict["chamber_immersion_medium"],
+            refractive_index=log_dict["chamber_immersion_refractive_index"],
+        )
+    elif "chamber_immersion" in log_dict.keys():
+        if type(log_dict["chamber_immersion"]) == dict:
+            chamber_immersion: Immersion = Immersion(
+                medium=log_dict["chamber_immersion"]["medium"],
+                refractive_index=log_dict["chamber_immersion"][
+                    "refractive_index"
+                ],
+            )
         else:
-            chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion'], 
-                                             refractive_index=log_dict['chamber_immersion_refractive_index'])
-    local_storage_directory: str = log_dict['local_storage_directory']
-    external_storage_directory: str = log_dict['external_storage_directory']
+            chamber_immersion: Immersion = Immersion(
+                medium=log_dict["chamber_immersion"],
+                refractive_index=log_dict[
+                    "chamber_immersion_refractive_index"
+                ],
+            )
+    local_storage_directory: str = log_dict["local_storage_directory"]
+    external_storage_directory: str = log_dict["external_storage_directory"]
 
-    return Acquisition(experimenter_full_name=[experimenter_full_name], 
-                       specimen_id=specimen_id, 
-                       subject_id=subject_id, 
-                       instrument_id=instrument_id, 
-                       session_start_time=session_start_time, 
-                       session_end_time=session_end_time, 
-                       tiles=tiles, 
-                       axes=axes,
-                       chamber_immersion=chamber_immersion, 
-                       local_storage_directory=local_storage_directory,
-                       external_storage_directory=external_storage_directory)
+    return Acquisition(
+        experimenter_full_name=[experimenter_full_name],
+        specimen_id=specimen_id,
+        subject_id=subject_id,
+        instrument_id=instrument_id,
+        session_start_time=session_start_time,
+        session_end_time=session_end_time,
+        tiles=tiles,
+        axes=axes,
+        chamber_immersion=chamber_immersion,
+        local_storage_directory=local_storage_directory,
+        external_storage_directory=external_storage_directory,
+    )
 
-def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: bool = True, condition: str = "") -> ET.ElementTree:
+
+def acq_json_to_xml(
+    acq_obj: Acquisition,
+    log_dict: dict,
+    data_loc: str,
+    zarr: bool = True,
+    condition: str = "",
+) -> ET.ElementTree:
     """
     Parameters
     ----------
@@ -378,17 +431,16 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             # zero the translations from the first tile
             if tile == acq_obj.tiles[0]:
                 [offset_x, offset_y, offset_z] = [
-                    i /j
+                    i / j
                     for i, j in zip(
                         tile.coordinate_transformations[1].translation,
                         tile.coordinate_transformations[0].scale,
                     )
                 ]
-                offset = [offset_x, offset_y, offset_z] 
-
+                offset = [offset_x, offset_y, offset_z]
 
             translation: list[float] = [
-                i /j
+                i / j
                 for i, j in zip(
                     tile.coordinate_transformations[1].translation,
                     tile.coordinate_transformations[0].scale,
@@ -397,15 +449,14 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
             filename: str = tile.file_name
 
-
             tile_transforms[filename] = [
                 el2 - el1 for el1, el2 in zip(translation, offset)
             ]
 
-            #TODO remove this -1 once MICAH confirms that the y-basis has been flipped on the rig
-            tile_transforms[filename][1] = float(tile_transforms[filename][1]) * -1 * np.sqrt(2)
-
-            
+            # TODO remove this -1 once MICAH confirms that the y-basis has been flipped on the rig
+            tile_transforms[filename][1] = (
+                float(tile_transforms[filename][1]) * -1 * np.sqrt(2)
+            )
 
         return tile_transforms
 
@@ -523,10 +574,10 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
                 try:
                     ribo_channel = re.search(ribo_regex, filename).groups()[0]
                 except:
-                    #grab the first channel
+                    # grab the first channel
                     ribo_channel = acq_obj.tiles[0].channel.channel_name
-                if len(ribo_channel)>0:
-                    #first convention, which means we need to only return the ribo channel 
+                if len(ribo_channel) > 0:
+                    # first convention, which means we need to only return the ribo channel
                     condition = f"channel=='{ribo_channel}'"
 
                 # second convention: assume 405 is the ribo channel
@@ -754,7 +805,9 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
 
     # Define transformations applied to tiles
     def add_view_registrations(
-        parent: ET.Element, filtered_translations: list[list[float]], log_dict : dict
+        parent: ET.Element,
+        filtered_translations: list[list[float]],
+        log_dict: dict,
     ) -> None:
         view_registrations = ET.SubElement(parent, "ViewRegistrations")
         for i, tr in enumerate(filtered_translations):
@@ -779,15 +832,15 @@ def acq_json_to_xml(acq_obj: Acquisition, log_dict: dict, data_loc: str, zarr: b
             x_prime = x
             y_prime = y
 
-            y_voxel_size = float(log_dict['tiles'][0]['y_voxel_size'])
-            z_voxel_size = float(log_dict['tiles'][0]['z_voxel_size'])
+            y_voxel_size = float(log_dict["tiles"][0]["y_voxel_size"])
+            z_voxel_size = float(log_dict["tiles"][0]["z_voxel_size"])
 
-            #TODO REFactor this to be more general
-            z_prime = z + (y*y_voxel_size/np.sqrt(2))/z_voxel_size #convert y pixels to z pixels
-
+            # TODO REFactor this to be more general
+            z_prime = (
+                z + (y * y_voxel_size / np.sqrt(2)) / z_voxel_size
+            )  # convert y pixels to z pixels
 
             affine.text = f"1.0 0.0 0.0 {str(y_prime)} 0.0 1.0 0.0 {str(x_prime)} 0.0 0.0 1.0 {str(z_prime)}"
-
 
             vr.append(vt)
 

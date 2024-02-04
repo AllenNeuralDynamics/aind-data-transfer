@@ -9,6 +9,7 @@ from distributed import Client, LocalCluster
 
 try:
     from dask_mpi import initialize
+
     DASK_MPI_INSTALLED = True
 except ImportError:
     DASK_MPI_INSTALLED = False
@@ -22,8 +23,7 @@ class Deployment(Enum):
 
 
 def log_dashboard_address(
-        client: distributed.Client,
-        login_node_address: str = "hpc-login"
+    client: distributed.Client, login_node_address: str = "hpc-login"
 ) -> None:
     """
     Logs the terminal command required to access the Dask dashboard
@@ -33,7 +33,7 @@ def log_dashboard_address(
         login_node_address: the address of the cluster login node
     """
     host = client.run_on_scheduler(socket.gethostname)
-    port = client.scheduler_info()['services']['dashboard']
+    port = client.scheduler_info()["services"]["dashboard"]
     user = os.getenv("USER")
     LOGGER.info(
         f"To access the dashboard, run the following in a terminal: ssh -L {port}:{host}:{port} {user}@"
@@ -51,10 +51,10 @@ def get_deployment() -> str:
 
 
 def get_client(
-        deployment: str = Deployment.LOCAL.value,
-        worker_options: Optional[dict] = None,
-        n_workers: int = 1,
-        processes=True
+    deployment: str = Deployment.LOCAL.value,
+    worker_options: Optional[dict] = None,
+    n_workers: int = 1,
+    processes=True,
 ) -> Tuple[distributed.Client, int]:
     """
     Create a distributed Client
@@ -83,15 +83,17 @@ def get_client(
             nthreads=int(os.getenv("SLURM_CPUS_PER_TASK", 1)),
             local_directory=f"/scratch/fast/{slurm_job_id}",
             worker_class="distributed.nanny.Nanny",
-            worker_options=worker_options
+            worker_options=worker_options,
         )
         client = Client()
         log_dashboard_address(client)
         n_workers = int(os.getenv("SLURM_NTASKS"))
     elif deployment == Deployment.LOCAL.value:
-        client = Client(LocalCluster(n_workers=n_workers, processes=processes, threads_per_worker=1))
+        client = Client(
+            LocalCluster(
+                n_workers=n_workers, processes=processes, threads_per_worker=1
+            )
+        )
     else:
         raise NotImplementedError
     return client, n_workers
-
-

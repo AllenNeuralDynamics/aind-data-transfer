@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, Union, Iterator
+from typing import Iterator, Tuple, Union
 
 import dask.array as da
 import numpy as np

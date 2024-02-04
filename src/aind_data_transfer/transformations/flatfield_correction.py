@@ -29,8 +29,9 @@ class BkgSubtraction:
             Resulting image volume after background subtraction.
         """
         bkg_da = BkgSubtraction._adjust_bkg_dimensions(im, bkg_da)
-        return da.clip(im.astype(np.int32) - bkg_da, 0, 2 ** 16 - 1).astype(np.uint16)
-
+        return da.clip(im.astype(np.int32) - bkg_da, 0, 2**16 - 1).astype(
+            np.uint16
+        )
 
     @staticmethod
     def get_bkg_path(tile_path: str, bkg_im_dir: str) -> str:
@@ -52,7 +53,9 @@ class BkgSubtraction:
         return os.path.join(bkg_im_dir, "bkg_" + m.group(0) + ".tiff")
 
     @staticmethod
-    def darray_from_bkg_path(bkg_path: str, shape: tuple, chunks: tuple) -> da.Array:
+    def darray_from_bkg_path(
+        bkg_path: str, shape: tuple, chunks: tuple
+    ) -> da.Array:
         """
         Get a dask array from the background image path.
 
@@ -70,7 +73,9 @@ class BkgSubtraction:
         return bkg
 
     @staticmethod
-    def _adjust_bkg_dimensions(im: da.Array, bkg_da: da.Array, pad_mode='edge') -> da.Array:
+    def _adjust_bkg_dimensions(
+        im: da.Array, bkg_da: da.Array, pad_mode="edge"
+    ) -> da.Array:
         """
         Adjust the background dimensions to match the image dimensions.
 
@@ -86,7 +91,7 @@ class BkgSubtraction:
             _LOGGER.warning(
                 f"Cropping background image's first dimension from {bkg_da.shape[0]} to {im.shape[1]}"
             )
-            bkg_da = bkg_da[:im.shape[1], :]
+            bkg_da = bkg_da[: im.shape[1], :]
         elif im.shape[1] > bkg_da.shape[0]:
             _LOGGER.warning(
                 f"Padding background image's first dimension from {bkg_da.shape[0]} to {im.shape[1]}"
@@ -99,7 +104,7 @@ class BkgSubtraction:
             _LOGGER.warning(
                 f"Cropping background image's second dimension from {bkg_da.shape[1]} to {im.shape[2]}"
             )
-            bkg_da = bkg_da[:, :im.shape[2]]
+            bkg_da = bkg_da[:, : im.shape[2]]
         elif im.shape[2] > bkg_da.shape[1]:
             _LOGGER.warning(
                 f"Padding background image's second dimension from {bkg_da.shape[1]} to {im.shape[2]}"

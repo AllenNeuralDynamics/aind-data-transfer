@@ -65,7 +65,6 @@ class ImagingReaders:
         else:
             return ImagingReaders.Readers.generic.value
 
-
     @staticmethod
     def read_dispim_folders(path: PathLike) -> List[str]:
         """
@@ -98,7 +97,6 @@ class ImagingReaders:
             raise ValueError(f"Path {path} is not a folder.")
 
         return dispim_datasets
-
 
 
 class SmartSPIMReader:

@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Union, List
+from typing import List, Union
 
 import dask.array as da
 import numpy as np

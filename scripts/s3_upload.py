@@ -14,8 +14,10 @@ from s3transfer.constants import GB, MB
 from aind_data_transfer.s3 import S3Uploader
 from aind_data_transfer.util import file_utils
 from aind_data_transfer.util.dask_utils import get_client
-from aind_data_transfer.util.file_utils import collect_filepaths, batch_files_by_size
-
+from aind_data_transfer.util.file_utils import (
+    batch_files_by_size,
+    collect_filepaths,
+)
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"
@@ -59,7 +61,9 @@ def run_cluster_job(
     logger.info(f"Client has {ntasks} registered workers")
 
     futures = []
-    for batch in batch_files_by_size(input_dir, batch_size, recursive, exclude_dirs=exclude_dirs):
+    for batch in batch_files_by_size(
+        input_dir, batch_size, recursive, exclude_dirs=exclude_dirs
+    ):
         futures.append(
             client.submit(
                 upload_files_job,
@@ -273,7 +277,7 @@ def main():
         "--batch_size",
         type=int,
         default=256 * MB,
-        help="Target total bytes for each batch of files."
+        help="Target total bytes for each batch of files.",
     )
     parser.add_argument(
         "--nthreads",

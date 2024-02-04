@@ -5,7 +5,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, List, Optional, Tuple, Union, Generator
+from typing import Any, Generator, List, Optional, Tuple, Union
 
 import yaml
 
@@ -37,7 +37,10 @@ def collect_filepaths(
 
     for entry in os.scandir(folder):
         if entry.is_file():
-            if include_exts is None or os.path.splitext(entry.name)[1] in include_exts:
+            if (
+                include_exts is None
+                or os.path.splitext(entry.name)[1] in include_exts
+            ):
                 if return_size:
                     yield entry.path, entry.stat().st_size
                 else:
@@ -48,16 +51,16 @@ def collect_filepaths(
                 recursive=recursive,
                 include_exts=include_exts,
                 exclude_dirs=exclude_dirs,
-                return_size=return_size
+                return_size=return_size,
             )
 
 
 def batch_files_by_size(
-        folder: Union[str, Path],
-        target_size: int,
-        recursive: bool = True,
-        include_exts: Optional[List[str]] = None,
-        exclude_dirs: Optional[List[str]] = None,
+    folder: Union[str, Path],
+    target_size: int,
+    recursive: bool = True,
+    include_exts: Optional[List[str]] = None,
+    exclude_dirs: Optional[List[str]] = None,
 ) -> Generator[List[str], None, None]:
     """
     Generates batches of file paths where the total size of the files in each batch
@@ -71,7 +74,7 @@ def batch_files_by_size(
     batch_size = 0
 
     for fp, fsize in collect_filepaths(
-            folder, recursive, include_exts, exclude_dirs, return_size=True
+        folder, recursive, include_exts, exclude_dirs, return_size=True
     ):
         if fsize > target_size:
             # Yield the current batch if it's not empty

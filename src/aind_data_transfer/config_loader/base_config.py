@@ -7,13 +7,15 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 
+import boto3
+from aind_codeocean_api.credentials import JsonConfigSettingsSource
 from aind_data_access_api.secrets import get_parameter
+from aind_data_schema.core.data_description import build_data_name
 from aind_data_schema.models.modalities import Modality
 from aind_data_schema.models.platforms import Platform
 from aind_data_schema.models.process_names import ProcessName
-from aind_data_schema.core.data_description import build_data_name
 from pydantic import (
     DirectoryPath,
     Field,
@@ -22,14 +24,12 @@ from pydantic import (
     SecretStr,
     validator,
 )
-import boto3
 from pydantic_settings import (
     BaseSettings,
     EnvSettingsSource,
     InitSettingsSource,
     PydanticBaseSettingsSource,
 )
-from aind_codeocean_api.credentials import JsonConfigSettingsSource
 
 
 class AWSConfigSettingsParamSource(JsonConfigSettingsSource):
@@ -56,9 +56,7 @@ class AWSConfigSettingsParamSource(JsonConfigSettingsSource):
         if params_from_aws.get("video_encryption_password_path"):
             video_encrypt_pwd = json.loads(
                 get_parameter(
-                    params_from_aws.get(
-                        "video_encryption_password_path"
-                    ),
+                    params_from_aws.get("video_encryption_password_path"),
                     with_decryption=True,
                 )
             )
@@ -109,12 +107,12 @@ class BasicJobEndpoints(BaseSettings):
 
     @classmethod
     def settings_customise_sources(
-            cls,
-            settings_cls: Type[BaseSettings],
-            init_settings: InitSettingsSource,
-            env_settings: EnvSettingsSource,
-            dotenv_settings: PydanticBaseSettingsSource,
-            file_secret_settings: PydanticBaseSettingsSource,
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: InitSettingsSource,
+        env_settings: EnvSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
         """
         Method to pull configs from a variety sources, such as a file or aws.
@@ -139,13 +137,17 @@ class BasicJobEndpoints(BaseSettings):
 
         """
 
-        aws_param_store_path = init_settings.init_kwargs.get("aws_param_store_name")
+        aws_param_store_path = init_settings.init_kwargs.get(
+            "aws_param_store_name"
+        )
 
         # If user defines aws secrets, create creds from there
         if aws_param_store_path is not None:
             return (
                 init_settings,
-                AWSConfigSettingsParamSource(settings_cls, aws_param_store_path),
+                AWSConfigSettingsParamSource(
+                    settings_cls, aws_param_store_path
+                ),
             )
         # Otherwise, create creds from init and env
         else:
@@ -153,6 +155,7 @@ class BasicJobEndpoints(BaseSettings):
                 init_settings,
                 env_settings,
             )
+
 
 # class ModalityConfigs(BaseSettings):
 #     """Class to contain configs for each modality type"""

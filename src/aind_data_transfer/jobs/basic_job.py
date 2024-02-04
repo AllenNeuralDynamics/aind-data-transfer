@@ -20,11 +20,11 @@ from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.metadata import Metadata, MetadataStatus
 from aind_data_schema.models.modalities import Modality
-# from aind_data_schema.data_description import Modality
-# from aind_data_schema.metadata import Metadata, MetadataStatus
+from aind_data_transfer_service.configs.job_configs import (
+    BasicUploadJobConfigs,
+)
 
 from aind_data_transfer import __version__
-from aind_data_transfer_service.configs.job_configs import BasicUploadJobConfigs
 from aind_data_transfer.config_loader.base_config import BasicJobEndpoints
 from aind_data_transfer.transformations.generic_compressors import (
     VideoCompressor,
@@ -38,6 +38,9 @@ from aind_data_transfer.transformations.metadata_creation import (
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
 
+# from aind_data_schema.data_description import Modality
+# from aind_data_schema.metadata import Metadata, MetadataStatus
+
 
 # It might make more sense to move this class into different repo
 class JobTypes(Enum):
@@ -49,7 +52,11 @@ class JobTypes(Enum):
 class BasicJob:
     """Class that defines a basic upload job."""
 
-    def __init__(self, job_configs: BasicUploadJobConfigs, processor_name: str = "service"):
+    def __init__(
+        self,
+        job_configs: BasicUploadJobConfigs,
+        processor_name: str = "service",
+    ):
         """Init with job_configs"""
         self.job_configs = job_configs
         self.basic_endpoints = self._set_basic_job_endpoints()
@@ -87,23 +94,25 @@ class BasicJob:
             # The fields we're interested in are optional. We need to extract out the
             # class using the get_args method
             annotation_args = get_args(
-                Metadata.model_fields[field_name].annotation)
+                Metadata.model_fields[field_name].annotation
+            )
             optional_classes = (
                 None
                 if not annotation_args
                 else (
                     [
                         f
-                        for f in
-                        get_args(Metadata.model_fields[field_name].annotation)
+                        for f in get_args(
+                            Metadata.model_fields[field_name].annotation
+                        )
                         if inspect.isclass(f) and issubclass(f, AindCoreModel)
                     ]
                 )
             )
             if (
-                    optional_classes
-                    and inspect.isclass(optional_classes[0])
-                    and issubclass(optional_classes[0], AindCoreModel)
+                optional_classes
+                and inspect.isclass(optional_classes[0])
+                and issubclass(optional_classes[0], AindCoreModel)
             ):
                 all_model_fields[field_name] = optional_classes[0]
         return all_model_fields
@@ -143,7 +152,9 @@ class BasicJob:
         # as special cases
         subject_filename = aind_core_models["subject"].default_filename()
         procedures_filename = aind_core_models["procedures"].default_filename()
-        data_description_filename = aind_core_models["data_description"].default_filename()
+        data_description_filename = aind_core_models[
+            "data_description"
+        ].default_filename()
         # If subject not in user defined directory, query the service
         if metadata_in_folder_map.get(subject_filename) is not None:
             subject_metadata = self.__download_json(
@@ -264,7 +275,11 @@ class BasicJob:
         Otherwise, it will be zipped, stored in temp_dir, and uploaded
         later."""
 
-        behavior_dir = None if self.job_configs.behavior_dir is None else Path(self.job_configs.behavior_dir)
+        behavior_dir = (
+            None
+            if self.job_configs.behavior_dir is None
+            else Path(self.job_configs.behavior_dir)
+        )
 
         if behavior_dir is not None:
             behavior_dir_excluded = behavior_dir / "*"
@@ -359,9 +374,7 @@ class BasicJob:
                     )
                     os.mkdir(folder_path.parent)
                     skip_dirs = (
-                        None
-                        if behavior_dir is None
-                        else [behavior_dir]
+                        None if behavior_dir is None else [behavior_dir]
                     )
                     zc.compress_dir(
                         input_dir=modality_source,
@@ -399,7 +412,11 @@ class BasicJob:
     def _encrypt_behavior_dir(self, temp_dir: Path) -> None:
         """Encrypt the data in the behavior directory. Keeps the data in the
         temp_dir before uploading to s3. This feature will be deprecated."""
-        behavior_dir = None if self.job_configs.behavior_dir is None else Path(self.job_configs.behavior_dir)
+        behavior_dir = (
+            None
+            if self.job_configs.behavior_dir is None
+            else Path(self.job_configs.behavior_dir)
+        )
         if behavior_dir:
             encryption_key = (
                 self.basic_endpoints.video_encryption_password.get_secret_value()
@@ -506,7 +523,7 @@ if __name__ == "__main__":
         "--json-args",
         required=True,
         type=str,
-        default=os.environ.get('UPLOAD_JOB_JSON_ARGS'),
+        default=os.environ.get("UPLOAD_JOB_JSON_ARGS"),
         help="Configs passed as a single json string",
     )
     json_str = parser.parse_args(sys_args).json_args
