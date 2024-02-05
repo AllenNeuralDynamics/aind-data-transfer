@@ -12,6 +12,7 @@ hpc_settings:
   cpus_per_task: 1
   partition:
   tasks: 128
+  spread_job: true
   nodes: [16, 32] # min and max nodes
   time_limit: 4320  # in minutes
   mail_user:
