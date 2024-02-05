@@ -8,6 +8,7 @@ from typing import Any, Optional, Tuple, List
 
 import yaml
 
+from aind_data_transfer.util import setup_logging, file_utils
 from aind_data_transfer.config_loader.base_config import (
     ConfigError, BasicUploadJobConfigs,
 )
@@ -373,14 +374,20 @@ def _cleanup(deployment: str) -> None:
     if deployment == Deployment.SLURM.value:
         job_id = os.getenv("SLURM_JOBID")
         if job_id is not None:
-            api_url = f"http://{os.environ['HPC_HOST']}"
-            api_url += f":{os.environ['HPC_PORT']}"
-            api_url += f"/{os.environ['HPC_API_ENDPOINT']}"
-            headers = {
-                "X-SLURM-USER-NAME": os.environ["HPC_USERNAME"],
-                "X-SLURM-USER-PASSWORD": os.environ["HPC_PASSWORD"],
-                "X-SLURM-USER-TOKEN": os.environ["HPC_TOKEN"],
-            }
+            try:
+                api_url = f"http://{os.environ['HPC_HOST']}"
+                api_url += f":{os.environ['HPC_PORT']}"
+                api_url += f"/{os.environ['HPC_API_ENDPOINT']}"
+                headers = {
+                    "X-SLURM-USER-NAME": os.environ["HPC_USERNAME"],
+                    "X-SLURM-USER-PASSWORD": os.environ["HPC_PASSWORD"],
+                    "X-SLURM-USER-TOKEN": os.environ["HPC_TOKEN"],
+                }
+            except KeyError as ke:
+                logging.error(
+                    f"Failed to get SLURM environment variables for cleanup: {ke} "
+                )
+                return
             logging.info(f"Cancelling SLURM job {job_id}")
             response = cancel_slurm_job(job_id, api_url, headers)
             if response.status_code != 200:
@@ -412,7 +419,31 @@ if __name__ == "__main__":
     try:
         job = ZarrUploadJob(job_configs=job_configs_from_main)
         job.run_job()
+        status = "uploaded"
     except Exception:
         logging.exception("ZarrUploadJob failed.")
+        status = "pending"
+
+    now = datetime.now()
+    status_date = now.strftime('%Y-%m-%d')
+    status_time = now.strftime('%H-%M-%S')
+    msg = {
+        "status": status,
+        "status_date": status_date,
+        "status_time": status_time
+    }
+    try:
+        # update processing_manifest.json
+        processing_manifest_path = job_configs_from_main.modalities[
+                                       0].source / "processing_manifest.json"
+        file_utils.update_json_key(
+            json_path=processing_manifest_path,
+            key="dataset_status",
+            new_value=msg
+        )
+    except Exception:
+        logging.exception(
+            "Failed to update processing_manifest.json with status"
+        )
     finally:
         _cleanup(deployment)
