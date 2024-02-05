@@ -38,9 +38,6 @@ from aind_data_transfer.transformations.metadata_creation import (
 )
 from aind_data_transfer.util.s3_utils import upload_to_s3
 
-# from aind_data_schema.data_description import Modality
-# from aind_data_schema.metadata import Metadata, MetadataStatus
-
 
 # It might make more sense to move this class into different repo
 class JobTypes(Enum):
