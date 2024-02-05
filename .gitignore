@@ -139,4 +139,4 @@ dmypy.json
 **/.DS_Store
 
 # MRI stuff
-.scripts/MRI_ingest/MRI_files
+scripts/MRI_ingest/MRI_files/*
