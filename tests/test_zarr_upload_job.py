@@ -4,14 +4,13 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
-from aind_data_transfer_service.configs.job_configs import (
+from aind_data_schema.data_description import Modality, Platform
+from numcodecs import blosc
+
+from aind_data_transfer.config_loader.base_config import (
     BasicUploadJobConfigs,
     ModalityConfigs,
 )
-from numcodecs import blosc
-
 from aind_data_transfer.jobs.zarr_upload_job import (
     ZarrConversionConfigs,
     ZarrUploadJob,
@@ -111,7 +110,6 @@ class TestZarrUploadJob(unittest.TestCase):
         config.temp_directory = "some_dir"
         return config
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_init_dispim(self) -> None:
         test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
@@ -125,7 +123,6 @@ class TestZarrUploadJob(unittest.TestCase):
         )
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_init_exaspim(
         self,
     ) -> None:
@@ -142,7 +139,6 @@ class TestZarrUploadJob(unittest.TestCase):
         )
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_neuroglancer_link"
     )
@@ -157,12 +153,8 @@ class TestZarrUploadJob(unittest.TestCase):
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_dispim_metadata"
     )
-    @patch(
-        "aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record"
-    )
-    @patch(
-        "aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata"
-    )
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
     @patch(
         "aind_data_transfer.jobs.basic_job.BasicJob._check_if_s3_location_exists"
@@ -212,7 +204,6 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_upload_zarr.assert_called_once()
         mock_create_neuroglancer_link.assert_not_called()
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_neuroglancer_link"
     )
@@ -227,12 +218,8 @@ class TestZarrUploadJob(unittest.TestCase):
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_dispim_metadata"
     )
-    @patch(
-        "aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record"
-    )
-    @patch(
-        "aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata"
-    )
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record")
+    @patch("aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata")
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
     @patch(
         "aind_data_transfer.jobs.basic_job.BasicJob._check_if_s3_location_exists"
@@ -285,7 +272,6 @@ class TestZarrUploadJob(unittest.TestCase):
 
         mock_create_neuroglancer_link.assert_called_once()
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.zarr_upload_job.read_toml")
     @patch("aind_data_transfer.jobs.zarr_upload_job.read_imaging_log")
     @patch("aind_data_transfer.jobs.zarr_upload_job.log_to_acq_json")
@@ -316,7 +302,6 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_acq_json_to_xml.assert_called_once()
         mock_write_xml.assert_called_once()
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.zarr_upload_job.upload_to_s3")
     def test_upload_to_s3(
         self,
@@ -334,7 +319,6 @@ class TestZarrUploadJob(unittest.TestCase):
             dryrun=False,
         )
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.zarr_upload_job.write_files")
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.get_images",
@@ -362,7 +346,6 @@ class TestZarrUploadJob(unittest.TestCase):
             bkg_img_dir=None,
         )
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.zarr_upload_job.write_files")
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.get_images",
@@ -389,7 +372,6 @@ class TestZarrUploadJob(unittest.TestCase):
             bkg_img_dir=str(DISPIM_DERIVATIVES_DIR),
         )
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.zarr_upload_job.write_files")
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.get_images",
@@ -404,7 +386,6 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_get_images.assert_called_once()
         mock_write_files.assert_not_called()
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_resolve_zarr_configs(self):
         config_path = EXASPIM_DATA_DIR / "zarr_configs.yaml"
         test_job_configs = self._get_test_configs(
@@ -430,7 +411,6 @@ class TestZarrUploadJob(unittest.TestCase):
         job = ZarrUploadJob(job_configs=test_job_configs)
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.zarr_upload_job.generate_exaspim_link")
     def test_create_neuroglancer_link(
         self, mock_generate_exaspim_link: MagicMock
@@ -443,13 +423,13 @@ class TestZarrUploadJob(unittest.TestCase):
         job._create_neuroglancer_link()
         mock_generate_exaspim_link.assert_called_with(
             None,
-            s3_path="s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
+            s3_path='s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr',
             output_json_path=str(EXASPIM_DATA_DIR),
             opacity=0.5,
-            blend="default",
+            blend='default',
             vmin=50.0,
             vmax=5000.0,
-            dataset_name="exaSPIM_125L_2022-08-05_17-25-36",
+            dataset_name='exaSPIM_125L_2022-08-05_17-25-36',
         )
 
 

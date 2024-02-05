@@ -6,13 +6,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, call, mock_open, patch
 
-from aind_data_schema.core.data_description import Funding, RawDataDescription
-from aind_data_schema.core.procedures import Procedures
-from aind_data_schema.core.processing import Processing
-from aind_data_schema.core.subject import Subject
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.organizations import Organization
-from aind_data_schema.models.process_names import ProcessName
+from aind_data_schema import (
+    Procedures,
+    Processing,
+    RawDataDescription,
+    Subject,
+)
+from aind_data_schema.data_description import Funding, Institution, Modality
+from aind_data_schema.processing import ProcessName
 from requests import ConnectionError, Response
 
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
@@ -99,12 +100,12 @@ class TestProcessingMetadata(unittest.TestCase):
             "software_version"
         ]
 
-        expected_processing_instance = Processing.model_validate(
+        expected_processing_instance = Processing.parse_obj(
             expected_processing_instance_json
         )
 
         self.assertEqual(
-            json.loads(expected_processing_instance.model_dump_json()),
+            json.loads(expected_processing_instance.json()),
             processing_metadata.model_obj,
         )
         self.assertEqual(Processing, processing_metadata._model())
@@ -166,10 +167,8 @@ class TestSubjectMetadata(unittest.TestCase):
         "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
     )
     @patch("logging.info")
-    @patch("logging.warning")
     def test_successful_response(
         self,
-        mock_log_warning: MagicMock,
         mock_log_info: MagicMock,
         mock_api_get: MagicMock,
         mock_open: MagicMock,
@@ -197,15 +196,25 @@ class TestSubjectMetadata(unittest.TestCase):
 
         expected_subject = self.successful_response_message["data"]
 
-        mock_log_info.assert_not_called()
-        mock_log_warning.assert_called()
+        mock_log_info.assert_has_calls(
+            [
+                call("Model is valid."),
+                call("Model is valid."),
+                call("Model is valid."),
+            ]
+        )
         mock_open.assert_has_calls(
             [
                 call(Path("/some_path/subject.json"), "w"),
+                call().__enter__(),
+                call()
+                .__enter__()
+                .write(json.dumps(expected_subject, indent=3, default=str)),
+                call().__exit__(None, None, None),
             ]
         )
         self.assertEqual(expected_subject, actual_subject.model_obj)
-        self.assertFalse(is_model_valid)
+        self.assertTrue(is_model_valid)
 
     @patch("logging.warning")
     @patch(
@@ -289,13 +298,20 @@ class TestSubjectMetadata(unittest.TestCase):
         actual_subject = SubjectMetadata.from_service(
             "632269", "http://a-fake-url"
         )
-        expected_subject = Subject.model_construct().model_dump()
+        expected_subject = Subject.construct().dict()
         is_model_valid = actual_subject.validate_obj()
 
         mock_log_err.assert_called_once_with(
             "SubjectMetadata: Internal Server Error."
         )
-        mock_log_warn.assert_called()
+        mock_log_warn.assert_called_once_with(
+            "Validation Errors: 5 validation errors for Subject\nspecies\n  "
+            "field required (type=value_error.missing)\nsubject_id\n  "
+            "field required (type=value_error.missing)\nsex\n  "
+            "field required (type=value_error.missing)\ndate_of_birth\n  "
+            "field required (type=value_error.missing)\ngenotype\n  "
+            "field required (type=value_error.missing)"
+        )
         self.assertEqual(expected_subject, actual_subject.model_obj)
         self.assertEqual("subject.json", actual_subject.output_filename)
         self.assertFalse(is_model_valid)
@@ -316,7 +332,7 @@ class TestSubjectMetadata(unittest.TestCase):
         actual_subject = SubjectMetadata.from_service(
             "632269", "http://a-fake-url"
         ).model_obj
-        expected_subject = Subject.model_construct().model_dump()
+        expected_subject = Subject.construct().dict()
 
         mock_log_err.assert_called_once_with(
             "SubjectMetadata: An error occurred connecting to metadata "
@@ -335,16 +351,15 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         data_description = RawDataDescriptionMetadata.from_inputs(
             name="exaSPIM_12345_2022-02-21_16-30-01",
             modality=[Modality.SPIM],
-            funding_source=(Funding(funder=Organization.AI),),
-            investigators=["John Apple"],
+            funding_source=(Funding(funder=Institution.AI),),
         )
 
-        expected_data_description_instance = RawDataDescription.model_validate(
+        expected_data_description_instance = RawDataDescription.parse_obj(
             expected_data_description_instance_json
         )
 
         self.assertEqual(
-            json.loads(expected_data_description_instance.model_dump_json()),
+            json.loads(expected_data_description_instance.json()),
             data_description.model_obj,
         )
         self.assertEqual(RawDataDescription, data_description._model())

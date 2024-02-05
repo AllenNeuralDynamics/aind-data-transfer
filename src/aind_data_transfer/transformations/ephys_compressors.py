@@ -4,17 +4,17 @@ import logging
 import shutil
 from enum import Enum
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 import spikeinterface.preprocessing as spre
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.process_names import ProcessName
-from aind_data_transfer_service.configs.job_configs import ModalityConfigs
+from aind_data_schema.data_description import Modality
+from aind_data_schema.processing import ProcessName
 from numcodecs import Blosc
 from numpy import memmap
 from pydantic import Field
 from wavpack_numcodecs import WavPack
 
+from aind_data_transfer.config_loader.base_config import ModalityConfigs
 from aind_data_transfer.readers.ephys_readers import DataReader, EphysReaders
 from aind_data_transfer.util.npopto_correction import (
     correct_np_opto_electrode_locations,
@@ -32,13 +32,14 @@ class CompressorName(Enum):
 class EcephysCompressionParameters(ModalityConfigs):
     """Extra configs for Ecephys upload job."""
 
-    modality: Modality.ONE_OF = Modality.ECEPHYS
+    modality = Modality.ECEPHYS
 
     # Override these values from the base settings
-    process_name: Literal[ProcessName.EPHYS_PREPROCESSING] = Field(
+    process_name: ProcessName = Field(
         default=ProcessName.EPHYS_PREPROCESSING,
         description="Type of processing performed on the raw data source.",
         title="Process Name",
+        const=True,
     )
 
     data_reader: DataReader = Field(
@@ -54,12 +55,13 @@ class EcephysCompressionParameters(ModalityConfigs):
         title="Clip N Frames",
     )
     # Compress settings
-    compress_write_output_format: Literal["zarr"] = Field(
+    compress_write_output_format: str = Field(
         default="zarr",
         description=(
             "Output format for compression. Currently, only zarr supported."
         ),
         title="Write Output Format",
+        const=True,
     )
     compress_max_windows_filename_len: int = Field(
         default=150,

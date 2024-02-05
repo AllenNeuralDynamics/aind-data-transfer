@@ -4,17 +4,15 @@ import json
 import os
 import unittest
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
-from aind_data_schema.core.metadata import Metadata, MetadataStatus
-from aind_data_transfer_service.configs.job_configs import (
-    BasicUploadJobConfigs,
-)
+from aind_data_schema.metadata import Metadata, MetadataStatus
 from requests import Response
 
 from aind_data_transfer import __version__
+from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
 from aind_data_transfer.jobs.basic_job import BasicJob
 from aind_data_transfer.transformations.metadata_creation import (
     ProceduresMetadata,
@@ -51,12 +49,11 @@ class TestBasicJob(unittest.TestCase):
         "VIDEO_ENCRYPTION_PASSWORD": "some_password",
         "CODEOCEAN_API_TOKEN": "some_api_token",
         "S3_BUCKET": "some_bucket",
-        "MODALITIES": f'[{{"modality":"MRI",'
-        f'"source":"{DATA_DIR.as_posix()}"}}]',
+        "MODALITIES": f'[{{"modality":"MRI",' f'"source":"{str(DATA_DIR)}"}}]',
         "PLATFORM": "confocal",
-        "SUBJECT_ID": "632269",
+        "SUBJECT_ID": "643054",
         "ACQ_DATETIME": "2020-10-10 10:10:10",
-        "DATA_SOURCE": DATA_DIR.as_posix(),
+        "DATA_SOURCE": str(DATA_DIR),
         "DRY_RUN": "true",
     }
 
@@ -78,7 +75,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload_to_s3.assert_called_once_with(
             directory_to_upload=Path("some_dir"),
             s3_bucket="some_bucket",
-            s3_prefix="confocal_632269_2020-10-10_10-10-10",
+            s3_prefix="confocal_643054_2020-10-10_10-10-10",
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -102,18 +99,15 @@ class TestBasicJob(unittest.TestCase):
         # The shutil copy takes care of creating the directory
         mock_make_dir.assert_not_called()
         # With a Behavior directory defined
-        basic_job.job_configs.behavior_dir = PurePosixPath(
-            BEHAVIOR_DIR.as_posix()
-        )
-        modality_source = Path(DATA_DIR.as_posix())
+        basic_job.job_configs.behavior_dir = BEHAVIOR_DIR
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
         mock_copytree.assert_has_calls(
             [
-                call(modality_source, Path("some_path/MRI"), ignore=None),
+                call(DATA_DIR, Path("some_path/mri"), ignore=None),
                 call(
-                    modality_source,
-                    Path("some_path/MRI"),
-                    ignore=Path(BEHAVIOR_DIR / "*"),
+                    DATA_DIR,
+                    Path("some_path/mri"),
+                    ignore=(BEHAVIOR_DIR / "*"),
                 ),
             ]
         )
@@ -136,34 +130,34 @@ class TestBasicJob(unittest.TestCase):
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
         # With a behavior directory defined
-        basic_job_configs.behavior_dir = PurePosixPath(BEHAVIOR_DIR.as_posix())
+        basic_job_configs.behavior_dir = BEHAVIOR_DIR
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
         mock_mkdir.assert_has_calls(
             [
-                call(Path("some_path/MRI")),
-                call(Path("some_path/MRI")),
+                call(Path("some_path/mri")),
+                call(Path("some_path/mri")),
             ]
         )
 
         mock_compress.assert_has_calls(
             [
                 call(
-                    input_dir=Path(DATA_DIR.as_posix()),
+                    input_dir=DATA_DIR,
                     output_dir=Path(
-                        "some_path/MRI/"
+                        "some_path/mri/"
                         "v0.6.x_neuropixels_multiexp_multistream.zip"
                     ),
                     skip_dirs=None,
                 ),
                 call(
-                    input_dir=Path(DATA_DIR.as_posix()),
+                    input_dir=DATA_DIR,
                     output_dir=Path(
-                        "some_path/MRI/"
+                        "some_path/mri/"
                         "v0.6.x_neuropixels_multiexp_multistream.zip"
                     ),
-                    skip_dirs=[Path(BEHAVIOR_DIR)],
+                    skip_dirs=[BEHAVIOR_DIR],
                 ),
             ]
         )
@@ -193,9 +187,9 @@ class TestBasicJob(unittest.TestCase):
         mock_make_dir.assert_not_called()
         mock_copytree.assert_not_called()
         mock_upload.assert_called_once_with(
-            directory_to_upload=Path(DATA_DIR.as_posix()),
+            directory_to_upload=DATA_DIR,
             s3_bucket="some_bucket",
-            s3_prefix="confocal_632269_2020-10-10_10-10-10/MRI",
+            s3_prefix="confocal_643054_2020-10-10_10-10-10/mri",
             dryrun=True,
             excluded=None,
         )
@@ -246,7 +240,7 @@ class TestBasicJob(unittest.TestCase):
         mock_json_write.assert_has_calls(expected_write_to_json_calls)
         mock_copyfile.assert_not_called()
         self.assertEqual(
-            "632269", basic_job.metadata_record.subject.subject_id
+            "643054", basic_job.metadata_record.subject.subject_id
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -358,7 +352,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload.assert_called_once_with(
             directory_to_upload=Path("some_dir"),
             s3_bucket="some_bucket",
-            s3_prefix="confocal_632269_2020-10-10_10-10-10",
+            s3_prefix="confocal_643054_2020-10-10_10-10-10",
             dryrun=True,
         )
 
@@ -398,7 +392,7 @@ class TestBasicJob(unittest.TestCase):
                 '"capsule_id": "some_capsule_id", '
                 '"process_capsule_id": null, '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_632269_2020-10-10_10-10-10", '
+                '"prefix": "confocal_643054_2020-10-10_10-10-10", '
                 f'"aind_data_transfer_version": "{__version__}"'
                 "}}"
             ],
@@ -424,11 +418,9 @@ class TestBasicJob(unittest.TestCase):
         ).encode("utf-8")
         mock_run_capsule.return_value = successful_response
         # With dry-run set to True
-        basic_job_configs = BasicUploadJobConfigs(
-            codeocean_process_capsule_id="xyz-456"
-        )
+        basic_job_configs = BasicUploadJobConfigs()
         basic_job_configs.dry_run = False
-        # basic_job_configs.codeocean_process_capsule_id = "xyz-456"
+        basic_job_configs.codeocean_process_capsule_id = "xyz-456"
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._trigger_codeocean_pipeline()
 
@@ -445,7 +437,7 @@ class TestBasicJob(unittest.TestCase):
                 '"capsule_id": "some_capsule_id", '
                 '"process_capsule_id": "xyz-456", '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_632269_2020-10-10_10-10-10", '
+                '"prefix": "confocal_643054_2020-10-10_10-10-10", '
                 f'"aind_data_transfer_version": "{__version__}"'
                 "}}"
             ],

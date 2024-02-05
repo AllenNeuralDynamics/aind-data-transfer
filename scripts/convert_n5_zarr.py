@@ -8,9 +8,8 @@ from typing import List
 import dask.array as da
 import xarray_multiscale
 import zarr
-from natsort import natsorted
 from numcodecs import blosc
-from xarray_multiscale import windowed_mean
+from natsort import natsorted
 
 from aind_data_transfer.transformations.ome_zarr import (
     downsample_and_store,
@@ -23,6 +22,7 @@ from aind_data_transfer.util.chunk_utils import (
 )
 from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.io_utils import BlockedArrayWriter
+from xarray_multiscale import windowed_mean
 
 blosc.use_threads = False
 

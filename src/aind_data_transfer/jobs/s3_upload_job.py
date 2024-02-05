@@ -7,9 +7,10 @@ import re
 import sys
 from typing import Any, Dict, List, Optional
 
-from aind_data_transfer_service.configs.job_configs import ModalityConfigs
-
-from aind_data_transfer.config_loader.base_config import BasicJobEndpoints
+from aind_data_transfer.config_loader.base_config import (
+    BasicJobEndpoints,
+    ModalityConfigs,
+)
 from aind_data_transfer.jobs.basic_job import BasicJob, BasicUploadJobConfigs
 
 
@@ -84,8 +85,8 @@ class GenericS3UploadJobList:
         entry is blank."""
         if (
             csv_value is None or csv_value == "" or csv_value == " "
-        ) and BasicUploadJobConfigs.model_fields.get(csv_key) is not None:
-            clean_val = BasicUploadJobConfigs.model_fields[csv_key].default
+        ) and BasicUploadJobConfigs.__fields__.get(csv_key) is not None:
+            clean_val = BasicUploadJobConfigs.__fields__[csv_key].default
         else:
             clean_val = csv_value.strip()
         return clean_val
@@ -315,7 +316,7 @@ class GenericS3UploadJobList:
                             aws_param_store_name=(
                                 cleaned_row["aws_param_store_name"]
                             )
-                        ).model_dump()
+                        ).dict()
                         cleaned_row.update(job_endpoints)
                         param_store_name = cleaned_row["aws_param_store_name"]
                     del cleaned_row["aws_param_store_name"]
@@ -335,7 +336,7 @@ class GenericS3UploadJobList:
         for one_job in self.job_list:
             logging.info(
                 f"Running job {current_job_num} of {total_jobs} "
-                f"with params: {one_job.job_configs.model_dump()}"
+                f"with params: {one_job.job_configs.dict()}"
             )
             try:
                 one_job.run_job()
@@ -351,7 +352,7 @@ class GenericS3UploadJobList:
                 )
             logging.info(
                 f"Finished job {current_job_num} of {total_jobs} "
-                f"with params: {one_job.job_configs.model_dump()}"
+                f"with params: {one_job.job_configs.dict()}"
             )
             current_job_num += 1
         logging.info("Finished all jobs!")

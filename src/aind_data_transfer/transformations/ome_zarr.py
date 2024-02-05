@@ -2,7 +2,7 @@ import fnmatch
 import logging
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, cast
+from typing import List, Optional, Dict, cast
 
 import zarr
 from numcodecs.abc import Codec
@@ -11,8 +11,16 @@ from ome_zarr.format import CurrentFormat
 from ome_zarr.io import parse_url
 from ome_zarr.writer import write_multiscales_metadata
 from xarray_multiscale import multiscale
-from xarray_multiscale.reducers import WindowedReducer, windowed_mean
+from xarray_multiscale.reducers import windowed_mean, WindowedReducer
 
+from aind_data_transfer.util.chunk_utils import *
+from aind_data_transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.util.io_utils import (
+    DataReaderFactory,
+    ImarisReader,
+    DataReader,
+    BlockedArrayWriter,
+)
 from aind_data_transfer.transformations.deinterleave import (
     ChannelParser,
     Deinterleave,
@@ -20,14 +28,7 @@ from aind_data_transfer.transformations.deinterleave import (
 from aind_data_transfer.transformations.flatfield_correction import (
     BkgSubtraction,
 )
-from aind_data_transfer.util.chunk_utils import *
-from aind_data_transfer.util.file_utils import collect_filepaths
-from aind_data_transfer.util.io_utils import (
-    BlockedArrayWriter,
-    DataReader,
-    DataReaderFactory,
-    ImarisReader,
-)
+
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)

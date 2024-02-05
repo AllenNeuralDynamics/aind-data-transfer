@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 from numcodecs import Blosc
 from wavpack_numcodecs import WavPack
 
-from aind_data_transfer.readers.ephys_readers import DataReader, EphysReaders
+from aind_data_transfer.readers.ephys_readers import EphysReaders, DataReader
 from aind_data_transfer.transformations.ephys_compressors import (
-    CompressorName,
     EphysCompressors,
+    CompressorName,
 )
 from aind_data_transfer.transformations.generic_compressors import (
     VideoCompressor,

@@ -1,7 +1,6 @@
 """Module to define and potentially run a BasicJob."""
-import argparse
+
 import glob
-import inspect
 import json
 import logging
 import os
@@ -12,20 +11,17 @@ from datetime import datetime, timezone
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
-from typing import Dict, Optional, get_args
+from typing import Dict, Optional
 
 import boto3
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.core.metadata import Metadata, MetadataStatus
-from aind_data_schema.models.modalities import Modality
-from aind_data_transfer_service.configs.job_configs import (
-    BasicUploadJobConfigs,
-)
+from aind_data_schema.data_description import Modality
+from aind_data_schema.metadata import Metadata, MetadataStatus
 
 from aind_data_transfer import __version__
-from aind_data_transfer.config_loader.base_config import BasicJobEndpoints
+from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
 from aind_data_transfer.transformations.generic_compressors import (
     VideoCompressor,
     ZipCompressor,
@@ -49,29 +45,16 @@ class JobTypes(Enum):
 class BasicJob:
     """Class that defines a basic upload job."""
 
-    def __init__(
-        self,
-        job_configs: BasicUploadJobConfigs,
-        processor_name: str = "service",
-    ):
+    def __init__(self, job_configs: BasicUploadJobConfigs):
         """Init with job_configs"""
         self.job_configs = job_configs
-        self.basic_endpoints = self._set_basic_job_endpoints()
         self._instance_logger = (
             logging.getLogger(__name__)
             .getChild(self.__class__.__name__)
             .getChild(str(id(self)))
         )
         self._instance_logger.setLevel(job_configs.log_level)
-        self.processor_name = processor_name
         self.metadata_record: Optional[Metadata] = None
-
-    def _set_basic_job_endpoints(self) -> BasicJobEndpoints:
-        endpoints = dict()
-        for field in BasicJobEndpoints.model_fields:
-            if getattr(self.job_configs, field, None) is not None:
-                endpoints[field] = getattr(self.job_configs, field)
-        return BasicJobEndpoints(**endpoints)
 
     def _test_upload(self, temp_dir: Path):
         """Run upload command on empty directory to see if user has permissions
@@ -86,33 +69,17 @@ class BasicJob:
 
     @staticmethod
     def __core_metadata_fields():
-        all_model_fields = dict()
-        for field_name in Metadata.model_fields:
-            # The fields we're interested in are optional. We need to extract out the
-            # class using the get_args method
-            annotation_args = get_args(
-                Metadata.model_fields[field_name].annotation
-            )
-            optional_classes = (
-                None
-                if not annotation_args
-                else (
-                    [
-                        f
-                        for f in get_args(
-                            Metadata.model_fields[field_name].annotation
-                        )
-                        if inspect.isclass(f) and issubclass(f, AindCoreModel)
-                    ]
-                )
-            )
-            if (
-                optional_classes
-                and inspect.isclass(optional_classes[0])
-                and issubclass(optional_classes[0], AindCoreModel)
-            ):
-                all_model_fields[field_name] = optional_classes[0]
-        return all_model_fields
+        core_models = []
+        for field_name in Metadata.__fields__:
+            field_to_check = Metadata.__fields__[field_name]
+            try:
+                if issubclass(field_to_check.type_, AindCoreModel):
+                    core_models.append(field_to_check)
+            except TypeError:
+                # Type errors in python3.7 when using issubclass on type
+                # generics
+                pass
+        return core_models
 
     @staticmethod
     def __download_json(file_location: Path) -> dict:
@@ -128,12 +95,12 @@ class BasicJob:
         # e.g., "subject.json" -> Subject
         aind_core_models = self.__core_metadata_fields()
         core_filename_map: Dict[str, AindCoreModel] = {
-            f.default_filename(): f for f in aind_core_models.values()
+            f.type_.default_filename(): f.type_ for f in aind_core_models
         }
         # Create a map: filename -> Metadata field name,
         # e.g., "subject.json" -> "subject"
         core_field_name_map = {
-            v.default_filename(): k for k, v in aind_core_models.items()
+            f.type_.default_filename(): f.name for f in aind_core_models
         }
         # If the user defined a metadata directory, create a
         # map: filename -> Path, e.g., "subject.json" -> "dir/subject.json"
@@ -147,11 +114,15 @@ class BasicJob:
                 metadata_in_folder_map[Path(file_path).name] = Path(file_path)
         # Subject, Procedures, Data Description, and Processing are handled
         # as special cases
-        subject_filename = aind_core_models["subject"].default_filename()
-        procedures_filename = aind_core_models["procedures"].default_filename()
-        data_description_filename = aind_core_models[
+        subject_filename = Metadata.__fields__[
+            "subject"
+        ].type_.default_filename()
+        procedures_filename = Metadata.__fields__[
+            "procedures"
+        ].type_.default_filename()
+        data_description_filename = Metadata.__fields__[
             "data_description"
-        ].default_filename()
+        ].type_.default_filename()
         # If subject not in user defined directory, query the service
         if metadata_in_folder_map.get(subject_filename) is not None:
             subject_metadata = self.__download_json(
@@ -163,7 +134,7 @@ class BasicJob:
             del metadata_in_folder_map[subject_filename]
         else:
             subject_metadata_0 = SubjectMetadata.from_service(
-                domain=self.basic_endpoints.metadata_service_domain,
+                domain=self.job_configs.metadata_service_domain,
                 subject_id=self.job_configs.subject_id,
             )
             subject_metadata_0.write_to_json(temp_dir)
@@ -187,7 +158,7 @@ class BasicJob:
             del metadata_in_folder_map[procedures_filename]
         else:
             procedures_metadata_0 = ProceduresMetadata.from_service(
-                domain=self.basic_endpoints.metadata_service_domain,
+                domain=self.job_configs.metadata_service_domain,
                 subject_id=self.job_configs.subject_id,
             )
             procedures_metadata_0.write_to_json(temp_dir)
@@ -272,25 +243,14 @@ class BasicJob:
         Otherwise, it will be zipped, stored in temp_dir, and uploaded
         later."""
 
-        behavior_dir = (
-            None
-            if self.job_configs.behavior_dir is None
-            else Path(self.job_configs.behavior_dir)
-        )
-
-        if behavior_dir is not None:
-            behavior_dir_excluded = behavior_dir / "*"
+        if self.job_configs.behavior_dir is not None:
+            behavior_dir_excluded = self.job_configs.behavior_dir / "*"
         else:
             behavior_dir_excluded = None
 
         for modality_config in self.job_configs.modalities:
-            if modality_config.extra_configs is not None:
-                extra_configs_source = Path(modality_config.extra_configs)
-            else:
-                extra_configs_source = None
-            modality_source = Path(modality_config.source)
             self._instance_logger.info(
-                f"Starting to process {modality_source}"
+                f"Starting to process {modality_config.source}"
             )
             if (
                 not modality_config.compress_raw_data
@@ -301,7 +261,7 @@ class BasicJob:
                 )
                 dst_dir = temp_dir / modality_config.default_output_folder_name
                 shutil.copytree(
-                    modality_source,
+                    modality_config.source,
                     dst_dir,
                     ignore=behavior_dir_excluded,
                 )
@@ -310,7 +270,7 @@ class BasicJob:
                 and modality_config.skip_staging
             ):
                 self._instance_logger.info(
-                    f"Skipping staging and uploading {modality_source} "
+                    f"Skipping staging and uploading {modality_config.source} "
                     f"directly to s3."
                 )
                 s3_prefix_modality = "/".join(
@@ -320,7 +280,7 @@ class BasicJob:
                     ]
                 )
                 upload_to_s3(
-                    directory_to_upload=modality_source,
+                    directory_to_upload=modality_config.source,
                     s3_bucket=self.job_configs.s3_bucket,
                     s3_prefix=s3_prefix_modality,
                     dryrun=self.job_configs.dry_run,
@@ -328,7 +288,7 @@ class BasicJob:
                 )
             else:
                 self._instance_logger.info(
-                    f"Compressing data folder: {modality_source}"
+                    f"Compressing data folder: {modality_config.source}"
                 )
                 if modality_config.modality == Modality.ECEPHYS:
                     # Would prefer to not have imports here, but we have
@@ -349,20 +309,20 @@ class BasicJob:
                     )
 
                     compression_params = EcephysCompressionParameters(
-                        source=modality_source,
-                        extra_configs=extra_configs_source,
+                        source=modality_config.source,
+                        extra_configs=modality_config.extra_configs,
                     )
                     compression_params._number_id = modality_config.number_id
                     ecephys_compress_job = EphysCompressors(
                         job_configs=compression_params,
-                        behavior_dir=behavior_dir,
+                        behavior_dir=self.job_configs.behavior_dir,
                         log_level=self.job_configs.log_level,
                     )
                     ecephys_compress_job.compress_raw_data(temp_dir=temp_dir)
                 else:
                     zc = ZipCompressor(display_progress_bar=True)
                     compressed_data_folder_name = (
-                        str(os.path.basename(modality_source)) + ".zip"
+                        str(os.path.basename(modality_config.source)) + ".zip"
                     )
                     folder_path = (
                         temp_dir
@@ -371,10 +331,12 @@ class BasicJob:
                     )
                     os.mkdir(folder_path.parent)
                     skip_dirs = (
-                        None if behavior_dir is None else [behavior_dir]
+                        None
+                        if self.job_configs.behavior_dir is None
+                        else [self.job_configs.behavior_dir]
                     )
                     zc.compress_dir(
-                        input_dir=modality_source,
+                        input_dir=modality_config.source,
                         output_dir=folder_path,
                         skip_dirs=skip_dirs,
                     )
@@ -393,8 +355,8 @@ class BasicJob:
                 f"s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix}"
             ),
-            processor_full_name=self.processor_name,
-            code_url=self.basic_endpoints.aind_data_transfer_repo_location,
+            processor_full_name=self.job_configs.processor_name,
+            code_url=self.job_configs.aind_data_transfer_repo_location,
         )
         processing_metadata.write_to_json(path=temp_dir)
         processing = processing_metadata.get_model()
@@ -409,19 +371,14 @@ class BasicJob:
     def _encrypt_behavior_dir(self, temp_dir: Path) -> None:
         """Encrypt the data in the behavior directory. Keeps the data in the
         temp_dir before uploading to s3. This feature will be deprecated."""
-        behavior_dir = (
-            None
-            if self.job_configs.behavior_dir is None
-            else Path(self.job_configs.behavior_dir)
-        )
-        if behavior_dir:
+        if self.job_configs.behavior_dir:
             encryption_key = (
-                self.basic_endpoints.video_encryption_password.get_secret_value()
+                self.job_configs.video_encryption_password.get_secret_value()
             )
             video_compressor = VideoCompressor(encryption_key=encryption_key)
             new_behavior_dir = temp_dir / "behavior"
             # Copy data to a temp directory
-            for root, dirs, files in os.walk(behavior_dir):
+            for root, dirs, files in os.walk(self.job_configs.behavior_dir):
                 for file in files:
                     raw_file_path = os.path.join(root, file)
                     new_file_path = os.path.join(new_behavior_dir, file)
@@ -442,23 +399,23 @@ class BasicJob:
 
     def _trigger_codeocean_pipeline(self):
         """Trigger the codeocean pipeline."""
-        if self.basic_endpoints.codeocean_process_capsule_id is not None:
+        if self.job_configs.codeocean_process_capsule_id is not None:
             job_type = JobTypes.RUN_GENERIC_PIPELINE.value
         else:
             # Handle legacy way we set up parameters...
-            job_type = self.job_configs.platform.abbreviation
+            job_type = self.job_configs.platform.value.abbreviation
         trigger_capsule_params = {
             "trigger_codeocean_job": {
                 "job_type": job_type,
                 "modalities": (
                     [
-                        m.modality.abbreviation
+                        m.modality.value.abbreviation
                         for m in self.job_configs.modalities
                     ]
                 ),
-                "capsule_id": self.basic_endpoints.codeocean_trigger_capsule_id,
+                "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
                 "process_capsule_id": (
-                    self.basic_endpoints.codeocean_process_capsule_id
+                    self.job_configs.codeocean_process_capsule_id
                 ),
                 "bucket": self.job_configs.s3_bucket,
                 "prefix": self.job_configs.s3_prefix,
@@ -466,8 +423,8 @@ class BasicJob:
             }
         }
         co_client = CodeOceanClient(
-            token=self.basic_endpoints.codeocean_api_token.get_secret_value(),
-            domain=self.basic_endpoints.codeocean_domain,
+            token=self.job_configs.codeocean_api_token.get_secret_value(),
+            domain=self.job_configs.codeocean_domain,
         )
         if self.job_configs.dry_run:
             self._instance_logger.info(
@@ -476,7 +433,7 @@ class BasicJob:
             )
         else:
             run_capsule_request = RunCapsuleRequest(
-                capsule_id=self.basic_endpoints.codeocean_trigger_capsule_id,
+                capsule_id=self.job_configs.codeocean_trigger_capsule_id,
                 parameters=[json.dumps(trigger_capsule_params)],
             )
             response = co_client.run_capsule(request=run_capsule_request)
@@ -515,15 +472,12 @@ class BasicJob:
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
     # First check if json args are set as an environment variable
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--json-args",
-        required=True,
-        type=str,
-        default=os.environ.get("UPLOAD_JOB_JSON_ARGS"),
-        help="Configs passed as a single json string",
-    )
-    json_str = parser.parse_args(sys_args).json_args
-    job_configs_from_main = BasicUploadJobConfigs.model_validate_json(json_str)
+    if os.getenv("UPLOAD_JOB_JSON_ARGS") is not None and len(sys_args) == 0:
+        env_args = ["--json-args", os.getenv("UPLOAD_JOB_JSON_ARGS")]
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(env_args)
+    elif "--json-args" in sys_args:
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
+    else:
+        job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)
     job = BasicJob(job_configs=job_configs_from_main)
     job.run_job()

@@ -5,7 +5,7 @@ import re
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, List, Tuple
+from typing import Any, List, Tuple, Generator
 
 import dask.array as da
 import fsspec
@@ -18,11 +18,11 @@ import hdf5plugin
 import numpy as np
 import ujson
 import zarr
+from aind_data_transfer.util.chunk_utils import expand_chunks
+from numpy.typing import ArrayLike
 from kerchunk.tiff import tiff_to_zarr
 from numpy import dtype
-from numpy.typing import ArrayLike
 
-from aind_data_transfer.util.chunk_utils import expand_chunks
 
 _LOGGER = logging.getLogger(__name__)
 

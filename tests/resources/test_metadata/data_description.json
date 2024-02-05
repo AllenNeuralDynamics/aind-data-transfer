@@ -1,14 +1,8 @@
 {
-   "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/data_description.py",
-   "schema_version": "0.13.0",
+   "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/data_description.py",
+   "schema_version": "0.10.2",
    "license": "CC-BY-4.0",
-   "platform": {
-      "name": "ExaSPIM platform",
-      "abbreviation": "exaSPIM"
-   },
-   "subject_id": "12345",
-   "creation_time": "2022-02-21T16:30:01",
-   "label": null,
+   "creation_time": "2022-02-21 16:30:01",
    "name": "exaSPIM_12345_2022-02-21_16-30-01",
    "institution": {
       "name": "Allen Institute for Neural Dynamics",
@@ -36,9 +30,7 @@
    ],
    "data_level": "raw",
    "group": null,
-   "investigators": [
-      "John Apple"
-   ],
+   "investigators": [],
    "project_name": null,
    "restrictions": null,
    "modality": [
@@ -47,6 +39,11 @@
          "abbreviation": "SPIM"
       }
    ],
+   "platform": {
+      "name":"ExaSPIM platform",
+      "abbreviation":"exaSPIM"
+   },
+   "subject_id": "12345",
    "related_data": [],
    "data_summary": null
 }

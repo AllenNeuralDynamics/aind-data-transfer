@@ -5,40 +5,29 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from time import sleep
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional, Tuple, List
 
-import yaml
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
-from aind_data_transfer_service.configs.job_configs import (
+from aind_data_transfer.util import setup_logging
+from aind_data_transfer.config_loader.base_config import (
+    ConfigError,
     BasicUploadJobConfigs,
 )
-from ng_link.exaspim_link import generate_exaspim_link
-from numcodecs import blosc
-from pydantic import Field
-from pydantic_settings import BaseSettings
-
-from aind_data_transfer.config_loader.base_config import ConfigError
 from aind_data_transfer.jobs.basic_job import BasicJob
-from aind_data_transfer.transformations.converters import (
-    acq_json_to_xml,
-    log_to_acq_json,
-    read_dispim_aquisition,
-    schema_log_to_acq_json,
-)
-from aind_data_transfer.transformations.file_io import (
-    read_imaging_log,
-    read_schema_log_file,
-    read_toml,
-    write_acq_json,
-    write_xml,
-)
+from aind_data_transfer.transformations.converters import log_to_acq_json, \
+    acq_json_to_xml, schema_log_to_acq_json, read_dispim_aquisition
 from aind_data_transfer.transformations.ome_zarr import write_files
-from aind_data_transfer.util import setup_logging
 from aind_data_transfer.util.dask_utils import get_client, get_deployment
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
+from aind_data_transfer.transformations.file_io import read_toml, \
+    read_imaging_log, read_schema_log_file, write_acq_json, write_xml
+
+import yaml
+from numcodecs import blosc
+from pydantic import Field, BaseSettings
+from ng_link.exaspim_link import generate_exaspim_link
+from aind_data_schema.data_description import Modality, Platform
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
 _CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
@@ -80,38 +69,36 @@ class ZarrConversionConfigs(BaseSettings):
     )
     ng_vmin: Optional[float] = Field(
         0,
-        description="Default minimum of the neuroglancer display range. Default is 0.",
+        description="Default minimum of the neuroglancer display range. Default is 0."
     )
     ng_vmax: Optional[float] = Field(
         200.0,
-        description="Default maximum of the neuroglancer display range. Default is 200.",
+        description="Default maximum of the neuroglancer display range. Default is 200."
     )
 
     @classmethod
     def from_yaml(cls, yaml_path: Path):
-        with open(yaml_path, "r") as f:
+        with open(yaml_path, 'r') as f:
             yaml_dict = yaml.safe_load(f)
         return cls(**yaml_dict)
 
 
 class ZarrUploadJob(BasicJob):
-    def __init__(
-        self,
-        job_configs: BasicUploadJobConfigs,
-        processor_name: str = "service",
-    ):
+
+    def __init__(self, job_configs: BasicUploadJobConfigs):
         super().__init__(job_configs=job_configs)
 
         if len(self.job_configs.modalities) != 1:
             raise ConfigError(
-                "ZarrUploadJob only supports one modality at a time."
-            )
+                "ZarrUploadJob only supports one modality at a time.")
 
         self._instance_logger.info(f"Using job configs: {self.job_configs}")
 
         self._modality_config = self.job_configs.modalities[0]
         if self._modality_config.modality != Modality.SPIM:
-            raise ConfigError("ZarrUploadJob only supports SPIM modality.")
+            raise ConfigError(
+                "ZarrUploadJob only supports SPIM modality."
+            )
 
         self._data_src_dir = self._modality_config.source
         if not self._data_src_dir.exists():
@@ -119,8 +106,7 @@ class ZarrUploadJob(BasicJob):
                 f"data source directory {self._data_src_dir} does not exist"
             )
         self._instance_logger.info(
-            f"Using data source directory: {self._data_src_dir}"
-        )
+            f"Using data source directory: {self._data_src_dir}")
 
         if self.job_configs.platform == Platform.HCR:
             self._raw_image_dir = self._data_src_dir / "diSPIM"
@@ -140,8 +126,7 @@ class ZarrUploadJob(BasicJob):
                     f"raw image directory {self._raw_image_dir} does not exist"
                 )
         self._instance_logger.info(
-            f"Using raw image directory: {self._raw_image_dir}"
-        )
+            f"Using raw image directory: {self._raw_image_dir}")
 
         self._derivatives_dir = self._data_src_dir / "derivatives"
         if not self._derivatives_dir.exists():
@@ -149,10 +134,9 @@ class ZarrUploadJob(BasicJob):
                 f"derivatives directory {self._derivatives_dir} does not exist"
             )
         self._instance_logger.info(
-            f"Using derivatives directory: {self._derivatives_dir}"
-        )
+            f"Using derivatives directory: {self._derivatives_dir}")
 
-        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.abbreviation}.ome.zarr"
+        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.value.abbreviation}.ome.zarr"
         self._instance_logger.info(f"Output zarr path: {self._zarr_path}")
 
         self._resolve_zarr_configs()
@@ -163,8 +147,7 @@ class ZarrUploadJob(BasicJob):
         if config_path is not None:
             if not config_path.exists():
                 raise FileNotFoundError(
-                    f"Extra config file {config_path} does not exist."
-                )
+                    f"Extra config file {config_path} does not exist.")
             self._zarr_configs = ZarrConversionConfigs.from_yaml(config_path)
         else:
             # use defaults
@@ -193,7 +176,7 @@ class ZarrUploadJob(BasicJob):
         images = set(
             get_images(
                 self._raw_image_dir,
-                exclude=self._zarr_configs.exclude_patterns,
+                exclude=self._zarr_configs.exclude_patterns
             )
         )
         self._instance_logger.info(
@@ -220,56 +203,51 @@ class ZarrUploadJob(BasicJob):
             None,
             self._zarr_configs.chunk_shape,
             self._zarr_configs.voxel_size,
-            compressor=blosc.Blosc(
-                self._zarr_configs.codec,
-                self._zarr_configs.clevel,
-                shuffle=blosc.SHUFFLE,
-            ),
+            compressor=blosc.Blosc(self._zarr_configs.codec,
+                                   self._zarr_configs.clevel,
+                                   shuffle=blosc.SHUFFLE),
             bkg_img_dir=bkg_img_dir,
         )
 
     def _create_dispim_metadata(self) -> None:
         self._instance_logger.info("Creating xml files for diSPIM data")
 
-        log_file = self._data_src_dir.joinpath("imaging_log.log")
-        acq_file = self._data_src_dir.joinpath("dispim_acquisition.json")
+        log_file = self._data_src_dir.joinpath('imaging_log.log')
+        acq_file = self._data_src_dir.joinpath('dispim_acquisition.json')
 
-        toml_dict = read_toml(self._data_src_dir.joinpath("config.toml"))
+        toml_dict = read_toml(self._data_src_dir.joinpath('config.toml'))
 
         # read log file into dict
         if not log_file.exists():
             log_dict = read_imaging_log(log_file)
-            log_dict["data_src_dir"] = self._data_src_dir.as_posix()
-            log_dict["config_toml"] = toml_dict
+            log_dict['data_src_dir'] = (self._data_src_dir.as_posix())
+            log_dict['config_toml'] = toml_dict
 
         else:
             log_dict = {
-                "imaging_log_file": None
-            }  # set this to none to read schema_log
+                'imaging_log_file': None}  # set this to none to read schema_log
 
         if acq_file.exists():
             acq_json = read_dispim_aquisition(acq_file)
 
+
         # if any of the values of log_dict are None, then get it from schema_log
         elif any(v is None for v in log_dict.values()):
             self._instance_logger.warn(
-                "Some values in imaging_log.log are None. Reading schema_log.log"
-            )
-            log_file = self._data_src_dir.joinpath("schema_log.log")
+                'Some values in imaging_log.log are None. Reading schema_log.log')
+            log_file = self._data_src_dir.joinpath('schema_log.log')
             log_dict = {}
             log_dict = read_schema_log_file(log_file)
-            log_dict["data_src_dir"] = self._data_src_dir.as_posix()
-            log_dict["config_toml"] = toml_dict
-            self._instance_logger.info("Finished reading schema_log.log")
+            log_dict['data_src_dir'] = (self._data_src_dir.as_posix())
+            log_dict['config_toml'] = toml_dict
+            self._instance_logger.info('Finished reading schema_log.log')
             try:
                 acq_json = schema_log_to_acq_json(log_dict)
                 self._instance_logger.info(
-                    "Finished converting schema_log.log to acq json"
-                )
+                    'Finished converting schema_log.log to acq json')
             except Exception as e:
                 self._instance_logger.warn(
-                    f"Failed to convert schema_log.log to acq json: {e}"
-                )
+                    f"Failed to convert schema_log.log to acq json: {e}")
 
         else:
             # convert imaging_log to acq json
@@ -277,34 +255,28 @@ class ZarrUploadJob(BasicJob):
                 acq_json = log_to_acq_json(log_dict)
             except Exception as e:
                 self._instance_logger.warn(
-                    f"Failed to convert imaging_log.log to acq json: {e}"
-                )
+                    f"Failed to convert imaging_log.log to acq json: {e}")
 
         # convert to acq json
-        acq_json_path = self._data_src_dir.joinpath("acquisition.json")
+        acq_json_path = self._data_src_dir.joinpath('acquisition.json')
 
         try:
             write_acq_json(acq_json, acq_json_path)
-            self._instance_logger.info("Finished writing acq json")
+            self._instance_logger.info('Finished writing acq json')
         except Exception as e:
             self._instance_logger.warn(
-                f"Failed to write acquisition.json: {e}"
-            )
+                f"Failed to write acquisition.json: {e}")
 
         # convert acq json to xml
         is_zarr = True
         condition = "channel=='405'"
-        acq_xml = acq_json_to_xml(
-            acq_json,
-            log_dict,
-            self.job_configs.s3_prefix
-            + f"/{self._modality_config.modality.abbreviation}.ome.zarr",
-            is_zarr,
-            condition,
-        )  # needs relative path to zarr file (as seen by code ocean)
+        acq_xml = acq_json_to_xml(acq_json, log_dict,
+                                  self.job_configs.s3_prefix + f'/{self._modality_config.modality.value.abbreviation}.ome.zarr',
+                                  is_zarr,
+                                  condition)  # needs relative path to zarr file (as seen by code ocean)
 
         # write xml to file
-        xml_file_path = self._data_src_dir.joinpath("Camera_405.xml")  #
+        xml_file_path = self._data_src_dir.joinpath('Camera_405.xml')  #
         write_xml(acq_xml, xml_file_path)
 
     def _create_neuroglancer_link(self) -> None:
@@ -326,7 +298,7 @@ class ZarrUploadJob(BasicJob):
 
         self._check_if_s3_location_exists()
         with tempfile.TemporaryDirectory(
-            dir=self.job_configs.temp_directory
+                dir=self.job_configs.temp_directory
         ) as td:
             self._instance_logger.info("Checking write credentials...")
             self._test_upload(temp_dir=Path(td))
@@ -336,8 +308,7 @@ class ZarrUploadJob(BasicJob):
                 self._create_dispim_metadata()
             except Exception as e:
                 self._instance_logger.error(
-                    f"Failed to create diSPIM metadata: {e}"
-                )
+                    f"Failed to create diSPIM metadata: {e}")
                 self._instance_logger.info("Compiling metadata...")
 
         try:

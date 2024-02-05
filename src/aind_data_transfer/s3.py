@@ -120,9 +120,7 @@ class S3Uploader:
             A list of filepaths for failed uploads
         """
         return self.upload_files(
-            list(
-                collect_filepaths(folder, recursive, exclude_dirs=exclude_dirs)
-            ),
+            list(collect_filepaths(folder, recursive, exclude_dirs=exclude_dirs)),
             s3_bucket,
             s3_folder,
             root=folder,

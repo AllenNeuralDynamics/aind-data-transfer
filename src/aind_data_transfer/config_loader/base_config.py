@@ -1,85 +1,30 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
+
 import argparse
 import json
 import os
+import re
 from datetime import datetime
-from pathlib import PurePosixPath, Path
-from typing import Any, Dict, Optional, Tuple, Type, ClassVar, Union, List, re
-from aind_data_schema.core.data_description import build_data_name
-from aind_data_schema.core.processing import ProcessName
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from aind_data_access_api.secrets import get_parameter
+from aind_data_schema.data_description import (
+    Modality,
+    Platform,
+    build_data_name
+)
+from aind_data_schema.processing import ProcessName
 from pydantic import (
+    BaseSettings,
+    DirectoryPath,
     Field,
+    FilePath,
     PrivateAttr,
     SecretStr,
-    ValidationInfo,
-    field_validator, DirectoryPath
+    validator,
 )
-
-from aind_codeocean_api.credentials import JsonConfigSettingsSource
-from aind_data_access_api.secrets import get_parameter
-
-from pydantic_settings import (
-    BaseSettings,
-    EnvSettingsSource,
-    InitSettingsSource,
-    PydanticBaseSettingsSource,
-)
-
-
-class AWSConfigSettingsParamSource(JsonConfigSettingsSource):
-    """Class that parses from aws secrets manager."""
-
-    @staticmethod
-    def _get_param(param_name: str) -> Dict[str, Any]:
-        """
-        Retrieves a secret from AWS Secrets Manager.
-
-        Parameters
-        ----------
-        param_name : str
-          Parameter name as stored in Parameter Store
-
-        Returns
-        -------
-        Dict[str, Any]
-          Contents of the parameter
-
-        """
-
-        params_from_aws = json.loads(get_parameter(param_name))
-        if params_from_aws.get("video_encryption_password_path"):
-            video_encrypt_pwd = json.loads(
-                get_parameter(
-                    params_from_aws.get("video_encryption_password_path"),
-                    with_decryption=True,
-                )
-            )
-            params_from_aws[
-                "video_encryption_password"
-            ] = video_encrypt_pwd.get("password")
-            if params_from_aws.get("video_encryption_password_path"):
-                del params_from_aws["video_encryption_password_path"]
-        if params_from_aws.get("codeocean_api_token_path"):
-            co_api_token = json.loads(
-                get_parameter(
-                    params_from_aws.get("codeocean_api_token_path"),
-                    with_decryption=True,
-                )
-            )
-            params_from_aws["codeocean_api_token"] = co_api_token.get(
-                "CODEOCEAN_READWRITE_TOKEN"
-            )
-            if params_from_aws.get("codeocean_api_token_path"):
-                del params_from_aws["codeocean_api_token_path"]
-        return params_from_aws
-
-    def _retrieve_contents(self) -> Dict[str, Any]:
-        """Retrieve contents from config_file_location"""
-        credentials_from_aws = self._get_param(self.config_file_location)
-        return credentials_from_aws
 
 
 class BasicJobEndpoints(BaseSettings):
@@ -102,74 +47,91 @@ class BasicJobEndpoints(BaseSettings):
         ),
     )
 
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: Type[BaseSettings],
-        init_settings: InitSettingsSource,
-        env_settings: EnvSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> Tuple[PydanticBaseSettingsSource, ...]:
-        """
-        Method to pull configs from a variety sources, such as a file or aws.
-        Arguments are required and set by pydantic.
-        Parameters
-        ----------
-        settings_cls : Type[BaseSettings]
-          Top level class. Model fields can be pulled from this.
-        init_settings : InitSettingsSource
-          The settings in the init arguments.
-        env_settings : EnvSettingsSource
-          The settings pulled from environment variables.
-        dotenv_settings : PydanticBaseSettingsSource
-          Settings from .env files. Currently, not supported.
-        file_secret_settings : PydanticBaseSettingsSource
-          Settings from secret files such as used in Docker. Currently, not
-          supported.
+    class Config:
+        """This class will add custom sourcing from aws."""
 
-        Returns
-        -------
-        Tuple[PydanticBaseSettingsSource, ...]
+        @staticmethod
+        def settings_from_aws(param_name: Optional[str]):  # noqa: C901
+            """
+            Curried function that returns a function to retrieve creds from aws
+            Parameters
+            ----------
+            param_name : Name of the credentials we wish to retrieve
+            Returns
+            -------
+            A function that retrieves the credentials.
+            """
 
-        """
+            def set_settings(_: BaseSettings) -> Dict[str, Any]:
+                """
+                A simple settings source that loads from aws secrets manager
+                """
+                params_from_aws = json.loads(get_parameter(param_name))
+                if params_from_aws.get("video_encryption_password_path"):
+                    video_encrypt_pwd = json.loads(
+                        get_parameter(
+                            params_from_aws.get(
+                                "video_encryption_password_path"
+                            ),
+                            with_decryption=True,
+                        )
+                    )
+                    params_from_aws[
+                        "video_encryption_password"
+                    ] = video_encrypt_pwd.get("password")
+                    if params_from_aws.get("video_encryption_password_path"):
+                        del params_from_aws["video_encryption_password_path"]
+                if params_from_aws.get("codeocean_api_token_path"):
+                    co_api_token = json.loads(
+                        get_parameter(
+                            params_from_aws.get("codeocean_api_token_path"),
+                            with_decryption=True,
+                        )
+                    )
+                    params_from_aws["codeocean_api_token"] = co_api_token.get(
+                        "CODEOCEAN_READWRITE_TOKEN"
+                    )
+                    if params_from_aws.get("codeocean_api_token_path"):
+                        del params_from_aws["codeocean_api_token_path"]
+                return params_from_aws
 
-        aws_param_store_path = init_settings.init_kwargs.get(
-            "aws_param_store_name"
-        )
+            return set_settings
 
-        # If user defines aws secrets, create creds from there
-        if aws_param_store_path is not None:
-            return (
-                init_settings,
-                AWSConfigSettingsParamSource(
-                    settings_cls, aws_param_store_path
-                ),
+        @classmethod
+        def customise_sources(
+            cls,
+            init_settings,
+            env_settings,
+            file_secret_settings,
+        ):
+            """Class method to return custom sources."""
+            aws_param_store_name = init_settings.init_kwargs.get(
+                "aws_param_store_name"
             )
-        # Otherwise, create creds from init and env
-        else:
-            return (
-                init_settings,
-                env_settings,
-            )
+            if aws_param_store_name:
+                return (
+                    init_settings,
+                    env_settings,
+                    file_secret_settings,
+                    cls.settings_from_aws(param_name=aws_param_store_name),
+                )
+            else:
+                return (
+                    init_settings,
+                    env_settings,
+                    file_secret_settings,
+                )
 
 
 class ModalityConfigs(BaseSettings):
     """Class to contain configs for each modality type"""
 
-    # Need some way to extract abbreviations. Maybe a public method can be
-    # added to the Modality class
-    _MODALITY_MAP: ClassVar = {
-        m().abbreviation.upper().replace("-", "_"): m().abbreviation
-        for m in Modality._ALL
-    }
-
     # Optional number id to assign to modality config
     _number_id: Optional[int] = PrivateAttr(default=None)
-    modality: Modality.ONE_OF = Field(
+    modality: Modality = Field(
         ..., description="Data collection modality", title="Modality"
     )
-    source: PurePosixPath = Field(
+    source: DirectoryPath = Field(
         ...,
         description="Location of raw data to be uploaded",
         title="Data Source",
@@ -178,9 +140,8 @@ class ModalityConfigs(BaseSettings):
         default=None,
         description="Run compression on data",
         title="Compress Raw Data",
-        validate_default=True,
     )
-    extra_configs: Optional[PurePosixPath] = Field(
+    extra_configs: Optional[FilePath] = Field(
         default=None,
         description="Location of additional configuration file",
         title="Extra Configs",
@@ -200,34 +161,19 @@ class ModalityConfigs(BaseSettings):
     def default_output_folder_name(self):
         """Construct the default folder name for the modality."""
         if self._number_id is None:
-            return self.modality.abbreviation
+            return self.modality.name.lower()
         else:
-            return self.modality.abbreviation + str(self._number_id)
+            return self.modality.name.lower() + str(self._number_id)
 
-    @field_validator("modality", mode="before")
-    def parse_modality_string(
-        cls, input_modality: Union[str, dict, Modality]
-    ) -> Union[dict, Modality]:
-        """Attempts to convert strings to a Modality model. Raises an error
-        if unable to do so."""
-        if isinstance(input_modality, str):
-            modality_abbreviation = cls._MODALITY_MAP.get(
-                input_modality.upper()
-            )
-            if modality_abbreviation is None:
-                raise AttributeError(f"Unknown Modality: {input_modality}")
-            return Modality.from_abbreviation(modality_abbreviation)
-        else:
-            return input_modality
-
-    @field_validator("compress_raw_data", mode="after")
+    @validator("compress_raw_data", always=True)
     def get_compress_source_default(
-        cls, compress_source: Optional[bool], info: ValidationInfo
+        cls, compress_source: Optional[bool], values: Dict[str, Any]
     ) -> bool:
         """Set compress source default to True for ecephys data."""
         if (
             compress_source is None
-            and info.data.get("modality") == Modality.ECEPHYS
+            and "modality" in values
+            and values["modality"] == Modality.ECEPHYS
         ):
             return True
         elif compress_source is not None:
@@ -322,11 +268,11 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
     def s3_prefix(self):
         """Construct s3_prefix from configs."""
         return build_data_name(
-            label=f"{self.platform.abbreviation}_{self.subject_id}",
+            label=f"{self.platform.value.abbreviation}_{self.subject_id}",
             creation_datetime=self.acq_datetime,
         )
 
-    @field_validator("acq_datetime", mode="before")
+    @validator("acq_datetime", pre=True)
     def _parse_datetime(cls, datetime_str: str) -> datetime:
         """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
         # TODO: do this in data transfer service
@@ -473,7 +419,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             else Path(os.path.abspath(job_args.temp_directory))
         )
         log_level = (
-            BasicUploadJobConfigs.model_fields["log_level"].default
+            BasicUploadJobConfigs.__fields__["log_level"].default
             if job_args.log_level is None
             else job_args.log_level
         )
