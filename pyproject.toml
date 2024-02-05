@@ -26,7 +26,7 @@ dependencies = [
     'aind_data_transfer_service@git+https://github.com/AllenNeuralDynamics/aind-data-transfer-service@hot-fix-dependencies',
     'aind-metadata-service[client]>=0.2.5',
     'tqdm==4.64.1',
-    'aind_data_access_api[secrets]@git+https://github.com/AllenNeuralDynamics/aind-data-access-api@feat-35-update-schema',
+    'aind_data_access_api[secrets]==0.7.0',
     'toml==0.10.2',
     "zarr==2.16.1",
     'numcodecs==0.11.0',
