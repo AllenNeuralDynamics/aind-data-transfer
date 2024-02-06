@@ -6,14 +6,7 @@ import xml.etree.ElementTree as ET
 from aind_data_transfer.util.file_utils import read_text_to_list
 import re
 import toml
-from aind_data_schema.imaging.acquisition import (
-    AxisName,
-    Direction,
-    Axis,
-    Immersion,
-    Acquisition,
-    AcquisitionTile,
-)
+from aind_data_schema.core.acquisition import Acquisition
 
 
 def read_toml(toml_path: Union[Path, str]) -> dict:
@@ -379,4 +372,4 @@ def write_acq_json(acq_obj: Acquisition, acq_json_path: str) -> None:
     acq_obj.session_end_time = acq_obj.session_end_time.isoformat()
 
     with open(acq_json_path, "w") as f:
-        json.dump(json.loads(acq_obj.json()), f, indent=4)
+        json.dump(json.loads(acq_obj.model_dump_json()), f, indent=4)

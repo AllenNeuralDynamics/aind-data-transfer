@@ -25,9 +25,11 @@ from aind_data_transfer.transformations.file_io import read_toml, \
 
 import yaml
 from numcodecs import blosc
-from pydantic import Field, BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings
 from ng_link.exaspim_link import generate_exaspim_link
-from aind_data_schema.data_description import Modality, Platform
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.platforms import Platform
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
 _CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
@@ -136,7 +138,7 @@ class ZarrUploadJob(BasicJob):
         self._instance_logger.info(
             f"Using derivatives directory: {self._derivatives_dir}")
 
-        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.value.abbreviation}.ome.zarr"
+        self._zarr_path = f"s3://{self.job_configs.s3_bucket}/{self.job_configs.s3_prefix}/{self._modality_config.modality.abbreviation}.ome.zarr"
         self._instance_logger.info(f"Output zarr path: {self._zarr_path}")
 
         self._resolve_zarr_configs()
@@ -271,7 +273,7 @@ class ZarrUploadJob(BasicJob):
         is_zarr = True
         condition = "channel=='405'"
         acq_xml = acq_json_to_xml(acq_json, log_dict,
-                                  self.job_configs.s3_prefix + f'/{self._modality_config.modality.value.abbreviation}.ome.zarr',
+                                  self.job_configs.s3_prefix + f'/{self._modality_config.modality.abbreviation}.ome.zarr',
                                   is_zarr,
                                   condition)  # needs relative path to zarr file (as seen by code ocean)
 
