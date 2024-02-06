@@ -14,6 +14,18 @@ hpc_settings:
   tasks: 128
   spread_job: true
   nodes: [16, 32] # min and max nodes
-  time_limit: 4320  # in minutes
+  time_limit: 5760  # in minutes
   mail_user:
   mail_type:
+zarr_config:
+  n_levels: 8
+  scale_factor: 2
+  chunk_shape: [ 1,1,256,256,256 ]
+  voxel_size:
+  codec: "zstd"
+  clevel: 1
+  do_bkg_subtraction: false
+  exclude_patterns:
+  create_ng_link: true
+  ng_vmin: 0
+  ng_vmax: 200

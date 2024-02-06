@@ -11,6 +11,7 @@ from typing import List, Union, Optional
 
 import requests
 import yaml
+from aind_data_transfer.jobs.zarr_upload_job import ZarrConversionConfigs
 from aind_data_transfer.readers.imaging_readers import ImagingReaders
 from aind_data_transfer.util import file_utils
 from aind_data_transfer.util.s3_utils import get_secret
@@ -22,15 +23,16 @@ PathLike = Union[str, Path]
 class ExASPIMCronJobConfig(BaseModel):
     root_folder: str
     sif_path: str
+    s3_bucket: str
     transfer_service_domain: str
     codeocean_domain: str
     metadata_service_domain: str
     aind_data_transfer_repo_location: str
-    s3_bucket: str
+    zarr_config: ZarrConversionConfigs
+    hpc_settings: Optional[dict] = None
     manifest_filename: str = "processing_manifest.json"
     force_cloud_sync: bool = False
     log_level: str = "INFO"
-    hpc_settings: Optional[dict] = None
 
     @classmethod
     def from_config(cls, config_path: str) -> 'ExASPIMCronJobConfig':
@@ -136,10 +138,26 @@ def _get_sbatch_script(json_dict: dict, sif_path: str) -> str:
 
 
 def _build_jobs_request(
-    hpc_settings: dict,
-    slurm_script: str,
-    job_config: dict
+    hpc_settings: dict, slurm_script: str, job_config: dict
 ):
+    """
+    Builds a request to submit a set of jobs to the HPC cluster.
+
+    Parameters
+    ----------
+    hpc_settings : dict
+        The HPC settings for the job.
+    slurm_script : str
+        The SLURM script to execute.
+    job_config : dict
+        The configuration for the job.
+
+    Returns
+    -------
+    dict
+        The request containing the job information.
+    """
+
     request = {
         "jobs": [{
             "hpc_settings": json.dumps(hpc_settings),
@@ -277,12 +295,28 @@ class ExASPIMCronJob:
         )
 
         for ds in pending_datasets:
+            self._logger.info(f"Processing dataset: {ds}")
+
             self.config.hpc_settings['name'] = ds.name
-            print(self.config.hpc_settings)
 
-            job_config = self._build_job_config(self.config, ds)
+            zarr_config_path = ds / "zarr_config.yml"
+            try:
+                file_utils.write_dict_to_yaml(
+                    self.config.zarr_config.dict(), zarr_config_path
+                )
+            except Exception as e:
+                self._logger.error(f"Error writing zarr config: {e}")
+                continue
 
-            slurm_script = _get_sbatch_script(job_config, self.config.sif_path)
+            job_config = self._build_job_config(
+                self.config,
+                ds,
+                zarr_config_path
+            )
+
+            slurm_script = _get_sbatch_script(
+                job_config, self.config.sif_path
+            )
             self._logger.info(slurm_script)
 
             submit_jobs_request = _build_jobs_request(
@@ -352,7 +386,10 @@ class ExASPIMCronJob:
         return pending_datasets
 
     def _build_job_config(
-        self, config: ExASPIMCronJobConfig, dataset_path: PathLike
+        self,
+        config: ExASPIMCronJobConfig,
+        dataset_path: PathLike,
+        zarr_config_path: PathLike
     ) -> dict:
         """
         Builds the job configuration for a given dataset.
@@ -363,6 +400,8 @@ class ExASPIMCronJob:
             The configuration for the cron job.
         dataset_path : PathLike
             The path to the dataset.
+        zarr_config_path : PathLike
+            The path to the zarr configuration file.
 
         Returns
         -------
@@ -384,14 +423,17 @@ class ExASPIMCronJob:
         job_config = {
             "s3_bucket": config.s3_bucket,
             "platform": "EXASPIM",
-            "modalities": [{"modality": "SPIM", "source": dataset_path}],
+            "modalities": [{
+                "modality": "SPIM",
+                "source": str(dataset_path),
+                "extra_configs": str(zarr_config_path)
+            }],
             "subject_id": subject_id,
             "acq_datetime": acq_datetime,
             "force_cloud_sync": config.force_cloud_sync,
             "codeocean_domain": config.codeocean_domain,
             "metadata_service_domain": config.metadata_service_domain,
-            "aind_data_transfer_repo_location":
-                config.aind_data_transfer_repo_location,
+            "aind_data_transfer_repo_location": config.aind_data_transfer_repo_location,
             "log_level": config.log_level
         }
 
