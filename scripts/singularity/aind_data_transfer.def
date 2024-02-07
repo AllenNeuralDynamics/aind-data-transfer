@@ -1,0 +1,26 @@
+Bootstrap: docker
+From: python:3.11-bullseye
+
+%files
+    post_install.sh
+
+%post
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    rm awscliv2.zip
+    ./aws/install
+
+    wget https://www.mpich.org/static/downloads/3.2/mpich-3.2.tar.gz
+    tar xfz mpich-3.2.tar.gz
+    rm mpich-3.2.tar.gz
+    mkdir mpich-build
+    cd mpich-build
+    ../mpich-3.2/configure --disable-fortran 2>&1 | tee c.txt
+    make 2>&1 | tee m.txt
+    make install 2>&1 | tee mi.txt
+
+    cd ..
+    pip install aind-data-transfer[full] --no-cache-dir
+    ./post_install.sh
+    pip install mpi4py --no-cache-dir
+    pip install dask_mpi

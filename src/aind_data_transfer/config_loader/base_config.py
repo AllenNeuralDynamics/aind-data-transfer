@@ -5,15 +5,15 @@ import argparse
 import json
 import os
 import re
-from datetime import date, datetime, time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from aind_data_access_api.secrets import get_parameter
 from aind_data_schema.data_description import (
-    ExperimentType,
     Modality,
-    build_data_name,
+    Platform,
+    build_data_name
 )
 from aind_data_schema.processing import ProcessName
 from pydantic import (
@@ -33,7 +33,7 @@ class BasicJobEndpoints(BaseSettings):
     aws_param_store_name: Optional[str] = Field(default=None, repr=False)
 
     codeocean_domain: str = Field(...)
-    codeocean_trigger_capsule_id: str = Field(...)
+    codeocean_trigger_capsule_id: Optional[str] = Field(None)
     codeocean_trigger_capsule_version: Optional[str] = Field(None)
     metadata_service_domain: str = Field(...)
     aind_data_transfer_repo_location: str = Field(...)
@@ -146,6 +146,11 @@ class ModalityConfigs(BaseSettings):
         description="Location of additional configuration file",
         title="Extra Configs",
     )
+    skip_staging: bool = Field(
+        default=False,
+        description="Upload uncompressed directly without staging",
+        title="Skip Staging",
+    )
 
     @property
     def number_id(self):
@@ -171,6 +176,8 @@ class ModalityConfigs(BaseSettings):
             and values["modality"] == Modality.ECEPHYS
         ):
             return True
+        elif compress_source is not None:
+            return compress_source
         else:
             return False
 
@@ -178,32 +185,29 @@ class ModalityConfigs(BaseSettings):
 class BasicUploadJobConfigs(BasicJobEndpoints):
     """Configuration for the basic upload job"""
 
+    _DATETIME_PATTERN1 = re.compile(
+        r"^\d{4}-\d{2}-\d{2}[ |T]\d{2}:\d{2}:\d{2}$"
+    )
+    _DATETIME_PATTERN2 = re.compile(
+        r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [APap][Mm]$"
+    )
+
     s3_bucket: str = Field(
         ...,
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
     )
-    experiment_type: ExperimentType = Field(
-        ..., description="Experiment type", title="Experiment Type"
-    )
+    platform: Platform = Field(..., description="Platform", title="Platform")
     modalities: List[ModalityConfigs] = Field(
         ...,
         description="Data collection modalities and their directory location",
         title="Modalities",
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
-    acq_date: date = Field(
-        ..., description="Date data was acquired", title="Acquisition Date"
-    )
-    acq_time: time = Field(
+    acq_datetime: datetime = Field(
         ...,
-        description="Time of day data was acquired",
-        title="Acquisition Time",
-    )
-    process_name: ProcessName = Field(
-        default=ProcessName.OTHER,
-        description="Type of processing performed on the raw data source.",
-        title="Process Name",
+        description="Datetime data was acquired",
+        title="Acquisition Datetime",
     )
     temp_directory: Optional[DirectoryPath] = Field(
         default=None,
@@ -249,42 +253,37 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         ),
         title="Force Cloud Sync",
     )
+    processor_name = Field(
+        default="service",
+        description="Name of entity processing the data",
+        title="Processor Name",
+    )
+    process_name: ProcessName = Field(
+        default=ProcessName.OTHER,
+        description="Type of processing performed on the raw data source.",
+        title="Process Name",
+    )
 
     @property
     def s3_prefix(self):
         """Construct s3_prefix from configs."""
         return build_data_name(
-            label=f"{self.experiment_type.value}_{self.subject_id}",
-            creation_date=self.acq_date,
-            creation_time=self.acq_time,
+            label=f"{self.platform.value.abbreviation}_{self.subject_id}",
+            creation_datetime=self.acq_datetime,
         )
 
-    @staticmethod
-    def parse_date(date_str: str) -> date:
-        """Parses date string to %YYYY-%MM-%DD format"""
-        pattern = r"^\d{4}-\d{2}-\d{2}$"
-        pattern2 = r"^\d{1,2}/\d{1,2}/\d{4}$"
-        if re.match(pattern, date_str):
-            return date.fromisoformat(date_str)
-        elif re.match(pattern2, date_str):
-            return datetime.strptime(date_str, "%m/%d/%Y").date()
+    @validator("acq_datetime", pre=True)
+    def _parse_datetime(cls, datetime_str: str) -> datetime:
+        """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
+        # TODO: do this in data transfer service
+        if re.match(BasicUploadJobConfigs._DATETIME_PATTERN1, datetime_str):
+            return datetime.fromisoformat(datetime_str)
+        elif re.match(BasicUploadJobConfigs._DATETIME_PATTERN2, datetime_str):
+            return datetime.strptime(datetime_str, "%m/%d/%Y %I:%M:%S %p")
         else:
             raise ValueError(
-                "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
-            )
-
-    @staticmethod
-    def parse_time(time_str: str) -> time:
-        """Parses time string to "%HH-%MM-%SS format"""
-        pattern = r"^\d{1,2}-\d{1,2}-\d{1,2}$"
-        pattern2 = r"^\d{1,2}:\d{1,2}:\d{1,2}$"
-        if re.match(pattern, time_str):
-            return datetime.strptime(time_str, "%H-%M-%S").time()
-        elif re.match(pattern2, time_str):
-            return time.fromisoformat(time_str)
-        else:
-            raise ValueError(
-                "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
+                "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss "
+                "or MM/DD/YYYY I:MM:SS P"
             )
 
     @classmethod
@@ -301,10 +300,13 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         # Required
         parser.add_argument(
             "-a",
-            "--acq-date",
+            "--acq-datetime",
             required=True,
             type=str,
-            help="Date data was acquired, yyyy-MM-dd or dd/MM/yyyy",
+            help=(
+                "Datetime data was acquired, YYYY-MM-DD HH:mm:ss "
+                "or MM/DD/YYYY I:MM:SS P"
+            ),
         )
         parser.add_argument(
             "-b",
@@ -315,10 +317,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         )
         parser.add_argument(
             "-e",
-            "--experiment-type",
+            "--platform",
             required=True,
             type=str,
-            help=_help_message("experiment_type"),
+            help=_help_message("platform"),
         )
         parser.add_argument(
             "-m",
@@ -346,13 +348,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             required=True,
             type=str,
             help=_help_message("subject_id"),
-        )
-        parser.add_argument(
-            "-t",
-            "--acq-time",
-            required=True,
-            type=str,
-            help="Time data was acquired, HH-mm-ss or HH:mm:ss",
         )
         # Optional
         parser.add_argument(
@@ -407,8 +402,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         parser.set_defaults(metadata_dir_force=False)
         parser.set_defaults(force_cloud_sync=False)
         job_args = parser.parse_args(args)
-        acq_date = BasicUploadJobConfigs.parse_date(job_args.acq_date)
-        acq_time = BasicUploadJobConfigs.parse_time(job_args.acq_time)
+        acq_datetime = job_args.acq_datetime
         behavior_dir = (
             None
             if job_args.behavior_dir is None
@@ -451,10 +445,9 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         return cls(
             s3_bucket=job_args.s3_bucket,
             subject_id=job_args.subject_id,
-            experiment_type=ExperimentType(job_args.experiment_type),
+            platform=Platform(job_args.platform),
             modalities=modalities,
-            acq_date=acq_date,
-            acq_time=acq_time,
+            acq_datetime=acq_datetime,
             behavior_dir=behavior_dir,
             temp_directory=temp_directory,
             metadata_dir=metadata_dir,
@@ -464,3 +457,28 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             log_level=log_level,
             **endpoints_param_dict,
         )
+
+    @classmethod
+    def from_json_args(cls, args: list):
+        """Adds ability to construct settings from a single json string."""
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--json-args",
+            required=True,
+            type=str,
+            help="Configs passed as a single json string",
+        )
+        return cls(**json.loads(parser.parse_args(args).json_args))
+
+
+class ConfigError(Exception):
+    """Exception raised for errors in the config file."""
+
+    def __init__(self, message: str):
+        """Constructs the error message."""
+        self.message = message
+
+    def __str__(self):
+        """Returns the error message."""
+        return repr(self.message)

@@ -12,7 +12,7 @@ from aind_data_schema import (
     RawDataDescription,
     Subject,
 )
-from aind_data_schema.data_description import Modality
+from aind_data_schema.data_description import Funding, Institution, Modality
 from aind_data_schema.processing import ProcessName
 from requests import ConnectionError, Response
 
@@ -35,6 +35,15 @@ with open(METADATA_DIR / "processing.json", "r") as f:
 
 with open(METADATA_DIR / "data_description.json", "r") as f:
     expected_data_description_instance_json = json.load(f)
+
+with open(METADATA_DIR / "metadata.json", "r") as f:
+    expected_metadata_instance_json = json.load(f)
+
+with open(METADATA_DIR / "subject.json", "r") as f:
+    expected_subject_instance_json = json.load(f)
+
+with open(METADATA_DIR / "procedures.json", "r") as f:
+    expected_procedures_instance_json = json.load(f)
 
 
 class TestProcessingMetadata(unittest.TestCase):
@@ -62,6 +71,7 @@ class TestProcessingMetadata(unittest.TestCase):
         )
         input_location = "some_input_location"
         output_location = "some_output_location"
+        processor_full_name = "some name"
         code_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
         parameters = loaded_configs
@@ -72,14 +82,23 @@ class TestProcessingMetadata(unittest.TestCase):
             end_date_time=end_date_time,
             input_location=input_location,
             output_location=output_location,
+            processor_full_name=processor_full_name,
             code_url=code_url,
             parameters=parameters,
         )
 
         # Hack to get match version to be the same as in the example file
-        expected_processing_instance_json["data_processes"][0][
-            "version"
-        ] = processing_metadata.model_obj["data_processes"][0]["version"]
+        expected_processing_instance_json["processing_pipeline"][
+            "data_processes"
+        ][0]["software_version"] = processing_metadata.model_obj[
+            "processing_pipeline"
+        ][
+            "data_processes"
+        ][
+            0
+        ][
+            "software_version"
+        ]
 
         expected_processing_instance = Processing.parse_obj(
             expected_processing_instance_json
@@ -87,7 +106,7 @@ class TestProcessingMetadata(unittest.TestCase):
 
         self.assertEqual(
             json.loads(expected_processing_instance.json()),
-            processing_metadata.model_obj
+            processing_metadata.model_obj,
         )
         self.assertEqual(Processing, processing_metadata._model())
         self.assertEqual(
@@ -101,9 +120,17 @@ class TestSubjectMetadata(unittest.TestCase):
     successful_response_message = {
         "message": "Valid Model.",
         "data": {
-            "describedBy": "https://github-location.org/subject.py",
-            "schema_version": "0.3.0",
-            "species": "Mus musculus",
+            "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/subject.py",
+            "schema_version": "0.4.2",
+            "species": {
+                "name": "Mus musculus",
+                "abbreviation": None,
+                "registry": {
+                    "name": "National Center for Biotechnology Information",
+                    "abbreviation": "NCBI",
+                },
+                "registry_identifier": "10090",
+            },
             "subject_id": "632269",
             "sex": "Female",
             "date_of_birth": "2022-05-01",
@@ -113,14 +140,13 @@ class TestSubjectMetadata(unittest.TestCase):
             "source": None,
             "rrid": None,
             "restrictions": None,
-            "breeding_group": (
-                "Pvalb-IRES-Cre;RCL-somBiPoles_mCerulean-WPRE(ND)"
-            ),
+            "breeding_group": "Pvalb-IRES-Cre;RCL-somBiPoles_mCerulean-WPRE(ND)",
             "maternal_id": "615310",
             "maternal_genotype": "Pvalb-IRES-Cre/wt",
             "paternal_id": "623236",
             "paternal_genotype": "RCL-somBiPoles_mCerulean-WPRE/wt",
             "wellness_reports": None,
+            "housing": None,
             "notes": None,
         },
     }
@@ -164,21 +190,22 @@ class TestSubjectMetadata(unittest.TestCase):
         is_model_valid = actual_subject.validate_obj()
         # Mock writing out to a directory
         mock_os.side_effect = [True, False]
+        # Each call to write_to_json makes a call to validate_obj()
         actual_subject.write_to_json(Path("/some_path/"))
         actual_subject.write_to_json(Path("/some_path/subject2.json"))
 
         expected_subject = self.successful_response_message["data"]
 
-        mock_log_info.assert_called_once_with("Model is valid.")
+        mock_log_info.assert_has_calls(
+            [
+                call("Model is valid."),
+                call("Model is valid."),
+                call("Model is valid."),
+            ]
+        )
         mock_open.assert_has_calls(
             [
                 call(Path("/some_path/subject.json"), "w"),
-                call().__enter__(),
-                call()
-                .__enter__()
-                .write(json.dumps(expected_subject, indent=3, default=str)),
-                call().__exit__(None, None, None),
-                call(Path("/some_path/subject2.json"), "w"),
                 call().__enter__(),
                 call()
                 .__enter__()
@@ -322,7 +349,9 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         Tests that the data description metadata is created correctly.
         """
         data_description = RawDataDescriptionMetadata.from_inputs(
-            name="diSPIM_12345_2022-02-21_16-30-01", modality=[Modality.SPIM]
+            name="exaSPIM_12345_2022-02-21_16-30-01",
+            modality=[Modality.SPIM],
+            funding_source=(Funding(funder=Institution.AI),),
         )
 
         expected_data_description_instance = RawDataDescription.parse_obj(
@@ -345,56 +374,23 @@ class TestProceduresMetadata(unittest.TestCase):
     successful_response_message = {
         "message": "Valid Model.",
         "data": {
-            "describedBy": (
-                "https://raw.githubusercontent.com/AllenNeuralDynamics/"
-                "aind-data-schema/main/src/aind_data_schema/procedures.py"
-            ),
-            "schema_version": "0.6.1",
+            "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/procedures.py",
+            "schema_version": "0.9.2",
             "subject_id": "436083",
             "subject_procedures": [
                 {
                     "start_date": "2019-01-09",
                     "end_date": "2019-01-09",
-                    "experimenter_full_name": "NSB-000",
-                    "iacuc_protocol": "1804",
+                    "experimenter_full_name": "NSB-118",
+                    "iacuc_protocol": None,
                     "animal_weight_prior": 21.3,
-                    "animal_weight_post": 23.0,
+                    "animal_weight_post": 23,
                     "weight_unit": "gram",
                     "anaesthesia": {
                         "type": "isoflurane",
-                        "duration": None,
-                        "level": "Select...",
+                        "duration_unit": "minute",
+                        "level": 1.5,
                     },
-                    "notes": None,
-                    "injection_materials": None,
-                    "recovery_time": None,
-                    "injection_duration": 10,
-                    "workstation_id": "SWS 6",
-                    "instrument_id": "NJ#6",
-                    "injection_coordinate_ml": -2.3,
-                    "injection_coordinate_ap": -2.3,
-                    "injection_coordinate_depth": 2.6,
-                    "injection_coordinate_unit": "millimeter",
-                    "injection_coordinate_reference": None,
-                    "bregma_to_lambda_distance": None,
-                    "bregma_to_lambda_unit": "millimeter",
-                    "injection_angle": 0.0,
-                    "injection_angle_unit": "degree",
-                    "injection_hemisphere": "Left",
-                    "procedure_type": "Nanoject injection",
-                    "injection_volume": 200.0,
-                    "injection_volume_unit": "nanoliter",
-                    "injection_type": "Nanoject (Pressure)",
-                },
-                {
-                    "start_date": "2019-01-09",
-                    "end_date": "2019-01-09",
-                    "experimenter_full_name": "NSB-000",
-                    "iacuc_protocol": "1804",
-                    "animal_weight_prior": 21.3,
-                    "animal_weight_post": 23.0,
-                    "weight_unit": "gram",
-                    "anaesthesia": {"type": "isoflurane", "level": "1.5"},
                     "notes": None,
                     "procedure_type": "Headframe",
                     "headframe_type": "CAM-style",
@@ -406,12 +402,66 @@ class TestProceduresMetadata(unittest.TestCase):
                 {
                     "start_date": "2019-01-09",
                     "end_date": "2019-01-09",
-                    "experimenter_full_name": "NSB-000",
-                    "iacuc_protocol": "1804",
+                    "experimenter_full_name": "NSB-118",
+                    "iacuc_protocol": None,
                     "animal_weight_prior": 21.3,
-                    "animal_weight_post": 23.0,
+                    "animal_weight_post": 23,
                     "weight_unit": "gram",
-                    "anaesthesia": {"type": "isoflurane", "level": "1.5"},
+                    "anaesthesia": {
+                        "type": "isoflurane",
+                        "duration": None,
+                        "duration_unit": "minute",
+                        "level": 1.5,
+                    },
+                    "notes": None,
+                    "injection_materials": [
+                        {
+                            "material_id": None,
+                            "full_genome_name": None,
+                            "plasmid_name": None,
+                            "genome_copy": None,
+                            "titer": None,
+                            "titer_unit": "gc/mL",
+                            "prep_lot_number": None,
+                            "prep_date": None,
+                            "prep_type": None,
+                            "prep_protocol": None,
+                        }
+                    ],
+                    "recovery_time": None,
+                    "recovery_time_unit": "minute",
+                    "injection_duration": 10,
+                    "injection_duration_unit": "minute",
+                    "workstation_id": "SWS 6",
+                    "instrument_id": "NJ#6",
+                    "injection_coordinate_ml": -2.3,
+                    "injection_coordinate_ap": -2.3,
+                    "injection_coordinate_depth": 2.6,
+                    "injection_coordinate_unit": "millimeter",
+                    "injection_coordinate_reference": None,
+                    "bregma_to_lambda_distance": 4.22,
+                    "bregma_to_lambda_unit": "millimeter",
+                    "injection_angle": 0,
+                    "injection_angle_unit": "degree",
+                    "targeted_structure": None,
+                    "injection_hemisphere": "Left",
+                    "procedure_type": "Nanoject injection",
+                    "injection_volume": 200,
+                    "injection_volume_unit": "nanoliter",
+                },
+                {
+                    "start_date": "2019-01-09",
+                    "end_date": "2019-01-09",
+                    "experimenter_full_name": "NSB-118",
+                    "iacuc_protocol": None,
+                    "animal_weight_prior": 21.3,
+                    "animal_weight_post": 23,
+                    "weight_unit": "gram",
+                    "anaesthesia": {
+                        "type": "isoflurane",
+                        "duration_unit": "minute",
+                        "level": 1.5,
+                    },
                     "notes": None,
                     "procedure_type": "Craniotomy",
                     "craniotomy_type": "Visual Cortex",
@@ -419,19 +469,20 @@ class TestProceduresMetadata(unittest.TestCase):
                     "craniotomy_coordinates_ml": 2.8,
                     "craniotomy_coordinates_ap": 1.3,
                     "craniotomy_coordinates_unit": "millimeter",
-                    "craniotomy_coordinates_reference": None,
-                    "bregma_to_lambda_distance": None,
+                    "craniotomy_coordinates_reference": "Lambda",
+                    "bregma_to_lambda_distance": 4.22,
                     "bregma_to_lambda_unit": "millimeter",
-                    "craniotomy_size": 5.0,
+                    "craniotomy_size": None,
                     "craniotomy_size_unit": "millimeter",
                     "implant_part_number": None,
                     "dura_removed": True,
                     "protective_material": None,
                     "workstation_id": "SWS 6",
                     "recovery_time": None,
+                    "recovery_time_unit": "minute",
                 },
             ],
-            "specimen_procedures": None,
+            "specimen_procedures": [],
             "notes": None,
         },
     }

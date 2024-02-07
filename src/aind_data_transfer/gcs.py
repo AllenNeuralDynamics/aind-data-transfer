@@ -121,7 +121,7 @@ class GCSUploader:
             A list of filepaths for failed uploads
         """
         return self.upload_files(
-            collect_filepaths(folder, recursive),
+            list(collect_filepaths(folder, recursive)),
             gcs_folder,
             root=folder,
             chunk_size=chunk_size,

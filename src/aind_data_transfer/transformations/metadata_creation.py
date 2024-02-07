@@ -1,7 +1,6 @@
 """This module will have classes that handle mapping to metadata files."""
 import json
 import logging
-import os
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -15,7 +14,12 @@ from aind_data_schema.data_description import (
     RawDataDescription,
 )
 from aind_data_schema.procedures import Procedures
-from aind_data_schema.processing import DataProcess, Processing, ProcessName
+from aind_data_schema.processing import (
+    DataProcess,
+    PipelineProcess,
+    Processing,
+    ProcessName,
+)
 from aind_data_schema.subject import Subject
 from aind_metadata_service.client import AindMetadataServiceClient
 from pydantic import validate_model
@@ -89,7 +93,14 @@ class MetadataCreation(ABC):
             logging.info("Model is valid.")
             return True
 
-    def write_to_json(self, path: Path) -> None:
+    def get_model(self):
+        model = self._model()
+        if self.validate_obj() is True:
+            return model.parse_obj(self.model_obj)
+        else:
+            return model.construct(**self.model_obj)
+
+    def write_to_json(self, path: Path, suffix: str = None) -> None:
         """
         Write the model_obj to a json file. If the Path is a directory, it will
         use the output_filename method to generate the filename.
@@ -103,14 +114,8 @@ class MetadataCreation(ABC):
         None
 
         """
-
-        if os.path.isdir(path):
-            out_path = path / self.output_filename
-        else:
-            out_path = path
-
-        with open(out_path, "w") as outfile:
-            outfile.write(json.dumps(self.model_obj, indent=3, default=str))
+        model = self.get_model()
+        return model.write_standard_file(output_directory=path, suffix=suffix)
 
 
 class ServiceMetadataCreation(MetadataCreation):
@@ -276,6 +281,7 @@ class ProcessingMetadata(MetadataCreation):
         output_location: str,
         code_url: str,
         parameters: dict,
+        processor_full_name: str,
         notes: Optional[str] = None,
     ):
         """
@@ -296,13 +302,15 @@ class ProcessingMetadata(MetadataCreation):
           Location of the processing code
         parameters : dict
           Parameters used in the process
+        processor_full_name : str
+          Name of entity responsible for data processing
         notes : Optional[str]
           Optional notes. Defaults to None.
 
         """
         data_processing_instance = DataProcess(
             name=process_name.value,
-            version=aind_data_transfer_version,
+            software_version=aind_data_transfer_version,
             start_date_time=start_date_time,
             end_date_time=end_date_time,
             input_location=input_location,
@@ -311,8 +319,12 @@ class ProcessingMetadata(MetadataCreation):
             parameters=parameters,
             notes=notes,
         )
+        pipeline_process_instance = PipelineProcess(
+            data_processes=[data_processing_instance],
+            processor_full_name=processor_full_name,
+        )
         processing_instance = Processing(
-            data_processes=[data_processing_instance]
+            processing_pipeline=pipeline_process_instance
         )
         # Do this to use enum strings instead of classes in dict representation
         contents = json.loads(processing_instance.json())
@@ -326,6 +338,7 @@ class ProcessingMetadata(MetadataCreation):
         end_date_time: datetime,
         output_location: str,
         code_url: str,
+        processor_full_name: str,
         notes: Optional[str] = None,
     ):
         """
@@ -342,29 +355,35 @@ class ProcessingMetadata(MetadataCreation):
           Location of the files that are being processed
         code_url : str
           Location of the processing code
+        processor_full_name : str
+          Name of entity responsible for data processing
         notes : Optional[str]
           Optional notes. Defaults to None.
 
         """
         data_processes = []
         for modality_config in modality_configs:
-            if modality_config.modality == Modality.ECEPHYS:
-                process_name = ProcessName.EPHYS_PREPROCESSING
-            else:
-                process_name = ProcessName.OTHER
-            data_processing_instance = DataProcess(
-                name=process_name.value,
-                version=aind_data_transfer_version,
-                start_date_time=start_date_time,
-                end_date_time=end_date_time,
-                input_location=str(modality_config.source),
-                output_location=output_location,
-                code_url=code_url,
-                parameters=modality_config.dict(),
-                notes=notes,
-            )
-            data_processes.append(data_processing_instance)
-        processing_instance = Processing(data_processes=data_processes)
+            if modality_config.compress_raw_data == True:
+                process_name = ProcessName.COMPRESSION
+                data_processing_instance = DataProcess(
+                    name=process_name.value,
+                    software_version=aind_data_transfer_version,
+                    start_date_time=start_date_time,
+                    end_date_time=end_date_time,
+                    input_location=str(modality_config.source),
+                    output_location=output_location,
+                    code_url=code_url,
+                    parameters=modality_config.dict(),
+                    notes=notes,
+                )
+                data_processes.append(data_processing_instance)
+        pipeline_process_instance = PipelineProcess(
+            data_processes=data_processes,
+            processor_full_name=processor_full_name,
+        )
+        processing_instance = Processing(
+            processing_pipeline=pipeline_process_instance
+        )
         # Do this to use enum strings instead of classes in dict representation
         contents = json.loads(processing_instance.json())
         return cls(model_obj=contents)

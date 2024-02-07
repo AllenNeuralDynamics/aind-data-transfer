@@ -74,22 +74,23 @@ Required
 
 ```
 s3_bucket: S3 Bucket name
-experiment_type: One of [confocal, diSPIM, ecephys, exaSPIM, FIP, fMOST, HSFP, mesoSPIM, MRI, Other, SmartSPIM]
-modality: One of [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MRI, OPHYS, SMARTSPIM, SPIM]
+platform: One of [behavior, confocal, ecephys, exaSPIM, FIP, HCR, HSFP, mesoSPIM, merfish, MRI, multiplane-ophys, single-plane-ophys, SLAP2, smartSPIM] (pulled from the Platform.abbreviation field)
+modality: One of [behavior-videos, confocal, ecephys, fMOST, icephys, fib, merfish, MRI, ophys, slap, SPIM, trained-behavior] (pulled from the Modality.abbreviation field)
 subject_id: ID of the subject
-acq_date: Format can be either yyyy-MM-dd or MM/dd/yyyy
-acq_time: Format can be either HH:mm:ss or HH-mm-ss
+acq_datetime: Format can be either YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P
 ```
 
 One or more modalities need to be set. The csv headers can look like:
 ```
-modality0: [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MRI, OPHYS, SMARTSPIM, SPIM]
+modality0: [behavior-videos, confocal, ecephys, fMOST, icephys, fib, merfish, MRI, ophys, slap, SPIM, trained-behavior]
 modality0.source: path to modality0 raw data folder
 modality0.compress_raw_data (Optional): Override default compression behavior. True if ECEPHYS, False otherwise.
+modality0.skip_staging (Optional): If modality0.compress_raw_data is False and this is True, upload directly to s3. Default is False.
 modality0.extra_configs (Optional): path to config file to override compression defaults
-modality1 (Optional): [CONFOCAL, DISPIM, ECEPHYS, EPHYS, EXASPIM, FIP, FMOST, HSFP, ICEPHYS, MESOSPIM, MRI, OPHYS, SMARTSPIM, SPIM]
+modality1 (Optional): [behavior-videos, confocal, ecephys, fMOST, icephys, fib, merfish, MRI, ophys, slap, SPIM, trained-behavior]
 modality1.source (Optional): path to modality0 raw data folder
 modality1.compress_raw_data (Optional): Override default compression behavior. True if ECEPHYS, False otherwise.
+modality1.skip_staging (Optional): If modality1.compress_raw_data is False and this is True, upload directly to s3. Default is False.
 modality1.extra_configs (Optional): path to config file to override compression defaults
 ...
 ```
@@ -128,6 +129,7 @@ metadata_dir_force: Default is false. If true, the metadata in the metadata fold
 dry_run: Default is false. If set to true, it will perform a dry-run of the upload portion and not actually upload anything.
 force_cloud_sync: Use with caution. If set to true, it will sync the local raw data to the cloud even if the cloud folder already exists.
 compress_raw_data: Override all compress_raw_data defaults and set them to True.
+skip_staging: For each modality, copy uncompressed data directly to s3.
 ```
 
 After creating the csv file, you can run through the jobs with
@@ -147,9 +149,9 @@ will compress the raw data source and run a dry run for all jobs defined in the 
 An example csv file might look like:
 
 ```
-data-source, s3-bucket, subject-id, modality, experiment_type, acq-date, acq-time, aws_param_store_name
-dir/data_set_1, some_bucket, 123454, ECEPHYS, ecephys, 2020-10-10, 14-10-10, /aind/data/transfer/endpoints
-dir/data_set_2, some_bucket2, 123456, OPHYS, Other, 2020-10-11, 13-10-10, /aind/data/transfer/endpoints
+data-source, s3-bucket, subject-id, modality, platform, acq-datetime, aws_param_store_name
+dir/data_set_1, some_bucket, 123454, ecephys, ecephys, 2020-10-10 14:10:10, /aind/data/transfer/endpoints
+dir/data_set_2, some_bucket2, 123456, ophys, multiplane-ophys, 2020-10-11 13:10:10, /aind/data/transfer/endpoints
 ```
 
 ### Defining a custom processing capsule to run in code ocean
@@ -158,9 +160,9 @@ Read the previous section on defining a csv file. Retrieve the capsule id from t
 You can add an extra parameter to define a custom processing capsule that gets executed aftet the data is uploaded:
 
 ```
-codeocean_process_capsule_id, data-source, s3-bucket, subject-id, modality, experiment_type, acq-date, acq-time, aws_param_store_name
-xyz-123-456, dir/data_set_1, some_bucket, 123454, ECEPHYS, ecephys, 2020-10-10, 14-10-10, /aind/data/transfer/endpoints
-xyz-123-456, dir/data_set_2, some_bucket2, 123456, OPHYS, Other, 2020-10-11, 13-10-10, /aind/data/transfer/endpoints
+codeocean_process_capsule_id, data-source, s3-bucket, subject-id, modality, platform, acq-datetime, aws_param_store_name
+xyz-123-456, dir/data_set_1, some_bucket, 123454, ecephys, ecephys, 2020-10-10 14:10:10, /aind/data/transfer/endpoints
+xyz-123-456, dir/data_set_2, some_bucket2, 123456, ophys, multiplane-ophys, 2020-10-11 13:10:10, /aind/data/transfer/endpoints
 ```
 
 ## Contributing

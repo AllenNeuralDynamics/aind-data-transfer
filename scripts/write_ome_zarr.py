@@ -17,25 +17,13 @@ from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import *
 
+# Importing this will set up the logging configuration on all nodes
+from aind_data_transfer.util import setup_logging
+
 blosc.use_threads = False
 
-logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
-
-
-def get_blosc_codec(cname, clevel):
-    opts = {
-        "compressor": blosc.Blosc(
-            cname=cname, clevel=clevel, shuffle=blosc.SHUFFLE
-        ),
-        "params": {
-            "shuffle": blosc.SHUFFLE,
-            "level": clevel,
-            "name": f"blosc-{cname}",
-        },
-    }
-    return opts
 
 
 def output_valid(output: Union[str, os.PathLike]) -> bool:
@@ -122,8 +110,8 @@ def parse_args():
     )
     parser.add_argument(
         "--scale_factor",
-        type=float,
-        default=2.0,
+        type=int,
+        default=2,
         help="scale factor for downsampling",
     )
     parser.add_argument(
@@ -162,7 +150,7 @@ def parse_args():
         "--bkg_img_dir",
         type=str,
         default=None,
-        help="path to the background image folder. If given, background subtraction will be done for each converted image."
+        help="path to the background image folder. If given, background subtraction will be done for each converted image.",
     )
     args = parser.parse_args()
     return args
@@ -195,8 +183,6 @@ def main():
         "env": {
             "HDF5_PLUGIN_PATH": find_hdf5plugin_path(),
             "HDF5_USE_FILE_LOCKING": "FALSE",
-            "OMP_NUM_THREADS": "1",
-            "MALLOC_TRIM_THRESHOLD_": "0",
         }
     }
     client, _ = get_client(args.deployment, worker_options=worker_options)
@@ -227,7 +213,7 @@ def main():
 
     overwrite = not args.resume
 
-    opts = get_blosc_codec(args.codec, args.clevel)
+    compressor = blosc.Blosc(args.codec, args.clevel, shuffle=blosc.SHUFFLE)
 
     all_metrics = write_files(
         images,
@@ -238,8 +224,8 @@ def main():
         args.chunk_size,
         args.chunk_shape,
         voxsize,
-        opts,
-        bkg_img_dir=args.bkg_img_dir
+        compressor,
+        bkg_img_dir=args.bkg_img_dir,
     )
 
     df = pd.DataFrame.from_records(all_metrics)

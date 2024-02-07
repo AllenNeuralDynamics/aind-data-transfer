@@ -5,11 +5,12 @@ import re
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Generator
 
 import dask.array as da
 import fsspec
 import h5py
+
 # Importing this alone doesn't work on HPC
 # Must manually override HDF5_PLUGIN_PATH environment variable
 # in each Dask worker
@@ -17,6 +18,8 @@ import hdf5plugin
 import numpy as np
 import ujson
 import zarr
+from aind_data_transfer.util.chunk_utils import expand_chunks
+from numpy.typing import ArrayLike
 from kerchunk.tiff import tiff_to_zarr
 from numpy import dtype
 
@@ -83,20 +86,19 @@ class TiffReader(DataReader):
         # be run from a location accessible by all nodes.
         self._temp_dir = tempfile.TemporaryDirectory(dir=os.getcwd())
         self._refs_file = os.path.join(
-            self._temp_dir.name,
-            f"references-{Path(filepath).name}.json"
+            self._temp_dir.name, f"references-{Path(filepath).name}.json"
         )
         if os.path.isfile(self._refs_file):
-            raise Exception(f"References file already exists: {self._refs_file}")
+            raise Exception(
+                f"References file already exists: {self._refs_file}"
+            )
         Path(self._refs_file).parent.mkdir(parents=True, exist_ok=True)
-        with open(self._refs_file, 'wb') as f:
+        with open(self._refs_file, "wb") as f:
             f.write(ujson.dumps(refs).encode())
         fs = fsspec.filesystem(
-            "reference",
-            fo=self._refs_file,
-            remote_protocol='file'
+            "reference", fo=self._refs_file, remote_protocol="file"
         )
-        self._arr = zarr.open(fs.get_mapper(""), 'r')
+        self._arr = zarr.open(fs.get_mapper(""), "r")
 
     def __enter__(self):
         return self
@@ -116,8 +118,7 @@ class TiffReader(DataReader):
         # For performance it is *critical* the initial dask array construction
         # uses single plane chunks, and to then rechunk with the desired chunks
         a = da.from_array(
-            self._arr,
-            chunks=(1, self._arr.shape[-2], self._arr.shape[-1])
+            self._arr, chunks=(1, self._arr.shape[-2], self._arr.shape[-1])
         )
         if chunks is not None:
             a = a.rechunk(chunks)
@@ -185,7 +186,9 @@ class ImarisReader(DataReader):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def as_dask_array(self, data_path: str = DEFAULT_DATA_PATH, chunks=True) -> da.Array:
+    def as_dask_array(
+        self, data_path: str = DEFAULT_DATA_PATH, chunks=True
+    ) -> da.Array:
         """Return the image stack as a Dask Array
 
         Args:
@@ -202,18 +205,26 @@ class ImarisReader(DataReader):
         # This array is 0-padded to be divisible by the Imaris chunk size in each dimension
         a = da.from_array(self.get_dataset(data_path), chunks=chunks)
         # Crop to the "real" shape at the given resolution
-        return a[:real_shape_at_lvl[0], :real_shape_at_lvl[1], :real_shape_at_lvl[2]]
+        return a[
+            : real_shape_at_lvl[0],
+            : real_shape_at_lvl[1],
+            : real_shape_at_lvl[2],
+        ]
 
     def as_array(self, data_path=DEFAULT_DATA_PATH) -> np.ndarray:
         """
         Get the image stack as a ndarray
-        
+
         Args:
             data_path: the path to the dataset
         """
         lvl = self._get_res_lvl(data_path)
         real_shape_at_lvl = self._get_shape_at_lvl(lvl)
-        return self.get_dataset(data_path)[:real_shape_at_lvl[0], :real_shape_at_lvl[1], :real_shape_at_lvl[2]]
+        return self.get_dataset(data_path)[
+            : real_shape_at_lvl[0],
+            : real_shape_at_lvl[1],
+            : real_shape_at_lvl[2],
+        ]
 
     def get_dataset(self, data_path=DEFAULT_DATA_PATH) -> h5py.Dataset:
         """
@@ -232,7 +243,11 @@ class ImarisReader(DataReader):
         Get the shape of the image
         """
         info = self.get_dataset_info()
-        return int(info.attrs["Z"].tobytes()), int(info.attrs["Y"].tobytes()), int(info.attrs["X"].tobytes())
+        return (
+            int(info.attrs["Z"].tobytes()),
+            int(info.attrs["Y"].tobytes()),
+            int(info.attrs["X"].tobytes()),
+        )
 
     def get_chunks(self, data_path=DEFAULT_DATA_PATH) -> tuple:
         """
@@ -259,11 +274,11 @@ class ImarisReader(DataReader):
         return self.handle
 
     def get_dask_pyramid(
-            self,
-            num_levels: int,
-            timepoint: int = 0,
-            channel: int = 0,
-            chunks: Any = True
+        self,
+        num_levels: int,
+        timepoint: int = 0,
+        channel: int = 0,
+        chunks: Any = True,
     ) -> List[da.Array]:
         """
         Get a multiscale image pyramid as a list of dask arrays.
@@ -356,12 +371,25 @@ class ImarisReader(DataReader):
         lvl_rgx = r"/ResolutionLevel (\d+)/"
         m = re.search(lvl_rgx, data_path)
         if m is None:
-            raise Exception(f"Could not parse resolution level from path {data_path}")
+            raise Exception(
+                f"Could not parse resolution level from path {data_path}"
+            )
         return int(m.group(1))
 
     def _get_shape_at_lvl(self, lvl: int):
         shape = self.get_shape()
         return tuple(int(math.ceil(s / 2**lvl)) for s in shape)
+
+    @property
+    def n_levels(self):
+        lvl = 0
+        while True:
+            ds_path = (
+                f"/DataSet/ResolutionLevel {lvl}/TimePoint 0/Channel 0/Data"
+            )
+            if ds_path not in self.get_handle():
+                return lvl
+            lvl += 1
 
 
 class DataReaderFactory:
@@ -392,3 +420,104 @@ class DataReaderFactory:
         if ext not in self.VALID_EXTENSIONS:
             raise NotImplementedError(f"File type {ext} not supported")
         return self.factory[ext](filepath)
+
+
+class BlockedArrayWriter:
+    @staticmethod
+    def gen_slices(
+        arr_shape: Tuple[int, ...], block_shape: Tuple[int, ...]
+    ) -> Generator:
+        """
+        Generate a series of slices that can be used to traverse an array in blocks of a given shape.
+
+        The method generates tuples of slices, each representing a block of the array. The blocks are generated by
+        iterating over the array in steps of the block shape along each dimension.
+
+        Parameters
+        ----------
+        arr_shape : tuple of int
+            The shape of the array to be sliced.
+
+        block_shape : tuple of int
+            The desired shape of the blocks. This should be a tuple of integers representing the size of each
+            dimension of the block. The length of `block_shape` should be equal to the length of
+            `arr_shape`. If the array shape is not divisible by the block shape along a dimension, the last slice
+            along that dimension is truncated.
+
+        Returns
+        -------
+        generator of tuple of slice
+            A generator yielding tuples of slices. Each tuple can be used to index the input array.
+        """
+        if len(arr_shape) != len(block_shape):
+            raise Exception(
+                "array shape and block shape have different lengths"
+            )
+
+        def _slice_along_dim(dim: int) -> Generator:
+            """A helper generator function that slices along one dimension."""
+            # Base case: if the dimension is beyond the last one, return an empty tuple
+            if dim >= len(arr_shape):
+                yield ()
+            else:
+                # Iterate over the current dimension in steps of the block size
+                for i in range(0, arr_shape[dim], block_shape[dim]):
+                    # Calculate the end index for this block
+                    end_i = min(i + block_shape[dim], arr_shape[dim])
+                    # Generate slices for the remaining dimensions
+                    for rest in _slice_along_dim(dim + 1):
+                        yield (slice(i, end_i),) + rest
+
+        # Start slicing along the first dimension
+        return _slice_along_dim(0)
+
+    @staticmethod
+    def store(
+        in_array: da.Array, out_array: ArrayLike, block_shape: tuple
+    ) -> None:
+        """
+        Partitions the last 3 dimensions of a Dask array into non-overlapping blocks and
+        writes them sequentially to a Zarr array. This is meant to reduce the scheduling burden
+        for massive (terabyte-scale) arrays.
+
+        :param in_array: The input Dask array
+        :param block_shape: Tuple of (block_depth, block_height, block_width)
+        :param out_array: The output array
+        """
+        # Iterate through the input array in steps equal to the block shape dimensions
+        for sl in BlockedArrayWriter.gen_slices(in_array.shape, block_shape):
+            block = in_array[sl]
+            da.store(
+                block,
+                out_array,
+                regions=sl,
+                lock=False,
+                compute=True,
+                return_stored=False,
+            )
+
+    @staticmethod
+    def get_block_shape(arr, target_size_mb=409600, mode="cycle"):
+        """
+        Given the shape and chunk size of a pre-chunked array, determine the optimal block shape
+        closest to target_size. Expanded block dimensions are an integer multiple of the chunk dimension
+        to ensure optimal access patterns.
+        Args:
+            arr: the input array
+            target_size_mb: target block size in megabytes, default is 409600
+            mode: strategy. Must be one of "cycle", or "iso"
+        Returns:
+            the block shape
+        """
+        if isinstance(arr, da.Array):
+            chunks = arr.chunksize[-3:]
+        else:
+            chunks = arr.chunks[-3:]
+
+        return expand_chunks(
+            chunks,
+            arr.shape[-3:],
+            target_size_mb * 1024**2,
+            arr.itemsize,
+            mode,
+        )

@@ -1,6 +1,6 @@
 """
 Submit jobs to a cluster.
-Adapted from from https://github.com/JaneliaSciComp/spark-janelia
+Adapted from https://github.com/JaneliaSciComp/spark-janelia
 """
 
 import argparse
@@ -8,55 +8,119 @@ import collections
 import datetime
 import os
 import shutil
-import string
 import time
 from pathlib import Path
 
 
-class SlurmTemplate(string.Template):
-    delimiter = "@"
-    idpattern = r"[a-z][_a-z0-9]*"
+def generate_slurm_script(
+    sbatch_params, conda_activate, conda_env, dask_conf_file, job_cmd
+):
+    """
+    Generate a SLURM script for submitting a job to a cluster.
 
+    Parameters
+    ----------
+    sbatch_params : dict
+        Dictionary containing SLURM sbatch parameters.
+    conda_activate : str
+        Path to the conda environment activation script.
+    conda_env : str
+        Name of the conda environment to activate.
+    dask_conf_file : str
+        Path to the Dask configuration file.
+    job_cmd : str
+        The job command to be executed.
 
-def render_template(template_path, to_path, **kwargs):
-    with open(template_path, "r") as template_file:
-        template_contents = template_file.read()
+    Returns
+    -------
+    str
+        The generated SLURM script.
+    """
 
-    template = SlurmTemplate(template_contents)
-    populated_template = template.substitute(kwargs)
+    sbatch_lines = "\n".join(
+        [f"#SBATCH --{key}={value}" for key, value in sbatch_params.items()]
+    )
 
-    with open(to_path, "w") as file:
-        print(populated_template, file=file)
+    script = f"""#!/bin/bash
 
-    return to_path
+{sbatch_lines}
+
+set -e
+
+pwd; date
+
+[[ -f "{conda_activate}" ]] && source "{conda_activate}" {conda_env}
+
+module purge
+module load mpi/mpich-3.2-x86_64
+
+export DASK_CONFIG={dask_conf_file}
+
+echo "Running \\"{job_cmd}\\""
+
+# Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
+# are not sitting idle while the workers (rank 2...N) work
+# See https://edbennett.github.io/high-performance-python/11-dask/ for details.
+mpiexec -np $(( SLURM_NTASKS + 2 )) {job_cmd}
+
+echo "Done"
+
+date
+"""
+
+    return script
 
 
 def write_slurm_scripts(args, run_info):
-    template_path = os.path.join(
-        Path(os.path.dirname(__file__)).parent.parent.absolute(),
-        "templates/queue_slurm_job.sh",
+    """
+    Write the SLURM scripts for submitting jobs to the cluster.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments containing job configuration.
+    run_info : RunInfo
+        Namedtuple containing information about the run.
+
+    """
+    script_path = run_info.launch_script
+    sbatch_params = {
+        "cpus-per-task": args.cpus_per_task,
+        "mem-per-cpu": args.mem_per_cpu,
+        "tmp": args.tmp_space,
+        "time": args.walltime,
+        "partition": args.queue,
+        "output": f"{run_info.logs_dir}/output_%j.log",
+        "mail-type": "ALL",
+        "mail-user": args.mail_user,
+    }
+    if args.ntasks is not None:
+        sbatch_params["ntasks"] = args.ntasks
+    else:
+        sbatch_params["nodes"] = args.nodes
+        sbatch_params["ntasks-per-node"] = args.ntasks_per_node
+
+    script = generate_slurm_script(
+        sbatch_params,
+        args.conda_activate,
+        args.conda_env,
+        run_info.dask_conf_file,
+        args.job_cmd,
     )
-    script_path = render_template(
-        template_path,
-        run_info.launch_script,
-        conda_activate=args.conda_activate,
-        conda_env=args.conda_env,
-        job_cmd=args.job_cmd,
-        mail_user=args.mail_user,
-        job_log_dir=run_info.logs_dir,
-        walltime=args.walltime,
-        partition=args.queue,
-        nodes=args.nodes,
-        ntasks_per_node=args.ntasks_per_node,
-        cpus_per_task=args.cpus_per_task,
-        mem_per_cpu=args.mem_per_cpu,
-        tmp_space=args.tmp_space,
-        dask_conf_file=run_info.dask_conf_file,
-    )
+    with open(script_path, "w") as file:
+        file.write(script)
     os.chmod(script_path, 0o755)
 
 
 def copy_dask_config(run_info):
+    """
+    Copy the Dask configuration file to the run directory.
+
+    Parameters
+    ----------
+    run_info : RunInfo
+        Namedtuple containing information about the run.
+    """
     conf_file = (
         Path(__file__).parent.parent.parent / "conf/dask/dask-config.yaml"
     )
@@ -74,6 +138,19 @@ RunInfo = collections.namedtuple(
 
 
 def create_run(args):
+    """
+    Create the necessary directories and files for a run.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments containing run configuration.
+
+    Returns
+    -------
+    RunInfo
+        Namedtuple containing information about the run.
+    """
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = f"{args.run_parent_dir}/{timestamp}"
 
@@ -142,6 +219,12 @@ def parse_args():
     )
     parser.add_argument(
         "--conda_env", type=str, help="name of conda environment to activate"
+    )
+    parser.add_argument(
+        "--ntasks",
+        type=int,
+        default=None,
+        help="number of tasks to run in parallel. If not None, --ntasks_per_node and --nodes are ignored",
     )
     parser.add_argument(
         "--ntasks_per_node",

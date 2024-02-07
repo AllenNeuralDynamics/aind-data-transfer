@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from shutil import copytree, ignore_patterns
 from typing import Union, Optional
+from warnings import warn
 
 from numcodecs import Blosc
 
@@ -14,11 +15,29 @@ from aind_data_transfer.config_loader.imaging_configuration_loader import (
 )
 from aind_data_schema.data_description import Modality
 from aind_data_transfer.readers.imaging_readers import ImagingReaders
+from aind_data_transfer.transformations.ng_link_creation import write_json_from_zarr
 from aind_data_transfer.util.file_utils import is_cloud_url, parse_cloud_url
 from aind_data_transfer.transformations.metadata_creation import (
     SubjectMetadata,
     ProceduresMetadata,
     RawDataDescriptionMetadata,
+)
+
+from aind_data_transfer.transformations.file_io import read_log_file, read_toml, write_xml, read_imaging_log, write_acq_json, read_schema_log_file
+from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml, schema_log_to_acq_json
+
+warn(
+    f"The module {__name__} is deprecated and will be removed in future "
+    f"versions.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+warn(
+    f"The module {__name__} is deprecated and will be removed in future "
+    f"versions.",
+    DeprecationWarning,
+    stacklevel=2,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -45,8 +64,6 @@ if not _GCS_SCRIPT.is_file():
 _OME_ZARR_SCRIPT = _SCRIPTS_DIR / "write_ome_zarr.py"
 if not _OME_ZARR_SCRIPT.is_file():
     raise Exception(f"script not found: {_OME_ZARR_SCRIPT}")
-
-_NG_LINK_SCRIPT = _SCRIPTS_DIR / "create_neuroglancer_links.py"
 
 _SUBMIT_SCRIPT = _SCRIPTS_DIR / "cluster" / "submit.py"
 if not _SUBMIT_SCRIPT.is_file():
@@ -178,32 +195,6 @@ def main():
         )
 
     zarr_out = dest_data_dir + "/" + raw_image_dir_name + ".zarr"
-    if job_configs["jobs"]["transcode"]:
-        bkg_im_dir = None
-        if job_configs["jobs"]["background_subtraction"]:
-            bkg_im_dir = data_src_dir / "derivatives"
-            if not bkg_im_dir.is_dir():
-                raise Exception(f"background image directory not found: {bkg_im_dir}")
-            LOGGER.info(f"Using background image directory: {bkg_im_dir}")
-        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs, bkg_im_dir)
-        submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
-        subprocess.run(submit_cmd, shell=True)
-        LOGGER.info("Submitted transcode job to cluster")
-
-    if job_configs["jobs"]["create_ng_link"]:
-        ng_link_cmd = (
-            f"python {_NG_LINK_SCRIPT} "
-            f"--input={zarr_out} "
-            f"--output={data_src_dir} "
-            f"--vmin={job_configs['create_ng_link_job']['vmin']} "
-            f"--vmax={job_configs['create_ng_link_job']['vmax']}"
-        )
-        subprocess.run(ng_link_cmd, shell=True)
-        output_json = data_src_dir / "process_output.json"
-        if not output_json.is_file():
-            LOGGER.error(
-                f"Creating neuroglancer link failed; {output_json} was not created"
-            )
 
     if job_configs["jobs"]["create_metadata"]:
         metadata_service_url = job_configs["endpoints"]["metadata_service_url"]
@@ -233,6 +224,31 @@ def main():
             )
         )
 
+    if job_configs["jobs"]["transcode"]:
+        bkg_im_dir = None
+        if job_configs["jobs"]["background_subtraction"]:
+            bkg_im_dir = data_src_dir / "derivatives"
+            if not bkg_im_dir.is_dir():
+                raise Exception(f"background image directory not found: {bkg_im_dir}")
+            LOGGER.info(f"Using background image directory: {bkg_im_dir}")
+        job_cmd = _build_ome_zar_cmd(raw_image_dir, zarr_out, job_configs, bkg_im_dir)
+        submit_cmd = _build_submit_cmd(job_cmd, job_configs, wait)
+        subprocess.run(submit_cmd, shell=True)
+        LOGGER.info("Submitted transcode job to cluster")
+
+    if job_configs["jobs"]["create_ng_link"]:
+        write_json_from_zarr(
+            zarr_out,
+            str(data_src_dir),
+            job_configs['create_ng_link_job']['vmin'],
+            job_configs['create_ng_link_job']['vmax']
+        )
+        output_json = data_src_dir / "process_output.json"
+        if not output_json.is_file():
+            LOGGER.error(
+                f"Creating neuroglancer link failed; {output_json} was not created"
+            )
+
     if job_configs["jobs"]["upload_aux_files"]:
         LOGGER.info("Uploading auxiliary data")
         t0 = time.time()
@@ -248,6 +264,49 @@ def main():
                 )
             else:
                 raise Exception(f"Unsupported cloud storage: {provider}")
+            
+            if job_configs["data"]["name"]=='diSPIM': #convert metadata log to xml 
+                LOGGER.info("Creating xml files for diSPIM data")
+
+
+                #TODO add this to YML file or make default with more testing
+                use_schema_log = False
+
+                if use_schema_log:
+                # try:
+                    log_file = data_src_dir.joinpath('schema_log.log')
+                    log_dict = read_schema_log_file(log_file)
+                else:
+                # except:
+                    #convert imaging log to acq json
+                    log_file = data_src_dir.joinpath('imaging_log.log')
+                    #read log file into dict
+                    log_dict = read_imaging_log(log_file)
+
+                toml_dict = read_toml(data_src_dir.joinpath('config.toml'))
+                log_dict['data_src_dir'] = (data_src_dir.as_posix())
+                log_dict['config_toml'] = toml_dict
+                #convert to acq json
+                func = schema_log_to_acq_json if use_schema_log else log_to_acq_json
+                acq_json = func(log_dict)
+                acq_json_path = Path(data_src_dir).joinpath('acquisition.json')
+
+                try:
+                    write_acq_json(acq_json, acq_json_path)
+                    LOGGER.info('Finished writing acq json')
+                except Exception as e:
+                    LOGGER.error(f"Failed to write acquisition.json: {e}")
+
+                #convert acq json to xml
+                is_zarr = True
+                condition = "channel=='405'"
+                acq_xml = acq_json_to_xml(acq_json, log_dict, data_src_dir.stem +'/'+(job_configs["data"]["name"]+'.zarr'), is_zarr, condition) #needs relative path to zarr file (as seen by code ocean)
+
+                #write xml to file
+                xml_file_path = data_src_dir.joinpath('Camera_405.xml') #
+                write_xml(acq_xml, xml_file_path)
+
+
             subprocess.run(cmd, shell=True)
         else:
             copytree(
@@ -261,5 +320,6 @@ def main():
         )
 
 
+ 
 if __name__ == "__main__":
     main()

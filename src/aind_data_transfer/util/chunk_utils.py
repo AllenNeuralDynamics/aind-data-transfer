@@ -122,7 +122,7 @@ def expand_chunks(
         the optimal chunk shape
     """
     if any(c < 1 for c in chunks):
-        raise ValueError("data_shape must be >= 1 for all dimensions")
+        raise ValueError("chunks must be >= 1 for all dimensions")
     if any(s < 1 for s in data_shape):
         raise ValueError("data_shape must be >= 1 for all dimensions")
     if any(c > s for c, s in zip(chunks, data_shape)):
@@ -141,14 +141,13 @@ def expand_chunks(
         ndims = len(current)
         while _get_size(current, itemsize) < target_size:
             prev = current.copy()
-            current[idx % ndims] *= 2
+            current[idx % ndims] = min(
+                data_shape[idx % ndims], current[idx % ndims] * 2
+            )
             idx += 1
-        current = _closer_to_target(current, prev, target_size, itemsize)
-        expanded = (
-            min(data_shape[0], current[0]),
-            min(data_shape[1], current[1]),
-            min(data_shape[2], current[2]),
-        )
+            if all(c >= s for c, s in zip(current, data_shape)):
+                break
+        expanded = _closer_to_target(current, prev, target_size, itemsize)
     elif mode == "iso":
         initial = np.array(chunks, dtype=np.uint64)
         current = initial
@@ -157,13 +156,15 @@ def expand_chunks(
         while _get_size(current, itemsize) < target_size:
             prev = current
             current = initial * i
+            current = (
+                min(data_shape[0], current[0]),
+                min(data_shape[1], current[1]),
+                min(data_shape[2], current[2]),
+            )
             i += 1
-        current = _closer_to_target(current, prev, target_size, itemsize)
-        expanded = (
-            min(data_shape[0], current[0]),
-            min(data_shape[1], current[1]),
-            min(data_shape[2], current[2]),
-        )
+            if all(c >= s for c, s in zip(current, data_shape)):
+                break
+        expanded = _closer_to_target(current, prev, target_size, itemsize)
     else:
         raise ValueError(f"Invalid mode {mode}")
 

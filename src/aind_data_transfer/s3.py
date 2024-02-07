@@ -120,7 +120,7 @@ class S3Uploader:
             A list of filepaths for failed uploads
         """
         return self.upload_files(
-            collect_filepaths(folder, recursive, exclude_dirs=exclude_dirs),
+            list(collect_filepaths(folder, recursive, exclude_dirs=exclude_dirs)),
             s3_bucket,
             s3_folder,
             root=folder,
@@ -144,14 +144,11 @@ def _await_file_upload_futures(
 ) -> List[str]:
     n_files = len(filepaths)
     failed_uploads = []
-    bytes_uploaded = 0
     for i, (fpath, fut) in enumerate(zip(filepaths, futures)):
         try:
             fut.result(timeout)
-            logger.info(f"Uploaded file {i + 1}/{n_files} {fpath}")
-            bytes_uploaded += os.stat(fpath).st_size
+            logger.debug(f"Uploaded file {i + 1}/{n_files} {fpath}")
         except Exception as e:
             logger.error(f"Upload failed for {fpath} \n{e}")
             failed_uploads.append(fpath)
-    logger.info(f"{bytes_uploaded / (1024 ** 2)} MiB uploaded")
     return failed_uploads
