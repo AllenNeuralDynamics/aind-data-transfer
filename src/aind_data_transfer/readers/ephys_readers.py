@@ -1,4 +1,5 @@
 """Module for ephys data readers."""
+
 from enum import Enum
 
 import numpy as np
@@ -67,7 +68,7 @@ class EphysReaders:
                         input_dir,
                         stream_name=stream_name,
                         block_index=block_index,
-                        load_sync_timestamps=True
+                        load_sync_timestamps=True,
                     )
                     yield (
                         {
