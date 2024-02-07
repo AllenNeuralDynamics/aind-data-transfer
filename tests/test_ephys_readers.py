@@ -1,7 +1,9 @@
 """Unit tests for ephys readers module."""
+
 import os
 import unittest
 from pathlib import Path
+import numpy as np
 
 from aind_data_transfer.readers.ephys_readers import EphysReaders, DataReader
 
@@ -51,6 +53,28 @@ class TestEphysReaders(unittest.TestCase):
         )
         read_blocks_info = [str(r) for r in read_blocks]
         self.assertEqual(self.expected_read_blocks_info, read_blocks_info)
+
+    def test_sync_timestamps(self):
+        openephys_reader = DataReader.OPENEPHYS.value
+        read_blocks = EphysReaders.get_read_blocks(
+            openephys_reader, self.open_ephys_dir
+        )
+        for read_block in read_blocks:
+            record_node, oe_stream = read_block["stream_name"].split("#")
+            experiment = read_block["experiment_name"]
+            sync_timestamps_file = (
+                self.open_ephys_dir
+                / record_node
+                / experiment
+                / "recording1"
+                / "continuous"
+                / oe_stream
+                / "timestamps.npy"
+            )
+            sync_timestamps = np.load(sync_timestamps_file)
+            np.testing.assert_array_equal(
+                read_block["recording"].get_times(), sync_timestamps
+            )
 
     def test_read_fails(self):
         with self.assertRaises(Exception):
