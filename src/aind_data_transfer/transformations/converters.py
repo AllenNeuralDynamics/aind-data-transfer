@@ -7,7 +7,7 @@ import pandas as pd
 
 import aind_data_transfer.transformations.file_io as file_io
 
-from aind_data_schema.imaging.acquisition import (
+from aind_data_schema.core.acquisition import (
     AxisName,
     Direction,
     Axis,

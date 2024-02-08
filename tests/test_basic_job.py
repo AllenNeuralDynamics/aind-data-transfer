@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
-from aind_data_schema.metadata import Metadata, MetadataStatus
+from aind_data_schema.core.metadata import Metadata, MetadataStatus
 from requests import Response
 
 from aind_data_transfer import __version__
@@ -103,10 +103,10 @@ class TestBasicJob(unittest.TestCase):
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
         mock_copytree.assert_has_calls(
             [
-                call(DATA_DIR, Path("some_path/mri"), ignore=None),
+                call(DATA_DIR, Path("some_path/MRI"), ignore=None),
                 call(
                     DATA_DIR,
-                    Path("some_path/mri"),
+                    Path("some_path/MRI"),
                     ignore=(BEHAVIOR_DIR / "*"),
                 ),
             ]
@@ -136,8 +136,8 @@ class TestBasicJob(unittest.TestCase):
 
         mock_mkdir.assert_has_calls(
             [
-                call(Path("some_path/mri")),
-                call(Path("some_path/mri")),
+                call(Path("some_path/MRI")),
+                call(Path("some_path/MRI")),
             ]
         )
 
@@ -146,7 +146,7 @@ class TestBasicJob(unittest.TestCase):
                 call(
                     input_dir=DATA_DIR,
                     output_dir=Path(
-                        "some_path/mri/"
+                        "some_path/MRI/"
                         "v0.6.x_neuropixels_multiexp_multistream.zip"
                     ),
                     skip_dirs=None,
@@ -154,7 +154,7 @@ class TestBasicJob(unittest.TestCase):
                 call(
                     input_dir=DATA_DIR,
                     output_dir=Path(
-                        "some_path/mri/"
+                        "some_path/MRI/"
                         "v0.6.x_neuropixels_multiexp_multistream.zip"
                     ),
                     skip_dirs=[BEHAVIOR_DIR],
@@ -189,7 +189,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload.assert_called_once_with(
             directory_to_upload=DATA_DIR,
             s3_bucket="some_bucket",
-            s3_prefix="confocal_643054_2020-10-10_10-10-10/mri",
+            s3_prefix="confocal_643054_2020-10-10_10-10-10/MRI",
             dryrun=True,
             excluded=None,
         )

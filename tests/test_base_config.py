@@ -7,7 +7,8 @@ from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
 
-from aind_data_schema.data_description import Modality, Platform
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.platforms import Platform
 
 from aind_data_transfer.config_loader.base_config import (
     BasicJobEndpoints,

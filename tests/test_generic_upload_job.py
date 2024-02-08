@@ -6,7 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
-from aind_data_schema.data_description import Platform, Modality
+from aind_data_schema.models.platforms import Platform
+from aind_data_schema.models.modalities import Modality
 
 from aind_data_transfer.config_loader.base_config import ModalityConfigs
 from aind_data_transfer.jobs.s3_upload_job import GenericS3UploadJobList

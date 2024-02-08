@@ -4,11 +4,11 @@ import logging
 import shutil
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 import spikeinterface.preprocessing as spre
-from aind_data_schema.data_description import Modality
-from aind_data_schema.processing import ProcessName
+from aind_data_schema.core.data_description import Modality
+from aind_data_schema.models.process_names import ProcessName
 from numcodecs import Blosc
 from numpy import memmap
 from pydantic import Field
@@ -32,14 +32,13 @@ class CompressorName(Enum):
 class EcephysCompressionParameters(ModalityConfigs):
     """Extra configs for Ecephys upload job."""
 
-    modality = Modality.ECEPHYS
+    modality: Modality.ONE_OF = Modality.ECEPHYS
 
     # Override these values from the base settings
-    process_name: ProcessName = Field(
+    process_name: Literal[ProcessName.EPHYS_PREPROCESSING] = Field(
         default=ProcessName.EPHYS_PREPROCESSING,
         description="Type of processing performed on the raw data source.",
-        title="Process Name",
-        const=True,
+        title="Process Name"
     )
 
     data_reader: DataReader = Field(
@@ -55,13 +54,12 @@ class EcephysCompressionParameters(ModalityConfigs):
         title="Clip N Frames",
     )
     # Compress settings
-    compress_write_output_format: str = Field(
+    compress_write_output_format: Literal["zarr"] = Field(
         default="zarr",
         description=(
             "Output format for compression. Currently, only zarr supported."
         ),
-        title="Write Output Format",
-        const=True,
+        title="Write Output Format"
     )
     compress_max_windows_filename_len: int = Field(
         default=150,

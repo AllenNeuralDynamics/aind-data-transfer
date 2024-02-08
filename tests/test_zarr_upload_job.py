@@ -4,7 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from aind_data_schema.data_description import Modality, Platform
+from aind_data_schema.models.platforms import Platform
+from aind_data_schema.models.modalities import Modality
 from numcodecs import blosc
 
 from aind_data_transfer.config_loader.base_config import (

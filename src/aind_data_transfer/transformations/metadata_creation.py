@@ -7,22 +7,21 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
 import aind_data_schema.base
-from aind_data_schema.data_description import (
+from aind_data_schema.models.organizations import Organization
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.core.data_description import (
     Funding,
-    Institution,
-    Modality,
     RawDataDescription,
 )
-from aind_data_schema.procedures import Procedures
-from aind_data_schema.processing import (
+from aind_data_schema.core.procedures import Procedures
+from aind_data_schema.core.processing import (
     DataProcess,
     PipelineProcess,
     Processing,
     ProcessName,
 )
-from aind_data_schema.subject import Subject
+from aind_data_schema.core.subject import Subject
 from aind_metadata_service.client import AindMetadataServiceClient
-from pydantic import validate_model
 from requests import Response
 from requests.exceptions import ConnectionError, JSONDecodeError
 
@@ -59,7 +58,7 @@ class MetadataCreation(ABC):
     def output_filename(self):
         """Returns the default json file name for the model as defined in
         aind_data_schema."""
-        return self._model().construct().default_filename()
+        return self._model().model_construct().default_filename()
 
     @classmethod
     def from_file(cls, file_location: Path):
@@ -85,20 +84,20 @@ class MetadataCreation(ABC):
           True if the model is valid. False otherwise.
 
         """
-        *_, validation_error = validate_model(self._model(), self.model_obj)
-        if validation_error:
-            logging.warning(f"Validation Errors: {validation_error}")
-            return False
-        else:
+        try:
+            self._model().model_validate(self.model_obj)
             logging.info("Model is valid.")
             return True
+        except Exception as e:
+            logging.warning(f"Validation Errors: {repr(e)}")
+            return False
 
     def get_model(self):
         model = self._model()
         if self.validate_obj() is True:
-            return model.parse_obj(self.model_obj)
+            return model.model_validate(self.model_obj)
         else:
-            return model.construct(**self.model_obj)
+            return model.model_construct(**self.model_obj)
 
     def write_to_json(self, path: Path, suffix: str = None) -> None:
         """
@@ -189,17 +188,17 @@ class ServiceMetadataCreation(MetadataCreation):
             # Connected to the service, but no data was found
             elif status_code == 404:
                 logging.warning(f"{cls.__name__}: {response_json['message']}")
-                contents = json.loads(cls._model().construct().json())
+                contents = json.loads(cls._model().model_construct().model_dump_json())
             # A serious error happened. Build a default model.
             else:
                 logging.error(f"{cls.__name__}: {response_json['message']}")
-                contents = json.loads(cls._model().construct().json())
+                contents = json.loads(cls._model().model_construct().model_dump_json())
         except (ConnectionError, JSONDecodeError) as e:
             logging.error(
                 f"{cls.__name__}: An error occurred connecting to metadata "
                 f"service: {e}"
             )
-            contents = json.loads(cls._model().construct().json())
+            contents = json.loads(cls._model().model_construct().model_dump_json())
         return cls(model_obj=contents)
 
 
@@ -327,7 +326,7 @@ class ProcessingMetadata(MetadataCreation):
             processing_pipeline=pipeline_process_instance
         )
         # Do this to use enum strings instead of classes in dict representation
-        contents = json.loads(processing_instance.json())
+        contents = json.loads(processing_instance.model_dump_json())
         return cls(model_obj=contents)
 
     @classmethod
@@ -385,7 +384,7 @@ class ProcessingMetadata(MetadataCreation):
             processing_pipeline=pipeline_process_instance
         )
         # Do this to use enum strings instead of classes in dict representation
-        contents = json.loads(processing_instance.json())
+        contents = json.loads(processing_instance.model_dump_json())
         return cls(model_obj=contents)
 
 
@@ -403,9 +402,9 @@ class RawDataDescriptionMetadata(MetadataCreation):
         cls,
         name: str,
         modality: List[Modality],
-        institution: Optional[Institution] = Institution.AIND,
+        institution: Optional[Organization] = Organization.AIND,
         funding_source: Optional[Tuple] = (
-            Funding(funder=Institution.AIND.value.abbreviation),
+            Funding(funder=Organization.AI),
         ),
         investigators: Optional[List[str]] = None,
     ):
@@ -432,13 +431,25 @@ class RawDataDescriptionMetadata(MetadataCreation):
         )
         investigators = [] if investigators is None else investigators
         basic_settings = RawDataDescription.parse_name(name=name)
-        data_description_instance = RawDataDescription(
-            institution=institution,
-            modality=modality,
-            funding_source=funding_source_list,
-            investigators=investigators,
-            **basic_settings,
-        )
+        # TODO: Remove this once we want this required
+        if not investigators:
+            data_description_instance = RawDataDescription.model_construct(
+                name=name,
+                institution=institution,
+                modality=modality,
+                funding_source=funding_source_list,
+                investigators=investigators,
+                **basic_settings,
+            )
+        else:
+            data_description_instance = RawDataDescription(
+                name=name,
+                institution=institution,
+                modality=modality,
+                funding_source=funding_source_list,
+                investigators=investigators,
+                **basic_settings,
+            )
         # Do this to use enum strings instead of classes in dict representation
-        contents = json.loads(data_description_instance.json())
+        contents = json.loads(data_description_instance.model_dump_json())
         return cls(model_obj=contents)

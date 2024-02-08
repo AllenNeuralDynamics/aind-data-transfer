@@ -9,16 +9,20 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from enum import Enum
+import inspect
 from importlib import import_module
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, get_args
 
 import boto3
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.data_description import Modality
-from aind_data_schema.metadata import Metadata, MetadataStatus
+from aind_data_schema.core.data_description import DataDescription
+from aind_data_schema.core.procedures import Procedures
+from aind_data_schema.core.subject import Subject
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.core.metadata import Metadata, MetadataStatus
 
 from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
@@ -69,17 +73,31 @@ class BasicJob:
 
     @staticmethod
     def __core_metadata_fields():
-        core_models = []
-        for field_name in Metadata.__fields__:
-            field_to_check = Metadata.__fields__[field_name]
-            try:
-                if issubclass(field_to_check.type_, AindCoreModel):
-                    core_models.append(field_to_check)
-            except TypeError:
-                # Type errors in python3.7 when using issubclass on type
-                # generics
-                pass
-        return core_models
+        all_model_fields = dict()
+        for field_name in Metadata.model_fields:
+            # The fields we're interested in are optional. We need to extract out the
+            # class using the get_args method
+            annotation_args = get_args(
+                Metadata.model_fields[field_name].annotation)
+            optional_classes = (
+                None
+                if not annotation_args
+                else (
+                    [
+                        f
+                        for f in
+                        get_args(Metadata.model_fields[field_name].annotation)
+                        if inspect.isclass(f) and issubclass(f, AindCoreModel)
+                    ]
+                )
+            )
+            if (
+                    optional_classes
+                    and inspect.isclass(optional_classes[0])
+                    and issubclass(optional_classes[0], AindCoreModel)
+            ):
+                all_model_fields[field_name] = optional_classes[0]
+        return all_model_fields
 
     @staticmethod
     def __download_json(file_location: Path) -> dict:
@@ -95,12 +113,12 @@ class BasicJob:
         # e.g., "subject.json" -> Subject
         aind_core_models = self.__core_metadata_fields()
         core_filename_map: Dict[str, AindCoreModel] = {
-            f.type_.default_filename(): f.type_ for f in aind_core_models
+            f.default_filename(): f for f in aind_core_models.values()
         }
         # Create a map: filename -> Metadata field name,
         # e.g., "subject.json" -> "subject"
         core_field_name_map = {
-            f.type_.default_filename(): f.name for f in aind_core_models
+            v.default_filename(): k for k, v in aind_core_models.items()
         }
         # If the user defined a metadata directory, create a
         # map: filename -> Path, e.g., "subject.json" -> "dir/subject.json"
@@ -114,15 +132,9 @@ class BasicJob:
                 metadata_in_folder_map[Path(file_path).name] = Path(file_path)
         # Subject, Procedures, Data Description, and Processing are handled
         # as special cases
-        subject_filename = Metadata.__fields__[
-            "subject"
-        ].type_.default_filename()
-        procedures_filename = Metadata.__fields__[
-            "procedures"
-        ].type_.default_filename()
-        data_description_filename = Metadata.__fields__[
-            "data_description"
-        ].type_.default_filename()
+        subject_filename = Subject.default_filename()
+        procedures_filename = Procedures.default_filename()
+        data_description_filename = DataDescription.default_filename()
         # If subject not in user defined directory, query the service
         if metadata_in_folder_map.get(subject_filename) is not None:
             subject_metadata = self.__download_json(
@@ -403,13 +415,13 @@ class BasicJob:
             job_type = JobTypes.RUN_GENERIC_PIPELINE.value
         else:
             # Handle legacy way we set up parameters...
-            job_type = self.job_configs.platform.value.abbreviation
+            job_type = self.job_configs.platform.abbreviation
         trigger_capsule_params = {
             "trigger_codeocean_job": {
                 "job_type": job_type,
                 "modalities": (
                     [
-                        m.modality.value.abbreviation
+                        m.modality.abbreviation
                         for m in self.job_configs.modalities
                     ]
                 ),
