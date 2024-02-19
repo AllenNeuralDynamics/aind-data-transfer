@@ -431,7 +431,7 @@ class ExASPIMCronJob:
 
         job_config = {
             "s3_bucket": config.s3_bucket,
-            "platform": "EXASPIM",
+            "platform": "exaSPIM",
             "modalities": [{
                 "modality": "SPIM",
                 "source": str(dataset_path),
