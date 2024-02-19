@@ -77,18 +77,22 @@ def write_files(
         LOGGER.warning("No images found. Exiting.")
         return []
 
-    s3 = s3fs.S3FileSystem(
-        anon=False,
-        config_kwargs={
-            'retries': {
-                'total_max_attempts': _MAX_S3_RETRIES,
-                'mode': _S3_RETRY_MODE,
-            }
-        },
-        use_ssl=False,
-    )
-    # Create a Zarr group on S3
-    store = s3fs.S3Map(root=output, s3=s3, check=False)
+    if output.startswith("s3://"):
+        s3 = s3fs.S3FileSystem(
+            anon=False,
+            config_kwargs={
+                'retries': {
+                    'total_max_attempts': _MAX_S3_RETRIES,
+                    'mode': _S3_RETRY_MODE,
+                }
+            },
+            use_ssl=False,
+        )
+        # Create a Zarr group on S3
+        store = s3fs.S3Map(root=output, s3=s3, check=False)
+    else:
+        store = zarr.DirectoryStore(output, dimension_separator="/")
+
     root_group = zarr.group(store=store, overwrite=False)
 
     all_metrics = []

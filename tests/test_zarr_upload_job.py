@@ -37,7 +37,7 @@ class TestZarrConversionConfigs(unittest.TestCase):
         config = ZarrConversionConfigs()
         self.assertEqual(config.n_levels, 1)
         self.assertEqual(config.scale_factor, 2)
-        self.assertEqual(config.chunk_shape, (1, 1, 256, 256, 256))
+        self.assertEqual(config.chunk_shape, [1, 1, 256, 256, 256])
         self.assertIsNone(config.voxel_size)
         self.assertEqual(config.codec, "zstd")
         self.assertEqual(config.clevel, 1)
@@ -62,8 +62,8 @@ class TestZarrConversionConfigs(unittest.TestCase):
             config = ZarrConversionConfigs.from_yaml(Path("fake_path.yaml"))
         self.assertEqual(config.n_levels, 2)
         self.assertEqual(config.scale_factor, 3)
-        self.assertEqual(config.chunk_shape, (2, 2, 128, 128, 128))
-        self.assertEqual(config.voxel_size, (1, 1, 1))
+        self.assertEqual(config.chunk_shape, [2, 2, 128, 128, 128])
+        self.assertEqual(config.voxel_size, [1, 1, 1])
         self.assertEqual(config.codec, "blosc")
         self.assertEqual(config.clevel, 2)
         self.assertTrue(config.do_bkg_subtraction)
@@ -341,7 +341,7 @@ class TestZarrUploadJob(unittest.TestCase):
             2,
             True,
             None,
-            (1, 1, 256, 256, 256),
+            [1, 1, 256, 256, 256],
             None,
             compressor=blosc.Blosc("zstd", 1, shuffle=blosc.SHUFFLE),
             bkg_img_dir=None,
@@ -367,7 +367,7 @@ class TestZarrUploadJob(unittest.TestCase):
             2,
             True,
             None,
-            (1, 1, 256, 256, 256),
+            [1, 1, 256, 256, 256],
             None,
             compressor=blosc.Blosc("zstd", 1, shuffle=blosc.SHUFFLE),
             bkg_img_dir=str(DISPIM_DERIVATIVES_DIR),
@@ -395,8 +395,8 @@ class TestZarrUploadJob(unittest.TestCase):
         job = ZarrUploadJob(job_configs=test_job_configs)
         self.assertEqual(job._zarr_configs.n_levels, 2)
         self.assertEqual(job._zarr_configs.scale_factor, 3)
-        self.assertEqual(job._zarr_configs.chunk_shape, (2, 2, 128, 128, 128))
-        self.assertEqual(job._zarr_configs.voxel_size, (1, 1, 1))
+        self.assertEqual(job._zarr_configs.chunk_shape, [2, 2, 128, 128, 128])
+        self.assertEqual(job._zarr_configs.voxel_size, [1, 1, 1])
         self.assertEqual(job._zarr_configs.codec, "zstd")
         self.assertEqual(job._zarr_configs.clevel, 2)
         self.assertTrue(job._zarr_configs.do_bkg_subtraction)
