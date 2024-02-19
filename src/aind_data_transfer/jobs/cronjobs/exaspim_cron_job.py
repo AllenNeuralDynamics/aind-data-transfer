@@ -301,8 +301,13 @@ class ExASPIMCronJob:
 
             zarr_config_path = ds / "zarr_config.yml"
             try:
+                d = self.config.zarr_config.dict()
+                if 'chunk_shape' in d and d['chunk_shape'] is not None:
+                    d['chunk_shape'] = list(d['chunk_shape'])
+                if 'voxel_size' in d and d['voxel_size'] is not None:
+                    d['voxel_size'] = list(d['voxel_size'])
                 file_utils.write_dict_to_yaml(
-                    self.config.zarr_config.dict(), zarr_config_path
+                    d, zarr_config_path
                 )
             except Exception as e:
                 self._logger.error(f"Error writing zarr config: {e}")

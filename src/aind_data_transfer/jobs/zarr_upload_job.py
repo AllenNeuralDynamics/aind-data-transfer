@@ -51,11 +51,11 @@ class ZarrConversionConfigs(BaseSettings):
     scale_factor: Optional[int] = Field(
         2, description="Scale factor to use for the pyramid. Default is 2."
     )
-    chunk_shape: Optional[Tuple[int, int, int, int, int]] = Field(
-        (1, 1, 256, 256, 256),
+    chunk_shape: Optional[List[int]] = Field(
+        [1, 1, 256, 256, 256],
         description="5D Chunk shape to use for the zarr Array. Default is ("
                     "1, 1, 256, 256, 256).", )
-    voxel_size: Optional[Tuple[float, float, float]] = Field(
+    voxel_size: Optional[List[float]] = Field(
         None, description="Voxel size to use for the zarr Array. if None, "
                           "will attempt to parse from the image metadata. "
                           "Default "
