@@ -338,13 +338,17 @@ class ExASPIMCronJob:
                 self._logger.info(
                     f"Job submitted successfully: {response_json['data']['responses'][0]['job_id']}"
                 )
-                self._update_dataset_status(
-                    ds, self.config.manifest_filename, "uploading"
-                )
+                status = "uploading"
+
             else:
                 self._logger.error(
                     f"Job submission failed: {response_json['message']}"
                 )
+                status = "failed"
+
+            self._update_dataset_status(
+                ds, self.config.manifest_filename, status
+            )
 
             time.sleep(1)
 

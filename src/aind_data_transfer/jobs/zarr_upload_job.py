@@ -422,7 +422,7 @@ if __name__ == "__main__":
         status = "uploaded"
     except Exception:
         logging.exception("ZarrUploadJob failed.")
-        status = "pending"
+        status = "failed"
 
     now = datetime.now()
     status_date = now.strftime('%Y-%m-%d')
