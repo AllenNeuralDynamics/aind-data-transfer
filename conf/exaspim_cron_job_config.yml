@@ -1,0 +1,31 @@
+root_folder:
+sif_path:
+manifest_filename:
+transfer_service_domain:
+codeocean_domain:
+metadata_service_domain:
+aind_data_transfer_repo_location:
+force_cloud_sync: false
+s3_bucket:
+hpc_settings:
+  memory_per_cpu: 5000
+  cpus_per_task: 1
+  partition:
+  tasks: 128
+  spread_job: true
+  nodes: [16, 32] # min and max nodes
+  time_limit: 5760  # in minutes
+  mail_user:
+  mail_type:
+zarr_config:
+  n_levels: 8
+  scale_factor: 2
+  chunk_shape: [ 1,1,256,256,256 ]
+  voxel_size:
+  codec: "zstd"
+  clevel: 1
+  do_bkg_subtraction: false
+  exclude_patterns:
+  create_ng_link: true
+  ng_vmin: 0
+  ng_vmax: 200

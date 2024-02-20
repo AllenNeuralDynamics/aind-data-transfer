@@ -4,34 +4,33 @@ import time
 from pathlib import Path
 from typing import List, Optional, Dict, cast
 
+import s3fs
 import zarr
 from numcodecs.abc import Codec
 from numpy.typing import NDArray
 from ome_zarr.format import CurrentFormat
-from ome_zarr.io import parse_url
 from ome_zarr.writer import write_multiscales_metadata
 from xarray_multiscale import multiscale
 from xarray_multiscale.reducers import windowed_mean, WindowedReducer
 
-from aind_data_transfer.util.chunk_utils import *
-from aind_data_transfer.util.file_utils import collect_filepaths
-from aind_data_transfer.util.io_utils import (
-    DataReaderFactory,
-    ImarisReader,
-    DataReader,
-    BlockedArrayWriter,
-)
 from aind_data_transfer.transformations.deinterleave import (
-    ChannelParser,
-    Deinterleave,
+    ChannelParser, Deinterleave,
 )
 from aind_data_transfer.transformations.flatfield_correction import (
     BkgSubtraction,
 )
-
+from aind_data_transfer.util.chunk_utils import *
+from aind_data_transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.util.io_utils import (
+    DataReaderFactory, ImarisReader, DataReader, BlockedArrayWriter,
+)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
+
+
+_MAX_S3_RETRIES = 1000
+_S3_RETRY_MODE = "adaptive"
 
 
 def write_files(
@@ -78,8 +77,23 @@ def write_files(
         LOGGER.warning("No images found. Exiting.")
         return []
 
-    store = parse_url(output, mode="w").store
-    root_group = zarr.group(store=store)
+    if output.startswith("s3://"):
+        s3 = s3fs.S3FileSystem(
+            anon=False,
+            config_kwargs={
+                'retries': {
+                    'total_max_attempts': _MAX_S3_RETRIES,
+                    'mode': _S3_RETRY_MODE,
+                }
+            },
+            use_ssl=False,
+        )
+        # Create a Zarr group on S3
+        store = s3fs.S3Map(root=output, s3=s3, check=False)
+    else:
+        store = zarr.DirectoryStore(output, dimension_separator="/")
+
+    root_group = zarr.group(store=store, overwrite=False)
 
     all_metrics = []
 
