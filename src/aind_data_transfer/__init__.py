@@ -1,5 +1,5 @@
 """Package to compress and upload data to the cloud
 """
 
-__version__ = "0.32.6"
+__version__ = "0.32.7"
 
