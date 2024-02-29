@@ -4,7 +4,7 @@ from enum import Enum
 
 import numpy as np
 from spikeinterface import extractors as se
-
+from pathlib import Path
 
 class DataReader(Enum):
     """Enum for readers."""
@@ -45,6 +45,7 @@ class EphysReaders:
             {'recording', 'experiment_name', 'stream_name'}.
 
         """
+        input_dir = Path(input_dir).resolve()
         if reader_name == DataReader.OPENEPHYS.value:
             nblocks = se.get_neo_num_blocks(reader_name, input_dir)
             stream_names, stream_ids = se.get_neo_streams(
