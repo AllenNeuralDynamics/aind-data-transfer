@@ -22,7 +22,8 @@ from aind_data_transfer.util.chunk_utils import expand_chunks
 from numpy.typing import ArrayLike
 from kerchunk.tiff import tiff_to_zarr
 from numpy import dtype
-
+from czitools import metadata_tools as czimd
+from czitools import read_tools, write_tools
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -167,6 +168,7 @@ class TiffReader(DataReader):
             self._temp_dir.cleanup()
         except Exception as e:
             _LOGGER.error(f"Error removing references dir: {e}")
+
 
 
 class MissingDatasetError(Exception):
@@ -392,8 +394,100 @@ class ImarisReader(DataReader):
             lvl += 1
 
 
+
+class CziReader(DataReader):
+    def __init__(self, filepath: str):
+        """
+        Class constructor
+
+        Args:
+            filepath: the path to the czi file
+        """
+        filepath = str(filepath)
+        super().__init__(filepath)
+        
+        #array is in the form of [Scene, Time, Channel, Z, Height, Width]
+        self._arr, self._mdata= read_tools.read_6darray(filepath, use_dask=False)
+
+        self._scene_count = self._arr.shape[0]
+        self._time_count = self._arr.shape[1]
+        self._channel_count = self._arr.shape[2]
+
+        self._default_scene = 0
+        self._default_time = 0
+        self._default_channel = 0
+
+        #make a temporary directory to store the extracted images
+        self._temp_dir = tempfile.TemporaryDirectory(dir = os.getcwd())
+        Path(self._temp_dir.name).mkdir(parents=True, exist_ok=True)
+
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def as_dask_array(self, chunks=None):
+        """Return the image stack as a Dask Array
+
+        Args:
+            chunks: the chunk shape.
+
+        Returns:
+            dask.array.Array
+        """
+        # For performance it is *critical* the initial dask array construction
+        # uses single plane chunks, and to then rechunk with the desired chunks
+        a = da.from_array(
+            self._arr, chunks=(1, self._arr.shape[-2], self._arr.shape[-1])
+        )
+        if chunks is not None:
+            a = a.rechunk(chunks)
+        return a
+
+    def as_array(self) -> np.ndarray:
+        """
+        Get the image stack as a 3D ndarray
+        """
+        return self._arr[self._default_scene,self._default_time,self._default_channel,...]
+
+
+    def get_shape(self) -> tuple:
+        """
+        Get the shape of the image stack
+        """
+        return self._arr[self._default_scene,self._default_time,self._default_channel,...].shape
+
+    def get_chunks(self) -> tuple:
+        """
+        Get the chunk shape of the image stack
+        """
+        return self._arr.chunks
+
+    def get_dtype(self) -> dtype:
+        """
+        Get the data type of the image stack
+        """
+        return self._arr.dtype
+
+    def get_itemsize(self) -> int:
+        """
+        Get the number of bytes per element
+        """
+        return self.get_dtype().itemsize
+
+    def close(self) -> None:
+        """Close the file handle to free resources"""
+        self._arr = None
+        try:
+            self._temp_dir.cleanup()
+        except Exception as e:
+            _LOGGER.error(f"Error removing references dir: {e}")
+
+
 class DataReaderFactory:
-    VALID_EXTENSIONS = [".tiff", ".tif", ".h5", ".ims"]
+    VALID_EXTENSIONS = [".tiff", ".tif", ".h5", ".ims", ".czi"]
 
     factory = {}
 
@@ -402,6 +496,7 @@ class DataReaderFactory:
         self.factory[".tiff"] = TiffReader
         self.factory[".h5"] = ImarisReader
         self.factory[".ims"] = ImarisReader
+        self.factory[".czi"] = CziReader
 
     def get_valid_extensions(self):
         return self.VALID_EXTENSIONS
