@@ -11,6 +11,8 @@ import numpy as np
 from tifffile import tifffile
 from czitools import read_tools, write_tools
 from pylibCZIrw import czi as pyczi
+from tqdm.contrib.itertools import product
+
 
 from aind_data_transfer.util.io_utils import (
     DataReaderFactory,
@@ -61,21 +63,29 @@ def _write_test_h5(folder, n=1):
 def _write_test_czi(folder, n= 1):
     sizeS = 1
     sizeT = 1
-    sizeZ = 3
     sizeC = 2
 
 
     paths = []
     for i in range(n):
-        a = np.ones(IM_SHAPE, dtype=IM_DTYPE)
+        czi_imshape = (sizeS, sizeT, IM_SHAPE[0], sizeC, IM_SHAPE[1], IM_SHAPE[2])
+        a = np.ones(czi_imshape, dtype=IM_DTYPE)
         path = os.path.join(folder, f"data_{i}.czi")
         paths.append(path)
         # write_tools.write_array_to_czi(path, a)
 
-        with pyczi.create_czi(path) as czidoc:
+        with pyczi.create_czi(path, exist_ok = True) as czidoc:
 
+            for s,t,z,c in product(range(a.shape[0]), 
+                                        range(a.shape[1]), 
+                                        range(a.shape[2]), 
+                                        range(a.shape[3])):
+
+
+                # write the 2D plane to the correct position
+                czidoc.write(data = a[s,t,c, z])
             # write the 2D plane to the correct position
-            czidoc.write(data = a)
+            # czidoc.write(data = a)
 
             # write metadata explicitly
             # czidoc.write_metadata()
