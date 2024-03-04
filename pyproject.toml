@@ -59,6 +59,7 @@ imaging = [
     'chardet==5.1.0',
     'natsort==8.4.0',
     'aind-ng-link==1.0.15',
+    'czitools==0.6.0',
 ]
 full = [
     'aind-data-transfer[ephys]',
