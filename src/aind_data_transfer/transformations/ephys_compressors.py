@@ -178,6 +178,7 @@ class EphysCompressors:
                     read_block["recording"],
                     num_chunks_per_segment=num_chunks_per_segment,
                     chunk_size=chunk_size,
+                    seed=0,
                 )
             yield (
                 {
