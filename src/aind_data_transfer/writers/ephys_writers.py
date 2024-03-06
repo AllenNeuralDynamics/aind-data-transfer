@@ -66,7 +66,7 @@ class EphysWriters:
                 )
             _ = rec.save(
                 format=output_format,
-                zarr_path=zarr_path,
+                folder=zarr_path,
                 compressor=compressor,
                 **job_kwargs,
             )

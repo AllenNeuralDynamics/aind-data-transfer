@@ -6,7 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
-from aind_data_schema.data_description import ExperimentType, Modality
+from aind_data_schema.models.platforms import Platform
+from aind_data_schema.models.modalities import Modality
 
 from aind_data_transfer.config_loader.base_config import ModalityConfigs
 from aind_data_transfer.jobs.s3_upload_job import GenericS3UploadJobList
@@ -215,12 +216,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         jobs = GenericS3UploadJobList(args=args)
         job0 = jobs.job_list[0]
         job1 = jobs.job_list[1]
-        self.assertEqual(
-            ExperimentType.ECEPHYS, job0.job_configs.experiment_type
-        )
-        self.assertEqual(
-            ExperimentType.CONFOCAL, job1.job_configs.experiment_type
-        )
+        self.assertEqual(Platform.ECEPHYS, job0.job_configs.platform)
+        self.assertEqual(Platform.CONFOCAL, job1.job_configs.platform)
         expected_source = Path(
             "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
         )
@@ -233,14 +230,16 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             )
             and (
                 ModalityConfigs(
-                    modality=Modality.CONFOCAL, source=expected_source, compress_raw_data=True
+                    modality=Modality.CONFOCAL,
+                    source=expected_source,
+                    compress_raw_data=True,
                 )
                 in job0.job_configs.modalities
             )
         )
         self.assertTrue(
-            (ExperimentType.ECEPHYS, job0.job_configs.experiment_type)
-            and (ExperimentType.CONFOCAL, job1.job_configs.experiment_type)
+            (Platform.ECEPHYS, job0.job_configs.platform)
+            and (Platform.CONFOCAL, job1.job_configs.platform)
         )
         self.assertIsNone(job0.job_configs.codeocean_process_capsule_id)
         self.assertIsNone(job1.job_configs.codeocean_process_capsule_id)
@@ -276,12 +275,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
         jobs = GenericS3UploadJobList(args=args)
         job0 = jobs.job_list[0]
         job1 = jobs.job_list[1]
-        self.assertEqual(
-            ExperimentType.ECEPHYS, job0.job_configs.experiment_type
-        )
-        self.assertEqual(
-            ExperimentType.CONFOCAL, job1.job_configs.experiment_type
-        )
+        self.assertEqual(Platform.ECEPHYS, job0.job_configs.platform)
+        self.assertEqual(Platform.CONFOCAL, job1.job_configs.platform)
         expected_source = Path(
             "tests/resources/v0.6.x_neuropixels_multiexp_multistream"
         )
@@ -294,14 +289,16 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             )
             and (
                 ModalityConfigs(
-                    modality=Modality.CONFOCAL, source=expected_source, compress_raw_data=True
+                    modality=Modality.CONFOCAL,
+                    source=expected_source,
+                    compress_raw_data=True,
                 )
                 in job0.job_configs.modalities
             )
         )
         self.assertTrue(
-            (ExperimentType.ECEPHYS, job0.job_configs.experiment_type)
-            and (ExperimentType.CONFOCAL, job1.job_configs.experiment_type)
+            (Platform.ECEPHYS, job0.job_configs.platform)
+            and (Platform.CONFOCAL, job1.job_configs.platform)
         )
         self.assertTrue(
             ("xyz-123", job0.job_configs.codeocean_process_capsule_id)

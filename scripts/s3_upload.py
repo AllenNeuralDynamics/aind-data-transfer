@@ -7,18 +7,15 @@ import time
 from datetime import datetime
 from pathlib import PurePath
 
-import numpy as np
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.credentials import CodeOceanCredentials
 from s3transfer.constants import GB, MB
 
 from aind_data_transfer.s3 import S3Uploader
 from aind_data_transfer.util import file_utils
-from aind_data_transfer.util.dask_utils import (
-    get_client,
-    log_dashboard_address,
-)
-from aind_data_transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.util.dask_utils import get_client
+from aind_data_transfer.util.file_utils import collect_filepaths, batch_files_by_size
+
 
 LOG_FMT = "%(asctime)s %(message)s"
 LOG_DATE_FMT = "%Y-%m-%d %H:%M"
@@ -26,18 +23,6 @@ LOG_DATE_FMT = "%Y-%m-%d %H:%M"
 logging.basicConfig(format=LOG_FMT, datefmt=LOG_DATE_FMT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def chunk_files(input_dir, ntasks, recursive=True, exclude_dirs=None):
-    filepaths = collect_filepaths(input_dir, recursive, exclude_dirs)
-
-    filepaths_len = len(filepaths)
-
-    if not filepaths_len:
-        return None
-
-    logger.info(f"Collected {filepaths_len} files")
-    return np.array_split(filepaths, ntasks)
 
 
 def upload_files_job(
@@ -66,34 +51,20 @@ def run_cluster_job(
     target_throughput,
     part_size,
     timeout,
-    chunks_per_worker,
-    recursive,
+    batch_size=GB,
+    recursive=True,
     exclude_dirs=None,
 ):
     client, ntasks = get_client(deployment="slurm")
     logger.info(f"Client has {ntasks} registered workers")
 
-    chunked_files = chunk_files(
-        input_dir, ntasks * chunks_per_worker, recursive, exclude_dirs
-    )
-
-    if chunked_files is None:
-        logger.error(f"No files found!")
-        client.close()
-        return -1
-
-    logger.info(
-        f"Split files into {len(chunked_files)} chunks with "
-        f"{len(chunked_files[0])} files each"
-    )
-
     futures = []
-    for chunk in chunked_files:
+    for batch in batch_files_by_size(input_dir, batch_size, recursive, exclude_dirs=exclude_dirs):
         futures.append(
             client.submit(
                 upload_files_job,
                 input_dir=input_dir,
-                files=chunk,
+                files=batch,
                 bucket=bucket,
                 s3_path=s3_path,
                 n_threads=1,
@@ -102,6 +73,11 @@ def run_cluster_job(
                 timeout=timeout,
             )
         )
+    if not futures:
+        logger.error(f"No files found!")
+        client.close()
+        return -1
+
     failed_uploads = list(itertools.chain(*client.gather(futures)))
     n_failed_uploads = len(failed_uploads)
     logger.info(f"{n_failed_uploads} failed uploads:\n{failed_uploads}")
@@ -272,7 +248,7 @@ def main():
     parser.add_argument(
         "--target_throughput",
         type=float,
-        default=100 * GB / 8,
+        default=1000 * GB / 8,
         help="target throughput (bytes)",
     )
     parser.add_argument(
@@ -294,11 +270,10 @@ def main():
         help="run in cluster mode",
     )
     parser.add_argument(
-        "--batch_num",
+        "--batch_size",
         type=int,
-        default=3,
-        help="number of tasks per job. "
-        "Increase this if you run into worker memory issues",
+        default=256 * MB,
+        help="Target total bytes for each batch of files."
     )
     parser.add_argument(
         "--nthreads",
@@ -342,10 +317,7 @@ def main():
 
     input_path = args.input
     bucket = args.bucket
-    n_failed_uploads = -1
-    trigger_code_ocean = args.trigger_code_ocean
     type_spim = args.type_spim.casefold()
-
     s3_path = args.s3_path
     if s3_path is None:
         s3_path = PurePath(args.input).name
@@ -365,7 +337,7 @@ def main():
             target_throughput=args.target_throughput,
             part_size=args.part_size,
             timeout=args.timeout,
-            chunks_per_worker=args.batch_num,
+            batch_size=args.batch_size,
             recursive=args.recursive,
             exclude_dirs=args.exclude_dirs,
         )

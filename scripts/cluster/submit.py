@@ -12,7 +12,9 @@ import time
 from pathlib import Path
 
 
-def generate_slurm_script(sbatch_params, conda_activate, conda_env, dask_conf_file, job_cmd):
+def generate_slurm_script(
+    sbatch_params, conda_activate, conda_env, dask_conf_file, job_cmd
+):
     """
     Generate a SLURM script for submitting a job to a cluster.
 
@@ -35,7 +37,9 @@ def generate_slurm_script(sbatch_params, conda_activate, conda_env, dask_conf_fi
         The generated SLURM script.
     """
 
-    sbatch_lines = "\n".join([f"#SBATCH --{key}={value}" for key, value in sbatch_params.items()])
+    sbatch_lines = "\n".join(
+        [f"#SBATCH --{key}={value}" for key, value in sbatch_params.items()]
+    )
 
     script = f"""#!/bin/bash
 
@@ -101,7 +105,7 @@ def write_slurm_scripts(args, run_info):
         args.conda_activate,
         args.conda_env,
         run_info.dask_conf_file,
-        args.job_cmd
+        args.job_cmd,
     )
     with open(script_path, "w") as file:
         file.write(script)

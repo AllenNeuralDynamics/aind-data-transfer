@@ -4,14 +4,14 @@ from enum import Enum
 from typing import List, Optional
 
 from aind_data_schema.base import AindModel
-from aind_data_schema.data_description import (
+from aind_data_schema.models.organizations import Organization
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.core.data_description import (
     Funding,
-    Institution,
-    Modality,
     datetime_from_name_string,
 )
-from aind_data_schema.device import SizeUnit
-from aind_data_schema.imaging.acquisition import AxisName, Immersion
+from aind_data_schema.models.units import SizeUnit
+from aind_data_schema.core.acquisition import AxisName, Immersion
 from pydantic import Field
 
 from aind_data_transfer.util import file_utils
@@ -128,11 +128,10 @@ class ProcessingManifest(AindModel):
     dataset_status: DatasetStatus = Field(
         ..., title="Dataset status", description="Dataset status"
     )
-    institution: Institution = Field(
+    institution: Organization.ONE_OF = Field(
         ...,
         description="An established society, corporation, foundation or other organization that collected this data",
-        title="Institution",
-        enumNames=[i.value.name for i in Institution],
+        title="Institution"
     )
     acquisition: Acquisition = Field(
         ...,
@@ -156,7 +155,7 @@ if __name__ == "__main__":
     processing_manifest_example = ProcessingManifest(
         specimen_id="000000",
         dataset_status=DatasetStatus(status="pending"),
-        institution=Institution.AIND,
+        institution=Organization.AIND,
         acquisition=Acquisition(
             experimenter_full_name="John Rohde",
             instrument_id="SmartSPIM-id-1",
@@ -192,4 +191,4 @@ if __name__ == "__main__":
     # reading back the json
     json_data = file_utils.read_json_as_dict(output_path)
     model = ProcessingManifest(**json_data)
-    print(model.json())
+    print(model.model_dump_json())

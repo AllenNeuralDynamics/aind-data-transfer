@@ -4,35 +4,33 @@ import time
 from pathlib import Path
 from typing import List, Optional, Dict, cast
 
-import tifffile
+import s3fs
 import zarr
 from numcodecs.abc import Codec
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 from ome_zarr.format import CurrentFormat
-from ome_zarr.io import parse_url
 from ome_zarr.writer import write_multiscales_metadata
 from xarray_multiscale import multiscale
 from xarray_multiscale.reducers import windowed_mean, WindowedReducer
 
-from aind_data_transfer.util.chunk_utils import *
-from aind_data_transfer.util.file_utils import collect_filepaths
-from aind_data_transfer.util.io_utils import (
-    DataReaderFactory,
-    ImarisReader,
-    DataReader,
-    BlockedArrayWriter,
-)
 from aind_data_transfer.transformations.deinterleave import (
-    ChannelParser,
-    Deinterleave,
+    ChannelParser, Deinterleave,
 )
 from aind_data_transfer.transformations.flatfield_correction import (
     BkgSubtraction,
 )
-
+from aind_data_transfer.util.chunk_utils import *
+from aind_data_transfer.util.file_utils import collect_filepaths
+from aind_data_transfer.util.io_utils import (
+    DataReaderFactory, ImarisReader, DataReader, BlockedArrayWriter,
+)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
+
+
+_MAX_S3_RETRIES = 1000
+_S3_RETRY_MODE = "adaptive"
 
 
 def write_files(
@@ -79,10 +77,27 @@ def write_files(
         LOGGER.warning("No images found. Exiting.")
         return []
 
-    store = parse_url(output, mode="w").store
-    root_group = zarr.group(store=store)
+    if output.startswith("s3://"):
+        s3 = s3fs.S3FileSystem(
+            anon=False,
+            config_kwargs={
+                'retries': {
+                    'total_max_attempts': _MAX_S3_RETRIES,
+                    'mode': _S3_RETRY_MODE,
+                }
+            },
+            use_ssl=False,
+        )
+        # Create a Zarr group on S3
+        store = s3fs.S3Map(root=output, s3=s3, check=False)
+    else:
+        store = zarr.DirectoryStore(output, dimension_separator="/")
+
+    root_group = zarr.group(store=store, overwrite=False)
 
     all_metrics = []
+
+    check_voxel_size = voxel_size is None
 
     for impath in sorted(image_paths):
         LOGGER.info(f"Writing tile {impath}")
@@ -91,7 +106,7 @@ def write_files(
         # until we know the optimal chunk shape.
         with DataReaderFactory().create(impath) as reader:
             # TODO: pass units to zarr writer
-            if voxel_size is None:
+            if check_voxel_size:
                 try:
                     voxel_size, _ = reader.get_voxel_size()
                 except Exception:
@@ -209,19 +224,20 @@ def _store_file(
         )
 
         if bkg_img_dir is not None:
-            bkg_img_pyramid = create_pyramid(
-                tifffile.imread(
-                    BkgSubtraction.get_bkg_path(
-                        reader.get_filepath(), bkg_img_dir
-                    )
+            bkg = BkgSubtraction.darray_from_bkg_path(
+                BkgSubtraction.get_bkg_path(
+                    reader.get_filepath(), bkg_img_dir
                 ),
-                n_levels,
-                scale_factors[1:],
+                reader.get_shape()[-2:],
+                chunks[-2:],
             )
+            # keep background image in distributed memory
+            bkg = bkg.persist()
+            bkg_img_pyramid = create_pyramid(bkg, n_levels, scale_factors[1:])
             for i in range(len(bkg_img_pyramid)):
                 pyramid[i] = BkgSubtraction.subtract(
                     pyramid[i],
-                    da.from_array(bkg_img_pyramid[i], chunks=(128, 128)),
+                    bkg_img_pyramid[i],
                 )
 
         # The background subtraction can change the chunks,
@@ -255,16 +271,16 @@ def _store_file(
         arr = reader.as_dask_array(chunks=reader_chunks)
 
         if bkg_img_dir is not None:
-            bkg_img = (
-                tifffile.imread(
-                    BkgSubtraction.get_bkg_path(
-                        reader.get_filepath(), bkg_img_dir
-                    )
+            bkg = BkgSubtraction.darray_from_bkg_path(
+                BkgSubtraction.get_bkg_path(
+                    reader.get_filepath(), bkg_img_dir
                 ),
+                reader.get_shape()[-2:],
+                chunks[-2:],
             )
-            arr = BkgSubtraction.subtract(
-                arr, da.from_array(bkg_img, chunks=(128, 128))
-            )
+            # keep background image in distributed memory
+            bkg = bkg.persist()
+            arr = BkgSubtraction.subtract(arr, bkg)
 
         arr = ensure_array_5d(arr)
         # The background subtraction can change the chunks,
@@ -280,7 +296,7 @@ def _store_file(
             scale_factors,
             voxel_size,
             origin,
-            compressor
+            compressor,
         )
         write_time = time.time() - t0
 
@@ -368,7 +384,7 @@ def _store_interleaved_file(
             scale_factors,
             voxel_size,
             origin,
-            compressor
+            compressor,
         )
         write_time = time.time() - t0
 
@@ -391,7 +407,16 @@ def _store_interleaved_file(
     return tile_metrics
 
 
-def _gen_and_store_pyramid(arr, group, tile_name, n_levels, scale_factors, voxel_size, origin, compressor):
+def _gen_and_store_pyramid(
+    arr,
+    group,
+    tile_name,
+    n_levels,
+    scale_factors,
+    voxel_size,
+    origin,
+    compressor,
+):
     """
     Progressively downsample the input array and store the results as separate arrays in a Zarr group.
 
@@ -479,10 +504,12 @@ def write_folder(
     if exclude is None:
         exclude = []
 
-    image_paths = collect_filepaths(
-        input,
-        recursive=recursive,
-        include_exts=DataReaderFactory().VALID_EXTENSIONS,
+    image_paths = list(
+        collect_filepaths(
+            input,
+            recursive=recursive,
+            include_exts=DataReaderFactory().VALID_EXTENSIONS,
+        )
     )
 
     exclude_paths = set()
@@ -826,7 +853,7 @@ def store_array(
     path: str,
     block_shape: tuple,
     compressor: Codec = None,
-    dimension_separator: str = "/"
+    dimension_separator: str = "/",
 ) -> zarr.Array:
     """
     Store the full resolution layer of a Dask pyramid into a Zarr group.
@@ -914,7 +941,11 @@ def downsample_and_store(
     return pyramid
 
 
-def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple, reducer: WindowedReducer = windowed_mean) -> da.Array:
+def _get_first_mipmap_level(
+    arr: da.Array,
+    scale_factors: tuple,
+    reducer: WindowedReducer = windowed_mean,
+) -> da.Array:
     """
     Generate a mipmap pyramid from the input array and return the first mipmap level.
 
@@ -929,7 +960,9 @@ def _get_first_mipmap_level(arr: da.Array, scale_factors: tuple, reducer: Window
         The first mipmap level of the input array.
     """
     n_lvls = 2
-    pyramid = create_pyramid(arr, n_lvls, scale_factors, arr.chunksize, reducer)
+    pyramid = create_pyramid(
+        arr, n_lvls, scale_factors, arr.chunksize, reducer
+    )
     return ensure_array_5d(pyramid[1])
 
 

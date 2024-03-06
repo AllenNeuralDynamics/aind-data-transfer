@@ -27,7 +27,7 @@ class ImagingReaders:
 
         exaspim_acquisition = r"exaSPIM_([-A-Z0-9.]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
         mesospim_acquisition = r"mesoSPIM_([-A-Z0-9.]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
-        dispim_acquisition = r"diSPIM_([-A-Z0-9.]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
+        dispim_acquisition = r"HCR_([-A-Z0-9.]+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})"
 
     @staticmethod
     def get_raw_data_dir(reader_name, input_dir):
@@ -64,6 +64,75 @@ class ImagingReaders:
             return ImagingReaders.Readers.dispim.value
         else:
             return ImagingReaders.Readers.generic.value
+
+
+    @staticmethod
+    def read_dispim_folders(path: PathLike) -> List[str]:
+        """
+        Reads diSPIM datasets in a folder
+        based on data conventions
+
+        Parameters
+        -----------------
+        path: PathLike
+            Path where the datasets are located
+
+        Returns
+        -----------------
+        List[str]
+            List with the found diSPIM datasets
+        """
+        dispim_datasets = []
+
+        if os.path.isdir(path):
+            datasets = os.listdir(path)
+
+            for dataset in datasets:
+                if re.match(
+                    ImagingReaders.SourceRegexPatterns.dispim_acquisition.value,
+                    dataset,
+                ):
+                    dispim_datasets.append(dataset)
+
+        else:
+            raise ValueError(f"Path {path} is not a folder.")
+
+        return dispim_datasets
+
+
+    @staticmethod
+    def read_exaspim_folders(path: PathLike) -> List[str]:
+        """
+        Reads exaSPIM datasets in a folder
+        based on data conventions
+
+        Parameters
+        -----------------
+        path: PathLike
+            Path where the datasets are located
+
+        Returns
+        -----------------
+        List[str]
+            List with the found exaSPIM datasets
+        """
+        exaspim_datasets = []
+
+        if os.path.isdir(path):
+            datasets = os.listdir(path)
+
+            for dataset in datasets:
+                if re.match(
+                    ImagingReaders.SourceRegexPatterns.exaspim_acquisition.value,
+                    dataset,
+                ):
+                    exaspim_datasets.append(dataset)
+
+        else:
+            raise ValueError(f"Path {path} is not a folder.")
+
+        return exaspim_datasets
+
 
 
 class SmartSPIMReader:

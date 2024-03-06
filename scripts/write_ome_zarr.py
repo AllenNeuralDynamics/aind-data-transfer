@@ -16,6 +16,7 @@ from aind_data_transfer.transformations.ome_zarr import write_files
 from aind_data_transfer.util.dask_utils import get_client
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import *
+
 # Importing this will set up the logging configuration on all nodes
 from aind_data_transfer.util import setup_logging
 
@@ -149,7 +150,7 @@ def parse_args():
         "--bkg_img_dir",
         type=str,
         default=None,
-        help="path to the background image folder. If given, background subtraction will be done for each converted image."
+        help="path to the background image folder. If given, background subtraction will be done for each converted image.",
     )
     args = parser.parse_args()
     return args
@@ -224,7 +225,7 @@ def main():
         args.chunk_shape,
         voxsize,
         compressor,
-        bkg_img_dir=args.bkg_img_dir
+        bkg_img_dir=args.bkg_img_dir,
     )
 
     df = pd.DataFrame.from_records(all_metrics)

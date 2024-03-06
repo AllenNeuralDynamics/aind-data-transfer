@@ -1,0 +1,261 @@
+{
+  "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/metadata.py",
+  "schema_version": "0.0.1",
+  "_id": "000000",
+  "name": "Test Name",
+  "created": "2023-09-27T00:00:00",
+  "last_modified": "2023-09-28T10:20:30",
+  "location": "Test Location",
+  "metadata_status": "Unknown",
+  "external_links": [],
+  "subject": {
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/subject.py",
+    "schema_version": "0.4.2",
+    "species": {
+      "name": "Mus musculus",
+      "abbreviation": null,
+      "registry": {
+        "name": "National Center for Biotechnology Information",
+        "abbreviation": "NCBI"
+      },
+      "registry_identifier": "10090"
+    },
+    "subject_id": "643054",
+    "sex": "Female",
+    "date_of_birth": "2022-07-20",
+    "genotype": "Drd1a-Cre/wt;RCL-somBiPoles_mCerulean-WPRE/wt",
+    "mgi_allele_ids": null,
+    "background_strain": null,
+    "source": null,
+    "rrid": null,
+    "restrictions": null,
+    "breeding_group": "Drd1a-Cre;RCL-somBiPoles_mCerulean-WPRE(ND)",
+    "maternal_id": "630883",
+    "maternal_genotype": "RCL-somBiPoles_mCerulean-WPRE/wt",
+    "paternal_id": "624640",
+    "paternal_genotype": "Drd1a-Cre/wt",
+    "wellness_reports": null,
+    "housing": null,
+    "notes": null
+  },
+  "data_description": {
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/data_description.py",
+    "schema_version": "0.10.1",
+    "license": "CC-BY-4.0",
+    "creation_time": "2022-02-21 16:30:01",
+    "name": "exaSPIM_12345_2022-02-21_16-30-01",
+    "institution": {
+      "name": "Allen Institute for Neural Dynamics",
+      "abbreviation": "AIND",
+      "registry": {
+        "name": "Research Organization Registry",
+        "abbreviation": "ROR"
+      },
+      "registry_identifier": "04szwah67"
+    },
+    "funding_source": [
+      {
+        "funder": {
+          "name": "Allen Institute",
+          "abbreviation": "AI",
+          "registry": {
+            "name": "Research Organization Registry",
+            "abbreviation": "ROR"
+          },
+          "registry_identifier": "03cpe7c52"
+        },
+        "grant_number": null,
+        "fundee": null
+      }
+    ],
+    "data_level": "raw",
+    "group": null,
+    "investigators": [],
+    "project_name": null,
+    "restrictions": null,
+    "modality": [
+      {
+        "name": "Selective plane illumination microscopy",
+        "abbreviation": "SPIM"
+      }
+    ],
+    "platform": {
+      "name": "ExaSPIM platform",
+      "abbreviation": "exaSPIM"
+    },
+    "subject_id": "12345",
+    "related_data": [],
+    "data_summary": null
+  },
+  "procedures": {
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/procedures.py",
+    "schema_version": "0.9.2",
+    "subject_id": "625100",
+    "subject_procedures": [
+      {
+        "start_date": "2022-07-12",
+        "end_date": "2022-07-12",
+        "experimenter_full_name": "n/a",
+        "protocol_id": "null",
+        "iacuc_protocol": "2109",
+        "animal_weight_prior": 22.6,
+        "animal_weight_post": 22.3,
+        "weight_unit": "gram",
+        "anaesthesia": {
+          "type": "Isoflurane",
+          "duration": 1.0,
+          "duration_unit": "minute",
+          "level": 1.5
+        },
+        "notes": null,
+        "procedure_type": "Craniotomy",
+        "craniotomy_type": "Visual Cortex",
+        "craniotomy_hemisphere": null,
+        "craniotomy_coordinates_ml": null,
+        "craniotomy_coordinates_ap": null,
+        "craniotomy_coordinates_unit": "millimeter",
+        "craniotomy_coordinates_reference": "Lambda",
+        "bregma_to_lambda_distance": 4.1,
+        "bregma_to_lambda_unit": "millimeter",
+        "craniotomy_size": 5.0,
+        "craniotomy_size_unit": "millimeter",
+        "implant_part_number": null,
+        "dura_removed": null,
+        "protective_material": null,
+        "workstation_id": "SWS 3",
+        "recovery_time": null
+      },
+      {
+        "start_date": "2022-07-12",
+        "end_date": "2022-07-12",
+        "experimenter_full_name": "n/a",
+        "protocol_id": "null",
+        "iacuc_protocol": "2109",
+        "animal_weight_prior": 22.6,
+        "animal_weight_post": 22.7,
+        "weight_unit": "gram",
+        "anaesthesia": {
+          "type": "Isoflurane",
+          "duration": 1.0,
+          "duration_unit": "minute",
+          "level": 1.5
+        },
+        "notes": null,
+        "injection_materials": [
+          {
+            "name": "AAV2-Flex-ChrimsonR",
+            "material_id": null,
+            "full_genome_name": null,
+            "plasmid_name": null,
+            "genome_copy": null,
+            "titer": null,
+            "titer_unit": "gc/mL",
+            "prep_lot_number": null,
+            "prep_date": null,
+            "prep_type": null,
+            "prep_protocol": null
+          }
+        ],
+        "recovery_time": "00:00:00",
+        "injection_duration": null,
+        "injection_duration_unit": "minute",
+        "workstation_id": "SWS 3",
+        "instrument_id": null,
+        "injection_coordinate_ml": -0.87,
+        "injection_coordinate_ap": -3.8,
+        "injection_coordinate_depth": -3.3,
+        "injection_coordinate_unit": "millimeter",
+        "injection_coordinate_reference": "Lambda",
+        "bregma_to_lambda_distance": 4.1,
+        "bregma_to_lambda_unit": "millimeter",
+        "injection_angle": 10.0,
+        "injection_angle_unit": "degree",
+        "targeted_structure": "VISp",
+        "injection_hemisphere": "Left",
+        "procedure_type": "Nanoject injection",
+        "injection_volume": 200.0,
+        "injection_volume_unit": "nanoliter"
+      }
+    ],
+    "specimen_procedures": [],
+    "notes": null
+  },
+  "processing": {
+    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/processing.py",
+    "schema_version": "0.3.0",
+    "processing_pipeline": {
+      "data_processes": [
+        {
+          "name": "Ephys preprocessing",
+          "software_version": "0.0.3",
+          "start_date_time": "2020-10-20 00:00:00+00:00",
+          "end_date_time": "2020-10-20 01:00:00+00:00",
+          "input_location": "some_input_location",
+          "output_location": "some_output_location",
+          "code_url": "https://github.com/AllenNeuralDynamics/aind-data-transfer",
+          "parameters": {
+            "jobs": {
+              "attach_metadata": false,
+              "clip": true,
+              "compress": true,
+              "upload_to_s3": true,
+              "upload_to_gcp": false,
+              "trigger_codeocean_job": false
+            },
+            "endpoints": {
+              "raw_data_dir": "tests/resources/v0.6.x_neuropixels_multiexp_multistream",
+              "dest_data_dir": "tests/resources/new/v0.6.x_neuropixels_multiexp_multistream",
+              "s3_bucket": "some-s3-bucket",
+              "s3_prefix": "v0.6.x_neuropixels_multiexp_multistream",
+              "gcp_bucket": "some-gcp-bucket",
+              "gcp_prefix": "test_20221001",
+              "codeocean_domain": "https://acmecorp.codeocean.com",
+              "code_repo_location": "https://location_of_code_repo",
+              "metadata_service_url": "http://some-url"
+            },
+            "aws_secret_names": {
+              "code_ocean_api_token_name": "secret_name_for_api_token",
+              "video_encryption_password": "video_encryption_password",
+              "region": "us-west-2"
+            },
+            "data": {
+              "name": "openephys"
+            },
+            "clip_data_job": {
+              "clip_kwargs": {}
+            },
+            "compress_data_job": {
+              "write_kwargs": {
+                "n_jobs": -1,
+                "chunk_duration": "1s",
+                "progress_bar": true
+              },
+              "format_kwargs": {},
+              "compressor": {
+                "compressor_name": "blosc",
+                "kwargs": {
+                  "shuffle": 2
+                }
+              },
+              "scale_params": {
+                "chunk_size": 20
+              }
+            },
+            "upload_data_job": {
+              "dryrun": true
+            },
+            "trigger_codeocean_job": {
+              "job_type": "openephys",
+              "bucket": "some-s3-bucket",
+              "prefix": "v0.6.x_neuropixels_multiexp_multistream"
+            },
+            "logging": {
+              "level": "INFO"
+            }
+          }
+        }
+      ],
+      "processor_full_name": "some name"
+    }
+  }
+}

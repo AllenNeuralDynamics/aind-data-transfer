@@ -9,12 +9,20 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from enum import Enum
+import inspect
 from importlib import import_module
 from pathlib import Path
+from typing import Dict, Optional, get_args
 
 import boto3
 from aind_codeocean_api.codeocean import CodeOceanClient
-from aind_data_schema.data_description import Modality
+from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
+from aind_data_schema.base import AindCoreModel
+from aind_data_schema.core.data_description import DataDescription
+from aind_data_schema.core.procedures import Procedures
+from aind_data_schema.core.subject import Subject
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.core.metadata import Metadata, MetadataStatus
 
 from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
@@ -50,6 +58,7 @@ class BasicJob:
             .getChild(str(id(self)))
         )
         self._instance_logger.setLevel(job_configs.log_level)
+        self.metadata_record: Optional[Metadata] = None
 
     def _test_upload(self, temp_dir: Path):
         """Run upload command on empty directory to see if user has permissions
@@ -61,6 +70,153 @@ class BasicJob:
             s3_prefix=self.job_configs.s3_prefix,
         )
         return None
+
+    @staticmethod
+    def __core_metadata_fields():
+        all_model_fields = dict()
+        for field_name in Metadata.model_fields:
+            # The fields we're interested in are optional. We need to extract out the
+            # class using the get_args method
+            annotation_args = get_args(
+                Metadata.model_fields[field_name].annotation)
+            optional_classes = (
+                None
+                if not annotation_args
+                else (
+                    [
+                        f
+                        for f in
+                        get_args(Metadata.model_fields[field_name].annotation)
+                        if inspect.isclass(f) and issubclass(f, AindCoreModel)
+                    ]
+                )
+            )
+            if (
+                    optional_classes
+                    and inspect.isclass(optional_classes[0])
+                    and issubclass(optional_classes[0], AindCoreModel)
+            ):
+                all_model_fields[field_name] = optional_classes[0]
+        return all_model_fields
+
+    @staticmethod
+    def __download_json(file_location: Path) -> dict:
+        with open(file_location, "r") as f:
+            contents = json.load(f)
+        return contents
+
+    def _initialize_metadata_record(self, temp_dir: Path):
+        """Perform some metadata collection and validation before more
+        time-consuming compression and upload steps."""
+
+        # Create a map: filename -> AindCoreModel,
+        # e.g., "subject.json" -> Subject
+        aind_core_models = self.__core_metadata_fields()
+        core_filename_map: Dict[str, AindCoreModel] = {
+            f.default_filename(): f for f in aind_core_models.values()
+        }
+        # Create a map: filename -> Metadata field name,
+        # e.g., "subject.json" -> "subject"
+        core_field_name_map = {
+            v.default_filename(): k for k, v in aind_core_models.items()
+        }
+        # If the user defined a metadata directory, create a
+        # map: filename -> Path, e.g., "subject.json" -> "dir/subject.json"
+        metadata_in_folder_map: Dict[str, Path] = dict()
+        if self.job_configs.metadata_dir:
+            # Check only json files in user defined metadata folder
+            file_paths = glob.glob(
+                str(self.job_configs.metadata_dir / "*.json")
+            )
+            for file_path in file_paths:
+                metadata_in_folder_map[Path(file_path).name] = Path(file_path)
+        # Subject, Procedures, Data Description, and Processing are handled
+        # as special cases
+        subject_filename = Subject.default_filename()
+        procedures_filename = Procedures.default_filename()
+        data_description_filename = DataDescription.default_filename()
+        # If subject not in user defined directory, query the service
+        if metadata_in_folder_map.get(subject_filename) is not None:
+            subject_metadata = self.__download_json(
+                metadata_in_folder_map[subject_filename]
+            )
+            file_path = metadata_in_folder_map.get(subject_filename)
+            new_path = temp_dir / Path(file_path).name
+            shutil.copyfile(file_path, new_path)
+            del metadata_in_folder_map[subject_filename]
+        else:
+            subject_metadata_0 = SubjectMetadata.from_service(
+                domain=self.job_configs.metadata_service_domain,
+                subject_id=self.job_configs.subject_id,
+            )
+            subject_metadata_0.write_to_json(temp_dir)
+            subject_metadata = subject_metadata_0.model_obj
+        del core_filename_map[subject_filename]
+        # Basic check that subject_id matches
+        if subject_metadata.get("subject_id") != self.job_configs.subject_id:
+            raise Exception(
+                f"Subject id {self.job_configs.subject_id} not found in"
+                f" {subject_metadata}!"
+            )
+
+        # If procedures not in user defined directory, query the service
+        if metadata_in_folder_map.get(procedures_filename) is not None:
+            procedures_metadata = self.__download_json(
+                metadata_in_folder_map[procedures_filename]
+            )
+            file_path = metadata_in_folder_map.get(procedures_filename)
+            new_path = temp_dir / Path(file_path).name
+            shutil.copyfile(file_path, new_path)
+            del metadata_in_folder_map[procedures_filename]
+        else:
+            procedures_metadata_0 = ProceduresMetadata.from_service(
+                domain=self.job_configs.metadata_service_domain,
+                subject_id=self.job_configs.subject_id,
+            )
+            procedures_metadata_0.write_to_json(temp_dir)
+            procedures_metadata = procedures_metadata_0.model_obj
+        del core_filename_map[procedures_filename]
+
+        # If data_description not in user defined directory, create one
+        if metadata_in_folder_map.get(data_description_filename) is not None:
+            data_description_metadata = self.__download_json(
+                metadata_in_folder_map[data_description_filename]
+            )
+            file_path = metadata_in_folder_map.get(data_description_filename)
+            new_path = temp_dir / Path(file_path).name
+            shutil.copyfile(file_path, new_path)
+            del metadata_in_folder_map[data_description_filename]
+        else:
+            modalities = [m.modality for m in self.job_configs.modalities]
+            data_description_metadata_0 = (
+                RawDataDescriptionMetadata.from_inputs(
+                    name=self.job_configs.s3_prefix,
+                    modality=modalities,
+                )
+            )
+            data_description_metadata_0.write_to_json(temp_dir)
+            data_description_metadata = data_description_metadata_0.model_obj
+        del core_filename_map[data_description_filename]
+
+        # Update metadata record object
+        self.metadata_record = Metadata(
+            name=self.job_configs.s3_prefix,
+            location=self.job_configs.s3_bucket,
+            subject=subject_metadata,
+            procedures=procedures_metadata,
+            data_description=data_description_metadata,
+        )
+        # For the remaining files in metadata dir, copy them over. We'll
+        # copy al the files regardless of whether they were generated from
+        # a core model. For the core models, we can attach the contents to
+        # the metadata record
+        for file_name, file_path in metadata_in_folder_map.items():
+            new_path = temp_dir / Path(file_path).name
+            shutil.copyfile(file_path, new_path)
+            if core_field_name_map.get(file_name) is not None:
+                model_contents = self.__download_json(file_path)
+                field_name = core_field_name_map[file_name]
+                setattr(self.metadata_record, field_name, model_contents)
 
     def _check_if_s3_location_exists(self):
         """Check if the s3 bucket and prefix already exists. If so, raise an
@@ -198,35 +354,10 @@ class BasicJob:
                     )
         return None
 
-    def _compile_metadata(
+    def _add_processing_to_metadata(
         self, temp_dir: Path, process_start_time: datetime
-    ) -> None:
-        """Compile metadata files. Keeps the data in the temp_dir before
-        uploading to s3."""
-
-        # Get metadata from service
-        subject_metadata = SubjectMetadata.from_service(
-            domain=self.job_configs.metadata_service_domain,
-            subject_id=self.job_configs.subject_id,
-        )
-        subject_file_name = temp_dir / subject_metadata.output_filename
-        subject_metadata.write_to_json(subject_file_name)
-        procedures_metadata = ProceduresMetadata.from_service(
-            domain=self.job_configs.metadata_service_domain,
-            subject_id=self.job_configs.subject_id,
-        )
-        procedures_file_name = temp_dir / procedures_metadata.output_filename
-        procedures_metadata.write_to_json(procedures_file_name)
-        modalities = [m.modality for m in self.job_configs.modalities]
-        data_description_metadata = RawDataDescriptionMetadata.from_inputs(
-            name=self.job_configs.s3_prefix,
-            modality=modalities,
-        )
-        data_description_file_name = (
-            temp_dir / data_description_metadata.output_filename
-        )
-        data_description_metadata.write_to_json(data_description_file_name)
-
+    ):
+        """Append the processing metadata to the output"""
         processing_end_time = datetime.now(timezone.utc)
         processing_metadata = ProcessingMetadata.from_modalities_configs(
             modality_configs=self.job_configs.modalities,
@@ -236,32 +367,22 @@ class BasicJob:
                 f"s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix}"
             ),
+            processor_full_name=self.job_configs.processor_name,
             code_url=self.job_configs.aind_data_transfer_repo_location,
-            notes=None,
         )
-        processing_file_name = temp_dir / processing_metadata.output_filename
-        processing_metadata.write_to_json(processing_file_name)
-
-        # Check user defined metadata
-        if self.job_configs.metadata_dir:
-            # Check only json files in user defined metadata folder
-            file_paths = glob.glob(
-                str(self.job_configs.metadata_dir / "*.json")
-            )
-            for file_path in file_paths:
-                new_path = temp_dir / Path(file_path).name
-                # Only overwrite service defined metadata if metadata_dir_force
-                # is set to true
-                if (
-                    not os.path.exists(new_path)
-                    or self.job_configs.metadata_dir_force
-                ):
-                    shutil.copyfile(file_path, new_path)
-        return None
+        processing_metadata.write_to_json(path=temp_dir)
+        processing = processing_metadata.get_model()
+        if (
+            processing_metadata.validate_obj() is False
+            and self.metadata_record.metadata_status != MetadataStatus.MISSING
+        ):
+            self.metadata_record.metadata_status = MetadataStatus.INVALID
+        self.metadata_record.processing = processing
+        self.metadata_record.write_standard_file(temp_dir)
 
     def _encrypt_behavior_dir(self, temp_dir: Path) -> None:
         """Encrypt the data in the behavior directory. Keeps the data in the
-        temp_dir before uploading to s3."""
+        temp_dir before uploading to s3. This feature will be deprecated."""
         if self.job_configs.behavior_dir:
             encryption_key = (
                 self.job_configs.video_encryption_password.get_secret_value()
@@ -294,12 +415,15 @@ class BasicJob:
             job_type = JobTypes.RUN_GENERIC_PIPELINE.value
         else:
             # Handle legacy way we set up parameters...
-            job_type = self.job_configs.experiment_type.value
+            job_type = self.job_configs.platform.abbreviation
         trigger_capsule_params = {
             "trigger_codeocean_job": {
                 "job_type": job_type,
                 "modalities": (
-                    [m.modality.name for m in self.job_configs.modalities]
+                    [
+                        m.modality.abbreviation
+                        for m in self.job_configs.modalities
+                    ]
                 ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
                 "process_capsule_id": (
@@ -320,11 +444,11 @@ class BasicJob:
                 f"{trigger_capsule_params}"
             )
         else:
-            response = co_client.run_capsule(
+            run_capsule_request = RunCapsuleRequest(
                 capsule_id=self.job_configs.codeocean_trigger_capsule_id,
-                data_assets=[],
                 parameters=[json.dumps(trigger_capsule_params)],
             )
+            response = co_client.run_capsule(request=run_capsule_request)
             self._instance_logger.info(
                 f"Code Ocean Response: {response.json()}"
             )
@@ -340,12 +464,15 @@ class BasicJob:
         ) as td:
             self._instance_logger.info("Checking write credentials...")
             self._test_upload(temp_dir=Path(td))
+            self._instance_logger.info("Compiling initial metadata...")
+            self._initialize_metadata_record(temp_dir=Path(td))
             self._instance_logger.info("Processing raw data...")
             self._compress_raw_data(temp_dir=Path(td))
             self._instance_logger.info("Checking for behavior directory...")
+            # TODO: remove the encryption step
             self._encrypt_behavior_dir(temp_dir=Path(td))
-            self._instance_logger.info("Compiling metadata...")
-            self._compile_metadata(
+            self._instance_logger.info("Attaching processing metadata...")
+            self._add_processing_to_metadata(
                 temp_dir=Path(td), process_start_time=process_start_time
             )
             self._instance_logger.info("Starting s3 upload...")
@@ -356,7 +483,11 @@ class BasicJob:
 
 if __name__ == "__main__":
     sys_args = sys.argv[1:]
-    if "--json-args" in sys_args:
+    # First check if json args are set as an environment variable
+    if os.getenv("UPLOAD_JOB_JSON_ARGS") is not None and len(sys_args) == 0:
+        env_args = ["--json-args", os.getenv("UPLOAD_JOB_JSON_ARGS")]
+        job_configs_from_main = BasicUploadJobConfigs.from_json_args(env_args)
+    elif "--json-args" in sys_args:
         job_configs_from_main = BasicUploadJobConfigs.from_json_args(sys_args)
     else:
         job_configs_from_main = BasicUploadJobConfigs.from_args(sys_args)

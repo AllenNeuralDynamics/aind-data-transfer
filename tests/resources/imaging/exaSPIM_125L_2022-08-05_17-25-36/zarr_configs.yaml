@@ -1,0 +1,11 @@
+n_levels: 2
+scale_factor: 3
+chunk_shape: [2, 2, 128, 128, 128]
+voxel_size: [1, 1, 1]
+codec: "zstd"
+clevel: 2
+do_bkg_subtraction: True
+exclude_patterns: ["pattern1", "pattern2"]
+create_ng_link: True
+ng_vmin: 50
+ng_vmax: 5000

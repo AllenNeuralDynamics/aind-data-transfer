@@ -19,7 +19,6 @@ def _create_interleaved_array(shape, num_channels, array_type):
 
 
 class TestDeinterleave(unittest.TestCase):
-
     def test_deinterleave_dask(self):
         num_channels = 3
         a = _create_interleaved_array((384, 32, 32), num_channels, "dask")

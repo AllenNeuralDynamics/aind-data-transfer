@@ -141,7 +141,9 @@ def expand_chunks(
         ndims = len(current)
         while _get_size(current, itemsize) < target_size:
             prev = current.copy()
-            current[idx % ndims] = min(data_shape[idx % ndims], current[idx % ndims] * 2)
+            current[idx % ndims] = min(
+                data_shape[idx % ndims], current[idx % ndims] * 2
+            )
             idx += 1
             if all(c >= s for c, s in zip(current, data_shape)):
                 break
