@@ -1,0 +1,40 @@
+{
+   "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/mri_session.py",
+   "schema_version": "0.3.3",
+   "subject_id": "",
+   "session_start_time": "2024-03-07T12:51:29.218186",
+   "session_end_time": "2024-03-07T12:51:29.218186",
+   "experimenter_full_name": [
+      "Mae"
+   ],
+   "protocol_id": "",
+   "iacuc_protocol": "",
+   "animal_weight_prior": null,
+   "animal_weight_post": null,
+   "weight_unit": "gram",
+   "anaesthesia": null,
+   "mri_scanner": {
+      "device_type": "Scanner",
+      "name": "test_scanner",
+      "serial_number": null,
+      "manufacturer": null,
+      "model": null,
+      "path_to_cad": null,
+      "port_index": null,
+      "additional_settings": {},
+      "notes": null,
+      "scanner_location": "Fred Hutch",
+      "magnetic_strength": 7,
+      "magnetic_strength_unit": "T"
+   },
+   "scans": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+   ],
+   "notes": "none"
+}
