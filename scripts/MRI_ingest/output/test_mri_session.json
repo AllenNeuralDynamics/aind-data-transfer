@@ -2,8 +2,8 @@
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/mri_session.py",
    "schema_version": "0.3.3",
    "subject_id": "",
-   "session_start_time": "2024-03-07T12:51:29.218186",
-   "session_end_time": "2024-03-07T12:51:29.218186",
+   "session_start_time": "2024-03-07T13:02:40.967578",
+   "session_end_time": "2024-03-07T13:02:40.967578",
    "experimenter_full_name": [
       "Mae"
    ],
