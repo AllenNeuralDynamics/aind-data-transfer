@@ -15,9 +15,9 @@ dynamic = ["version"]
 
 dependencies = [
     'pandas==2.2.0',
-    's3fs==2023.12.2',
-    's3transfer[crt]==0.7.0',
-    'boto3[crt]==1.29.6',
+    's3fs==2024.2.0',
+    's3transfer[crt]==0.10.0',
+    'boto3[crt]==1.34.51',
     'numpy==1.26.1',
     'pyyaml==6.0.1',
     'google-cloud-storage==2.12.0',
@@ -49,10 +49,10 @@ ephys = [
 ]
 imaging = [
     'argschema==3.0.4',
-    'dask==2024.1.0',
-    'distributed==2024.1.0',
+    'dask==2024.2.1',
+    'distributed==2024.2.1',
     'bokeh!=3.0.*,>=2.4.2',
-    'gcsfs==2023.12.2.post1',
+    'gcsfs==2024.2.0',
     'xarray-multiscale==2.1.0',
     'parameterized==0.9.0',
     'ome-zarr==0.8.3',
