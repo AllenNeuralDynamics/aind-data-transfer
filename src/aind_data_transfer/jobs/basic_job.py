@@ -1,6 +1,7 @@
 """Module to define and potentially run a BasicJob."""
 
 import glob
+import inspect
 import json
 import logging
 import os
@@ -9,7 +10,6 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from enum import Enum
-import inspect
 from importlib import import_module
 from pathlib import Path
 from typing import Dict, Optional, get_args
@@ -19,10 +19,10 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import DataDescription
+from aind_data_schema.core.metadata import Metadata, MetadataStatus
 from aind_data_schema.core.procedures import Procedures
 from aind_data_schema.core.subject import Subject
 from aind_data_schema.models.modalities import Modality
-from aind_data_schema.core.metadata import Metadata, MetadataStatus
 
 from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
@@ -78,23 +78,25 @@ class BasicJob:
             # The fields we're interested in are optional. We need to extract out the
             # class using the get_args method
             annotation_args = get_args(
-                Metadata.model_fields[field_name].annotation)
+                Metadata.model_fields[field_name].annotation
+            )
             optional_classes = (
                 None
                 if not annotation_args
                 else (
                     [
                         f
-                        for f in
-                        get_args(Metadata.model_fields[field_name].annotation)
+                        for f in get_args(
+                            Metadata.model_fields[field_name].annotation
+                        )
                         if inspect.isclass(f) and issubclass(f, AindCoreModel)
                     ]
                 )
             )
             if (
-                    optional_classes
-                    and inspect.isclass(optional_classes[0])
-                    and issubclass(optional_classes[0], AindCoreModel)
+                optional_classes
+                and inspect.isclass(optional_classes[0])
+                and issubclass(optional_classes[0], AindCoreModel)
             ):
                 all_model_fields[field_name] = optional_classes[0]
         return all_model_fields
@@ -222,6 +224,9 @@ class BasicJob:
         """Check if the s3 bucket and prefix already exists. If so, raise an
         error."""
         s3_client = boto3.client("s3")
+        logging.info(
+            f"Checking f{self.job_configs.s3_bucket} and f{self.job_configs.s3_prefix}"
+        )
         try:
             results = s3_client.list_objects_v2(
                 Bucket=self.job_configs.s3_bucket,
