@@ -4,18 +4,18 @@ import json
 import os
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, call, mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
-from aind_data_schema.core.processing import Processing
+from aind_data_schema.core.data_description import Funding, RawDataDescription
 from aind_data_schema.core.procedures import Procedures
-from aind_data_schema.core.data_description import RawDataDescription
+from aind_data_schema.core.processing import Processing
 from aind_data_schema.core.subject import Subject
-from aind_data_schema.models.organizations import Organization
 from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.organizations import Organization
 from aind_data_schema.models.process_names import ProcessName
-from aind_data_schema.core.data_description import Funding
 from requests import ConnectionError, Response
 
+from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.ephys_configuration_loader import (
     EphysJobConfigurationLoader,
 )
@@ -90,7 +90,9 @@ class TestProcessingMetadata(unittest.TestCase):
         expected_processing_instance = Processing.model_validate(
             expected_processing_instance_json
         )
-
+        expected_processing_instance.processing_pipeline.data_processes[
+            0
+        ].software_version = __version__
         self.assertEqual(
             json.loads(expected_processing_instance.model_dump_json()),
             processing_metadata.model_obj,
