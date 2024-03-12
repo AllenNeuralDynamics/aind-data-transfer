@@ -2,11 +2,9 @@
 """
 
 import logging
-import os
 from typing import List
 
 from awscrt.s3 import S3Client
-from botocore.credentials import create_credential_resolver
 from botocore.session import get_session
 from s3transfer.constants import GB, MB
 from s3transfer.crt import (
@@ -14,6 +12,7 @@ from s3transfer.crt import (
     CRTTransferFuture,
     CRTTransferManager,
     create_s3_crt_client,
+    BotocoreCRTCredentialsWrapper
 )
 
 from aind_data_transfer.util.file_utils import (
@@ -23,6 +22,14 @@ from aind_data_transfer.util.file_utils import (
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+def _get_crt_credentials_provider(session):
+    botocore_credentials = session.get_credentials()
+    wrapper = BotocoreCRTCredentialsWrapper(
+        botocore_credentials
+    )
+    return wrapper.to_crt_credentials_provider()
 
 
 class S3Uploader:
@@ -41,10 +48,9 @@ class S3Uploader:
         verify=None,
     ):
         session = get_session()
-        resolver = create_credential_resolver(session, region_name=region)
         self.s3_crt_client = create_s3_crt_client(
             region,
-            botocore_credential_provider=resolver,
+            crt_credentials_provider=_get_crt_credentials_provider(session),
             num_threads=num_threads,
             target_throughput=target_throughput,
             part_size=part_size,
