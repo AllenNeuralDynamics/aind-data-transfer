@@ -86,7 +86,7 @@ def write_files(
                     'mode': _S3_RETRY_MODE,
                 }
             },
-            use_ssl=False,
+            use_ssl=True,
         )
         # Create a Zarr group on S3
         store = s3fs.S3Map(root=output, s3=s3, check=False)
