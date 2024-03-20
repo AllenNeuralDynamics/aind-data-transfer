@@ -27,6 +27,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 scripts/MRI_ingest
+scripts/Exaspim_ingest/original_spec_files
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
