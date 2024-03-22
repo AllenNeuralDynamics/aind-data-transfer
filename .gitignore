@@ -28,6 +28,7 @@ share/python-wheels/
 MANIFEST
 scripts/MRI_ingest
 scripts/Exaspim_ingest/original_spec_files
+scripts/Exaspim_ingest/ExM Sample Tracking smartsheet.xlsx
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
