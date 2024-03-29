@@ -69,7 +69,7 @@ class EphysWriters:
                 format=output_format,
                 folder=zarr_path,
                 compressor=compressor,
-                compressor_by_dataset=dict(times=None)
+                compressor_by_dataset=dict(times=None),
                 **job_kwargs,
             )
 
