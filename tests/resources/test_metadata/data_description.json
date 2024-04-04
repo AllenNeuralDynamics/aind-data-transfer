@@ -1,6 +1,6 @@
 {
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/data_description.py",
-   "schema_version": "0.13.0",
+   "schema_version": "0.13.2",
    "license": "CC-BY-4.0",
    "platform": {
       "name": "ExaSPIM platform",
@@ -37,7 +37,7 @@
    "data_level": "raw",
    "group": null,
    "investigators": [
-      "John Apple"
+      {"name": "John Apple"}
    ],
    "project_name": null,
    "restrictions": null,
