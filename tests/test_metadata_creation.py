@@ -12,6 +12,7 @@ from aind_data_schema.core.processing import Processing
 from aind_data_schema.core.subject import Subject
 from aind_data_schema.models.modalities import Modality
 from aind_data_schema.models.organizations import Organization
+from aind_data_schema.models.pid_names import PIDName
 from aind_data_schema.models.process_names import ProcessName
 from requests import ConnectionError, Response
 
@@ -323,7 +324,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
         """
         data_description = RawDataDescriptionMetadata.from_inputs(
             name="exaSPIM_12345_2022-02-21_16-30-01",
-            investigators=["John Apple"],
+            investigators=[PIDName(name="John Apple")],
             modality=[Modality.SPIM],
             funding_source=(Funding(funder=Organization.AI),),
         )

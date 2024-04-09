@@ -9,12 +9,11 @@ import aind_data_transfer.transformations.file_io as file_io
 
 from aind_data_schema.core.acquisition import (
     AxisName,
-    Direction,
-    Axis,
     Immersion,
     Acquisition,
     AcquisitionTile,
 )
+from aind_data_schema.models.coordinates import AnatomicalDirection, ImageAxis
 from aind_data_schema.imaging.tile import (
     Channel,
     Scale3dTransform,
@@ -55,7 +54,7 @@ def read_dispim_aquisition(acq_path: str) -> Acquisition:
     session_start_time: datetime = acq_json["session_start_time"]
     session_end_time: datetime = acq_json["session_end_time"]
     tiles_list: List[AcquisitionTile] = acq_json["tiles"]
-    axes: List[Axis] = acq_json["axes"]
+    axes: List[ImageAxis] = acq_json["axes"]
     chamber_immersion: Immersion = acq_json["chamber_immersion"]
     local_storage_directory: str = acq_json["local_storage_directory"]
     external_storage_directory: str = acq_json["external_storage_directory"]
@@ -210,10 +209,10 @@ def log_to_acq_json(log_dict: dict) -> Acquisition:
             tiles.append(tile)
 
     # NOTE: These directions are in "camera coordinates" (ie. the data is stored in this order, and the cells/data have a 45 degree skew from the "optical coordinates")
-    axes: list[Axis] = []
-    axes.append(Axis(name=AxisName.X, dimension=2, direction=Direction.AP))
-    axes.append(Axis(name=AxisName.Y, dimension=1, direction=Direction.LR))
-    axes.append(Axis(name=AxisName.Z, dimension=0, direction=Direction.IS))
+    axes: list[ImageAxis] = []
+    axes.append(ImageAxis(name=AxisName.X, dimension=2, direction=AnatomicalDirection.AP))
+    axes.append(ImageAxis(name=AxisName.Y, dimension=1, direction=AnatomicalDirection.LR))
+    axes.append(ImageAxis(name=AxisName.Z, dimension=0, direction=AnatomicalDirection.IS))
 
     chamber_immersion: Immersion = Immersion(
         medium=log_dict["chamber_immersion_medium"],
@@ -306,16 +305,16 @@ def schema_log_to_acq_json(log_dict: dict) -> Acquisition:
 
 
     # NOTE: Made up directions
-    axes: list[Axis] = []
-    axes.append(Axis(name=AxisName.X, 
+    axes: list[ImageAxis] = []
+    axes.append(ImageAxis(name=AxisName.X,
                      dimension=2, 
-                     direction=Direction.LR))  
-    axes.append(Axis(name=AxisName.Y, 
+                     direction=AnatomicalDirection.LR))
+    axes.append(ImageAxis(name=AxisName.Y,
                      dimension=1, 
-                     direction=Direction.AP))
-    axes.append(Axis(name=AxisName.Z, 
+                     direction=AnatomicalDirection.AP))
+    axes.append(ImageAxis(name=AxisName.Z,
                      dimension=0, 
-                     direction=Direction.IS))
+                     direction=AnatomicalDirection.IS))
     if 'chamber_immersion_medium' in log_dict.keys():
         chamber_immersion: Immersion = Immersion(medium=log_dict['chamber_immersion_medium'], 
                                              refractive_index=log_dict['chamber_immersion_refractive_index'])

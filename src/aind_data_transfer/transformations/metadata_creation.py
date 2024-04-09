@@ -21,6 +21,7 @@ from aind_data_schema.core.processing import (
     ProcessName,
 )
 from aind_data_schema.core.subject import Subject
+from aind_data_schema.models.pid_names import PIDName
 from aind_metadata_service.client import AindMetadataServiceClient
 from requests import Response
 from requests.exceptions import ConnectionError, JSONDecodeError
@@ -406,7 +407,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
         funding_source: Optional[Tuple] = (
             Funding(funder=Organization.AI),
         ),
-        investigators: Optional[List[str]] = None,
+        investigators: Optional[List[PIDName]] = None,
     ):
         """
         Build a RawDataDescriptionMetadata instance using some basic
@@ -421,7 +422,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
           Primary Institution. Defaults to AIND.
         funding_source : Optional[Tuple]
           Tuple of funding sources. Defaults to (AIND)
-        investigators : Optional[List[str]]
+        investigators : Optional[List[PIDName]]
 
         """
         funding_source_list = (
