@@ -13,12 +13,12 @@ from numcodecs import blosc
 
 from aind_data_transfer.gcs import create_client
 from aind_data_transfer.transformations.ome_zarr import write_files
-from aind_data_transfer.util.dask_utils import get_client
-from aind_data_transfer.util.env_utils import find_hdf5plugin_path
-from aind_data_transfer.util.file_utils import *
 
 # Importing this will set up the logging configuration on all nodes
 from aind_data_transfer.util import setup_logging
+from aind_data_transfer.util.dask_utils import get_client
+from aind_data_transfer.util.env_utils import find_hdf5plugin_path
+from aind_data_transfer.util.file_utils import *
 
 blosc.use_threads = False
 

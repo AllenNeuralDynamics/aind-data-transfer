@@ -4,14 +4,14 @@ from enum import Enum
 from typing import List, Optional
 
 from aind_data_schema.base import AindModel
-from aind_data_schema.models.organizations import Organization
-from aind_data_schema.models.modalities import Modality
+from aind_data_schema.core.acquisition import AxisName, Immersion
 from aind_data_schema.core.data_description import (
     Funding,
     datetime_from_name_string,
 )
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.organizations import Organization
 from aind_data_schema.models.units import SizeUnit
-from aind_data_schema.core.acquisition import AxisName, Immersion
 from pydantic import Field
 
 from aind_data_transfer.util import file_utils
@@ -131,7 +131,7 @@ class ProcessingManifest(AindModel):
     institution: Organization.ONE_OF = Field(
         ...,
         description="An established society, corporation, foundation or other organization that collected this data",
-        title="Institution"
+        title="Institution",
     )
     acquisition: Acquisition = Field(
         ...,

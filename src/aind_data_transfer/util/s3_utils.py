@@ -74,14 +74,7 @@ def copy_to_s3(file_to_upload, s3_bucket, s3_prefix, dryrun):
     aws_dest = f"s3://{s3_bucket}/{s3_prefix}"
     if dryrun:
         subprocess.run(
-            [
-                "aws",
-                "s3",
-                "cp",
-                str(file_to_upload),
-                aws_dest,
-                "--dryrun",
-            ],
+            ["aws", "s3", "cp", str(file_to_upload), aws_dest, "--dryrun",],
             shell=shell,
             check=True,
         )

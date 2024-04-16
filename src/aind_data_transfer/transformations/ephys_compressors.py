@@ -4,7 +4,7 @@ import logging
 import shutil
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 import spikeinterface.preprocessing as spre
 from aind_data_schema.core.data_description import Modality
@@ -38,7 +38,7 @@ class EcephysCompressionParameters(ModalityConfigs):
     process_name: Literal[ProcessName.EPHYS_PREPROCESSING] = Field(
         default=ProcessName.EPHYS_PREPROCESSING,
         description="Type of processing performed on the raw data source.",
-        title="Process Name"
+        title="Process Name",
     )
 
     data_reader: DataReader = Field(
@@ -59,7 +59,7 @@ class EcephysCompressionParameters(ModalityConfigs):
         description=(
             "Output format for compression. Currently, only zarr supported."
         ),
-        title="Write Output Format"
+        title="Write Output Format",
     )
     compress_max_windows_filename_len: int = Field(
         default=150,
@@ -149,9 +149,7 @@ class EphysCompressors:
 
     @staticmethod
     def scale_read_blocks(
-        read_blocks,
-        num_chunks_per_segment=100,
-        chunk_size=10000,
+        read_blocks, num_chunks_per_segment=100, chunk_size=10000,
     ):
         """
         Scales a read_block. A read_block is dict of
@@ -189,9 +187,7 @@ class EphysCompressors:
             )
 
     def _copy_and_clip_data(
-        self,
-        dst_dir,
-        stream_gen,
+        self, dst_dir, stream_gen,
     ):
         """
         Copies the raw data to a new directory with the .dat files clipped to
@@ -260,12 +256,10 @@ class EphysCompressors:
                 temp_dir / f"ecephys_clipped{self.job_configs.number_id}"
             )
         streams_to_clip = EphysReaders.get_streams_to_clip(
-            self.job_configs.data_reader.value,
-            self.job_configs.source,
+            self.job_configs.data_reader.value, self.job_configs.source,
         )
         self._copy_and_clip_data(
-            dst_dir=clipped_data_path,
-            stream_gen=streams_to_clip,
+            dst_dir=clipped_data_path, stream_gen=streams_to_clip,
         )
 
         self._instance_logger.info("Finished clipping source data.")
@@ -279,8 +273,7 @@ class EphysCompressors:
                 temp_dir / f"ecephys_compressed{self.job_configs.number_id}"
             )
         read_blocks = EphysReaders.get_read_blocks(
-            self.job_configs.data_reader.value,
-            self.job_configs.source,
+            self.job_configs.data_reader.value, self.job_configs.source,
         )
         compressor = EphysCompressors.get_compressor(
             self.job_configs.compressor_name.value,

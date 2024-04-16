@@ -5,7 +5,7 @@ import re
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, List, Tuple, Generator
+from typing import Any, Generator, List, Tuple
 
 import dask.array as da
 import fsspec
@@ -18,11 +18,11 @@ import hdf5plugin
 import numpy as np
 import ujson
 import zarr
-from aind_data_transfer.util.chunk_utils import expand_chunks
-from numpy.typing import ArrayLike
 from kerchunk.tiff import tiff_to_zarr
 from numpy import dtype
+from numpy.typing import ArrayLike
 
+from aind_data_transfer.util.chunk_utils import expand_chunks
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -378,7 +378,7 @@ class ImarisReader(DataReader):
 
     def _get_shape_at_lvl(self, lvl: int):
         shape = self.get_shape()
-        return tuple(int(math.ceil(s / 2**lvl)) for s in shape)
+        return tuple(int(math.ceil(s / 2 ** lvl)) for s in shape)
 
     @property
     def n_levels(self):
@@ -517,7 +517,7 @@ class BlockedArrayWriter:
         return expand_chunks(
             chunks,
             arr.shape[-3:],
-            target_size_mb * 1024**2,
+            target_size_mb * 1024 ** 2,
             arr.itemsize,
             mode,
         )

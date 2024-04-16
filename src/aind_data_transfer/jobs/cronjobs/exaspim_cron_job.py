@@ -7,15 +7,16 @@ import time
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import List, Optional, Union
 
 import requests
 import yaml
+from pydantic import BaseModel
+
 from aind_data_transfer.jobs.zarr_upload_job import ZarrConversionConfigs
 from aind_data_transfer.readers.imaging_readers import ImagingReaders
 from aind_data_transfer.util import file_utils
 from aind_data_transfer.util.s3_utils import get_secret
-from pydantic import BaseModel
 
 PathLike = Union[str, Path]
 
@@ -35,8 +36,8 @@ class ExASPIMCronJobConfig(BaseModel):
     log_level: str = "INFO"
 
     @classmethod
-    def from_config(cls, config_path: str) -> 'ExASPIMCronJobConfig':
-        with open(config_path, 'r') as file:
+    def from_config(cls, config_path: str) -> "ExASPIMCronJobConfig":
+        with open(config_path, "r") as file:
             config_data = yaml.safe_load(file)
         return cls(**config_data)
 
@@ -76,8 +77,8 @@ def _get_script_template() -> str:
         The content of the SLURM template script.
     """
     template_path = files(
-        'aind_data_transfer.jobs.cronjobs.templates'
-    ).joinpath('zarr_upload_job_template.sh')
+        "aind_data_transfer.jobs.cronjobs.templates"
+    ).joinpath("zarr_upload_job_template.sh")
     return template_path.read_text("utf-8")
 
 
@@ -159,18 +160,18 @@ def _build_jobs_request(
     """
 
     request = {
-        "jobs": [{
-            "hpc_settings": json.dumps(hpc_settings),
-            "script": slurm_script,
-            "upload_job_settings": json.dumps(job_config)
-        }]
+        "jobs": [
+            {
+                "hpc_settings": json.dumps(hpc_settings),
+                "script": slurm_script,
+                "upload_job_settings": json.dumps(job_config),
+            }
+        ]
     }
     return request
 
 
-def _submit_jobs_request(
-    domain: str, request_json: dict
-) -> requests.Response:
+def _submit_jobs_request(domain: str, request_json: dict) -> requests.Response:
     """
     Submits a set of jobs to the HPC cluster.
 
@@ -200,7 +201,7 @@ def _get_secret_json() -> dict:
         The secret as a dictionary.
     """
     try:
-        secret_name = os.environ['SECRET_NAME']
+        secret_name = os.environ["SECRET_NAME"]
     except KeyError:
         raise ValueError("secret_name environment variable not set")
 
@@ -234,9 +235,7 @@ class ExASPIMCronJob:
         Identifies and returns a list of datasets pending for upload.
     """
 
-    def __init__(
-        self, config: ExASPIMCronJobConfig
-    ):
+    def __init__(self, config: ExASPIMCronJobConfig):
         """
          Parameters
          ----------
@@ -269,18 +268,16 @@ class ExASPIMCronJob:
             hpc_settings = {}
         secret = _get_secret_json()
         try:
-            hpc_settings['environment'] = {
-                "HPC_TOKEN": secret['token'],
-                "HPC_USERNAME": secret['user_name'],
-                "HPC_PASSWORD": secret['password'],
-                "HPC_HOST": os.environ['HPC_HOST'],
-                "HPC_API_ENDPOINT": os.environ['HPC_API_ENDPOINT'],
-                "HPC_PORT": os.environ['HPC_PORT']
+            hpc_settings["environment"] = {
+                "HPC_TOKEN": secret["token"],
+                "HPC_USERNAME": secret["user_name"],
+                "HPC_PASSWORD": secret["password"],
+                "HPC_HOST": os.environ["HPC_HOST"],
+                "HPC_API_ENDPOINT": os.environ["HPC_API_ENDPOINT"],
+                "HPC_PORT": os.environ["HPC_PORT"],
             }
         except KeyError as ke:
-            self._logger.error(
-                f"Error reading secret: {ke}"
-            )
+            self._logger.error(f"Error reading secret: {ke}")
             raise ke
         return hpc_settings
 
@@ -297,31 +294,25 @@ class ExASPIMCronJob:
         for ds in pending_datasets:
             self._logger.info(f"Processing dataset: {ds}")
 
-            self.config.hpc_settings['name'] = ds.name
+            self.config.hpc_settings["name"] = ds.name
 
             zarr_config_path = ds / "zarr_config.yml"
             try:
                 d = self.config.zarr_config.dict()
-                if 'chunk_shape' in d and d['chunk_shape'] is not None:
-                    d['chunk_shape'] = list(d['chunk_shape'])
-                if 'voxel_size' in d and d['voxel_size'] is not None:
-                    d['voxel_size'] = list(d['voxel_size'])
-                file_utils.write_dict_to_yaml(
-                    d, zarr_config_path
-                )
+                if "chunk_shape" in d and d["chunk_shape"] is not None:
+                    d["chunk_shape"] = list(d["chunk_shape"])
+                if "voxel_size" in d and d["voxel_size"] is not None:
+                    d["voxel_size"] = list(d["voxel_size"])
+                file_utils.write_dict_to_yaml(d, zarr_config_path)
             except Exception as e:
                 self._logger.error(f"Error writing zarr config: {e}")
                 continue
 
             job_config = self._build_job_config(
-                self.config,
-                ds,
-                zarr_config_path
+                self.config, ds, zarr_config_path
             )
 
-            slurm_script = _get_sbatch_script(
-                job_config, self.config.sif_path
-            )
+            slurm_script = _get_sbatch_script(job_config, self.config.sif_path)
             self._logger.info(slurm_script)
 
             submit_jobs_request = _build_jobs_request(
@@ -331,9 +322,7 @@ class ExASPIMCronJob:
                 self.config.transfer_service_domain, submit_jobs_request
             )
             response_json = submit_job_response.json()
-            self._logger.info(
-                f"Job submission response: {response_json}"
-            )
+            self._logger.info(f"Job submission response: {response_json}")
             if submit_job_response.status_code == 200:
                 self._logger.info(
                     f"Job submitted successfully: {response_json['data']['responses'][0]['job_id']}"
@@ -382,7 +371,8 @@ class ExASPIMCronJob:
                 processing_manifest = json.load(f)
             try:
                 dataset_status = processing_manifest["dataset_status"][
-                    "status"].lower()
+                    "status"
+                ].lower()
             except KeyError as ke:
                 self._logger.error(
                     f"Error reading {manifest_path} for {dataset_path}: {ke}"
@@ -398,7 +388,7 @@ class ExASPIMCronJob:
         self,
         config: ExASPIMCronJobConfig,
         dataset_path: PathLike,
-        zarr_config_path: PathLike
+        zarr_config_path: PathLike,
     ) -> dict:
         """
         Builds the job configuration for a given dataset.
@@ -421,7 +411,7 @@ class ExASPIMCronJob:
 
         m = re.search(
             ImagingReaders.SourceRegexPatterns.exaspim_acquisition.value,
-            dataset_path
+            dataset_path,
         )
         subject_id = m.group(1)
 
@@ -432,18 +422,20 @@ class ExASPIMCronJob:
         job_config = {
             "s3_bucket": config.s3_bucket,
             "platform": "exaSPIM",
-            "modalities": [{
-                "modality": "SPIM",
-                "source": str(dataset_path),
-                "extra_configs": str(zarr_config_path)
-            }],
+            "modalities": [
+                {
+                    "modality": "SPIM",
+                    "source": str(dataset_path),
+                    "extra_configs": str(zarr_config_path),
+                }
+            ],
             "subject_id": subject_id,
             "acq_datetime": acq_datetime,
             "force_cloud_sync": config.force_cloud_sync,
             "codeocean_domain": config.codeocean_domain,
             "metadata_service_domain": config.metadata_service_domain,
             "aind_data_transfer_repo_location": config.aind_data_transfer_repo_location,
-            "log_level": config.log_level
+            "log_level": config.log_level,
         }
 
         return job_config
@@ -463,16 +455,14 @@ class ExASPIMCronJob:
             The name of the manifest file to update.
         """
 
-        dataset_config_path = Path(dataset_path).joinpath(
-            manifest_filename
-        )
+        dataset_config_path = Path(dataset_path).joinpath(manifest_filename)
 
-        status_date = datetime.now().strftime('%Y-%m-%d')
-        status_time = datetime.now().strftime('%H-%M-%S')
+        status_date = datetime.now().strftime("%Y-%m-%d")
+        status_time = datetime.now().strftime("%H-%M-%S")
         msg = {
             "status": new_status,
             "status_date": status_date,
-            "status_time": status_time
+            "status_time": status_time,
         }
 
         file_utils.update_json_key(

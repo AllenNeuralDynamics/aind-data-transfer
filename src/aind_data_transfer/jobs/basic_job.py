@@ -190,11 +190,8 @@ class BasicJob:
             del metadata_in_folder_map[data_description_filename]
         else:
             modalities = [m.modality for m in self.job_configs.modalities]
-            data_description_metadata_0 = (
-                RawDataDescriptionMetadata.from_inputs(
-                    name=self.job_configs.s3_prefix,
-                    modality=modalities,
-                )
+            data_description_metadata_0 = RawDataDescriptionMetadata.from_inputs(
+                name=self.job_configs.s3_prefix, modality=modalities,
             )
             data_description_metadata_0.write_to_json(temp_dir)
             data_description_metadata = data_description_metadata_0.model_obj

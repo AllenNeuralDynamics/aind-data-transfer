@@ -373,11 +373,7 @@ def validate_metadata_parallel(
         res = []
 
         with multiprocessing.Pool(workers) as pool:
-            results = pool.imap(
-                _validate_rows,
-                args,
-                chunksize=1,
-            )
+            results = pool.imap(_validate_rows, args, chunksize=1,)
 
             for pos in results:
                 res.append(pos)

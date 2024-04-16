@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Union, List
+from typing import List, Union
 
 import dask.array as da
 import numpy as np
@@ -9,9 +9,7 @@ import numpy as np
 class Deinterleave:
     @staticmethod
     def deinterleave(
-        a: Union[da.Array, np.ndarray],
-        num_channels: int,
-        axis: int,
+        a: Union[da.Array, np.ndarray], num_channels: int, axis: int,
     ) -> List[Union[da.Array, np.ndarray]]:
         """
         Deinterleave the channels of a dask or numpy array.

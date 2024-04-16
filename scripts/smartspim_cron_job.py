@@ -125,8 +125,7 @@ class CopyDatasets(ArgSchema):
     )
 
     exiftool_path = Str(
-        required=True,
-        metadata={"description": "Path to exiftool"},
+        required=True, metadata={"description": "Path to exiftool"},
     )
 
     info_manager_path = Str(
@@ -280,8 +279,7 @@ def organize_datasets(
 
         # Organizing smartspim folders
         smartSPIM_writer = SmartSPIMWriter(
-            dataset_paths=ready_datasets,
-            metadata_domain=metadata_service,
+            dataset_paths=ready_datasets, metadata_domain=metadata_service,
         )
 
         (
@@ -631,9 +629,7 @@ def main():
     logger.warning(f"Raw datasets rejected: {raw_datasets_rejected}")
 
     new_dataset_paths, ready_datasets = organize_datasets(
-        root_folder,
-        raw_datasets_ready,
-        config["metadata_service_domain"],
+        root_folder, raw_datasets_ready, config["metadata_service_domain"],
     )
 
     processing_manifest_path = "derivatives/processing_manifest.json"

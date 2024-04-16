@@ -5,16 +5,16 @@ import unittest
 from pathlib import Path
 
 import dask.array as da
-import zarr
 import h5py
 import numpy as np
+import zarr
 from tifffile import tifffile
 
 from aind_data_transfer.util.io_utils import (
+    BlockedArrayWriter,
     DataReaderFactory,
     ImarisReader,
     TiffReader,
-    BlockedArrayWriter,
 )
 
 # TODO: make test fixtures instead of constants?

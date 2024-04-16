@@ -236,10 +236,7 @@ def parse_args():
         "--nodes", type=int, default=1, help="number of HPC nodes"
     )
     parser.add_argument(
-        "--cpus_per_task",
-        type=int,
-        default=1,
-        help="number of cpus per job",
+        "--cpus_per_task", type=int, default=1, help="number of cpus per job",
     )
     parser.add_argument(
         "--mem_per_cpu", type=int, default=500, help="memory per cpu in MB"

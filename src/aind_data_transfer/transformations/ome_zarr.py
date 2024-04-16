@@ -2,7 +2,7 @@ import fnmatch
 import logging
 import time
 from pathlib import Path
-from typing import List, Optional, Dict, cast
+from typing import Dict, List, Optional, cast
 
 import s3fs
 import zarr
@@ -11,10 +11,11 @@ from numpy.typing import NDArray
 from ome_zarr.format import CurrentFormat
 from ome_zarr.writer import write_multiscales_metadata
 from xarray_multiscale import multiscale
-from xarray_multiscale.reducers import windowed_mean, WindowedReducer
+from xarray_multiscale.reducers import WindowedReducer, windowed_mean
 
 from aind_data_transfer.transformations.deinterleave import (
-    ChannelParser, Deinterleave,
+    ChannelParser,
+    Deinterleave,
 )
 from aind_data_transfer.transformations.flatfield_correction import (
     BkgSubtraction,
@@ -22,7 +23,10 @@ from aind_data_transfer.transformations.flatfield_correction import (
 from aind_data_transfer.util.chunk_utils import *
 from aind_data_transfer.util.file_utils import collect_filepaths
 from aind_data_transfer.util.io_utils import (
-    DataReaderFactory, ImarisReader, DataReader, BlockedArrayWriter,
+    BlockedArrayWriter,
+    DataReader,
+    DataReaderFactory,
+    ImarisReader,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -81,9 +85,9 @@ def write_files(
         s3 = s3fs.S3FileSystem(
             anon=False,
             config_kwargs={
-                'retries': {
-                    'total_max_attempts': _MAX_S3_RETRIES,
-                    'mode': _S3_RETRY_MODE,
+                "retries": {
+                    "total_max_attempts": _MAX_S3_RETRIES,
+                    "mode": _S3_RETRY_MODE,
                 }
             },
             use_ssl=True,
@@ -236,8 +240,7 @@ def _store_file(
             bkg_img_pyramid = create_pyramid(bkg, n_levels, scale_factors[1:])
             for i in range(len(bkg_img_pyramid)):
                 pyramid[i] = BkgSubtraction.subtract(
-                    pyramid[i],
-                    bkg_img_pyramid[i],
+                    pyramid[i], bkg_img_pyramid[i],
                 )
 
         # The background subtraction can change the chunks,

@@ -26,10 +26,7 @@ class TestImagingJobConfigs(unittest.TestCase):
         )
 
         expected_configs = {
-            "jobs": {
-                "upload_aux_files": False,
-                "transcode": True,
-            },
+            "jobs": {"upload_aux_files": False, "transcode": True,},
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
                 "dest_data_dir": (

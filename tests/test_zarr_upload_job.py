@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from aind_data_schema.models.platforms import Platform
 from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.platforms import Platform
 from numcodecs import blosc
 
 from aind_data_transfer.config_loader.base_config import (
@@ -124,9 +124,7 @@ class TestZarrUploadJob(unittest.TestCase):
         )
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())
 
-    def test_init_exaspim(
-        self,
-    ) -> None:
+    def test_init_exaspim(self,) -> None:
         test_job_configs = self._get_test_configs(Platform.EXASPIM)
         job = ZarrUploadJob(job_configs=test_job_configs)
 
@@ -154,8 +152,12 @@ class TestZarrUploadJob(unittest.TestCase):
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_dispim_metadata"
     )
-    @patch("aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record")
-    @patch("aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata")
+    @patch(
+        "aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record"
+    )
+    @patch(
+        "aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata"
+    )
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
     @patch(
         "aind_data_transfer.jobs.basic_job.BasicJob._check_if_s3_location_exists"
@@ -219,8 +221,12 @@ class TestZarrUploadJob(unittest.TestCase):
     @patch(
         "aind_data_transfer.jobs.zarr_upload_job.ZarrUploadJob._create_dispim_metadata"
     )
-    @patch("aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record")
-    @patch("aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata")
+    @patch(
+        "aind_data_transfer.jobs.basic_job.BasicJob._initialize_metadata_record"
+    )
+    @patch(
+        "aind_data_transfer.jobs.basic_job.BasicJob._add_processing_to_metadata"
+    )
     @patch("aind_data_transfer.jobs.basic_job.BasicJob._test_upload")
     @patch(
         "aind_data_transfer.jobs.basic_job.BasicJob._check_if_s3_location_exists"
@@ -304,10 +310,7 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_write_xml.assert_called_once()
 
     @patch("aind_data_transfer.jobs.zarr_upload_job.upload_to_s3")
-    def test_upload_to_s3(
-        self,
-        mock_upload: MagicMock,
-    ) -> None:
+    def test_upload_to_s3(self, mock_upload: MagicMock,) -> None:
         """Tests that the data is uploaded to S3"""
         test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
@@ -326,9 +329,7 @@ class TestZarrUploadJob(unittest.TestCase):
         return_value=["/path/to/image1", "/path/to/image2"],
     )
     def test_upload_zarr(
-        self,
-        mock_get_images: MagicMock,
-        mock_write_files: MagicMock,
+        self, mock_get_images: MagicMock, mock_write_files: MagicMock,
     ) -> None:
         test_job_configs = self._get_test_configs(Platform.HCR)
         job = ZarrUploadJob(job_configs=test_job_configs)
@@ -375,8 +376,7 @@ class TestZarrUploadJob(unittest.TestCase):
 
     @patch("aind_data_transfer.jobs.zarr_upload_job.write_files")
     @patch(
-        "aind_data_transfer.jobs.zarr_upload_job.get_images",
-        return_value=[],
+        "aind_data_transfer.jobs.zarr_upload_job.get_images", return_value=[],
     )
     def test_upload_zarr_no_images(
         self, mock_get_images: MagicMock, mock_write_files: MagicMock
@@ -424,13 +424,13 @@ class TestZarrUploadJob(unittest.TestCase):
         job._create_neuroglancer_link()
         mock_generate_exaspim_link.assert_called_with(
             None,
-            s3_path='s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr',
+            s3_path="s3://some_bucket/exaSPIM_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
             output_json_path=str(EXASPIM_DATA_DIR),
             opacity=0.5,
-            blend='default',
+            blend="default",
             vmin=50.0,
             vmax=5000.0,
-            dataset_name='exaSPIM_125L_2022-08-05_17-25-36',
+            dataset_name="exaSPIM_125L_2022-08-05_17-25-36",
         )
 
 

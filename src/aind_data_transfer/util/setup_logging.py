@@ -14,11 +14,7 @@ class HostnameFilter(logging.Filter):
 logging_config = {
     "version": 1,
     "disable_existing_loggers": False,
-    "filters": {
-        "add_hostname": {
-            "()": HostnameFilter,
-        },
-    },
+    "filters": {"add_hostname": {"()": HostnameFilter,},},
     "formatters": {
         "detailed": {
             "format": "%(asctime)s [%(hostname)s] %(name)s: %(message)s",
@@ -33,16 +29,8 @@ logging_config = {
             "filters": ["add_hostname"],
         },
     },
-    "loggers": {
-        "distributed": {
-            "handlers": ["console"],
-            "level": "INFO",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
+    "loggers": {"distributed": {"handlers": ["console"], "level": "INFO",},},
+    "root": {"handlers": ["console"], "level": "INFO",},
 }
 
 logging.config.dictConfig(logging_config)

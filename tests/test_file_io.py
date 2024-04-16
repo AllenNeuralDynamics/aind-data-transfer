@@ -1,14 +1,14 @@
-from aind_data_transfer.transformations import converters, file_io
-from aind_data_transfer.util import io_utils
+import argparse
+import datetime
+import json
+import pathlib
+import sys
 
 from aind_data_transfer.config_loader.imaging_configuration_loader import (
     ImagingJobConfigurationLoader,
 )
-import pathlib
-import json
-import datetime
-import sys
-import argparse
+from aind_data_transfer.transformations import converters, file_io
+from aind_data_transfer.util import io_utils
 
 
 def main():

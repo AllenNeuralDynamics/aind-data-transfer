@@ -76,9 +76,9 @@ class TestOmeZarr(unittest.TestCase):
                 expected_shape_at_lvl = (
                     1,
                     1,
-                    int(math.ceil(full_shape[2] / (scale_factor**lvl))),
-                    int(math.ceil(full_shape[3] / (scale_factor**lvl))),
-                    int(math.ceil(full_shape[4] / (scale_factor**lvl))),
+                    int(math.ceil(full_shape[2] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[3] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[4] / (scale_factor ** lvl))),
                 )
                 self.assertEqual(expected_shape_at_lvl, a.shape)
                 self.assertTrue(a.nbytes_stored > 0)
@@ -146,9 +146,9 @@ class TestOmeZarr(unittest.TestCase):
                             "scale": [
                                 1.0,
                                 1.0,
-                                voxel_size[0] * (scale_factor**i),
-                                voxel_size[1] * (scale_factor**i),
-                                voxel_size[2] * (scale_factor**i),
+                                voxel_size[0] * (scale_factor ** i),
+                                voxel_size[1] * (scale_factor ** i),
+                                voxel_size[2] * (scale_factor ** i),
                             ],
                             "type": "scale",
                         }

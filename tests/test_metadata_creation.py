@@ -202,9 +202,7 @@ class TestSubjectMetadata(unittest.TestCase):
         "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
     )
     def test_multiple_response_warning(
-        self,
-        mock_api_get: MagicMock,
-        mock_log_warn: MagicMock,
+        self, mock_api_get: MagicMock, mock_log_warn: MagicMock,
     ) -> None:
         """Tests parsing multiples subjects from metadata service."""
 
@@ -231,9 +229,7 @@ class TestSubjectMetadata(unittest.TestCase):
         "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
     )
     def test_invalid_response_warning(
-        self,
-        mock_api_get: MagicMock,
-        mock_log_warn: MagicMock,
+        self, mock_api_get: MagicMock, mock_log_warn: MagicMock,
     ) -> None:
         """Tests parsing invalid Subject from metadata service."""
 
@@ -295,9 +291,7 @@ class TestSubjectMetadata(unittest.TestCase):
         "aind_metadata_service.client.AindMetadataServiceClient.get_subject"
     )
     def test_no_response_warning(
-        self,
-        mock_api_get: MagicMock,
-        mock_log_err: MagicMock,
+        self, mock_api_get: MagicMock, mock_log_err: MagicMock,
     ) -> None:
         """Tests parsing no response from metadata service."""
 
