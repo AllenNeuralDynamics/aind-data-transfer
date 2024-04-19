@@ -61,7 +61,9 @@ class TestBasicJob(unittest.TestCase):
     @patch("tempfile.TemporaryDirectory")
     @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
     def test_aws_creds_check_allowed(
-        self, mock_upload_to_s3: MagicMock, mock_tempfile: MagicMock,
+        self,
+        mock_upload_to_s3: MagicMock,
+        mock_tempfile: MagicMock,
     ):
         """Tests that the aws credentials pass allowed"""
         mock_tempfile.return_value.__enter__.return_value = (
@@ -133,7 +135,10 @@ class TestBasicJob(unittest.TestCase):
         basic_job._compress_raw_data(temp_dir=Path("some_path"))
 
         mock_mkdir.assert_has_calls(
-            [call(Path("some_path/MRI")), call(Path("some_path/MRI")),]
+            [
+                call(Path("some_path/MRI")),
+                call(Path("some_path/MRI")),
+            ]
         )
 
         mock_compress.assert_has_calls(
@@ -337,7 +342,8 @@ class TestBasicJob(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer.jobs.basic_job.upload_to_s3")
     def test_upload_to_s3(
-        self, mock_upload: MagicMock,
+        self,
+        mock_upload: MagicMock,
     ):
         """Tests that the data is uploaded to S3"""
         basic_job_configs = BasicUploadJobConfigs()
@@ -353,7 +359,8 @@ class TestBasicJob(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_codeocean_api.codeocean.CodeOceanClient.run_capsule")
     def test_trigger_codeocean_capsule(
-        self, mock_run_capsule: MagicMock,
+        self,
+        mock_run_capsule: MagicMock,
     ):
         """Tests code ocean capsule is triggered"""
         successful_response = Response()
@@ -400,7 +407,8 @@ class TestBasicJob(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_codeocean_api.codeocean.CodeOceanClient.run_capsule")
     def test_trigger_custom_codeocean_capsule(
-        self, mock_run_capsule: MagicMock,
+        self,
+        mock_run_capsule: MagicMock,
     ):
         """Tests code ocean capsule is triggered"""
         successful_response = Response()

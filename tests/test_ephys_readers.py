@@ -3,10 +3,9 @@
 import os
 import unittest
 from pathlib import Path
-
 import numpy as np
 
-from aind_data_transfer.readers.ephys_readers import DataReader, EphysReaders
+from aind_data_transfer.readers.ephys_readers import EphysReaders, DataReader
 
 TEST_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 RESOURCES_DIR = TEST_DIR / "resources"

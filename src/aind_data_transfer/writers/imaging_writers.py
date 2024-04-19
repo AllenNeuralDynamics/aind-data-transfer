@@ -730,7 +730,9 @@ class SmartSPIMWriter:
             ),
             axes=[
                 acquisition.Axis(
-                    name="X", dimension=2, direction="Left_to_right",
+                    name="X",
+                    dimension=2,
+                    direction="Left_to_right",
                 ),
                 acquisition.Axis(
                     name="Y", dimension=1, direction="Posterior_to_anterior"

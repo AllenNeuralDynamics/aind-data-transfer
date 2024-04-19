@@ -8,11 +8,11 @@ from awscrt.s3 import S3Client
 from botocore.session import get_session
 from s3transfer.constants import GB, MB
 from s3transfer.crt import (
-    BotocoreCRTCredentialsWrapper,
     BotocoreCRTRequestSerializer,
     CRTTransferFuture,
     CRTTransferManager,
     create_s3_crt_client,
+    BotocoreCRTCredentialsWrapper
 )
 
 from aind_data_transfer.util.file_utils import (
@@ -26,7 +26,9 @@ logger.setLevel(logging.INFO)
 
 def _get_crt_credentials_provider(session):
     botocore_credentials = session.get_credentials()
-    wrapper = BotocoreCRTCredentialsWrapper(botocore_credentials)
+    wrapper = BotocoreCRTCredentialsWrapper(
+        botocore_credentials
+    )
     return wrapper.to_crt_credentials_provider()
 
 
@@ -124,9 +126,7 @@ class S3Uploader:
             A list of filepaths for failed uploads
         """
         return self.upload_files(
-            list(
-                collect_filepaths(folder, recursive, exclude_dirs=exclude_dirs)
-            ),
+            list(collect_filepaths(folder, recursive, exclude_dirs=exclude_dirs)),
             s3_bucket,
             s3_folder,
             root=folder,

@@ -4,7 +4,6 @@ import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
 import spikeinterface.extractors as se
 
 from aind_data_transfer.transformations.ephys_compressors import (
@@ -20,7 +19,9 @@ BEHAVIOR_DIR = TEST_DIR / "v0.6.x_neuropixels_multiexp_multistream" / "Videos"
 class TestEcephysCompression(unittest.TestCase):
     """Tests for EcephysJob class"""
 
-    def test_ecephys_job_with_compression(self,):
+    def test_ecephys_job_with_compression(
+        self,
+    ):
         """Tests ecephys job runs correctly with compression"""
 
         with TemporaryDirectory() as tmp_dir:

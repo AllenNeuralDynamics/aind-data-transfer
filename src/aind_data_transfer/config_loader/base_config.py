@@ -7,10 +7,8 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, ClassVar, Union, Type, Tuple
 
-from aind_codeocean_api.credentials import JsonConfigSettingsSource
-from aind_data_access_api.secrets import get_parameter
 from aind_data_schema.core.data_description import build_data_name
 from aind_data_schema.core.processing import ProcessName
 from aind_data_schema.models.modalities import Modality
@@ -30,6 +28,8 @@ from pydantic_settings import (
     InitSettingsSource,
     PydanticBaseSettingsSource,
 )
+from aind_codeocean_api.credentials import JsonConfigSettingsSource
+from aind_data_access_api.secrets import get_parameter
 
 
 class AWSConfigSettingsParamSource(JsonConfigSettingsSource):
@@ -254,9 +254,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
     )
-    platform: Platform.ONE_OF = Field(
-        ..., description="Platform", title="Platform"
-    )
+    platform: Platform.ONE_OF = Field(..., description="Platform", title="Platform")
     modalities: List[ModalityConfigs] = Field(
         ...,
         description="Data collection modalities and their directory location",
@@ -359,9 +357,9 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
 
         def _help_message(key: str) -> str:
             """Construct help message from field description"""
-            return BasicUploadJobConfigs.model_json_schema()["properties"][
-                key
-            ]["description"]
+            return BasicUploadJobConfigs.model_json_schema()["properties"][key][
+                "description"
+            ]
 
         parser = argparse.ArgumentParser()
         # Required
@@ -508,9 +506,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
                 "codeocean_process_capsule_id"
             ] = job_args.codeocean_process_capsule_id
         modalities_json = json.loads(job_args.modalities)
-        modalities = [
-            ModalityConfigs.model_validate(m) for m in modalities_json
-        ]
+        modalities = [ModalityConfigs.model_validate(m) for m in modalities_json]
         return cls(
             s3_bucket=job_args.s3_bucket,
             subject_id=job_args.subject_id,

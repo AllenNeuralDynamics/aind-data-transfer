@@ -59,7 +59,9 @@ class TestEphysJobConfigs(unittest.TestCase):
                 "video_encryption_password": "video_encryption_password",
             },
             "data": {"name": "openephys"},
-            "clip_data_job": {"clip_kwargs": {},},
+            "clip_data_job": {
+                "clip_kwargs": {},
+            },
             "compress_data_job": {
                 "write_kwargs": {
                     "n_jobs": -1,

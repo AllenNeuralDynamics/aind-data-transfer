@@ -128,7 +128,11 @@ def run_python_local_job(
         exclude_dirs (list): list of directory names to exclude, e.g., ["dir1", "dir2"]
     """
     files = list(
-        collect_filepaths(input_dir, recursive=True, exclude_dirs=exclude_dirs)
+        collect_filepaths(
+            input_dir,
+            recursive=True,
+            exclude_dirs=exclude_dirs
+        )
     )
     chunked_files = _chunk_files(files, n_workers, tasks_per_worker=1)
     args = zip(
@@ -265,10 +269,16 @@ def validate_blobs(bucket_name, target_paths):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i", "--input", type=str, help="folder or file to upload",
+        "-i",
+        "--input",
+        type=str,
+        help="folder or file to upload",
     )
     parser.add_argument(
-        "-b", "--bucket", type=str, help="s3 bucket",
+        "-b",
+        "--bucket",
+        type=str,
+        help="s3 bucket",
     )
     parser.add_argument(
         "--gcs_path",

@@ -170,7 +170,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime(2020, 10, 10, 10, 10, 10), basic_job_configs.acq_datetime,
+            datetime(2020, 10, 10, 10, 10, 10),
+            basic_job_configs.acq_datetime,
         )
         self.assertTrue(basic_job_configs.dry_run)
         self.assertIsNone(basic_job_configs.behavior_dir)
@@ -239,7 +240,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime(2022, 10, 10, 13, 24, 1), basic_job_configs.acq_datetime,
+            datetime(2022, 10, 10, 13, 24, 1),
+            basic_job_configs.acq_datetime,
         )
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
@@ -326,7 +328,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime(2022, 10, 10, 13, 24, 1), basic_job_configs.acq_datetime,
+            datetime(2022, 10, 10, 13, 24, 1),
+            basic_job_configs.acq_datetime,
         )
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
@@ -422,7 +425,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime(2022, 10, 10, 13, 24, 1), basic_job_configs.acq_datetime,
+            datetime(2022, 10, 10, 13, 24, 1),
+            basic_job_configs.acq_datetime,
         )
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
@@ -484,7 +488,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime(2022, 10, 10, 13, 24, 1), basic_job_configs.acq_datetime,
+            datetime(2022, 10, 10, 13, 24, 1),
+            basic_job_configs.acq_datetime,
         )
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix
@@ -540,7 +545,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         self.assertEqual("12345", basic_job_configs.subject_id)
         self.assertEqual(
-            datetime(2022, 10, 10, 13, 24, 1), basic_job_configs.acq_datetime,
+            datetime(2022, 10, 10, 13, 24, 1),
+            basic_job_configs.acq_datetime,
         )
         self.assertEqual(
             "SmartSPIM_12345_2022-10-10_13-24-01", basic_job_configs.s3_prefix

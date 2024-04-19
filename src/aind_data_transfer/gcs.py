@@ -20,7 +20,10 @@ def create_client() -> Client:
         logger.info("Retrieving GCS credentials")
         credentials, project = google.auth.default()
         logger.info("Creating client")
-        client = storage.Client(credentials=credentials, project=project,)
+        client = storage.Client(
+            credentials=credentials,
+            project=project,
+        )
     except Exception as e:
         logger.error(
             f"Error while authenticating Google client. Verify json file. \n{e}"

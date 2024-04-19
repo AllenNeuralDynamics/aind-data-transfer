@@ -23,7 +23,9 @@ _AXES = {"XY": 0, "XZ": 1, "YZ": 2}
 def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input", type=str, help="directory of images to transcode",
+        "--input",
+        type=str,
+        help="directory of images to transcode",
     )
     parser.add_argument("--output", type=str, help="directory to output MIPs")
     parser.add_argument(
