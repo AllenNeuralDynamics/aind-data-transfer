@@ -109,7 +109,7 @@ class TestOmeZarr(unittest.TestCase):
                 "id": 1,
                 "name": f"{key}",
                 "rdefs": {"defaultT": 0, "defaultZ": 32, "model": "color"},
-                "version": "0.4",  # TODO: test0 against version?
+                "version": "0.4",  # TODO: test against version?
             }
             actual_omero_metadata = attrs["omero"]
             self.assertEqual(

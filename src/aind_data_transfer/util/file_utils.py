@@ -193,7 +193,7 @@ def is_cloud_url(url: str):
     """
     Test if the url points to an AWS S3 or Google Cloud Storage URI
     Args:
-        url: the url to test0
+        url: the url to test
     Returns:
         True if url is a cloud url
     """

@@ -13,7 +13,7 @@ class TestGCSUploader(unittest.TestCase):
     @mock.patch.dict(os.environ, {"GOOGLE_APPLICATION_CREDENTIALS": "NONE"})
     def test_gcs_uploader_init(self):
         """Checks that the GCSUploader can be instantiated. Since GCSUploader
-        initializes a cloud storage client, we'll test0 that it throws an
+        initializes a cloud storage client, we'll test that it throws an
         error when the credentials don't exist.
         """
 

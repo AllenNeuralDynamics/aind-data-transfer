@@ -1,4 +1,4 @@
-"""Module to test0 that Processing metadata is processed correctly."""
+"""Module to test that Processing metadata is processed correctly."""
 import datetime
 import json
 import os

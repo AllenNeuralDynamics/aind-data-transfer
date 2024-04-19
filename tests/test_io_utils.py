@@ -17,7 +17,7 @@ from aind_data_transfer.util.io_utils import (
     BlockedArrayWriter,
 )
 
-# TODO: make test0 fixtures instead of constants?
+# TODO: make test fixtures instead of constants?
 IM_SHAPE = (64, 128, 128)
 IM_DTYPE = np.dtype("uint16")
 

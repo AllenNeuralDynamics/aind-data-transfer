@@ -43,7 +43,7 @@ from aind_data_transfer.util.s3_utils import upload_to_s3
 class JobTypes(Enum):
     REGISTER_DATA = "register_data"
     RUN_GENERIC_PIPELINE = "run_generic_pipeline"
-    TEST = "test0"
+    TEST = "test"
 
 
 class BasicJob:

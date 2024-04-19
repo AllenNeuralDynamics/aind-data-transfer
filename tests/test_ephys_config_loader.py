@@ -22,7 +22,7 @@ class TestEphysJobConfigs(unittest.TestCase):
         "EphysJobConfigurationLoader._get_endpoints"
     )
     def test_conf_loads(self, mocked_get_endpoints):
-        """Basic config loads test0"""
+        """Basic config loads test"""
 
         mocked_get_endpoints.return_value = {"codeocean_trigger_capsule": None}
 

@@ -16,10 +16,10 @@ CONFIGS_DIR = TEST_DIR / "resources" / "test_configs"
 class TestImagingJobConfigs(unittest.TestCase):
     code_repo_url = "https://github.com/AllenNeuralDynamics/aind-data-transfer"
 
-    """Basic config loads test0"""
+    """Basic config loads test"""
 
     def test_conf_loads(self):
-        """Basic config loads test0"""
+        """Basic config loads test"""
 
         raw_data_dir = (
             "tests/resources/imaging/exaSPIM_125L_2022-08-05_17-25-36"
@@ -33,7 +33,7 @@ class TestImagingJobConfigs(unittest.TestCase):
             "endpoints": {
                 "raw_data_dir": raw_data_dir,
                 "dest_data_dir": (
-                    "s3://aind-transfer-test0/"
+                    "s3://aind-transfer-test/"
                     "exaSPIM_125L_2022-08-05_17-25-36"
                 ),
                 "code_repo_location": self.code_repo_url,

@@ -30,7 +30,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M",
     handlers=[
         logging.StreamHandler(),
-        # logging.FileHandler("test0.log", "a"),
+        # logging.FileHandler("test.log", "a"),
     ],
 )
 logging.disable("DEBUG")
