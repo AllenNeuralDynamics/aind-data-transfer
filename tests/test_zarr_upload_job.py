@@ -407,7 +407,7 @@ class TestZarrUploadJob(unittest.TestCase):
         self.assertEqual(job._zarr_configs.ng_vmin, 50)
         self.assertEqual(job._zarr_configs.ng_vmax, 5000)
 
-        # test defaults
+        # test0 defaults
         test_job_configs = self._get_test_configs(Platform.EXASPIM, extra=None)
         job = ZarrUploadJob(job_configs=test_job_configs)
         self.assertEqual(job._zarr_configs, ZarrConversionConfigs())

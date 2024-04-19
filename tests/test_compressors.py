@@ -62,8 +62,8 @@ class TestEphysCompressors(unittest.TestCase):
         self.assertTrue(
             EphysReaders.RecordingBlockPrefixes.nidaq.value
             in read_block["stream_name"],
-            "The first block isn't NI-DAQ. If the test data has "
-            "been updated, this test needs to be updated too.",
+            "The first block isn't NI-DAQ. If the test0 data has "
+            "been updated, this test0 needs to be updated too.",
         )
         # We expect the NI-DAQ scaled recordings to be the same as the original
         scaled_read_blocks = EphysCompressors.scale_read_blocks(
@@ -79,8 +79,8 @@ class TestEphysCompressors(unittest.TestCase):
         self.assertTrue(
             EphysReaders.RecordingBlockPrefixes.neuropix.value
             in read_block["stream_name"],
-            "The second block isn't Neuropixel. If the test data "
-            "has been updated, this test needs to be updated too.",
+            "The second block isn't Neuropixel. If the test0 data "
+            "has been updated, this test0 needs to be updated too.",
         )
         chunk_size = min(read_block["recording"].get_num_frames(0) - 1, 10000)
         scaled_read_blocks = EphysCompressors.scale_read_blocks(
