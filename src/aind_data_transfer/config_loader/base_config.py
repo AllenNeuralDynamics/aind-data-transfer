@@ -254,6 +254,19 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
     )
+    processor_full_name: str = Field(
+        ...,
+        description="Name of person uploading data",
+        title="Processor Full Name",
+    )
+    project_name: str = Field(
+        ..., description="Name of project", title="Project Name"
+    )
+    process_capsule_id: Optional[str] = Field(
+        None,
+        description="Use custom codeocean capsule or pipeline id",
+        title="Process Capsule ID",
+    )
     platform: Platform.ONE_OF = Field(..., description="Platform", title="Platform")
     modalities: List[ModalityConfigs] = Field(
         ...,
@@ -310,11 +323,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         ),
         title="Force Cloud Sync",
     )
-    processor_name: str = Field(
-        default="service",
-        description="Name of entity processing the data",
-        title="Processor Name",
-    )
     process_name: ProcessName = Field(
         default=ProcessName.OTHER,
         description="Type of processing performed on the raw data source.",
@@ -363,6 +371,18 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
 
         parser = argparse.ArgumentParser()
         # Required
+        parser.add_argument(
+            "--processor-full-name",
+            required=True,
+            type=str,
+            help=_help_message("processor_full_name"),
+        )
+        parser.add_argument(
+            "--project-name",
+            required=True,
+            type=str,
+            help=_help_message("project_name"),
+        )
         parser.add_argument(
             "-a",
             "--acq-datetime",
@@ -415,6 +435,12 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             help=_help_message("subject_id"),
         )
         # Optional
+        parser.add_argument(
+            "--process-capsule-id",
+            required=False,
+            type=str,
+            help=_help_message("process_capsule_id"),
+        )
         parser.add_argument(
             "-l",
             "--log-level",
@@ -508,6 +534,8 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         modalities_json = json.loads(job_args.modalities)
         modalities = [ModalityConfigs.model_validate(m) for m in modalities_json]
         return cls(
+            processor_full_name=job_args.processor_full_name,
+            project_name=job_args.project_name,
             s3_bucket=job_args.s3_bucket,
             subject_id=job_args.subject_id,
             platform=Platform.from_abbreviation(job_args.platform),

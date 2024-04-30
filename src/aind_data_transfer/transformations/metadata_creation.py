@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
 import aind_data_schema.base
+import requests
 from aind_data_schema.models.organizations import Organization
 from aind_data_schema.models.modalities import Modality
 from aind_data_schema.core.data_description import (
@@ -23,6 +24,7 @@ from aind_data_schema.core.processing import (
 from aind_data_schema.core.subject import Subject
 from aind_data_schema.models.pid_names import PIDName
 from aind_metadata_service.client import AindMetadataServiceClient
+from pydantic import ValidationError
 from requests import Response
 from requests.exceptions import ConnectionError, JSONDecodeError
 
@@ -400,57 +402,68 @@ class RawDataDescriptionMetadata(MetadataCreation):
 
     @classmethod
     def from_inputs(
-        cls,
-        name: str,
-        modality: List[Modality],
-        institution: Optional[Organization] = Organization.AIND,
-        funding_source: Optional[Tuple] = (
-            Funding(funder=Organization.AI),
-        ),
-        investigators: Optional[List[PIDName]] = None,
+            cls,
+            ams_domain: str,
+            project_name: str,
+            name: str,
+            modality: List[Modality],
+            institution: Optional[Organization] = Organization.AIND,
     ):
         """
         Build a RawDataDescriptionMetadata instance using some basic
         parameters.
         Parameters
         ----------
+        ams_domain: str
+          Domain of aind_metadata_service.
+        project_name: str
+          Name of the project being funded
         name : str
           Name of the raw data
         modality : List[Modality]
           Modalities of experiment data
         institution : Optional[Institution]
           Primary Institution. Defaults to AIND.
-        funding_source : Optional[Tuple]
-          Tuple of funding sources. Defaults to (AIND)
-        investigators : Optional[List[PIDName]]
 
         """
-        funding_source_list = (
-            list(funding_source)
-            if isinstance(funding_source, tuple)
-            else funding_source
+
+        ams_response = requests.get(
+            "/".join([ams_domain, "funding", project_name])
         )
-        investigators = [] if investigators is None else investigators
-        basic_settings = RawDataDescription.parse_name(name=name)
-        # TODO: Remove this once we want this required
-        if not investigators:
-            data_description_instance = RawDataDescription.model_construct(
-                name=name,
-                institution=institution,
-                modality=modality,
-                funding_source=funding_source_list,
-                investigators=investigators,
-                **basic_settings,
-            )
+        if ams_response.status_code == 200:
+            funding_info = [ams_response.json().get("data")]
+        elif ams_response.status_code == 300:
+            funding_info = ams_response.json().get("data")
         else:
+            funding_info = []
+        investigators = set()
+        for f in funding_info:
+            project_fundees = f.get("fundee", "").split(",")
+            pid_names = [PIDName(name=p).model_dump_json() for p in project_fundees]
+            if project_fundees is not [""]:
+                investigators.update(pid_names)
+        investigators = [PIDName.model_validate_json(i) for i in investigators]
+        investigators.sort(key=lambda x: x.name)
+
+        basic_settings = RawDataDescription.parse_name(name=name)
+        try:
             data_description_instance = RawDataDescription(
                 name=name,
                 institution=institution,
                 modality=modality,
-                funding_source=funding_source_list,
+                funding_source=funding_info,
                 investigators=investigators,
                 **basic_settings,
             )
-        # Do this to use enum strings instead of classes in dict representation
+        except ValidationError:
+            data_description_instance = RawDataDescription.model_construct(
+                name=name,
+                institution=institution,
+                modality=modality,
+                funding_source=funding_info,
+                investigators=investigators,
+                **basic_settings,
+            )
+
         contents = json.loads(data_description_instance.model_dump_json())
         return cls(model_obj=contents)

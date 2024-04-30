@@ -116,6 +116,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
     """Tests that the configs for the basic upload job are set correctly."""
 
     EXAMPLE_ENV_VAR1 = {
+        "PROCESSOR_FULL_NAME": "Anna Apple",
+        "PROJECT_NAME": "OpenScope",
         "CODEOCEAN_DOMAIN": "some_domain",
         "CODEOCEAN_TRIGGER_CAPSULE_ID": "some_capsule_id",
         "METADATA_SERVICE_DOMAIN": "some_ms_domain",
@@ -186,6 +188,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
     def test_from_req_args(self, mock_client: MagicMock):
         """Tests that the required configs can be set from aws param store"""
         test_req_args = [
+            "--processor-full-name",
+            "Anna Apple",
+            "--project-name",
+            "OpenScope",
             "-b",
             "some_bucket",
             "-s",
@@ -256,6 +262,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         """Tests that the optional configs can also be set."""
 
         test_opt_args = [
+            "--processor-full-name",
+            "Anna Apple",
+            "--project-name",
+            "OpenScope",
             "-b",
             "some_bucket",
             "-s",
@@ -355,6 +365,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         }
 
         test_req_args = [
+            "--processor-full-name",
+            "Anna Apple",
+            "--project-name",
+            "OpenScope",
             "-b",
             "some_bucket",
             "-s",
@@ -370,6 +384,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         ]
 
         test_malformed_datetime_args = [
+            "--processor-full-name",
+            "Anna Apple",
+            "--project-name",
+            "OpenScope",
             "-b",
             "some_bucket",
             "-s",
@@ -385,6 +403,10 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         ]
 
         test_custom_capsule_args = [
+            "--processor-full-name",
+            "Anna Apple",
+            "--project-name",
+            "OpenScope",
             "-b",
             "some_bucket",
             "-s",
@@ -452,6 +474,8 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         modalities = f'[{{"modality":"ophys","source":"{str(DATA_DIR)}"}}]'
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
+            '"processor_full_name": "Anna Apple", '
+            '"project_name": "OpenScope", '
             f'"subject_id": "12345", '
             f'"platform": "SmartSPIM", '
             f'"modalities": {modalities}, '
@@ -503,6 +527,9 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
         )
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
+            '"processor_full_name": "Anna Apple", '
+            '"project_name": "OpenScope", '
+            f'"subject_id": "12345", '
             f'"subject_id": "12345", '
             f'"platform": "SmartSPIM", '
             f'"modalities": {modalities}, '

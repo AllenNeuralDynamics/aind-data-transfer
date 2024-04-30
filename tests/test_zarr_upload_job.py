@@ -98,6 +98,8 @@ class TestZarrUploadJob(unittest.TestCase):
             #  a assertion somewhere in the codebase and that verified here.
             raise ValueError(f"Unsupported modality: {platform}")
         config = BasicUploadJobConfigs(
+            processor_full_name="John Smith",
+            project_name="OpenScope",
             platform=platform,
             modalities=[
                 ModalityConfigs(
