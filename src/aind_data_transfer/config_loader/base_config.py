@@ -97,13 +97,6 @@ class BasicJobEndpoints(BaseSettings):
     aind_data_transfer_repo_location: str = Field(...)
     video_encryption_password: Optional[SecretStr] = Field(None)
     codeocean_api_token: Optional[SecretStr] = Field(None)
-    codeocean_process_capsule_id: Optional[str] = Field(
-        None,
-        description=(
-            "If defined, will run this Code Ocean Capsule after registering "
-            "the data asset"
-        ),
-    )
 
     @classmethod
     def settings_customise_sources(
@@ -254,6 +247,19 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
     )
+    processor_full_name: str = Field(
+        ...,
+        description="Name of person uploading data",
+        title="Processor Full Name",
+    )
+    project_name: str = Field(
+        ..., description="Name of project", title="Project Name"
+    )
+    process_capsule_id: Optional[str] = Field(
+        None,
+        description="Use custom codeocean capsule or pipeline id",
+        title="Process Capsule ID",
+    )
     platform: Platform.ONE_OF = Field(..., description="Platform", title="Platform")
     modalities: List[ModalityConfigs] = Field(
         ...,
@@ -310,11 +316,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         ),
         title="Force Cloud Sync",
     )
-    processor_name: str = Field(
-        default="service",
-        description="Name of entity processing the data",
-        title="Processor Name",
-    )
     process_name: ProcessName = Field(
         default=ProcessName.OTHER,
         description="Type of processing performed on the raw data source.",
@@ -363,6 +364,18 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
 
         parser = argparse.ArgumentParser()
         # Required
+        parser.add_argument(
+            "--processor-full-name",
+            required=True,
+            type=str,
+            help=_help_message("processor_full_name"),
+        )
+        parser.add_argument(
+            "--project-name",
+            required=True,
+            type=str,
+            help=_help_message("project_name"),
+        )
         parser.add_argument(
             "-a",
             "--acq-datetime",
@@ -458,10 +471,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         )
         parser.add_argument(
             "-i",
-            "--codeocean-process-capsule-id",
+            "--process-capsule-id",
             required=False,
             type=str,
-            help=_help_message("codeocean_process_capsule_id"),
+            help=_help_message("process_capsule_id"),
         )
         parser.set_defaults(dry_run=False)
         parser.set_defaults(metadata_dir_force=False)
@@ -501,13 +514,15 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             endpoints_param_dict = {
                 "aws_param_store_name": job_args.endpoints_parameters
             }
-        if job_args.codeocean_process_capsule_id is not None:
+        if job_args.process_capsule_id is not None:
             endpoints_param_dict[
-                "codeocean_process_capsule_id"
-            ] = job_args.codeocean_process_capsule_id
+                "process_capsule_id"
+            ] = job_args.process_capsule_id
         modalities_json = json.loads(job_args.modalities)
         modalities = [ModalityConfigs.model_validate(m) for m in modalities_json]
         return cls(
+            processor_full_name=job_args.processor_full_name,
+            project_name=job_args.project_name,
             s3_bucket=job_args.s3_bucket,
             subject_id=job_args.subject_id,
             platform=Platform.from_abbreviation(job_args.platform),

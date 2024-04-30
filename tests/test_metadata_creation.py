@@ -318,15 +318,41 @@ class TestSubjectMetadata(unittest.TestCase):
 class TestDataDescriptionMetadata(unittest.TestCase):
     """Tests methods in DataDescriptionMetadata class"""
 
-    def test_create_data_description_metadata(self) -> None:
+    @patch("requests.get")
+    def test_create_data_description_metadata(self, mock_get: MagicMock) -> None:
         """
         Tests that the data description metadata is created correctly.
         """
+        mocked_funding_response = Response()
+        mocked_funding_response.status_code = 200
+        mocked_funding_response._content = json.dumps(
+            {
+                "message": "Valid Model.",
+                "data": {
+                    "funder": {
+                        "name": (
+                            "National Institute of Neurological Disorders and "
+                            "Stroke"
+                        ),
+                        "abbreviation": "NINDS",
+                        "registry": {
+                            "name": "Research Organization Registry",
+                            "abbreviation": "ROR",
+                        },
+                        "registry_identifier": "01s5ya894",
+                    },
+                    "grant_number": "12345",
+                    "fundee": "Anna Apple",
+                },
+            }
+        ).encode("utf-8")
+        mock_get.return_value = mocked_funding_response
+
         data_description = RawDataDescriptionMetadata.from_inputs(
             name="exaSPIM_12345_2022-02-21_16-30-01",
-            investigators=[PIDName(name="John Apple")],
+            ams_domain="some_ams_domain",
+            project_name="OpenScope",
             modality=[Modality.SPIM],
-            funding_source=(Funding(funder=Organization.AI),),
         )
 
         expected_data_description_instance = RawDataDescription.model_validate(

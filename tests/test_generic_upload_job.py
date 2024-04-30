@@ -241,8 +241,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             (Platform.ECEPHYS, job0.job_configs.platform)
             and (Platform.CONFOCAL, job1.job_configs.platform)
         )
-        self.assertIsNone(job0.job_configs.codeocean_process_capsule_id)
-        self.assertIsNone(job1.job_configs.codeocean_process_capsule_id)
+        self.assertIsNone(job0.job_configs.process_capsule_id)
+        self.assertIsNone(job1.job_configs.process_capsule_id)
 
     @patch("boto3.client")
     def test_load_configs4(self, mock_client: MagicMock) -> None:
@@ -301,8 +301,8 @@ class TestGenericS3UploadJobList(unittest.TestCase):
             and (Platform.CONFOCAL, job1.job_configs.platform)
         )
         self.assertTrue(
-            ("xyz-123", job0.job_configs.codeocean_process_capsule_id)
-            and ("zyx-456", job1.job_configs.codeocean_process_capsule_id)
+            ("xyz-123", job0.job_configs.process_capsule_id)
+            and ("zyx-456", job1.job_configs.process_capsule_id)
         )
         self.assertFalse(job1.job_configs.modalities[0].compress_raw_data)
 

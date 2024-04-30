@@ -192,6 +192,8 @@ class BasicJob:
             modalities = [m.modality for m in self.job_configs.modalities]
             data_description_metadata_0 = (
                 RawDataDescriptionMetadata.from_inputs(
+                    ams_domain=self.job_configs.metadata_service_domain,
+                    project_name=self.job_configs.project_name,
                     name=self.job_configs.s3_prefix,
                     modality=modalities,
                 )
@@ -372,7 +374,7 @@ class BasicJob:
                 f"s3://{self.job_configs.s3_bucket}/"
                 f"{self.job_configs.s3_prefix}"
             ),
-            processor_full_name=self.job_configs.processor_name,
+            processor_full_name=self.job_configs.processor_full_name,
             code_url=self.job_configs.aind_data_transfer_repo_location,
         )
         processing_metadata.write_to_json(path=temp_dir)
@@ -416,7 +418,9 @@ class BasicJob:
 
     def _trigger_codeocean_pipeline(self):
         """Trigger the codeocean pipeline."""
-        if self.job_configs.codeocean_process_capsule_id is not None:
+
+        # Figure out the process capsule id
+        if self.job_configs.process_capsule_id is not None:
             job_type = JobTypes.RUN_GENERIC_PIPELINE.value
         else:
             # Handle legacy way we set up parameters...
@@ -432,7 +436,7 @@ class BasicJob:
                 ),
                 "capsule_id": self.job_configs.codeocean_trigger_capsule_id,
                 "process_capsule_id": (
-                    self.job_configs.codeocean_process_capsule_id
+                    self.job_configs.process_capsule_id
                 ),
                 "bucket": self.job_configs.s3_bucket,
                 "prefix": self.job_configs.s3_prefix,

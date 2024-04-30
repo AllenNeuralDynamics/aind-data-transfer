@@ -42,6 +42,8 @@ class TestBasicJob(unittest.TestCase):
     """Tests methods in the BasicJob class"""
 
     EXAMPLE_ENV_VAR1 = {
+        "PROCESSOR_FULL_NAME": "Anna Apple",
+        "PROJECT_NAME": "OpenScope",
         "CODEOCEAN_DOMAIN": "some_domain",
         "CODEOCEAN_TRIGGER_CAPSULE_ID": "some_capsule_id",
         "METADATA_SERVICE_DOMAIN": "some_ms_domain",
@@ -196,6 +198,7 @@ class TestBasicJob(unittest.TestCase):
         self.assertFalse(mock_compress.called)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
     @patch(
         "aind_data_transfer.transformations.metadata_creation."
         "SubjectMetadata.from_service"
@@ -217,8 +220,33 @@ class TestBasicJob(unittest.TestCase):
         mock_json_write: MagicMock,
         mock_procedures_service: MagicMock,
         mock_subject_service: MagicMock,
+        mock_requests_get: MagicMock,
     ):
         """Tests that the metadata files are compiled correctly."""
+        mocked_funding_response = Response()
+        mocked_funding_response.status_code = 200
+        mocked_funding_response._content = json.dumps(
+            {
+                "message": "Valid Model.",
+                "data": {
+                    "funder": {
+                        "name": (
+                            "National Institute of Neurological Disorders and "
+                            "Stroke"
+                        ),
+                        "abbreviation": "NINDS",
+                        "registry": {
+                            "name": "Research Organization Registry",
+                            "abbreviation": "ROR",
+                        },
+                        "registry_identifier": "01s5ya894",
+                    },
+                    "grant_number": "12345",
+                    "fundee": "Anna Apple",
+                },
+            }
+        ).encode("utf-8")
+        mock_requests_get.return_value = mocked_funding_response
 
         mock_datetime.now.return_value = datetime(2023, 4, 9)
         mock_subject_service.return_value = SubjectMetadata(
@@ -241,6 +269,13 @@ class TestBasicJob(unittest.TestCase):
         mock_copyfile.assert_not_called()
         self.assertEqual(
             "643054", basic_job.metadata_record.subject.subject_id
+        )
+        self.assertEqual(
+            [{'abbreviation': None,
+              'name': 'Anna Apple',
+              'registry': None,
+              'registry_identifier': None}],
+            basic_job.metadata_record.data_description.investigators,
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -420,7 +455,7 @@ class TestBasicJob(unittest.TestCase):
         # With dry-run set to True
         basic_job_configs = BasicUploadJobConfigs()
         basic_job_configs.dry_run = False
-        basic_job_configs.codeocean_process_capsule_id = "xyz-456"
+        basic_job_configs.process_capsule_id = "xyz-456"
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._trigger_codeocean_pipeline()
 
