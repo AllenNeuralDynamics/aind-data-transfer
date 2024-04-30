@@ -455,7 +455,7 @@ class TestBasicJob(unittest.TestCase):
         # With dry-run set to True
         basic_job_configs = BasicUploadJobConfigs()
         basic_job_configs.dry_run = False
-        basic_job_configs.codeocean_process_capsule_id = "xyz-456"
+        basic_job_configs.process_capsule_id = "xyz-456"
         basic_job = BasicJob(job_configs=basic_job_configs)
         basic_job._trigger_codeocean_pipeline()
 

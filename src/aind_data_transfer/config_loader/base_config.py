@@ -97,13 +97,6 @@ class BasicJobEndpoints(BaseSettings):
     aind_data_transfer_repo_location: str = Field(...)
     video_encryption_password: Optional[SecretStr] = Field(None)
     codeocean_api_token: Optional[SecretStr] = Field(None)
-    codeocean_process_capsule_id: Optional[str] = Field(
-        None,
-        description=(
-            "If defined, will run this Code Ocean Capsule after registering "
-            "the data asset"
-        ),
-    )
 
     @classmethod
     def settings_customise_sources(
@@ -436,12 +429,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         )
         # Optional
         parser.add_argument(
-            "--process-capsule-id",
-            required=False,
-            type=str,
-            help=_help_message("process_capsule_id"),
-        )
-        parser.add_argument(
             "-l",
             "--log-level",
             required=False,
@@ -484,10 +471,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         )
         parser.add_argument(
             "-i",
-            "--codeocean-process-capsule-id",
+            "--process-capsule-id",
             required=False,
             type=str,
-            help=_help_message("codeocean_process_capsule_id"),
+            help=_help_message("process_capsule_id"),
         )
         parser.set_defaults(dry_run=False)
         parser.set_defaults(metadata_dir_force=False)
@@ -527,10 +514,10 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
             endpoints_param_dict = {
                 "aws_param_store_name": job_args.endpoints_parameters
             }
-        if job_args.codeocean_process_capsule_id is not None:
+        if job_args.process_capsule_id is not None:
             endpoints_param_dict[
-                "codeocean_process_capsule_id"
-            ] = job_args.codeocean_process_capsule_id
+                "process_capsule_id"
+            ] = job_args.process_capsule_id
         modalities_json = json.loads(job_args.modalities)
         modalities = [ModalityConfigs.model_validate(m) for m in modalities_json]
         return cls(

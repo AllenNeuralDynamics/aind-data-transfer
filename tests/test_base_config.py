@@ -466,7 +466,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             test_custom_capsule_args
         )
         self.assertEqual(
-            "xyz-456", custom_capsule_job_configs.codeocean_process_capsule_id
+            "xyz-456", custom_capsule_job_configs.process_capsule_id
         )
 
     def test_from_json_args(self):
