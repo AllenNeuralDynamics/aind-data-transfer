@@ -453,6 +453,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
                 modality=modality,
                 funding_source=funding_info,
                 investigators=investigators,
+                project_name=project_name,
                 **basic_settings,
             )
         except ValidationError:
@@ -462,6 +463,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
                 modality=modality,
                 funding_source=funding_info,
                 investigators=investigators,
+                project_name=project_name,
                 **basic_settings,
             )
 
