@@ -31,6 +31,7 @@ scripts/Exaspim_ingest/original_spec_files
 scripts/Exaspim_ingest/ExM Sample Tracking.xlsx
 scripts/Exaspim_ingest/output
 scripts/Exaspim_ingest/original_plus_materials
+scripts/Exaspim_ingest/tars_info
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
