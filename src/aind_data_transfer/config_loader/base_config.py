@@ -248,7 +248,7 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         title="S3 Bucket",
     )
     processor_full_name: str = Field(
-        ...,
+        "AIND Scientific Computing",
         description="Name of person uploading data",
         title="Processor Full Name",
     )
@@ -364,12 +364,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
 
         parser = argparse.ArgumentParser()
         # Required
-        parser.add_argument(
-            "--processor-full-name",
-            required=True,
-            type=str,
-            help=_help_message("processor_full_name"),
-        )
         parser.add_argument(
             "--project-name",
             required=True,
@@ -521,7 +515,6 @@ class BasicUploadJobConfigs(BasicJobEndpoints):
         modalities_json = json.loads(job_args.modalities)
         modalities = [ModalityConfigs.model_validate(m) for m in modalities_json]
         return cls(
-            processor_full_name=job_args.processor_full_name,
             project_name=job_args.project_name,
             s3_bucket=job_args.s3_bucket,
             subject_id=job_args.subject_id,
