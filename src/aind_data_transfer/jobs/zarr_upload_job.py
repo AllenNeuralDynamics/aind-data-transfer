@@ -14,13 +14,13 @@ from aind_data_transfer.config_loader.base_config import (
     BasicUploadJobConfigs,
 )
 from aind_data_transfer.jobs.basic_job import BasicJob
-from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml, schema_log_to_acq_json, read_dispim_aquisition
+from aind_data_transfer.transformations.converters import log_to_acq_json, acq_json_to_xml, schema_log_to_acq_json, read_dispim_aquisition, get_tile_resolution_from_xml
 from aind_data_transfer.transformations.ome_zarr import write_files
 from aind_data_transfer.util.dask_utils import get_client, get_deployment
 from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
-from aind_data_transfer.transformations.file_io import read_toml, read_imaging_log, read_schema_log_file, write_acq_json, write_xml
+from aind_data_transfer.transformations.file_io import read_toml, read_imaging_log, read_schema_log_file, write_acq_json, write_xml, read_json
 from aind_data_transfer.transformations.ng_link_creation import write_json_from_zarr
 
 import yaml
@@ -168,6 +168,39 @@ class ZarrUploadJob(BasicJob):
             excluded=excluded,
         )
 
+
+    def _create_zeiss_LS7_metadata(self) -> None:
+        """Update the voxel size in the zarr config with the voxel size from the Zeiss LS7 metadata.
+        The rest of the XMLs and relevant metadata files are currently created during the conversion 
+        of czi to ome-tiff.
+        """
+
+
+        self._instance_logger.info("Creating xml files for diSPIM data")
+        # log_file = self._data_src_dir.joinpath('imaging_log.log')
+        acq_file = self._data_src_dir.joinpath('acquisition.json')
+
+        if acq_file.exists():
+            # acq_json = read_dispim_aquisition(acq_file)
+            acq_json = read_json(acq_file)
+                    #write voxel size to self job config (so we can take it out of the zarr_config.yml)
+            z_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][2])*1e6
+            y_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][1])*1e6
+            x_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][0])*1e6
+
+        else: #get voxxel size from xml
+            voxel_size = get_tile_resolution_from_xml(Path(self._data_src_dir).joinpath('Camera_405.xml').as_posix())
+
+            z_res = float(voxel_size[2])*1e6
+            y_res = float(voxel_size[1])*1e6
+            x_res = float(voxel_size[0])*1e6
+
+        print(f'Updating _zarr_configs.voxel_size to {z_res, y_res, x_res}')
+        self._zarr_configs.voxel_size = [z_res, y_res, x_res]
+        self._voxel_size = [z_res, y_res, x_res]
+
+
+
     def _upload_zarr(self) -> None:
         images = set(
             get_images(
@@ -202,7 +235,15 @@ class ZarrUploadJob(BasicJob):
             bkg_img_dir=bkg_img_dir,
         )
 
+
+
+
+
     def _create_dispim_metadata(self) -> None:
+        """Create metadata for custom iSPIM 
+        and save it to the data source directory"""
+
+
         self._instance_logger.info("Creating xml files for diSPIM data")
 
         log_file = self._data_src_dir.joinpath('imaging_log.log')
@@ -300,7 +341,9 @@ class ZarrUploadJob(BasicJob):
 
         if self.job_configs.platform == Platform.HCR:
             try:
-                self._create_dispim_metadata()
+                # self._create_dispim_metadata() # depreciated for iSPIM microscope
+                self._instance_logger.info("Updating Voxel metadata for Zeiss LS7...")
+                self._create_zeiss_LS7_metadata()   
             except Exception as e:
                 self._instance_logger.error(f"Failed to create diSPIM metadata: {e}")
                 self._instance_logger.info("Compiling metadata...")
@@ -310,7 +353,6 @@ class ZarrUploadJob(BasicJob):
             )
         except Exception as e:
             self._instance_logger.error(f"Failed to compile metadata: {e}")
-
 
         self._instance_logger.info("Starting zarr upload...")
         self._upload_zarr()
