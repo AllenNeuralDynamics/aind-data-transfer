@@ -889,10 +889,9 @@ def lightsheet_7_convert_and_upload(czi_path, dataset_dir_tile, metadata_only=Fa
     #once this is done, we can make a new sbatch and submit it to the cluster to upload the dataset
 
     #write the sbatch script
-    sbatch_file_path = Path(__file__).parent.joinpath('bin/zarr_upload_sbatch.sh')
     dataset_dir = Path(dataset_dir_tile).parent.as_posix()
-
     root_dir = Path(dataset_dir).parent
+    sbatch_file_path = root_dir.joinpath('upload_scripts/bin/zarr_upload_sbatch.sh')
 
     provide_folder_permissions(
         root_folder=root_dir, paths=dataset_dir, permissions="755"
