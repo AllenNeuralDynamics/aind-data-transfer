@@ -37,10 +37,8 @@ from aind_data_transfer.transformations.metadata_creation import (
     RawDataDescriptionMetadata,
 )
 from aind_data_transfer.transformations.file_io import read_toml
-from smartspim_cron_job import ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions
+# from smartspim_cron_job import ConfigFile, CopyDatasets, organize_datasets, pre_upload_smartspim, provide_folder_permissions
 # from aind_data_transfer.config_loader.imaging_configuration_loader import ImagingJobConfigurationLoader
-
-#for plotting tile metrics
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -72,6 +70,63 @@ def get_default_config(filename: str) -> dict:
         raise error
 
     return config
+
+def provide_folder_permissions(
+    root_folder: PathLike, paths: list, permissions: Optional[str] = "755"
+):
+    """
+    Provides 755 permission in the folder.
+    This fixes a known bug in the VAST system
+    where folder are created with 000 permissions.
+
+    Parameters
+    -----------
+    root_folder: PathLike
+        Root folder where the datasets are located
+
+    paths: List[PathLike]
+        List with the paths to the folder that
+        the permissions will be updated
+
+    permissions: Optional[str]
+        Permission that will be given via chmod
+
+    """
+
+    oct_permissions = int(permissions, 8)
+
+    def helper_update_permissions(list_folders: list):
+        """
+        Helper function to update permissions
+        of a list of folders
+
+        Parameters
+        -----------
+        list_folders: list
+            List of strings with the paths to
+            the folders to update
+        """
+        for list_folder in list_folders:
+            os.chmod(list_folder, oct_permissions)
+
+    for path in paths:
+        dataset_path = f"{root_folder}/{path}"
+        curr_permissions = oct(os.stat(dataset_path).st_mode)[-3:]
+
+        if curr_permissions != permissions:
+            logger.info(
+                f"Updating permissions for {dataset_path} from {curr_permissions} to {permissions}"
+            )
+            os.chmod(dataset_path, oct_permissions)
+
+            # Updating first level
+            first_level_folders = glob.glob(f"{dataset_path}/*/")
+            second_level_folders = glob.glob(f"{dataset_path}/*/*/")
+            third_level_folders = glob.glob(f"{dataset_path}/*/*/*/")
+
+            helper_update_permissions(first_level_folders)
+            helper_update_permissions(second_level_folders)
+            helper_update_permissions(third_level_folders)
 
 
 def get_ispim_folders_with_file(
@@ -128,9 +183,10 @@ def get_ispim_default_processing_config() -> dict:
     return {
         "stitching": {
             "co_folder": "scratch",
-            "channel": "405",
+            "channel": ["405", "all"],
         },
         'segmentation': {
+            'round': '0',
             'channels': ['405'],
             'input_scale': '2',
             'chunksize': '200',
@@ -341,7 +397,60 @@ def get_voxel_size_from_config_toml(config_path: PathLike) -> list:
     Y_voxel_size = config["tile_specs"]["y_field_of_view_um"]/config["tile_specs"]["column_count_pixels"]
     X_voxel_size = config["tile_specs"]["x_field_of_view_um"]/config["tile_specs"]["row_count_pixels"]
 
-    return [Z_voxel_size, Y_voxel_size, X_voxel_size]
+    return [X_voxel_size, Y_voxel_size, Z_voxel_size]
+
+def get_XYZ_voxel_size_from_acquisition_json(data_path: PathLike) -> list:
+    """Reads voxel size from xml file in dataset folder and returns it as a list
+    This will not be available until the czi finishes converting to tiff
+    
+    Parameters
+    ----------
+    data_path: PathLike
+        Path to dataset folder
+    
+    Returns
+    ----------
+    List
+        List with voxel size in order [X, Y, Z]
+        units are in micrometers
+    """
+
+    acq_file = Path(data_path).joinpath('acquisition.json')
+
+    if acq_file.exists():
+        # acq_json = read_dispim_aquisition(acq_file)
+        acq_json = read_json(acq_file)
+                #write voxel size to self job config (so we can take it out of the zarr_config.yml)
+        z_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][2])*1e6
+        y_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][1])*1e6
+        x_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][0])*1e6
+
+    else: #get voxxel size from xml
+        voxel_size = get_tile_resolution_from_xml(Path(data_path).joinpath('Camera_405.xml').as_posix())
+
+        z_res = float(voxel_size[2])*1e6
+        y_res = float(voxel_size[1])*1e6
+        x_res = float(voxel_size[0])*1e6
+
+    return [x_res, y_res, z_res]
+
+def get_subject_id_from_dataset_loc(dataset_loc: PathLike) -> str:
+    """Reads subject id from dataset folder and returns it as a string
+    Parameters
+    ----------
+    dataset_loc: PathLike
+        Path to dataset folder
+    
+    Returns
+    ----------
+    str
+        Subject id
+    """
+    dataset_name = Path(dataset_loc).name
+    subject_id = dataset_name.split("_")[1]
+
+    return subject_id
+
 
 def get_subject_id_from_config_toml(config_path: PathLike) -> str:
     """Reads subject id from config_toml file in dataset folder and returns it as a string
@@ -361,6 +470,22 @@ def get_subject_id_from_config_toml(config_path: PathLike) -> str:
     subject_id = config["imaging_specs"]["subject_id"]
 
     return subject_id
+
+
+def get_acq_datetime_from_dataset_loc(dataset_loc: PathLike) -> datetime:
+
+    """ Gets datetime of acquisition from dataset folder name
+    ex of dataset folder name: HCR_000000_2021-06-30_10-00-00
+    Parameters"""
+    dataset_name = Path(dataset_loc).name
+
+    time = dataset_name.split("_")[-1]
+    date = dataset_name.split("_")[-2]
+
+    time = time.replace("-", ":")
+    date_time = f"{date} {time}"
+            
+    return date_time
 
 def get_date_time_from_schema_log(schema_log_path: PathLike) -> tuple:
 
@@ -412,6 +537,59 @@ def get_acq_datetime_from_schema_log(schema_log_path: PathLike) -> datetime:
             date_time = date_time.replace("T", " ")
             
             return date_time
+
+def update_zarr_job_config(config_path: PathLike, dataset_path: PathLike, new_config_path: PathLike = None):
+    """
+    This function copies the zarr_job_config.yml into a temporary upload data folder
+    It updates the dataset path (raw_data_dir), subject_id, and voxel_size. 
+
+
+    Parameters
+    ------------------------
+    config_path: PathLike
+        Path to the zarr_job_config.yml
+
+    dataset_path: PathLike
+        Path to the dataset
+
+    Returns
+    ------------------------
+    new_config_path: PathLike
+        Path to the new zarr_job_config.yml with the updated fields
+    """
+
+    # Reading config yaml as dict
+
+    with open(config_path) as f:
+        yml_config = yaml.load(f, Loader=yaml.SafeLoader)
+    
+    # Getting voxel size from acquisition.json
+    acq_json_path = dataset_path.joinpath("acquisition.json")
+    acq_json = read_json(acq_json_path)
+    #write voxel size to self job config (so we can take it out of the zarr_config.yml)
+    z_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][2]
+    y_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][1]
+    x_res = acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][0]
+    voxel_size = [z_res, y_res, x_res]
+
+    # Getting subject id
+    subject_id = acq_json["subject_id"]
+
+    # Updating fields
+    yml_config["voxel_size"] = voxel_size
+
+    # Writing new config file
+    new_config_path = (
+        new_config_path
+        if new_config_path is not None
+        else dataset_path.joinpath("zarr_job_config.yml")
+    )
+
+    with open(new_config_path, "w") as f:
+        yaml.dump(yml_config, f)
+
+    return new_config_path
+
 
 def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, new_config_path: PathLike = None):
     """
@@ -468,49 +646,20 @@ def update_transcode_job_config(config_path: PathLike, dataset_path: PathLike, n
 
     return new_config_path
 
-def update_zarr_job_config(dataset_path: PathLike, new_config_path: PathLike = None, n_levels: int = 5, chunk_shape: list = [1,1,128,128,128]):
-    """This file writes a very simple config file for the zarr upload job.
-    Typically this file contains only the n_levels, chunk_shape, and voxel_size.
+################################################
+# Write the zeiss zarr_upload sbatch script
+
+def write_zarr_upload_sbatch_zeiss(dataset_path: PathLike, sbatch_path_to_write: PathLike) -> str:
     
-    Parameters
-    ------------------------
-    dataset_path: PathLike
-        Path to the dataset
-    new_config_path: PathLike
-        Path to the new zarr_job_config.yml with the updated fields
-    Returns
-    ------------------------
-    new_config_path: PathLike
-        Path to the new zarr_job_config.yml with the updated fields
-
-    """
-    voxel_size = get_voxel_size_from_config_toml(Path(dataset_path).joinpath("config.toml"))
-
-    yml_dict = {"n_levels": n_levels, "chunk_shape": chunk_shape, "voxel_size": voxel_size, "do_bkg_subtraction": False}
-    file_utils.write_dict_to_yaml(yml_dict, new_config_path)
-
-    return new_config_path
-
+    subject_id = get_subject_id_from_dataset_loc(dataset_path)
     
-
-# temporary function to write the zarr upload config 
-def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathLike) -> str:
-    
-    subject_id = get_subject_id_from_config_toml(Path(dataset_path).joinpath('config.toml'))
-    
-    #clean up subject_id so that it is just the subject id (6 digits)
-    subject_id = subject_id.split("-")[0]
-
     dataset_path = str(dataset_path)
 
     # acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
-    acq_datetime = get_acq_datetime_from_schema_log(dataset_path + "/schema_log.log")
-
-    config_file_loc = '/allen/aind/scratch/diSPIM/zarr_config_auto.yml'
-    update_zarr_job_config(dataset_path, config_file_loc)
+    acq_datetime = get_acq_datetime_from_dataset_loc(dataset_path)
 
     #TODO update s3 bucket to be configurable
-    my_json_dict = {"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": config_file_loc}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
+    my_json_dict = {"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": "/allen/aind/scratch/diSPIM/zarr_config.yml"}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
 
     #convert dict to json
     my_json_string = json.dumps(my_json_dict)
@@ -519,14 +668,65 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
     sbatch_script = f"""#!/bin/bash
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=8000
-#SBATCH --exclude=n69,n74
 #SBATCH --tmp=64MB
 #SBATCH --time=30:00:00
 #SBATCH --partition=aind
 #SBATCH --output=/allen/aind/scratch/carson.berry/hpc_outputs/%j_zarr_upload.log
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=carson.berry@alleninstitute.org
-#SBATCH --ntasks=64
+#SBATCH --ntasks=32
+
+set -e
+
+pwd; date
+[[ -f "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" ]] && source "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" adt-upload-clone
+
+module purge
+module load mpi/mpich-3.2-x86_64
+
+# Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
+# are not sitting idle while the workers (rank 2...N) work
+# See https://edbennett.github.io/high-performance-python/11-dask/ for details.
+mpiexec -np $(( SLURM_NTASKS + 2 )) python -m aind_data_transfer.jobs.zarr_upload_job --json-args '{my_json_string}'
+
+echo "Done"
+date
+    """
+    #write sbatch script
+    assert Path(sbatch_path_to_write).parent.exists(), f"Parent directory of {sbatch_path_to_write} does not exist"
+    with open(sbatch_path_to_write, "w") as f:
+        f.write(sbatch_script)
+
+    return sbatch_script
+
+
+# temporary function to write the zarr upload config 
+def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathLike) -> str:
+    
+    subject_id = get_subject_id_from_config_toml(Path(dataset_path).joinpath('config.toml'))
+    
+    dataset_path = str(dataset_path)
+
+    # acq_date, acq_time = get_date_time_from_schema_log(dataset_path.joinpath("schema_log.log"))
+    acq_datetime = get_acq_datetime_from_schema_log(dataset_path + "/schema_log.log")
+
+    #TODO update s3 bucket to be configurable
+    my_json_dict = {"s3_bucket": "aind-open-data","platform": "HCR", "modalities":[{"modality": "SPIM","source": dataset_path, "extra_configs": "/allen/aind/scratch/diSPIM/zarr_config.yml"}], "subject_id": subject_id, "acq_datetime": acq_datetime, "force_cloud_sync": "true", "codeocean_domain": "https://codeocean.allenneuraldynamics.org", "metadata_service_domain": "http://aind-metadata-service", "aind_data_transfer_repo_location": "https://github.com/AllenNeuralDynamics/aind-data-transfer", "log_level": "INFO"}
+
+    #convert dict to json
+    my_json_string = json.dumps(my_json_dict)
+
+
+    sbatch_script = f"""#!/bin/bash
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=8000
+#SBATCH --tmp=64MB
+#SBATCH --time=30:00:00
+#SBATCH --partition=aind
+#SBATCH --output=/allen/aind/scratch/carson.berry/hpc_outputs/%j_zarr_upload.log
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=carson.berry@alleninstitute.org
+#SBATCH --ntasks=32
 
 set -e
 
@@ -644,175 +844,186 @@ def write_csv_from_dataset(dataset_loc: PathLike, csv_path: PathLike):
     return csv_path
 
 
-# write an sbatch script to submit the tile qc job
-def write_tile_qc_sbatch_script(dataset_path: PathLike, sbatch_path_to_write: PathLike):
-    """Writes an sbatch script to submit the tile qc job for a dataset
+###################################################################################################################
+from aind_data_transfer.transformations.czi_to_tiff import convert_czi_to_tiff
+import argparse 
+
+
+def main_zeiss(args):
+
+
+    INPUT_FOLDER = args.input_folder
+    OUTPUT_FOLDER = args.output_folder
+    METADATA_ONLY = args.metadata_only
+
+    print(f'Metadata only: {METADATA_ONLY}')
+
+    lightsheet_7_convert_and_upload(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY)
+
+
+def lightsheet_7_convert_and_upload(czi_path, dataset_dir_tile, metadata_only=False):
+    """main to execute the lightsheet 7 conversion and upload pipeline
     
-    Parameters
+    Parameters: 
     ------------------------
-    dataset_path: PathLike
-        Path to the dataset
+    czi_path: PathLike
+        Path to the folder containing the czi files
+
+    dataset_dir: PathLike
+        Path to the directory where the dataset will be saved
+
+    This script 
     
-    sbatch_path_to_write: PathLike
-        Path to write the sbatch script
-    
-    Returns
-    ------------------------
-    sbatch_script: str
-        The sbatch script that was written"""
-    
-    #dataset_path = Path(dataset_path).stem
-    print(f'Dataset path being passed to write_tile_qc_sbatch_script: {dataset_path}')
+    """
+
+    #only update the metadata (jsons, xmls, etc) for the dataset
+    # metadata_only = False
+
+    #will take an hour or so with 20 cores... could probably work faster
+
+    print(f'Converting CZI to tiff: {czi_path}')
+    logger.info(f"Converting CZI to tiff: {czi_path}")
+
+    convert_czi_to_tiff(czi_path, dataset_dir_tile, metadata_only)
+
+    #once this is done, we can make a new sbatch and submit it to the cluster to upload the dataset
 
     #write the sbatch script
-    sbatch_script = f"""#!/bin/bash
-#SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=8000
-#SBATCH --exclude=n69,n74
-#SBATCH --tmp=64MB
-#SBATCH --time=2:00:00
-#SBATCH --partition=aind
-#SBATCH --output=/allen/aind/scratch/carson.berry/hpc_outputs/%j_plot_tile_qc.log
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=carson.berry@alleninstitute.org
-#SBATCH --ntasks=1
+    sbatch_file_path = Path(__file__).parent.joinpath('bin/zarr_upload_sbatch.sh')
+    dataset_dir = Path(dataset_dir_tile).parent.as_posix()
 
-set -e
-
-pwd; date
-[[ -f "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" ]] && source "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" adt-upload-clone
-
-# Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
-# are not sitting idle while the workers (rank 2...N) work
-# See https://edbennett.github.io/high-performance-python/11-dask/ for details.
-
-python -m /allen/aind/scratch/diSPIM_QC/hcr_review_tiles/src/hcr_review_tiles/plot_lightsheet_data_for_tile_from_tiff.py {dataset_path}
-
-echo "Done"
-date
-"""
-    assert Path(sbatch_path_to_write).parent.exists(), f"Parent directory of {sbatch_path_to_write} does not exist"
-    with open(sbatch_path_to_write, "w") as f:
-        f.write(sbatch_script)
-    
-    return
-
-
-###################################################################################################################
-
-def main():
-    """main to execute the diSPIM job"""
-    config_param = ArgSchemaParser(schema_type=ConfigFile)
-
-
-    #scripts to run during upload
-    SUBMIT_TRANSCODE_JOB =  Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/transcode_job.py')
-    SUBMIT_ZARR_JOB =       Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/zarr_upload_job.py')
-
-    config_file_path = config_param.args["config_file"]
-    config = get_default_config(config_file_path)
-
-    # print(f'config: {config}')
-    root_folder = Path(config["root_folder"])
-    print(f'root_folder: {root_folder}')
-
-    (
-        raw_datasets_ready,
-        raw_datasets_rejected,
-    ) = get_ispim_folders_with_file(
-        root_folder=root_folder, search_file="derivatives/processing_manifest.json"
-    )
+    root_dir = Path(dataset_dir).parent
 
     provide_folder_permissions(
-        root_folder=root_folder, paths=raw_datasets_ready, permissions="755"
+        root_folder=root_dir, paths=dataset_dir, permissions="755"
     )
 
-    logger.warning(f"Raw datasets rejected: {raw_datasets_rejected}")
+    sbatch_script = write_zarr_upload_sbatch_zeiss(dataset_dir, sbatch_file_path)
 
-    #make processing manifest for rejected datasets if they don't already exist: 
-    for rejected_dataset in raw_datasets_rejected:
-        if not check_if_processing_manifest_exists(root_folder.joinpath(rejected_dataset)):
-            write_processing_manifest(root_folder.joinpath(rejected_dataset))
-            logger.info(f"Processing manifest written for rejected dataset: {rejected_dataset}")
+    #submit the sbatch script
+    cmd = f"""sbatch {sbatch_file_path.as_posix()}"""
+
+
+    # HPC run
+    logger.info(f"Uploading dataset: {dataset_dir}")
+    for out in file_utils.execute_command(cmd):
+        logger.info(out)
+
+    logger.info(f"------------------------DONE!------------------------")
+
+    logger.info(f"Dataset uploaded: {dataset_dir}")
+
+
+
+    
+# def main():
+#     """main to execute the diSPIM job"""
+#     config_param = ArgSchemaParser(schema_type=ConfigFile)
+
+
+#     #scripts to run during upload
+#     SUBMIT_TRANSCODE_JOB =  Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/transcode_job.py')
+#     SUBMIT_ZARR_JOB =       Path(__file__).parent.parent.joinpath('src/aind_data_transfer/jobs/zarr_upload_job.py')
+
+#     config_file_path = config_param.args["config_file"]
+#     config = get_default_config(config_file_path)
+
+#     # print(f'config: {config}')
+#     root_folder = Path(config["root_folder"])
+#     print(f'root_folder: {root_folder}')
+
+#     (
+#         raw_datasets_ready,
+#         raw_datasets_rejected,
+#     ) = get_ispim_folders_with_file(
+#         root_folder=root_folder, search_file="derivatives/processing_manifest.json"
+#     )
+
+#     provide_folder_permissions(
+#         root_folder=root_folder, paths=raw_datasets_ready, permissions="755"
+#     )
+
+#     logger.warning(f"Raw datasets rejected: {raw_datasets_rejected}")
+
+#     #make processing manifest for rejected datasets if they don't already exist: 
+#     for rejected_dataset in raw_datasets_rejected:
+#         if not check_if_processing_manifest_exists(root_folder.joinpath(rejected_dataset)):
+#             write_processing_manifest(root_folder.joinpath(rejected_dataset))
+#             logger.info(f"Processing manifest written for rejected dataset: {rejected_dataset}")
     
 
-    # new_dataset_paths, ready_datasets = organize_datasets(
-    #     root_folder,
-    #     raw_datasets_ready,
-    #     config["metadata_service_domain"])
+#     # new_dataset_paths, ready_datasets = organize_datasets(
+#     #     root_folder,
+#     #     raw_datasets_ready,
+#     #     config["metadata_service_domain"])
 
 
 
-    processing_manifest_path = "derivatives/processing_manifest.json"
+#     processing_manifest_path = "derivatives/processing_manifest.json"
 
-    pending_datasets_config = get_upload_datasets(
-        dataset_folder=root_folder,
-        config_path=processing_manifest_path,  # Pointing to this folder due to data conventions
-        info_manager_path=config["info_manager_path"],
-    )
+#     pending_datasets_config = get_upload_datasets(
+#         dataset_folder=root_folder,
+#         config_path=processing_manifest_path,  # Pointing to this folder due to data conventions
+#         info_manager_path=config["info_manager_path"],
+#     )
 
-    logger.info(f"Uploading {pending_datasets_config}")
+#     logger.info(f"Uploading {pending_datasets_config}")
 
-    sbatch_file_path = Path(__file__).parent.joinpath('bin/zarr_upload_sbatch.sh')
+#     sbatch_file_path = Path(__file__).parent.joinpath('bin/zarr_upload_sbatch.sh')
 
-    tile_qc_sbatch_filepath = Path('/allen/aind/scratch/diSPIM_QC/hcr_review_tiles/bin/plot_tile_qc_sbatch.sh')
+#     print(f'pending_datasets_config: {pending_datasets_config}')
+#     #processing all the datasets that are pending
+#     for dataset in pending_datasets_config:
 
+#         dataset_path = dataset["path"]
+#         dataset_name = Path(dataset_path).stem
+#         # new_config_path = update_transcode_job_config(config_file_path, dataset_path)
 
-    print(f'pending_datasets_config: {pending_datasets_config}')
-    #processing all the datasets that are pending
-    for dataset in pending_datasets_config:
+#         #temporarily we will rewrite a file to be run with sbatch. It will have the HPC configs 
+#         #and the args for zarr upload job in a json-like format. 
+#         zarr_sbatch_cmd = write_zarr_upload_sbatch(dataset_path, sbatch_file_path)
 
-        dataset_path = dataset["path"]
-        dataset_name = Path(dataset_path).stem
-        # new_config_path = update_transcode_job_config(config_file_path, dataset_path)
-
-        #temporarily we will rewrite a file to be run with sbatch. It will have the HPC configs 
-        #and the args for zarr upload job in a json-like format. 
-        zarr_sbatch_cmd = write_zarr_upload_sbatch(dataset_path, sbatch_file_path)
-
-        #the longer term solution TODO, is to write a csv file with the HPC configs and the args for zarr upload job
-        #and then read that csv file with the new upload service job. 
-
-        write_tile_qc_sbatch_script(dataset_name, tile_qc_sbatch_filepath)
-
-        if os.path.isdir(dataset_path):
-            # dataset_dest_path = dest_data_dir.joinpath(dataset_name)
-
-            if config["transfer_type"]["type"] == "HPC":
-                # dataset_dumped = json.dumps(dataset).replace('"', "[token]")
-                print(f'Running sbatch_file_path: {sbatch_file_path}')
-                cmd = f"""sbatch {sbatch_file_path.as_posix()}"""
+#         #the longer term solution TODO, is to write a csv file with the HPC configs and the args for zarr upload job
+#         #and then read that csv file with the new upload service job. 
 
 
-                # Setting dataset_status as 'uploading'
-                pre_upload_smartspim(dataset_path, processing_manifest_path)
+#         if os.path.isdir(dataset_path):
+#             # dataset_dest_path = dest_data_dir.joinpath(dataset_name)
 
-                # HPC run
-                logger.info(f"Uploading dataset: {dataset_name}")
-                for out in file_utils.execute_command(cmd):
-                    logger.info(out) 
+#             if config["transfer_type"]["type"] == "HPC":
+#                 # dataset_dumped = json.dumps(dataset).replace('"', "[token]")
+#                 print(f'sbatch_file_path: {sbatch_file_path}')
+#                 cmd = f"""sbatch {sbatch_file_path.as_posix()}"""
 
-                # Wait for 5 minutes before running tile qc (so metadata can be generated)
-                time.sleep(60*5)
+#                 # Setting dataset_status as 'uploading'
+#                 pre_upload_smartspim(dataset_path, processing_manifest_path)
 
-                cmd_tile_qc = f"""sbatch {tile_qc_sbatch_filepath.as_posix()}"""
-                for out in file_utils.execute_command(cmd_tile_qc):
-                    logger.info(out)
+#                 # HPC run
+#                 logger.info(f"Uploading dataset: {dataset_name}")
+#                 for out in file_utils.execute_command(cmd):
+#                     logger.info(out)
 
-                time.sleep(10)
+#                 # Error with slurm logs directory
+#                 time.sleep(30)
+#             else:
+#                 # Local
+#                 raise NotImplementedError
+#         else:
+#             logger.warning(f"Path {dataset_path} does not exist. Ignoring...")
 
-            else:
-                # Local
-                raise NotImplementedError
-        else:
-            logger.warning(f"Path {dataset_path} does not exist. Ignoring...")
-
-    pending_datasets = get_upload_datasets(
-        dataset_folder=root_folder,
-        config_path=processing_manifest_path,  # Pointing to this folder due to data conventions
-        info_manager_path=config["info_manager_path"],
-    )
+#     pending_datasets = get_upload_datasets(
+#         dataset_folder=root_folder,
+#         config_path=processing_manifest_path,  # Pointing to this folder due to data conventions
+#         info_manager_path=config["info_manager_path"],
+#     )
 
 if __name__ == "__main__":
-    main()
+    argparser = argparse.ArgumentParser(description='Convert CZI to tiff')
+    argparser.add_argument('--input_folder', type=str, help='input folder containing CZI files')
+    argparser.add_argument('--output_folder', type=str, help='output folder to save tiff files')
+    argparser.add_argument('--metadata_only', type=str, help='whether to write metadata only', default=False)
+
+
+    args = argparser.parse_args()
+    main_zeiss(args)
 

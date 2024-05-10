@@ -243,7 +243,7 @@ def create_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
         try:
             if verbose:
                 print(f"Creating new directory: {dest_dir}")
-            os.makedirs(dest_dir, mode=0o777)
+            os.makedirs(dest_dir, mode=777)
         except OSError as e:
             raise
 
