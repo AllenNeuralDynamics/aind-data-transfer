@@ -24,6 +24,7 @@ class ExASPIMCronJobConfig(BaseModel):
     root_folder: str
     sif_path: str
     s3_bucket: str
+    project_name: str
     transfer_service_domain: str
     codeocean_domain: str
     metadata_service_domain: str
@@ -430,6 +431,7 @@ class ExASPIMCronJob:
         acq_datetime += f" {m.group(5)}:{m.group(6)}:{m.group(7)}"
 
         job_config = {
+            "project_name": config.project_name,
             "s3_bucket": config.s3_bucket,
             "platform": "exaSPIM",
             "modalities": [{
