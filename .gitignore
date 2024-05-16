@@ -140,3 +140,5 @@ dmypy.json
 
 # MRI stuff
 scripts/MRI_ingest/MRI_files/*
+
+scripts/Exaspim_ingest/*
