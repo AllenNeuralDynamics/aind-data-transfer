@@ -1,0 +1,98 @@
+{
+   "subject_id": "660627",
+   "subject_procedures": [
+      {
+         "procedure_type": "Surgery",
+         "start_date": "2023-02-13",
+         "experimenter_full_name": "13040",
+         "iacuc_protocol": "2109",
+         "animal_weight_prior": null,
+         "animal_weight_post": null,
+         "weight_unit": "gram",
+         "anaesthesia": null,
+         "workstation_id": null,
+         "procedures": [
+            {
+               "procedure_type": "Perfusion",
+               "output_specimen_ids": [
+                  "660627"
+               ],
+               "protocol_id": "dx.doi.org/10.17504/protocols.io.bg5vjy66"
+            }
+         ],
+         "notes": null,
+         "protocol_id": "dx.doi.org/10.17504/protocols.io.kqdg392o7g25/v1"
+      }
+   ],
+   "specimen_procedures": [
+      {
+         "procedure_type": "Gelation",
+         "procedure_name": "Gelation",
+         "specimen_id": "660627",
+         "start_date": "2023-06-23",
+         "end_date": "2023-07-21",
+         "experimenter_full_name": "Judith Baka",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.n92ldpwjxl5b/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Delipidation",
+         "procedure_name": "DCM Delipidation",
+         "specimen_id": "660627",
+         "start_date": "2023-04-03",
+         "end_date": "2023-04-03",
+         "experimenter_full_name": "Judith Baka",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.36wgqj1kxvk5/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Immunolabeling",
+         "procedure_name": "Secondary Antibody Immunolabeling",
+         "specimen_id": "660627",
+         "start_date": "2023-05-31",
+         "end_date": "2023-05-31",
+         "experimenter_full_name": "Judith Baka",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.ewov1okwylr2/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": [
+            {
+               "name": "Donkey anti-Rabbit IgG (H+L) AF 488",
+               "source": {
+                  "name": "Other",
+                  "abbreviation": null,
+                  "registry": null,
+                  "registry_identifier": null
+               },
+               "rrid": null,
+               "lot_number": "unknown",
+               "expiration_date": null,
+               "immunolabel_class": "Secondary",
+               "fluorophore": "Alexa Fluor 488",
+               "mass": "20.0",
+               "mass_unit": "microgram",
+               "notes": null
+            }
+         ],
+         "sectioning": null,
+         "notes": null
+      }
+   ],
+   "notes": "test build model",
+   "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
+   "schema_version": "0.13.7"
+}
