@@ -1,0 +1,25 @@
+{
+   "subject_id": "721056",
+   "subject_procedures": [],
+   "specimen_procedures": [
+      {
+         "procedure_type": "Delipidation",
+         "procedure_name": "DCM Delipidation",
+         "specimen_id": "721056",
+         "start_date": "2024-04-03",
+         "end_date": "2024-04-03",
+         "experimenter_full_name": "Rajvi Javeri",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.36wgqj1kxvk5/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      }
+   ],
+   "notes": "test build model",
+   "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
+   "schema_version": "0.13.7"
+}

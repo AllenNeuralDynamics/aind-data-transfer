@@ -143,3 +143,6 @@ dmypy.json
 
 # MacOs
 **/.DS_Store
+
+# MRI stuff
+scripts/MRI_ingest/MRI_files/*

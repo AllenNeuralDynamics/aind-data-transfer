@@ -1,0 +1,148 @@
+{
+   "subject_id": "651327",
+   "subject_procedures": [
+      {
+         "procedure_type": "Surgery",
+         "start_date": "2022-11-10",
+         "experimenter_full_name": "30333",
+         "iacuc_protocol": "2109",
+         "animal_weight_prior": null,
+         "animal_weight_post": null,
+         "weight_unit": "gram",
+         "anaesthesia": null,
+         "workstation_id": null,
+         "procedures": [
+            {
+               "procedure_type": "Perfusion",
+               "output_specimen_ids": [
+                  "651327"
+               ],
+               "protocol_id": "dx.doi.org/10.17504/protocols.io.bg5vjy66"
+            }
+         ],
+         "notes": null,
+         "protocol_id": "dx.doi.org/10.17504/protocols.io.kqdg392o7g25/v1"
+      }
+   ],
+   "specimen_procedures": [
+      {
+         "procedure_type": "Gelation",
+         "procedure_name": "Gelation",
+         "specimen_id": "651327",
+         "start_date": "2023-02-01",
+         "end_date": "2023-02-27",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.n92ldpwjxl5b/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Delipidation",
+         "procedure_name": "DCM Delipidation",
+         "specimen_id": "651327",
+         "start_date": "2022-11-21",
+         "end_date": "2022-12-05",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.36wgqj1kxvk5/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Delipidation",
+         "procedure_name": "SBiP Delipidation",
+         "specimen_id": "651327",
+         "start_date": "2022-12-06",
+         "end_date": "2022-12-18",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.n2bvj81mwgk5/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Immunolabeling",
+         "procedure_name": "Primary Antibody Immunolabeling",
+         "specimen_id": "651327",
+         "start_date": "2022-12-19",
+         "end_date": "2022-12-19",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.ewov1okwylr2/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": [
+            {
+               "name": "Rabbit Anti-GFP",
+               "source": {
+                  "name": "Other",
+                  "abbreviation": null,
+                  "registry": null,
+                  "registry_identifier": null
+               },
+               "rrid": null,
+               "lot_number": "unknown",
+               "expiration_date": null,
+               "immunolabel_class": "Primary",
+               "fluorophore": null,
+               "mass": "10.0",
+               "mass_unit": "microgram",
+               "notes": null
+            }
+         ],
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Immunolabeling",
+         "procedure_name": "Secondary Antibody Immunolabeling",
+         "specimen_id": "651327",
+         "start_date": "2023-01-06",
+         "end_date": "2023-01-06",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.ewov1okwylr2/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": [
+            {
+               "name": "Donkey anti-Rabbit IgG (H+L) AF 488",
+               "source": {
+                  "name": "Other",
+                  "abbreviation": null,
+                  "registry": null,
+                  "registry_identifier": null
+               },
+               "rrid": null,
+               "lot_number": "unknown",
+               "expiration_date": null,
+               "immunolabel_class": "Secondary",
+               "fluorophore": "Alexa Fluor 488",
+               "mass": "20.0",
+               "mass_unit": "microgram",
+               "notes": null
+            }
+         ],
+         "sectioning": null,
+         "notes": null
+      }
+   ],
+   "notes": "test build model",
+   "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
+   "schema_version": "0.13.7"
+}
