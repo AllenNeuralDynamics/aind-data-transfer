@@ -21,6 +21,7 @@ import yaml
 import toml
 import json
 import pandas as pd
+import glob
 
 from numcodecs import Blosc
 
@@ -893,9 +894,9 @@ def lightsheet_7_convert_and_upload(czi_path, dataset_dir_tile, metadata_only=Fa
     root_dir = Path(dataset_dir).parent
     sbatch_file_path = root_dir.joinpath('upload_scripts/bin/zarr_upload_sbatch.sh')
 
-    provide_folder_permissions(
-        root_folder=root_dir, paths=dataset_dir, permissions="755"
-    )
+    # provide_folder_permissions(
+    #     root_folder=root_dir, paths=dataset_dir, permissions="755"
+    # )
 
     sbatch_script = write_zarr_upload_sbatch_zeiss(dataset_dir, sbatch_file_path)
 

@@ -206,17 +206,36 @@ def parse_json(json_path: str, s3_data_path:str) -> ET.ElementTree:
                     y = ET.SubElement(z, "name")
                     y.text = f"{channel}"
 
-                tile_atts = ET.SubElement(view_setups, "Attributes")
-                tile_atts.attrib["name"] = "tile"
-                for i, tile in enumerate(tiles):
-                    t_entry = ET.Element("Tile")
-                    id_entry = ET.Element("id")
-                    id_entry.text = f"{i}" #this was only reporting 0 last time... should be incrementing
-                    t_entry.append(id_entry)
-                    name_entry = ET.Element("name")
-                    name_entry.text = str(tile)
-                    t_entry.append(name_entry)
-                    tile_atts.append(t_entry)
+        
+                def add_unique_tiles(
+                    view_setups: ET.Element, 
+                    tiles: list[str],
+                ) -> None:
+                    tile_atts = ET.SubElement(view_setups, "Attributes")
+                    tile_atts.attrib["name"] = "tile"
+
+                    tile_id_lookup = {}
+
+                    for i, tile in enumerate(tiles):
+                        s_parts = tile.split("_")
+                        location = (int(s_parts[2]), int(s_parts[4]), int(s_parts[6]))
+                        tile_id_lookup[location] = i
+                        # id_entry.text = f"{i}"
+
+                    #make simple dict to lookup tile id
+                    # make chanel agnostic tilename 
+                    for i, key in enumerate(tile_id_lookup.keys()):
+                        t_entry = ET.Element("Tile")
+                        id_entry = ET.Element("id")
+                        id_entry.text = f"{i}"
+                        t_entry.append(id_entry)
+                        name_entry = ET.Element("name")
+                        name_entry.text = f"Tile_X_{key[0]:04d}_Y_{key[1]:04d}_Z_{key[2]:04d}"
+                        t_entry.append(name_entry)
+                        tile_atts.append(t_entry)
+
+
+                add_unique_tiles(view_setups, tiles)
 
                 x = ET.SubElement(view_setups, "Attributes")
                 x.attrib["name"] = "angle"
