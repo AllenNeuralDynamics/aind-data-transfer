@@ -11,7 +11,10 @@ from numpy.typing import NDArray
 from ome_zarr.format import CurrentFormat
 from ome_zarr.writer import write_multiscales_metadata
 import xarray as xr
-from xarray_multiscale.multiscale import downscale_coords, multiscale
+from xarray_multiscale.multiscale import (
+    multiscale,
+    downscale
+)
 from xarray_multiscale.reducers import windowed_mean, WindowedReducer
 
 from aind_data_transfer.transformations.deinterleave import (
@@ -996,19 +999,19 @@ def _downscale_origin(
     new_origins : list of list of float
        A list of new origin coordinates for each downscaled level.
     """
-    z_coords = origin[0] + voxel_size[0] * np.arange(arr.shape[2])
-    y_coords = origin[1] + voxel_size[1] * np.arange(arr.shape[3])
-    x_coords = origin[2] + voxel_size[2] * np.arange(arr.shape[4])
+    arr = arr.squeeze()
+    z_coords = origin[0] + voxel_size[0] * np.arange(arr.shape[0])
+    y_coords = origin[1] + voxel_size[1] * np.arange(arr.shape[1])
+    x_coords = origin[2] + voxel_size[2] * np.arange(arr.shape[2])
     coords = xr.Coordinates({'z': z_coords, 'y': y_coords, 'x': x_coords})
-    ds = xr.Dataset(coords=coords)
+    ds = xr.DataArray(arr, coords=coords)
     new_origins = [list(origin)]
     for i in range(n_levels - 1):
-        new_coords = downscale_coords(ds, scale_factors)
+        ds = downscale(ds, windowed_mean, scale_factors)
         new_origins.append(
-            [float(new_coords['z'][0]), float(new_coords['y'][0]),
-             float(new_coords['x'][0])]
+            [float(ds.coords['z'][0]), float(ds.coords['y'][0]),
+             float(ds.coords['x'][0])]
         )
-        ds = xr.Dataset(coords=new_coords)
     return new_origins
 
 
