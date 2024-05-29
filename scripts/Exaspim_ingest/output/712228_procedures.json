@@ -1,6 +1,103 @@
 {
    "subject_id": "712228",
-   "subject_procedures": [],
+   "subject_procedures": [
+      {
+         "procedure_type": "Surgery",
+         "start_date": "2024-01-31",
+         "experimenter_full_name": "13040",
+         "iacuc_protocol": "2109",
+         "animal_weight_prior": null,
+         "animal_weight_post": null,
+         "weight_unit": "gram",
+         "anaesthesia": null,
+         "workstation_id": null,
+         "procedures": [
+            {
+               "procedure_type": "Perfusion",
+               "output_specimen_ids": [
+                  "712228"
+               ],
+               "protocol_id": "dx.doi.org/10.17504/protocols.io.bg5vjy66"
+            }
+         ],
+         "notes": null,
+         "protocol_id": "dx.doi.org/10.17504/protocols.io.kqdg392o7g25/v1"
+      },
+      {
+         "procedure_type": "Surgery",
+         "start_date": "2023-12-21",
+         "experimenter_full_name": "NSB-90",
+         "iacuc_protocol": "2109",
+         "animal_weight_prior": "18.6",
+         "animal_weight_post": "18.6",
+         "weight_unit": "gram",
+         "anaesthesia": {
+            "type": "isoflurane",
+            "duration": "45.00",
+            "duration_unit": "minute",
+            "level": "1.75"
+         },
+         "workstation_id": "SWS 6",
+         "procedures": [
+            {
+               "injection_materials": [],
+               "recovery_time": "10.0",
+               "recovery_time_unit": "minute",
+               "injection_duration": null,
+               "injection_duration_unit": "minute",
+               "instrument_id": null,
+               "injection_coordinate_ml": "-0.4",
+               "injection_coordinate_ap": "-1.6",
+               "injection_coordinate_depth": [
+                  "3.3"
+               ],
+               "injection_coordinate_unit": "millimeter",
+               "injection_coordinate_reference": "Bregma",
+               "bregma_to_lambda_distance": null,
+               "bregma_to_lambda_unit": "millimeter",
+               "injection_angle": "0.0",
+               "injection_angle_unit": "degrees",
+               "targeted_structure": null,
+               "injection_hemisphere": "Left",
+               "procedure_type": "Nanoject injection",
+               "injection_volume": [
+                  "100.0"
+               ],
+               "injection_volume_unit": "nanoliter",
+               "protocol_id": "dx.doi.org/10.17504/protocols.io.bp2l6nr7kgqe/v4"
+            },
+            {
+               "injection_materials": [],
+               "recovery_time": "10.0",
+               "recovery_time_unit": "minute",
+               "injection_duration": null,
+               "injection_duration_unit": "minute",
+               "instrument_id": null,
+               "injection_coordinate_ml": "0.4",
+               "injection_coordinate_ap": "-1.6",
+               "injection_coordinate_depth": [
+                  "3.3"
+               ],
+               "injection_coordinate_unit": "millimeter",
+               "injection_coordinate_reference": "Bregma",
+               "bregma_to_lambda_distance": null,
+               "bregma_to_lambda_unit": "millimeter",
+               "injection_angle": null,
+               "injection_angle_unit": "degrees",
+               "targeted_structure": null,
+               "injection_hemisphere": "Right",
+               "procedure_type": "Nanoject injection",
+               "injection_volume": [
+                  "100.0"
+               ],
+               "injection_volume_unit": "nanoliter",
+               "protocol_id": "dx.doi.org/10.17504/protocols.io.bp2l6nr7kgqe/v4"
+            }
+         ],
+         "notes": null,
+         "protocol_id": "dx.doi.org/10.17504/protocols.io.kqdg392o7g25/v1"
+      }
+   ],
    "specimen_procedures": [
       {
          "procedure_type": "Delipidation",
@@ -82,5 +179,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.7"
+   "schema_version": "0.13.8"
 }

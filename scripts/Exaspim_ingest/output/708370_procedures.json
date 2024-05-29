@@ -1,6 +1,103 @@
 {
    "subject_id": "708370",
-   "subject_procedures": [],
+   "subject_procedures": [
+      {
+         "procedure_type": "Surgery",
+         "start_date": "2023-10-27",
+         "experimenter_full_name": "30509",
+         "iacuc_protocol": "2109",
+         "animal_weight_prior": null,
+         "animal_weight_post": null,
+         "weight_unit": "gram",
+         "anaesthesia": null,
+         "workstation_id": null,
+         "procedures": [
+            {
+               "recovery_time": null,
+               "recovery_time_unit": "minute",
+               "injection_duration": null,
+               "injection_duration_unit": "minute",
+               "instrument_id": null,
+               "procedure_type": "Retro-orbital injection",
+               "injection_volume": null,
+               "injection_volume_unit": "microliter",
+               "injection_eye": null,
+               "injection_materials": [
+                  {
+                     "material_type": "Virus",
+                     "name": "AiP1837 - MGT_E252",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV1837_PHPeB",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT5316C",
+                        "prep_date": "2023-03-08",
+                        "prep_type": "Crude",
+                        "prep_protocol": "PHPeB-SOP#VC004"
+                     },
+                     "addgene_id": null,
+                     "titer": 50000000000000,
+                     "titer_unit": "gc/mL"
+                  },
+                  {
+                     "material_type": "Virus",
+                     "name": "PhP.EB-Syn-Flex-TRE-2tTA",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300010",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT5353g",
+                        "prep_date": "2023-03-07",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
+                     "addgene_id": null,
+                     "titer": 10000000000,
+                     "titer_unit": "gc/mL"
+                  },
+                  {
+                     "material_type": "Virus",
+                     "name": "PhP.EB-7x-TRE-3x-EGFP",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300011",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT5415g",
+                        "prep_date": "2023-03-14",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
+                     "addgene_id": null,
+                     "titer": 18000000000000,
+                     "titer_unit": "gc/mL"
+                  }
+               ],
+               "protocol_id": "unknown"
+            }
+         ],
+         "notes": null,
+         "protocol_id": "dx.doi.org/10.17504/protocols.io.kqdg392o7g25/v1"
+      },
+      {
+         "procedure_type": "Surgery",
+         "start_date": "2023-12-01",
+         "experimenter_full_name": "30509",
+         "iacuc_protocol": "2109",
+         "animal_weight_prior": null,
+         "animal_weight_post": null,
+         "weight_unit": "gram",
+         "anaesthesia": null,
+         "workstation_id": null,
+         "procedures": [
+            {
+               "procedure_type": "Perfusion",
+               "output_specimen_ids": [
+                  "708370"
+               ],
+               "protocol_id": "dx.doi.org/10.17504/protocols.io.bg5vjy66"
+            }
+         ],
+         "notes": null,
+         "protocol_id": "dx.doi.org/10.17504/protocols.io.kqdg392o7g25/v1"
+      }
+   ],
    "specimen_procedures": [
       {
          "procedure_type": "Gelation",
@@ -143,5 +240,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.7"
+   "schema_version": "0.13.8"
 }

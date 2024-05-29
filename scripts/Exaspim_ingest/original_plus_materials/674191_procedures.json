@@ -1,6 +1,6 @@
 {
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.11.5",
+   "schema_version": "0.13.3",
    "subject_id": "674191",
    "subject_procedures": [
       {
@@ -15,6 +15,15 @@
          "workstation_id": null,
          "procedures": [
             {
+               "recovery_time": null,
+               "recovery_time_unit": "minute",
+               "injection_duration": null,
+               "injection_duration_unit": "minute",
+               "instrument_id": null,
+               "procedure_type": "Retro-orbital injection",
+               "injection_volume": null,
+               "injection_volume_unit": "microliter",
+               "injection_eye": null,
                "injection_materials": [
                   {
                      "material_type": "Virus",
@@ -34,7 +43,14 @@
                   {
                      "material_type": "Virus",
                      "name": "AAV-PHP-eB_Syn-Flex TRE-2tTA",
-                     "tars_identifiers": null,
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300000",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT4358g",
+                        "prep_date": "2022-09-23",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
                      "addgene_id": null,
                      "titer": 10000000000,
                      "titer_unit": "gc/mL"
@@ -42,21 +58,19 @@
                   {
                      "material_type": "Virus",
                      "name": "AAV-PHP-eB_7x-TRE-tDTomato",
-                     "tars_identifiers": null,
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300008",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT5048g",
+                        "prep_date": "2023-02-07",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
                      "addgene_id": null,
                      "titer": 18000000000000,
                      "titer_unit": "gc/mL"
                   }
-               ],
-               "recovery_time": null,
-               "recovery_time_unit": "minute",
-               "injection_duration": null,
-               "injection_duration_unit": "minute",
-               "instrument_id": null,
-               "procedure_type": "Retro-orbital injection",
-               "injection_volume": null,
-               "injection_volume_unit": "microliter",
-               "injection_eye": null
+               ]
             }
          ],
          "notes": null,

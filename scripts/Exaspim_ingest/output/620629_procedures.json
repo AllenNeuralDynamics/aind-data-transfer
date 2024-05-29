@@ -76,5 +76,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.7"
+   "schema_version": "0.13.8"
 }

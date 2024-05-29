@@ -13,32 +13,6 @@
          "workstation_id": null,
          "procedures": [
             {
-               "injection_materials": [
-                  {
-                     "material_type": "Virus",
-                     "name": "AiP1837 - MGT_E252",
-                     "tars_identifiers": null,
-                     "addgene_id": null,
-                     "titer": 444000000000000,
-                     "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_Syn-Flex TRE-2tTA",
-                     "tars_identifiers": null,
-                     "addgene_id": null,
-                     "titer": 10000000000,
-                     "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_7x-TRE-tDTomato",
-                     "tars_identifiers": null,
-                     "addgene_id": null,
-                     "titer": 18000000000000,
-                     "titer_unit": "gc/mL"
-                  }
-               ],
                "recovery_time": null,
                "recovery_time_unit": "minute",
                "injection_duration": null,
@@ -48,6 +22,53 @@
                "injection_volume": null,
                "injection_volume_unit": "microliter",
                "injection_eye": null,
+               "injection_materials": [
+                  {
+                     "material_type": "Virus",
+                     "name": "AiP1837 - MGT_E252",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV1837_PHPeB",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT5316C",
+                        "prep_date": "2023-03-08",
+                        "prep_type": "Crude",
+                        "prep_protocol": "PHPeB-SOP#VC004"
+                     },
+                     "addgene_id": null,
+                     "titer": 444000000000000,
+                     "titer_unit": "gc/mL"
+                  },
+                  {
+                     "material_type": "Virus",
+                     "name": "AAV-PHP-eB_Syn-Flex TRE-2tTA",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300000",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT4358g",
+                        "prep_date": "2022-09-23",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
+                     "addgene_id": null,
+                     "titer": 10000000000,
+                     "titer_unit": "gc/mL"
+                  },
+                  {
+                     "material_type": "Virus",
+                     "name": "AAV-PHP-eB_7x-TRE-tDTomato",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300008",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT5048g",
+                        "prep_date": "2023-02-07",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
+                     "addgene_id": null,
+                     "titer": 18000000000000,
+                     "titer_unit": "gc/mL"
+                  }
+               ],
                "protocol_id": "unknown"
             }
          ],
@@ -200,5 +221,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.7"
+   "schema_version": "0.13.8"
 }

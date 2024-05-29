@@ -13,24 +13,6 @@
          "workstation_id": null,
          "procedures": [
             {
-               "injection_materials": [
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_Syn-Flex TRE-2tTA",
-                     "tars_identifiers": null,
-                     "addgene_id": null,
-                     "titer": 30000000000,
-                     "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_7x-TRE-tDTomato",
-                     "tars_identifiers": null,
-                     "addgene_id": null,
-                     "titer": 1800000000000,
-                     "titer_unit": "gc/mL"
-                  }
-               ],
                "recovery_time": null,
                "recovery_time_unit": "minute",
                "injection_duration": null,
@@ -40,6 +22,38 @@
                "injection_volume": null,
                "injection_volume_unit": "microliter",
                "injection_eye": null,
+               "injection_materials": [
+                  {
+                     "material_type": "Virus",
+                     "name": "AAV-PHP-eB_Syn-Flex TRE-2tTA",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300024",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT3214g",
+                        "prep_date": "2023-02-04",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
+                     "addgene_id": null,
+                     "titer": 30000000000,
+                     "titer_unit": "gc/mL"
+                  },
+                  {
+                     "material_type": "Virus",
+                     "name": "AAV-PHP-eB_7x-TRE-tDTomato",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300023",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT3215g",
+                        "prep_date": "2023-02-04",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
+                     "addgene_id": null,
+                     "titer": 1800000000000,
+                     "titer_unit": "gc/mL"
+                  }
+               ],
                "protocol_id": "unknown"
             }
          ],
@@ -139,5 +153,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.7"
+   "schema_version": "0.13.8"
 }
