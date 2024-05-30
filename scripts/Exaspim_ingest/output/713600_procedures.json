@@ -16,36 +16,6 @@
                "injection_materials": [
                   {
                      "material_type": "Virus",
-                     "name": "AAVrg-Syn-iCre",
-                     "tars_identifiers": {
-                        "virus_tars_id": "AiV300043",
-                        "plasmid_tars_alias": null,
-                        "prep_lot_number": "221118-11",
-                        "prep_date": "2022-11-28",
-                        "prep_type": null,
-                        "prep_protocol": null
-                     },
-                     "addgene_id": null,
-                     "titer": 75000000000000,
-                     "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAVrg-Syn-iCre",
-                     "tars_identifiers": {
-                        "virus_tars_id": "AiV300043",
-                        "plasmid_tars_alias": null,
-                        "prep_lot_number": "221118-11",
-                        "prep_date": "2022-11-28",
-                        "prep_type": null,
-                        "prep_protocol": null
-                     },
-                     "addgene_id": null,
-                     "titer": 75000000000000,
-                     "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
                      "name": "AAV-TRE-DIO-GFP-IRES-tTA Supernova",
                      "tars_identifiers": null,
                      "addgene_id": null,
@@ -107,7 +77,23 @@
          "workstation_id": "SWS 2",
          "procedures": [
             {
-               "injection_materials": [],
+               "injection_materials": [
+                  {
+                     "material_type": "Virus",
+                     "name": "AAVrg-Syn-iCre",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300043",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "221118-11",
+                        "prep_date": "2022-11-28",
+                        "prep_type": null,
+                        "prep_protocol": null
+                     },
+                     "addgene_id": null,
+                     "titer": 75000000000000,
+                     "titer_unit": "gc/mL"
+                  }
+               ],
                "recovery_time": "15.0",
                "recovery_time_unit": "minute",
                "injection_duration": null,
@@ -134,7 +120,23 @@
                "protocol_id": "unknown"
             },
             {
-               "injection_materials": [],
+               "injection_materials": [
+                  {
+                     "material_type": "Virus",
+                     "name": "AAVrg-Syn-iCre",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300043",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "221118-11",
+                        "prep_date": "2022-11-28",
+                        "prep_type": null,
+                        "prep_protocol": null
+                     },
+                     "addgene_id": null,
+                     "titer": 75000000000000,
+                     "titer_unit": "gc/mL"
+                  }
+               ],
                "recovery_time": "15.0",
                "recovery_time_unit": "minute",
                "injection_duration": null,
@@ -291,5 +293,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.8"
+   "schema_version": "0.13.10"
 }

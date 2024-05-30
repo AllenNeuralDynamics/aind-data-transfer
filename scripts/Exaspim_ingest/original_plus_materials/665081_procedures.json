@@ -39,21 +39,6 @@
                      "addgene_id": null,
                      "titer": 60000000000,
                      "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_7x-TRE-tDTomato",
-                     "tars_identifiers": {
-                        "virus_tars_id": "AiV300005",
-                        "plasmid_tars_alias": null,
-                        "prep_lot_number": "VT4360g",
-                        "prep_date": "2022-09-23",
-                        "prep_type": "Purified",
-                        "prep_protocol": "SOP#VC003"
-                     },
-                     "addgene_id": null,
-                     "titer": 18000000000000,
-                     "titer_unit": "gc/mL"
                   }
                ]
             }

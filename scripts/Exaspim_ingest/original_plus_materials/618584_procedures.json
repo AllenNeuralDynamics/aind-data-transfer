@@ -32,14 +32,6 @@
                      "addgene_id": null,
                      "titer": 30000000000,
                      "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_7x-TRE-tDTomato",
-                     "tars_identifiers": null,
-                     "addgene_id": null,
-                     "titer": 1800000000000,
-                     "titer_unit": "gc/mL"
                   }
                ]
             }

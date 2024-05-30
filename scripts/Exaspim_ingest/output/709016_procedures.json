@@ -16,21 +16,6 @@
                "injection_materials": [
                   {
                      "material_type": "Virus",
-                     "name": "rgAAV-Syn-FLEX-2xTRE-tTA",
-                     "tars_identifiers": {
-                        "virus_tars_id": null,
-                        "plasmid_tars_alias": null,
-                        "prep_lot_number": "VT6181g",
-                        "prep_date": "2023-10-06",
-                        "prep_type": "Purified",
-                        "prep_protocol": "SOP#VC003"
-                     },
-                     "addgene_id": null,
-                     "titer": 47500000000000,
-                     "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
                      "name": "AAV-PHP-eB_7x-TRE-3xGFP",
                      "tars_identifiers": {
                         "virus_tars_id": "AiV300003",
@@ -99,7 +84,23 @@
          "workstation_id": "SWS 4",
          "procedures": [
             {
-               "injection_materials": [],
+               "injection_materials": [
+                  {
+                     "material_type": "Virus",
+                     "name": "rgAAV-Syn-FLEX-2xTRE-tTA",
+                     "tars_identifiers": {
+                        "virus_tars_id": null,
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT6181g",
+                        "prep_date": "2023-10-06",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
+                     "addgene_id": null,
+                     "titer": 47500000000000,
+                     "titer_unit": "gc/mL"
+                  }
+               ],
                "recovery_time": "10.0",
                "recovery_time_unit": "minute",
                "injection_duration": null,
@@ -256,5 +257,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.8"
+   "schema_version": "0.13.10"
 }

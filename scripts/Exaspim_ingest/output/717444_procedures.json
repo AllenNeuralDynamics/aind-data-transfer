@@ -37,36 +37,6 @@
                      "addgene_id": null,
                      "titer": 50000000000000,
                      "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "PhP.EB-Syn-Flex-TRE-2tTA",
-                     "tars_identifiers": {
-                        "virus_tars_id": "AiV300024",
-                        "plasmid_tars_alias": null,
-                        "prep_lot_number": "VT3214g",
-                        "prep_date": "2023-02-04",
-                        "prep_type": "Purified",
-                        "prep_protocol": "SOP#VC003"
-                     },
-                     "addgene_id": null,
-                     "titer": 10000000000,
-                     "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_TREx7-3xGFP",
-                     "tars_identifiers": {
-                        "virus_tars_id": "AiV300022",
-                        "plasmid_tars_alias": null,
-                        "prep_lot_number": "VT3212g",
-                        "prep_date": "2022-02-04",
-                        "prep_type": "Purified",
-                        "prep_protocol": "SOP#VC003"
-                     },
-                     "addgene_id": null,
-                     "titer": 18000000000000,
-                     "titer_unit": "gc/mL"
                   }
                ],
                "protocol_id": "unknown"
@@ -179,5 +149,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.8"
+   "schema_version": "0.13.10"
 }

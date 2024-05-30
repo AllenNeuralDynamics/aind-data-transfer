@@ -39,21 +39,6 @@
                      "addgene_id": null,
                      "titer": 6000000000,
                      "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_TREx7-3xGFP",
-                     "tars_identifiers": {
-                        "virus_tars_id": "AiV300021",
-                        "plasmid_tars_alias": null,
-                        "prep_lot_number": "VT3213g",
-                        "prep_date": "2022-02-04",
-                        "prep_type": "Purified",
-                        "prep_protocol": "SOP#VC003"
-                     },
-                     "addgene_id": null,
-                     "titer": 1800000000000,
-                     "titer_unit": "gc/mL"
                   }
                ]
             }

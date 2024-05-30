@@ -30,14 +30,6 @@
                      "addgene_id": null,
                      "titer": 30000000000,
                      "titer_unit": "gc/mL"
-                  },
-                  {
-                     "material_type": "Virus",
-                     "name": "AAV-PHP-eB_7x-TRE-tDTomato",
-                     "tars_identifiers": null,
-                     "addgene_id": null,
-                     "titer": 1800000000000,
-                     "titer_unit": "gc/mL"
                   }
                ],
                "protocol_id": "unknown"
@@ -121,5 +113,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.8"
+   "schema_version": "0.13.10"
 }

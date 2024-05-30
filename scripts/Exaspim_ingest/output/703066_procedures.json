@@ -40,7 +40,9 @@
          "workstation_id": "SWS 3",
          "procedures": [
             {
-               "injection_materials": [],
+               "injection_materials": [
+                  null
+               ],
                "recovery_time": "4.482",
                "recovery_time_unit": "minute",
                "injection_duration": null,
@@ -87,7 +89,9 @@
          "workstation_id": null,
          "procedures": [
             {
-               "injection_materials": [],
+               "injection_materials": [
+                  null
+               ],
                "recovery_time": null,
                "recovery_time_unit": "minute",
                "injection_duration": null,
@@ -244,5 +248,5 @@
    ],
    "notes": "test build model",
    "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
-   "schema_version": "0.13.8"
+   "schema_version": "0.13.10"
 }
