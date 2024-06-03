@@ -8,14 +8,14 @@ import h5py
 import numpy as np
 import tifffile
 import zarr
-from distributed import Client
-from parameterized import parameterized
-
 from aind_data_transfer.transformations.ome_zarr import (
     write_files,
     write_folder,
+    _downscale_origin
 )
 from aind_data_transfer.util.io_utils import ImarisReader
+from distributed import Client
+from parameterized import parameterized
 
 
 def _write_test_tiffs(folder, n=4, shape=(64, 128, 128)):
@@ -34,13 +34,13 @@ def _write_test_h5(folder, n=4, shape=(64, 128, 128)):
             # Write origin metadata
             dataset_info = f.create_group("DataSetInfo/Image")
             dataset_info.attrs["ExtMin0"] = np.array(
-                ["1", "0", "0"], dtype="S"
+                ["3", "0", "0"], dtype="S"
             )
             dataset_info.attrs["ExtMin1"] = np.array(
                 ["2", "0", "0"], dtype="S"
             )
             dataset_info.attrs["ExtMin2"] = np.array(
-                ["3", "0", "0"], dtype="S"
+                ["1", "0", "0"], dtype="S"
             )
             dataset_info.attrs["X"] = np.array(list(str(shape[2])), dtype="S")
             dataset_info.attrs["Y"] = np.array(list(str(shape[1])), dtype="S")
@@ -76,9 +76,9 @@ class TestOmeZarr(unittest.TestCase):
                 expected_shape_at_lvl = (
                     1,
                     1,
-                    int(math.ceil(full_shape[2] / (scale_factor**lvl))),
-                    int(math.ceil(full_shape[3] / (scale_factor**lvl))),
-                    int(math.ceil(full_shape[4] / (scale_factor**lvl))),
+                    int(math.ceil(full_shape[2] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[3] / (scale_factor ** lvl))),
+                    int(math.ceil(full_shape[4] / (scale_factor ** lvl))),
                 )
                 self.assertEqual(expected_shape_at_lvl, a.shape)
                 self.assertTrue(a.nbytes_stored > 0)
@@ -138,6 +138,13 @@ class TestOmeZarr(unittest.TestCase):
                 expected_axes_metadata, attrs["multiscales"][0]["axes"]
             )
 
+            expected_translations = [[100, 200, 300], [100.5, 200.5, 300.5],
+                                     [101.5, 201.5, 301.5],
+                                     [103.5, 203.5, 303.5],
+                                     [107.5, 207.5, 307.5],
+                                     [115.5, 215.5, 315.5],
+                                     [131.5, 231.5, 331.5]]
+
             datasets_metadata = attrs["multiscales"][0]["datasets"]
             for i, ds_metadata in enumerate(datasets_metadata):
                 expected_transform = {
@@ -146,9 +153,9 @@ class TestOmeZarr(unittest.TestCase):
                             "scale": [
                                 1.0,
                                 1.0,
-                                voxel_size[0] * (scale_factor**i),
-                                voxel_size[1] * (scale_factor**i),
-                                voxel_size[2] * (scale_factor**i),
+                                voxel_size[0] * (scale_factor ** i),
+                                voxel_size[1] * (scale_factor ** i),
+                                voxel_size[2] * (scale_factor ** i),
                             ],
                             "type": "scale",
                         }
@@ -158,7 +165,7 @@ class TestOmeZarr(unittest.TestCase):
                 if has_translation:
                     expected_transform["coordinateTransformations"].append(
                         {
-                            "translation": [0, 0, 300.0, 200.0, 100.0],
+                            "translation": [0, 0, *expected_translations[i]],
                             "type": "translation",
                         }
                     )
@@ -255,6 +262,25 @@ class TestOmeZarr(unittest.TestCase):
         self._check_zarr_attributes(
             z, voxel_size, scale_factor, has_translation=(file_type == "h5")
         )
+
+    def test_downscale_origin(self):
+        arr = np.ones((1, 1, 64, 128, 128), dtype=np.uint16)
+        translation = (100, 200, 300)
+        scale = (1.0, 1.0, 1.0)
+        scale_factors = (2, 2, 2)
+        n_levels = 7
+        expected_origins = [[100, 200, 300], [100.5, 200.5, 300.5],
+                            [101.5, 201.5, 301.5], [103.5, 203.5, 303.5],
+                            [107.5, 207.5, 307.5], [115.5, 215.5, 315.5],
+                            [131.5, 231.5, 331.5]]
+        test_origins = _downscale_origin(
+            arr,
+            translation,
+            scale,
+            scale_factors,
+            n_levels
+        )
+        self.assertEqual(expected_origins, test_origins)
 
 
 if __name__ == "__main__":

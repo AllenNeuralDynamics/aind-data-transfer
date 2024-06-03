@@ -2,7 +2,7 @@ import fnmatch
 import logging
 import time
 from pathlib import Path
-from typing import List, Optional, Dict, cast
+from typing import List, Optional, Dict, cast, Any
 
 import s3fs
 import zarr
@@ -10,7 +10,11 @@ from numcodecs.abc import Codec
 from numpy.typing import NDArray
 from ome_zarr.format import CurrentFormat
 from ome_zarr.writer import write_multiscales_metadata
-from xarray_multiscale import multiscale
+import xarray as xr
+from xarray_multiscale.multiscale import (
+    multiscale,
+    downscale
+)
 from xarray_multiscale.reducers import windowed_mean, WindowedReducer
 
 from aind_data_transfer.transformations.deinterleave import (
@@ -697,7 +701,7 @@ def _compute_scales(
     pixelsizes: Tuple[float, float, float],
     chunks: Tuple[int, int, int, int, int],
     data_shape: Tuple[int, int, int, int, int],
-    translation: Optional[List[float]] = None,
+    translations: Optional[List[List[float]]] = None,
 ) -> Tuple[List, List]:
     """Generate the list of coordinate transformations and associated chunk options.
 
@@ -708,7 +712,7 @@ def _compute_scales(
     pixelsizes: a list of pixel sizes in each spatial dimension (Z, Y, X)
     chunks: a 5D tuple of integers with size of each chunk dimension (T, C, Z, Y, X)
     data_shape: a 5D tuple of the full resolution image's shape
-    translation: a 5 element list specifying the offset in physical units in each dimension
+    translations: a list of 3 element lists specifying the offset in physical units in Z, Y, X
 
     Returns
     -------
@@ -729,9 +733,9 @@ def _compute_scales(
             }
         ]
     ]
-    if translation is not None:
+    if translations is not None:
         transforms[0].append(
-            {"type": "translation", "translation": translation}
+            {"type": "translation", "translation": [0, 0, *translations[0]]}
         )
     chunk_sizes = []
     lastz = data_shape[2]
@@ -765,9 +769,9 @@ def _compute_scales(
                     }
                 ]
             )
-            if translation is not None:
+            if translations is not None:
                 transforms[-1].append(
-                    {"type": "translation", "translation": translation}
+                    {"type": "translation", "translation": [0, 0, *translations[i+1]]}
                 )
             lastz = int(math.ceil(lastz / scale_factor[0]))
             lasty = int(math.ceil(lasty / scale_factor[1]))
@@ -966,6 +970,51 @@ def _get_first_mipmap_level(
     return ensure_array_5d(pyramid[1])
 
 
+def _downscale_origin(
+    arr: Any,
+    origin: List[float],
+    voxel_size: List[float],
+    scale_factors: List[int],
+    n_levels: int
+):
+    """
+    Calculate new origins for downscaled coordinate grids.
+
+    Parameters
+    ----------
+    arr : Any
+       Input 5D array representing the data volume.
+    origin : list or tuple of float
+       The initial origin coordinates (z, y, x) of the array.
+    voxel_size : list or tuple of float
+       The size of each voxel along the (z, y, x) dimensions.
+    scale_factors : list or tuple of float
+       The factors by which to downscale the coordinates along each axis
+       (z, y, x).
+    n_levels : int
+       The number of downscaling levels to calculate.
+
+    Returns
+    -------
+    new_origins : list of list of float
+       A list of new origin coordinates for each downscaled level.
+    """
+    arr = arr.squeeze()
+    z_coords = origin[0] + voxel_size[0] * np.arange(arr.shape[0])
+    y_coords = origin[1] + voxel_size[1] * np.arange(arr.shape[1])
+    x_coords = origin[2] + voxel_size[2] * np.arange(arr.shape[2])
+    coords = xr.Coordinates({'z': z_coords, 'y': y_coords, 'x': x_coords})
+    ds = xr.DataArray(arr, coords=coords)
+    new_origins = [list(origin)]
+    for i in range(n_levels - 1):
+        ds = downscale(ds, windowed_mean, scale_factors)
+        new_origins.append(
+            [float(ds.coords['z'][0]), float(ds.coords['y'][0]),
+             float(ds.coords['x'][0])]
+        )
+    return new_origins
+
+
 def write_ome_ngff_metadata(
     group: zarr.Group,
     arr: da.Array,
@@ -1006,6 +1055,16 @@ def write_ome_ngff_metadata(
     )
     group.attrs["omero"] = ome_json
     axes_5d = _get_axes_5d()
+
+    if origin is not None:
+        origin = _downscale_origin(
+            arr,
+            origin[-3:],
+            voxel_size[-3:],
+            scale_factors[-3:],
+            n_lvls
+        )
+
     coordinate_transformations, chunk_opts = _compute_scales(
         n_lvls, scale_factors, voxel_size, arr.chunksize, arr.shape, origin
     )
