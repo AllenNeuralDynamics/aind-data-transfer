@@ -1,4 +1,3 @@
-[10:40 AM] Sean McCulloch
 #setup some dask workers
 import dask
 from dask.distributed import Client

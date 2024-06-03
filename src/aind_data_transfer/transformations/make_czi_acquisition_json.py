@@ -1,4 +1,3 @@
-[10:40 AM] Sean McCulloch
 import json
 import aind_data_schema
 from pathlib import Path
