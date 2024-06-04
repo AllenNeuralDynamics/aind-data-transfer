@@ -1,6 +1,6 @@
 # DEPRECATION
 
-We are deprecating this library. We plan to drop support on 2024-07-01 and will archive the repository on 2024-08-01. In particular, we are:
+We are deprecating this library. We plan to drop support on 2024-08-01 and will archive the repository on 2024-09-01. In particular, we are:
 
 - Moving modality specific transformation ETL jobs into their own repositories. This will make dependency conflicts less likely.
 - Each modality specific transformation ETL should import [https://github.com/AllenNeuralDynamics/aind-data-transformation](aind-data-transformation) classes. See [aind-ephys-transformation](https://github.com/AllenNeuralDynamics/aind-ephys-transformation) as an exaple.
