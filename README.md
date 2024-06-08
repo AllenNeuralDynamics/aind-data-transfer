@@ -1,3 +1,14 @@
+# DEPRECATION
+
+We are deprecating this library. We plan to drop support on 2024-08-01 and will archive the repository on 2024-09-01. In particular, we are:
+
+- Moving modality specific transformation ETL jobs into their own repositories. This will make dependency conflicts less likely.
+- Each modality specific transformation ETL should import [https://github.com/AllenNeuralDynamics/aind-data-transformation](aind-data-transformation) classes. See [aind-ephys-transformation](https://github.com/AllenNeuralDynamics/aind-ephys-transformation) as an exaple.
+- Metadata compilation is being moved to its own repository: [aind-metadata-mapper](https://github.com/AllenNeuralDynamics/aind-metadata-mapper).
+- These ETL jobs will run on the HPC and be managed by Airflow. The pipeline definition is in [aind-airflow-dags](https://github.com/AllenNeuralDynamics/aind-airflow-dags).
+
+Please reach out to the Scientific Computing Department with any questions or concerns.
+
 # aind-data-transfer
 
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
