@@ -335,7 +335,7 @@ class TestBasicJob(unittest.TestCase):
         mock_datetime: MagicMock,
         mock_copyfile: MagicMock,
         mock_json_write: MagicMock,
-        mock_write_standard_file: MagicMock,
+        mock_dard_file: MagicMock,
     ):
         """Tests that the processing metadata files are compiled correctly."""
         mock_datetime.now.return_value = datetime(2023, 4, 9)

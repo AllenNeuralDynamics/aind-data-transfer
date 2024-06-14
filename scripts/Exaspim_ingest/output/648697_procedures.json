@@ -1,0 +1,195 @@
+{
+   "subject_id": "648697",
+   "subject_procedures": [
+      {
+         "procedure_type": "Surgery",
+         "start_date": "2022-09-23",
+         "experimenter_full_name": "13040",
+         "iacuc_protocol": "2109",
+         "animal_weight_prior": null,
+         "animal_weight_post": null,
+         "weight_unit": "gram",
+         "anaesthesia": null,
+         "workstation_id": null,
+         "procedures": [
+            {
+               "recovery_time": null,
+               "recovery_time_unit": "minute",
+               "injection_duration": null,
+               "injection_duration_unit": "minute",
+               "instrument_id": null,
+               "procedure_type": "Retro-orbital injection",
+               "injection_volume": null,
+               "injection_volume_unit": "microliter",
+               "injection_eye": null,
+               "injection_materials": [
+                  {
+                     "material_type": "Virus",
+                     "name": "AAV-PHP-eB_Syn-Flex TRE-2tTA",
+                     "tars_identifiers": {
+                        "virus_tars_id": "AiV300024",
+                        "plasmid_tars_alias": null,
+                        "prep_lot_number": "VT3214g",
+                        "prep_date": "2023-02-04",
+                        "prep_type": "Purified",
+                        "prep_protocol": "SOP#VC003"
+                     },
+                     "addgene_id": null,
+                     "titer": 30000000000,
+                     "titer_unit": "gc/mL"
+                  }
+               ],
+               "protocol_id": "unknown"
+            }
+         ],
+         "notes": null,
+         "protocol_id": "dx.doi.org/10.17504/protocols.io.kqdg392o7g25/v1"
+      },
+      {
+         "procedure_type": "Surgery",
+         "start_date": "2022-10-28",
+         "experimenter_full_name": "13040",
+         "iacuc_protocol": "2109",
+         "animal_weight_prior": null,
+         "animal_weight_post": null,
+         "weight_unit": "gram",
+         "anaesthesia": null,
+         "workstation_id": null,
+         "procedures": [
+            {
+               "procedure_type": "Perfusion",
+               "output_specimen_ids": [
+                  "648697"
+               ],
+               "protocol_id": "dx.doi.org/10.17504/protocols.io.bg5vjy66"
+            }
+         ],
+         "notes": null,
+         "protocol_id": "dx.doi.org/10.17504/protocols.io.kqdg392o7g25/v1"
+      }
+   ],
+   "specimen_procedures": [
+      {
+         "procedure_type": "Gelation",
+         "procedure_name": "Gelation",
+         "specimen_id": "648697",
+         "start_date": "2023-04-28",
+         "end_date": "2023-06-03",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.n92ldpwjxl5b/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Delipidation",
+         "procedure_name": "DCM Delipidation",
+         "specimen_id": "648697",
+         "start_date": "2022-11-07",
+         "end_date": "2022-11-17",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.36wgqj1kxvk5/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Delipidation",
+         "procedure_name": "SBiP Delipidation",
+         "specimen_id": "648697",
+         "start_date": "2022-11-22",
+         "end_date": "2022-12-06",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.n2bvj81mwgk5/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": null,
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Immunolabeling",
+         "procedure_name": "Primary Antibody Immunolabeling",
+         "specimen_id": "648697",
+         "start_date": "2023-03-21",
+         "end_date": "2023-03-21",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.ewov1okwylr2/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": [
+            {
+               "name": "Goat Anti-tDT",
+               "source": {
+                  "name": "Other",
+                  "abbreviation": null,
+                  "registry": null,
+                  "registry_identifier": null
+               },
+               "rrid": null,
+               "lot_number": "unknown",
+               "expiration_date": null,
+               "immunolabel_class": "Primary",
+               "fluorophore": null,
+               "mass": "10.0",
+               "mass_unit": "microgram",
+               "notes": null
+            }
+         ],
+         "sectioning": null,
+         "notes": null
+      },
+      {
+         "procedure_type": "Immunolabeling",
+         "procedure_name": "Secondary Antibody Immunolabeling",
+         "specimen_id": "648697",
+         "start_date": "2023-04-05",
+         "end_date": "2023-04-05",
+         "experimenter_full_name": "Naveen Ouellette",
+         "protocol_id": [
+            "dx.doi.org/10.17504/protocols.io.ewov1okwylr2/v1"
+         ],
+         "reagents": [],
+         "hcr_series": null,
+         "antibodies": [
+            {
+               "name": "Rabbit anti-Goat IgG (H+L) ATTO 565",
+               "source": {
+                  "name": "Allen Institute for Neural Dynamics",
+                  "abbreviation": "AIND",
+                  "registry": {
+                     "name": "Research Organization Registry",
+                     "abbreviation": "ROR"
+                  },
+                  "registry_identifier": "04szwah67"
+               },
+               "rrid": null,
+               "lot_number": "AIAB_0001_2",
+               "expiration_date": null,
+               "immunolabel_class": "Secondary",
+               "fluorophore": "ATTO 565",
+               "mass": "20.0",
+               "mass_unit": "microgram",
+               "notes": null
+            }
+         ],
+         "sectioning": null,
+         "notes": null
+      }
+   ],
+   "notes": "test build model",
+   "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/procedures.py",
+   "schema_version": "0.13.10"
+}
