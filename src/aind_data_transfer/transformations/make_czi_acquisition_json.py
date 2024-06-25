@@ -287,7 +287,11 @@ def make_acquisition_schema(czi_loc):
  
     for tile_index, czi_file in enumerate(list_of_tiles):
         czi_file = czi_file.as_posix()
-        mdata = czimd.CziMetadata(czi_file)
+        try: 
+            mdata = czimd.CziMetadata(czi_file)
+        except:
+            print(f'Error reading {czi_file}')
+            continue
         tile = get_schema_AcquisitionTile(mdata, tile_index, list_of_tiles)
         tiles.append(tile)
  

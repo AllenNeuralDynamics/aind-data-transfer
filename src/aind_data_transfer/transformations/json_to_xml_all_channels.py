@@ -246,6 +246,8 @@ def parse_json(json_path: str, s3_data_path:str) -> ET.ElementTree:
                 y.text = "0"
 
             view_setups = ET.SubElement(seq_desc, "ViewSetups")
+            unique_channel_list = list(set(tile_channel_number))
+            number_of_unique_channels = len(unique_channel_list)
             tile_count = 0
             for i, (tile, t_size) in enumerate(zip(tiles, tile_sizes)):
                 vs = ET.SubElement(view_setups, "ViewSetup")
@@ -270,11 +272,10 @@ def parse_json(json_path: str, s3_data_path:str) -> ET.ElementTree:
                 x.text = f"{tile_channel_number[i]}" #"0"
                 x = ET.SubElement(attr, "tile")
                 tile_count += 1                
-                x.text = f"{tile_count}"
+                x.text = f"{tile_count % number_of_unique_channels}"
                 x = ET.SubElement(attr, "angle")
                 x.text = "0"   # No deskewing
 
-            unique_channel_list = list(set(tile_channel_number))
             add_attributes(view_setups, unique_channel_list)
 
         def add_time_points(
