@@ -28,7 +28,7 @@ import sys
 from aind_data_transfer.transformations.json_to_xml_all_channels import convert_json_to_xml
 import argparse
  
-from aind_data_transfer.transformations.make_czi_acquisition_json import make_acquisition_schema, write_acq_json
+from aind_data_transfer.transformations.make_czi_acquisition_json import make_acquisition_schema, write_acq_json, get_channel_wavelength
  
 def main():
     argparser = argparse.ArgumentParser(description='Convert CZI to tiff')
@@ -116,7 +116,7 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False):
         print(f'channel_number: {channel_number}')
  
         #channel wavelength
-        channel_wavelength = int(float(get_channel_metadata_from_channel_number(mdata,channel_number).IlluminationWavelength.SinglePeak))
+        channel_wavelength = int(get_channel_wavelength(mdata, channel_number))
  
         #need to remove negative signs from the relative tile positions
         # in order to this, we need to find not the initial tile position, but the tile at the smallest or most negative position in X and Y (say, the top left tile)
@@ -159,8 +159,11 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False):
         size = [sh['X'][1], sh['Y'][1], sh['Z'][1]]    
         # print(f'size: {size}')
  
-        percent_overlap = float((mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.TilesSetup.PositionGroups.PositionGroup)['TileAcquisitionOverlap'])
- 
+        try:
+            percent_overlap = float((mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.TilesSetup.PositionGroups.PositionGroup)['TileAcquisitionOverlap'])
+        except:
+            print(f'No percent overlap found for {dataset_fp}')
+            percent_overlap = 0
         
         intertile_distance_pixels = sh['X'][1]*(1-percent_overlap)
         x_name = round((bbox.x-init_x)/intertile_distance_pixels)
@@ -181,57 +184,57 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False):
  
         pixel_resolution = [X_resolution, Y_resolution, Z_resolution]
  
-        def get_tiff_tile_name(mdata, tile_index):
-            czi = CziFile(mdata.filepath)
-            bbox = czi.get_scene_bounding_box(0)
+        # def get_tiff_tile_name(mdata, tile_index):
+        #     czi = CziFile(mdata.filepath)
+        #     bbox = czi.get_scene_bounding_box(0)
  
  
  
-            if tile_index == 0:
+        #     if tile_index == 0:
                 
-                def find_min_x_y(list_of_tiles):
-                    for i, dataset_fp in enumerate(list_of_tiles):
-                        try:
-                            czi = CziFile(dataset_fp)
-                        except:
-                            print(f'Error reading {dataset_fp}')
-                            continue
-                        bbox = czi.get_scene_bounding_box(0)
-                        if i == 0:
-                            min_x = bbox.x
-                            min_y = bbox.y
-                        else:
-                            if bbox.x < min_x:
-                                min_x = bbox.x
-                            if bbox.y < min_y:
-                                min_y = bbox.y
+        #         def find_min_x_y(list_of_tiles):
+        #             for i, dataset_fp in enumerate(list_of_tiles):
+        #                 try:
+        #                     czi = CziFile(dataset_fp)
+        #                 except:
+        #                     print(f'Error reading {dataset_fp}')
+        #                     continue
+        #                 bbox = czi.get_scene_bounding_box(0)
+        #                 if i == 0:
+        #                     min_x = bbox.x
+        #                     min_y = bbox.y
+        #                 else:
+        #                     if bbox.x < min_x:
+        #                         min_x = bbox.x
+        #                     if bbox.y < min_y:
+        #                         min_y = bbox.y
  
-                    return min_x, min_y
-                init_x, init_y = find_min_x_y(list_of_tiles)
+        #             return min_x, min_y
+        #         init_x, init_y = find_min_x_y(list_of_tiles)
  
  
-            percent_overlap = float((mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.TilesSetup.PositionGroups.PositionGroup)['TileAcquisitionOverlap'])
+        #     percent_overlap = float((mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.TilesSetup.PositionGroups.PositionGroup)['TileAcquisitionOverlap'])
         
-            intertile_distance_pixels = sh['X'][1]*(1-percent_overlap)
-            x_name = round((bbox.x-init_x)/intertile_distance_pixels)
-            y_name = round((bbox.y-init_y)/intertile_distance_pixels)
-            z_name = 0
+        #     intertile_distance_pixels = sh['X'][1]*(1-percent_overlap)
+        #     x_name = round((bbox.x-init_x)/intertile_distance_pixels)
+        #     y_name = round((bbox.y-init_y)/intertile_distance_pixels)
+        #     z_name = 0
  
-            round_number = 'R0' # TODO add some logic to determine round number
+        #     round_number = 'R0' # TODO add some logic to determine round number
  
-            channel_number = int(czi.read_subblock_metadata(Z = 0)[0][0]['C'])
-            print(f'channel_number: {channel_number}')
+        #     channel_number = int(czi.read_subblock_metadata(Z = 0)[0][0]['C'])
+        #     print(f'channel_number: {channel_number}')
  
-            #channel wavelength
-            channel_wavelength = int(float(get_channel_metadata_from_channel_number(mdata,channel_number).IlluminationWavelength.SinglePeak))
-            tile_name = f'{round_number}_X_{x_name:04}_Y_{y_name:04}_Z_{z_name:04}_ch_{channel_wavelength}.tiff'
+        #     #channel wavelength
+        #     channel_wavelength = int(float(get_channel_metadata_from_channel_number(mdata,channel_number).IlluminationWavelength.SinglePeak))
+        #     tile_name = f'{round_number}_X_{x_name:04}_Y_{y_name:04}_Z_{z_name:04}_ch_{channel_wavelength}.tiff'
  
-            return tile_name
+        #     return tile_name
  
             
  
  
-        round_number = 'R0' # TODO add some logic to determine round number
+        round_number = 'Tile' # TODO add some logic to determine round number
         tile_name = f'{round_number}_X_{x_name:04}_Y_{y_name:04}_Z_{z_name:04}_ch_{channel_wavelength}.tiff'
  
         tif_filename = Path(OUTPUT_FOLDER).joinpath(tile_name)

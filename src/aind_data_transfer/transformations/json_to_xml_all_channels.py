@@ -21,16 +21,14 @@ def parse_json(json_path: str, s3_data_path:str) -> ET.ElementTree:
     def get_tile_channel(tile_name: str):
         """ Extracts the channel number from the tile_name"""
         
-        #get the channel number
-        channel_number = tile_name.split('_')[-1].split('.')[0]
+        #get the channel number only if the tile name has 'ch' in it
+        if 'ch' in tile_name:
+            channel_number = tile_name.split('_')[-1].split('.')[0]
+        else:
+            channel_number = 0 #assume we are doing single channel stitching
         return channel_number
 
     def get_tile_number_lookup(json_dict: dict):
-        #TODO rewrite this to make only a minimal subset of tiles, so that channels that share a tile are not duplicated
-
-
-
-        # json_data = json.load(json_file.open('r'))
 
         #get filenames 
         filename_numbers = [Path(item['file']).stem for item in json_dict]
@@ -44,8 +42,6 @@ def parse_json(json_path: str, s3_data_path:str) -> ET.ElementTree:
 
     def tile_number_to_position(tile_number: int, json_dict: dict):
         """ Converts tile number to x, y, z position """
-            #load the json file
-        # json_data = json.load(json_file.open('r'))
 
         #get min and max positions for XYZ
         position_list = [item['position'] for item in json_dict]
@@ -248,7 +244,7 @@ def parse_json(json_path: str, s3_data_path:str) -> ET.ElementTree:
             view_setups = ET.SubElement(seq_desc, "ViewSetups")
             unique_channel_list = list(set(tile_channel_number))
             number_of_unique_channels = len(unique_channel_list)
-            tile_count = 0
+            print(f'n unique channels: {number_of_unique_channels}')
             for i, (tile, t_size) in enumerate(zip(tiles, tile_sizes)):
                 vs = ET.SubElement(view_setups, "ViewSetup")
 
@@ -271,8 +267,7 @@ def parse_json(json_path: str, s3_data_path:str) -> ET.ElementTree:
                 x = ET.SubElement(attr, "channel") #add channel information
                 x.text = f"{tile_channel_number[i]}" #"0"
                 x = ET.SubElement(attr, "tile")
-                tile_count += 1                
-                x.text = f"{tile_count % number_of_unique_channels}"
+                x.text = f"{int(i // number_of_unique_channels)}"
                 x = ET.SubElement(attr, "angle")
                 x.text = "0"   # No deskewing
 
@@ -366,11 +361,11 @@ if __name__ == '__main__':
 
     # dataset_to_process= "100"
     # data_to_process = f'/allen/aind/stage/Z1/HCR_000000-{dataset_to_process}_2024-04-01_00-00-00'
-    data_to_process = '/allen/aind/stage/Z1/HCR_728442_2024-03-22_13-00-00'
+    data_to_process = '/allen/aind/stage/Z1/HCR_717487.3_2024-06-07_13-00-00'
     # data_to_process = args.dataset_loc
-    tree = parse_json(data_to_process +'/ch_0_position_metadata.json', f"/data/HCR_728442_2024-03-22_13-00-00/SPIM.ome.zarr")
+    tree = parse_json(data_to_process +'/ch_405_position_metadata.json', f"/data/HCR_717487.3_2024-06-07_13-00-00/SPIM.ome.zarr")
 
-    tree_rc = parse_json(data_to_process +'/ch_0_position_metadata.json', f"/data/HCR_728442_2024-03-22_13-00-00/radial_correction.ome.zarr")
+    tree_rc = parse_json(data_to_process +'/all_channel_tile_metadata.json', f"/data/HCR_717487.3_2024-06-07_13-00-00/radial_correction.ome.zarr")
 
 
     test_loc = '/allen/aind/scratch/carson.berry'
