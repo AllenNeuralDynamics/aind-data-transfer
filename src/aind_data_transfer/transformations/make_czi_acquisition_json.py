@@ -63,8 +63,11 @@ def get_excitation_wavelength_for_channel(mdata, channel_index):
 
 def get_filter_names(mdata):
     filter_names = []
-    for i in range(len(mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Filters.Filter)):
-        filter_names.append(mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Filters.Filter[i].Name)
+    filter_mdata = mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Filters.Filter
+    if not isinstance(filter_mdata, list):
+        filter_mdata = [filter_mdata]
+    for i in range(len(filter_mdata)):
+        filter_names.append(filter_mdata[i].Name)
     return filter_names
 
 def get_filter_id_and_names(mdata):
@@ -78,19 +81,25 @@ def get_filter_id_and_names(mdata):
 
 
 def get_detector_name(mdata, channel_number):
-    detector_model = mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Detectors.Detector[channel_number].Manufacturer.Model
-    detector_id = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].DetectorSettings.Detector['@Id']
-    detector_type = mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Detectors.Detector[channel_number].Type
+    detector_mdata = mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Detectors.Detector
+
+    if not isinstance(detector_mdata, list):
+        detector_model = detector_mdata.Manufacturer.Model
+        detector_type = detector_mdata.Type
+    else:
+        detector_model = detector_mdata[channel_number].Manufacturer.Model
+        detector_type =detector_mdata[channel_number].Type
+        
+    channel_mdata = mdata.czi_box.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel
+    if not isinstance(channel_mdata, list):
+        detector_id = channel_mdata.DetectorSettings.Detector['@Id']
+    else:
+        detector_id = channel_mdata[channel_number].DetectorSettings.Detector['@Id']
 
     detector_name = detector_id + ', ' +  detector_model + ', ' + detector_type
 
     return detector_name
 
-def get_detector_id(mdata):
-    detector_id = mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Detectors.Detector[0].Id
-
-
-    return detector_id
 
 
 from aicspylibczi import CziFile
@@ -181,6 +190,23 @@ def get_tiff_tile_name(mdata, tile_index, list_of_tiles):
 
     return tile_name
 
+def get_exposure_time_ms(mdata):
+    channel_mdata = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel
+
+    if isinstance(channel_mdata, list):
+        exposure_time_ms = float(channel_mdata[0].ExposureTime)/1e6
+    else:
+        exposure_time_ms = float(channel_mdata.ExposureTime)/1e6
+    return exposure_time_ms
+
+def get_zoom(mdata):
+    detector_mdata = mdata.image.czisource.ImageDocument.Metadata.Information.Instrument.Detectors.Detector
+    if isinstance(detector_mdata, list):
+        zoom = detector_mdata[0].Zoom
+    else:
+        zoom = detector_mdata.Zoom
+    return zoom 
+
 def is_filtered_by(filter_id, wavelength):
     # filter_lookup = {'0:0:0': {'low': 0, 'high': 490}, '1:0:0': {'low': 505, 'high': 545}, '1:1:0': {'low': 660, 'high': 20000}} #these are actual values
     filter_lookup = {'0:0:0':       {'low': 0, 'high': 450},      #SP 490, this is for 405
@@ -204,7 +230,12 @@ def is_filtered_by(filter_id, wavelength):
         return True
     
 def get_all_channels_in_LightSourcesSettings_list(mdata, channel_number):
-    list_of_lightsourcessettings = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].LightSourcesSettings.LightSourceSettings
+    channel_mdata = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel
+
+    if isinstance(channel_mdata, list):
+        list_of_lightsourcessettings = channel_mdata[channel_number].LightSourcesSettings.LightSourceSettings
+    else:
+        list_of_lightsourcessettings = channel_mdata.LightSourcesSettings.LightSourceSettings
 
     if isinstance(list_of_lightsourcessettings, list):
         list_of_channel_numbers = []
@@ -217,9 +248,18 @@ def get_all_channels_in_LightSourcesSettings_list(mdata, channel_number):
     return list_of_channel_numbers
 
 def get_filter_name_for_channel_number(mdata, channel_number):
-    filter_id_for_channel_number = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].FilterSet['@Id'][-5:]
+    channel_mdata = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel
+
+    if isinstance(channel_mdata, list):
+        filter_id_for_channel_number = channel_mdata[channel_number].FilterSet['@Id'][-5:]
+    else:
+        filter_id_for_channel_number = channel_mdata.FilterSet['@Id'][-5:]
+    
 
     list_of_filters = mdata.image.czisource.ImageDocument.Metadata.Information.Instrument.Filters.Filter
+
+    if not isinstance(list_of_filters, list):
+        list_of_filters = [list_of_filters]
 
     for filter in list_of_filters:
         if filter['@Id'][-5:] == filter_id_for_channel_number:
@@ -229,7 +269,6 @@ def get_filter_name_for_channel_number(mdata, channel_number):
 def get_channel_wavelength(mdata, channel_number):
     list_of_channels = get_all_channels_in_LightSourcesSettings_list(mdata, channel_number)
 
-    # filter_for_channel_number = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].FilterSet['@Id'][-5:]
     filter_for_channel_number = get_filter_name_for_channel_number(mdata, channel_number)
 
     for channel in list_of_channels:
@@ -241,7 +280,6 @@ def get_channel_wavelength(mdata, channel_number):
 def get_lightsource_name(mdata, channel_number):
     list_of_channels = get_all_channels_in_LightSourcesSettings_list(mdata, channel_number)
 
-    #filter_for_channel_number = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].FilterSet['@Id'][-5:]
     filter_for_channel_number = get_filter_name_for_channel_number(mdata, channel_number)
 
     for channel in list_of_channels:
@@ -249,7 +287,13 @@ def get_lightsource_name(mdata, channel_number):
             continue
         else:
             #get lightsource id from wavelength
-            list_of_lightsourcessettings = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].LightSourcesSettings.LightSourceSettings
+            channel_mdata = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel
+
+            if isinstance(channel_mdata, list):
+                list_of_lightsourcessettings = channel_mdata[channel_number].LightSourcesSettings.LightSourceSettings
+            else:
+                list_of_lightsourcessettings = channel_mdata.LightSourcesSettings.LightSourceSettings
+
             if isinstance(list_of_lightsourcessettings, list):
                 for lightsourcesettings in list_of_lightsourcessettings:
                     if int(float(lightsourcesettings.Wavelength)) == channel:
@@ -268,7 +312,6 @@ def get_lightsource_name(mdata, channel_number):
 def get_lightsource_attenuation(mdata, channel_number):
     list_of_channels = get_all_channels_in_LightSourcesSettings_list(mdata, channel_number)
 
-    #filter_for_channel_number = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].FilterSet['@Id'][-5:]
     filter_for_channel_number = get_filter_name_for_channel_number(mdata, channel_number)
 
     for channel in list_of_channels:
@@ -276,7 +319,12 @@ def get_lightsource_attenuation(mdata, channel_number):
             continue
         else:
             #get lightsource id from wavelength
-            list_of_lightsourcessettings = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].LightSourcesSettings.LightSourceSettings
+            channel_mdata = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel
+
+            if isinstance(channel_mdata, list):
+                list_of_lightsourcessettings = channel_mdata[channel_number].LightSourcesSettings.LightSourceSettings
+            else:
+                list_of_lightsourcessettings = channel_mdata.LightSourcesSettings.LightSourceSettings            
             if isinstance(list_of_lightsourcessettings, list):
                 for lightsourcesettings in list_of_lightsourcessettings:
                     if int(float(lightsourcesettings.Wavelength)) == channel:
@@ -300,8 +348,6 @@ def get_schema_AcquisitionTile(mdata, tile_index, list_of_tiles):
     czi = CziFile(mdata.filepath)
     channel_number = int(czi.read_subblock_metadata(Z = 0)[0][0]['C'])
     print(f'fp {mdata.filepath} channel_number: {channel_number}')
-    # channel_name = int(float(mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].IlluminationWavelength.SinglePeak))
-    # light_source_settings = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].LightSourcesSettings.LightSourceSettings
 
     #laser power between data blocks
 
@@ -401,8 +447,10 @@ def make_acquisition_schema(czi_loc):
     local_storage_directory = mdata.filepath
     external_storage_directory = mdata.filepath
     processing_steps = []
-    exposure_time_ms = float(mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[0].ExposureTime)/1e6
-    zoom =mdata.image.czisource.ImageDocument.Metadata.Information.Instrument.Detectors.Detector[0].Zoom
+    exposure_time_ms = get_exposure_time_ms(mdata)
+    
+    zoom = get_zoom(mdata)
+
 
     notes = f"""Exposure time: {exposure_time_ms} ms
                 Zoom: {zoom}"""

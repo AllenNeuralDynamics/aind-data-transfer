@@ -253,28 +253,47 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False):
         
         list_of_tile_dicts.append(tile_dict)
     
+
+
+    # add some logic to make a single channel list of dicts if there is no 405 channel
+    if len(list_of_ch_405_tile_dicts) == 0:
+        #find the first channel
+        channel_to_use = list_of_tile_dicts[0]['channel_wavelength']
+
+        for tile_dict in list_of_tile_dicts:
+            if tile_dict['channel_wavelength'] == channel_to_use:
+                list_of_ch_405_tile_dicts.append(tile_dict)
+
+    #remove the 405 channel from the list of all channels
+    for tile_dict in list_of_tile_dicts:
+        if tile_dict['channel_wavelength'] == 405:
+            list_of_tile_dicts.remove(tile_dict)
+                
+    
     #write the json
     metadata_folder = Path(OUTPUT_FOLDER).parent.as_posix()
     with open(metadata_folder+'/all_channel_tile_metadata.json', 'w') as f:
         json.dump(list_of_tile_dicts, f)
- 
+
     with open(metadata_folder+'/ch_405_position_metadata.json', 'w') as f:
         json.dump(list_of_ch_405_tile_dicts, f)
- 
+
     print(f"Invalid Count: {invalid_count}")
- 
+
     #kick off json to xml
     print(f'converting json to xml...')
- 
- 
- 
- 
+
+
+
+
     #should add validation to check that s3_data_path is the correct format....
     spim_data_path = "/data/" + Path(OUTPUT_FOLDER).parent.stem +"/SPIM.ome.zarr/"
-    convert_json_to_xml(metadata_folder+'/ch_405_position_metadata.json', spim_data_path, "stitching_405")
- 
+    convert_json_to_xml(metadata_folder+'/ch_405_position_metadata.json', spim_data_path, "stitching_single_channel")
+
     s3_data_path = "/data/" + Path(OUTPUT_FOLDER).parent.stem +"/radial_correction.ome.zarr/"
-    convert_json_to_xml(metadata_folder+'/all_channel_tile_metadata.json', s3_data_path, "stitching_all_channels")
+    convert_json_to_xml(metadata_folder+'/all_channel_tile_metadata.json', s3_data_path, "stitching_spot_channels")
+
+
  
 if __name__ == "__main__":
     main()
