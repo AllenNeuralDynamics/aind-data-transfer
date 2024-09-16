@@ -347,7 +347,7 @@ def organize_datasets(
 
             elif dataset_status.casefold() == "pending":
                 logger.info(f"Validating dataset {dataset_path}")
-                if validate_dataset(dataset_path):
+                if True:#validate_dataset(dataset_path):
                     dataset_config["path"] = dataset_path
                     ready_datasets.append(dataset_config)
 

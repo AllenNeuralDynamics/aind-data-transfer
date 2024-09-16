@@ -9,14 +9,20 @@ from pathlib import Path
 from typing import Any, List, Tuple, Union
 
 import chardet
-from aind_data_schema import Funding, RawDataDescription, Subject
-from aind_data_schema.data_description import (
-    ExperimentType,
-    Group,
-    Institution,
-    Modality,
+from aind_data_schema.core.subject import Subject
+from aind_data_schema.core.data_description import (
+    Funding,
+    RawDataDescription,
 )
-from aind_data_schema.imaging import acquisition, tile
+from aind_data_schema.models.platforms import Platform
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.organizations import Organization
+
+from aind_data_schema.models.coordinates import ImageAxis, Axis, AnatomicalDirection
+from aind_data_schema.imaging import tile
+from aind_data_schema.core import acquisition
+from aind_data_schema.models.units import SizeUnit, PowerUnit
+
 from aind_metadata_service.client import AindMetadataServiceClient
 
 from aind_data_transfer.readers.imaging_readers import SmartSPIMReader
@@ -312,9 +318,17 @@ def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
     filter_wheel_idx = 0
     for wavelength, value in metadata_dict["wavelength_config"].items():
         channel = tile.Channel(
-            channel_name=wavelength,
-            laser_wavelength=wavelength,
-            laser_power=value["power_left"],
+            channel_name=str(wavelength),
+            light_source_name=str(wavelength),
+            filter_names=[""], # We don't have filter names at the moment
+            detector_name="", # We don't have detector names at the moment
+            additional_device_names=[],
+            # Excitation wavelenghts
+            excitation_wavelength=int(wavelength),
+            excitation_wavelength_unit=SizeUnit.NM,
+            # Excitation power
+            excitation_power=value["power_left"], # [value["power_left"], value["power_right"]]
+            excitation_power_unit=PowerUnit.PERCENT,
             filter_wheel_index=filter_wheel_idx,
         )
         filter_wheel_idx += 1
@@ -324,14 +338,22 @@ def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
     # Scale metadata
     session_config = metadata_dict.get("session_config")
 
-    x_res = y_res = session_config.get("µm/pix")
-    z_res = float(session_config.get("z_step_um"))
+    x_res = y_res = session_config.get("um/pix")
+    z_res = session_config.get("Z step (um)")
     
     # utf-8 error with micron symbol
     if x_res is None:
         x_res = y_res = session_config.get("m/pix")
         if x_res is None:
             raise KeyError("Failed getting the x and y resolution from metadata.json")
+    
+    if z_res is None:
+        z_res = session_config.get("Z step (m)")
+
+        if z_res is None:
+            raise KeyError("Failed to get the Z step in microns")
+
+        z_res = float(z_res)
 
     x_res = float(x_res)
     y_res = float(y_res)
@@ -373,6 +395,7 @@ def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
             ]
         )
         
+        # print("Keys before breaking: ", tile_info.keys())
         channel = channels[tile_info["Laser"]]
         exaltation_wave = int(tile_info["Laser"])
         emission_wave = filter_mapping[exaltation_wave]
@@ -390,6 +413,51 @@ def make_acq_tiles(metadata_dict: dict, filter_mapping: dict):
 
     return tile_acquisitions
 
+
+def get_anatomical_direction(anatomical_direction: str) -> AnatomicalDirection:
+    """
+    This function returns the correct anatomical
+    direction defined in the aind_data_schema.
+
+    Parameters
+    ----------
+    anatomical_direction: str
+        String defining the anatomical direction
+        of the data
+
+    Returns
+    -------
+    AnatomicalDirection: class::Enum
+        Corresponding enum defined in the anatomical
+        direction class
+    """
+
+    enum_anatomical_direction = AnatomicalDirection.OTHER
+    anatomical_direction = anatomical_direction.lower()
+
+    # Note: I could have done str.capitalize and then get
+    # the anatomical direction directly from the class
+    # but we have multiple versions now and I want to make this
+    # robust
+    if anatomical_direction == "left_to_right":
+        anatomical_direction = AnatomicalDirection.LR
+    
+    elif anatomical_direction == "right_to_left":
+        anatomical_direction = AnatomicalDirection.RL
+
+    elif anatomical_direction == "anterior_to_posterior":
+        anatomical_direction = AnatomicalDirection.AP
+    
+    elif anatomical_direction == "posterior_to_anterior":
+        anatomical_direction = AnatomicalDirection.PA
+    
+    elif anatomical_direction == "inferior_to_superior":
+        anatomical_direction = AnatomicalDirection.IS
+    
+    elif anatomical_direction == "superior_to_inferior":
+        anatomical_direction = AnatomicalDirection.SI
+
+    return anatomical_direction
 
 class SmartSPIMWriter:
     """This class contains the methods to write smartspim data."""
@@ -519,12 +587,17 @@ class SmartSPIMWriter:
         if "institution" not in dataset_info:
             raise ValueError("Please, provide the institution in the manifest")
         else:
-            institution = dataset_info["institution"]["abbreviation"]
+            institution = Organization.OTHER
+            if dataset_info["institution"]["abbreviation"] == "AIND" or dataset_info["institution"]["abbreviation"] == "NYU":
+                institution = Organization.AIND
+            
+            elif dataset_info["institution"]["abbreviation"] == "AIBS":
+                institution = Organization.AIBS
 
         funding_sources = file_utils.helper_validate_key_dict(
             dictionary=dataset_info,
             key="funding",
-            default_return=[Funding(funder=Institution.AI)], # setting Allen Institute by default
+            default_return=[Funding(funder=Organization.AI)], # setting Allen Institute by default
         )
         funding_sources = [
             Funding.parse_obj(funding_source)
@@ -544,28 +617,23 @@ class SmartSPIMWriter:
         # Creating data description
         data_description = RawDataDescription(
             modality=[Modality.SPIM],
+            platform=Platform.SMARTSPIM,
             subject_id=parsed_data["mouse_id"],
-            creation_date=date(
-                mouse_date.year, mouse_date.month, mouse_date.day
-            ),
-            creation_time=time(
-                mouse_date.hour, mouse_date.minute, mouse_date.second
-            ),
+            creation_time=datetime(mouse_date.year, mouse_date.month, mouse_date.day, mouse_date.hour, mouse_date.minute, mouse_date.second),
             institution=institution,
             group=group,
             project_name=project_name,
-            project_id=project_id,
+            # project_id=project_id,
             funding_source=funding_sources,
-            experiment_type=ExperimentType.SMARTSPIM,
-            investigators=[],
+            investigators=[""],
         )
 
         data_description_path = str(
             output_path.joinpath("data_description.json")
         )
-
+        
         with open(data_description_path, "w") as f:
-            f.write(data_description.json(indent=3))
+            f.write(data_description.model_dump_json())
 
     def __create_subject(self, mouse_id: str, output_path: PathLike):
         """
@@ -584,33 +652,48 @@ class SmartSPIMWriter:
 
         response = client.get_subject(mouse_id)
 
-        if response.status_code == 200:
+        if response.status_code == 200 or response.status_code == 406:
             data = response.json()["data"]
 
+            # Setting breeding info to empty str since data schema does not allow
+            # None values and metadata service retrieves None instead of empty
+            breed_info = data.get('breeding_info')
+
+            if breed_info:
+                for key, val in breed_info.items():
+                    if val is None:
+                        data['breeding_info'][key] = ""
+            else:
+                data['breeding_info'] = {
+                    'breeding_group': '',
+                    'maternal_id': '',
+                    'maternal_genotype': '',
+                    'paternal_id': '',
+                    'paternal_genotype': '',
+                    
+                }
+
             subject = Subject(
-                species=data["species"],
                 subject_id=data["subject_id"],
                 sex=data["sex"],
                 date_of_birth=data["date_of_birth"],
                 genotype=data["genotype"],
-                mgi_allele_ids=data["mgi_allele_ids"],
+                species=data["species"],
+                alleles=data["alleles"],
                 background_strain=data["background_strain"],
+                breeding_info=data["breeding_info"],
                 source=data["source"],
                 rrid=data["rrid"],
                 restrictions=data["restrictions"],
-                breeding_group=data["breeding_group"],
-                maternal_id=data["maternal_id"],
-                maternal_genotype=data["maternal_genotype"],
-                paternal_id=data["paternal_id"],
-                paternal_genotype=data["paternal_genotype"],
                 wellness_reports=data["wellness_reports"],
+                housing=data["housing"],
                 notes=data["notes"],
             )
 
             subject_path = str(output_path.joinpath("subject.json"))
 
             with open(subject_path, "w") as f:
-                f.write(subject.json(indent=3))
+                f.write(subject.model_dump_json())
 
         else:
             logger.error(
@@ -835,23 +918,39 @@ class SmartSPIMWriter:
             raise ValueError("Please, check the axes orientation")
         
         axes = [
-            acquisition.Axis(
+            ImageAxis(
                 name=ax['name'],
                 dimension=ax['dimension'],
-                direction=ax['direction'],
+                direction=get_anatomical_direction(ax['direction']),
+                # unit=ax['unit']
             )
             for ax in axes
         ]
+    
+        notes = f"Chamber immersion: {chamber_immersion_medium} - Sample immersion: {sample_immersion_medium}"
+        if "cargille" in chamber_immersion_medium.lower():
+            chamber_immersion_medium = "oil"
+        
+        else:
+            chamber_immersion_medium = "other"
+
+        if "cargille" in sample_immersion_medium.lower():
+            sample_immersion_medium = "oil"
+        
+        else:
+            sample_immersion_medium = "other"
 
         acquisition_model = acquisition.Acquisition(
-            specimen_id="",
-            instrument_id=instrument_id,
             experimenter_full_name=experimenter_full_name,
+            specimen_id="",
             subject_id=parsed_data["mouse_id"],
+            instrument_id=instrument_id,
             session_start_time=parsed_data["mouse_date"],
             session_end_time=session_end_time,
-            local_storage_directory=local_storage_directory,
-            external_storage_directory="",
+            tiles=make_acq_tiles(
+                metadata_dict=metadata_dict, filter_mapping=filter_mapping
+            ),
+            axes=axes,
             chamber_immersion=acquisition.Immersion(
                 medium=chamber_immersion_medium,
                 refractive_index=chamber_immersion_ri,
@@ -860,16 +959,16 @@ class SmartSPIMWriter:
                 medium=sample_immersion_medium,
                 refractive_index=sample_immersion_ri,
             ),
-            axes=axes,
-            tiles=make_acq_tiles(
-                metadata_dict=metadata_dict, filter_mapping=filter_mapping
-            ),
+            local_storage_directory=local_storage_directory,
+            external_storage_directory="",
+            # processing_steps=[],
+            notes=notes
         )
 
         acquisition_path = str(output_path.joinpath("acquisition.json"))
 
         with open(acquisition_path, "w") as f:
-            f.write(acquisition_model.json(indent=3))
+            f.write(acquisition_model.model_dump_json())
 
     def __create_smartspim_metadata(
         self,
@@ -971,18 +1070,34 @@ class SmartSPIMWriter:
                     file_utils.create_folder(derivatives_path, True)
                     file_utils.create_folder(smartspim_channels_path, True)
 
-                    smartspim_channel_translation:dict = dataset_info.get("channel_translation")
+                    # Dictionary with excitation and emission mappings
+                    smartspim_channel_translation = dataset_info.get('channel_translation')
+
+                    smartspim_excitation_wav = smartspim_channel_translation.get('excitation').values()
+                    smartspim_emission_wav = smartspim_channel_translation.get('emission')
+
                     if smartspim_channel_translation is None:
                         raise ValueError("We need a channel translation for the LifeCanvas microscope!")
                     
+                    # Getting raw channel names
                     channels = [
                         element
                         for element in os.listdir(dataset_path)
                         if re.match(self.__regex_expressions.regex_channels.value, element)
                     ]
 
+                    smartspim_final_translation = {}
+                    for channel_idx in range(len(channels)):
+                        
+                        filter_index = str(
+                            channels[channel_idx].split('_')[-1].replace('Ch', '')
+                        )
+                        folder_map = channels[channel_idx].split('_')
+                        folder_map[-1] = f"Em_{smartspim_emission_wav[filter_index]}"
+                        smartspim_final_translation[channels[channel_idx]] = "_".join(folder_map)
+
                     check_map = min([
-                        channel in smartspim_channel_translation
+                        channel in smartspim_final_translation
                         for channel in channels
                     ])
 
@@ -995,7 +1110,7 @@ class SmartSPIMWriter:
                         dataset_info=dataset_info,
                         original_dataset_path=dataset_path,
                         output_path=new_dataset_path,
-                        channels=list(smartspim_channel_translation.values())
+                        channels=list(smartspim_final_translation.values())
                     )
 
                     # Moving channels
@@ -1007,19 +1122,19 @@ class SmartSPIMWriter:
                         new_dataset_path.joinpath("SmartSPIM"),
                         self.__regex_expressions.regex_channels.value,
                         mode=mode,
-                        map_dictionary=smartspim_channel_translation
+                        map_dictionary=smartspim_final_translation
                     )
 
                     modified_channel_translation = None
-                    if smartspim_channel_translation:
+                    if smartspim_final_translation:
                         postfix = "_MIP"
                         modified_channel_translation = {}
-                        for orig_ch, mod_ch in smartspim_channel_translation.items():
+                        for orig_ch, mod_ch in smartspim_final_translation.items():
                             modified_key = orig_ch + postfix
                             modified_value = mod_ch + postfix
                             modified_channel_translation[modified_key] = modified_value
 
-                    # Moving maximal intensity projections per channel
+                    # Moving maximum intensity projections per channel
                     file_utils.move_folders_or_files(
                         dataset_path,
                         new_dataset_path.joinpath("derivatives"),
@@ -1033,6 +1148,14 @@ class SmartSPIMWriter:
                         dataset_path,
                         new_dataset_path.joinpath("derivatives"),
                         self.__regex_expressions.regex_files.value,
+                        mode=mode,
+                    )
+
+                    # Moving acquisition qc
+                    file_utils.move_folders_or_files(
+                        dataset_path,
+                        new_dataset_path.joinpath("derivatives"),
+                        "acquisition_qc",
                         mode=mode,
                     )
 
