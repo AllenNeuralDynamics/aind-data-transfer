@@ -60,15 +60,21 @@ def get_excitation_wavelength_for_channel(mdata, channel_index):
     excitation_wavelength = float(mdata.czi_box.ImageDocument.Metadata.Information.Instrument.LightSources.LightSource[channel_index].LightSourceType.Laser.Wavelength)
     return excitation_wavelength
 
+def get_filter_names(mdata, channel_number):
+    channel = get_channel_wavelength(mdata, channel_number)
+    filter_for_channel_number = get_filter_name_for_channel_number(mdata, channel_number)
+    ch_filters = get_track_filters_for_wavelength(mdata, channel)
+    if filter_for_channel_number not in ch_filters: ch_filters.append(filter_for_channel_number)
+    return ch_filters
 
-def get_filter_names(mdata):
-    filter_names = []
-    filter_mdata = mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Filters.Filter
-    if not isinstance(filter_mdata, list):
-        filter_mdata = [filter_mdata]
-    for i in range(len(filter_mdata)):
-        filter_names.append(filter_mdata[i].Name)
-    return filter_names
+# def get_filter_names(mdata):
+#     filter_names = []
+#     filter_mdata = mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Filters.Filter
+#     if not isinstance(filter_mdata, list):
+#         filter_mdata = [filter_mdata]
+#     for i in range(len(filter_mdata)):
+#         filter_names.append(filter_mdata[i].Name)
+#     return filter_names
 
 def get_filter_id_and_names(mdata):
     # write out the dict of filter id and names
@@ -207,28 +213,184 @@ def get_zoom(mdata):
         zoom = detector_mdata.Zoom
     return zoom 
 
-def is_filtered_by(filter_id, wavelength):
-    # filter_lookup = {'0:0:0': {'low': 0, 'high': 490}, '1:0:0': {'low': 505, 'high': 545}, '1:1:0': {'low': 660, 'high': 20000}} #these are actual values
-    filter_lookup = {'0:0:0':       {'low': 0, 'high': 450},      #SP 490, this is for 405
-                     'SP 490':      {'low': 0, 'high': 450},  
-
-                     '1:0:0':       {'low': 460, 'high': 545},    #BP 505-545, this is for 488
-                     'BP 505-545':  {'low': 460, 'high': 545},
-
-                     '0:1:0':       {'low': 550, 'high': 600},    #BP 575-615, this is for 561
-                     'BP 575-615':  {'low': 550, 'high': 600},
-
-                     '1:1:0':       {'low': 600, 'high': 20000},   #LP 660, this is for 638 
-                     'LP 660':      {'low': 600, 'high': 20000}}
-
-
-    buffer = 0 #nm
-
-    if wavelength >= filter_lookup[filter_id]['low']-buffer and wavelength <= filter_lookup[filter_id]['high']+buffer:
-        return False #the wavelength is not filtered
-    else:
-        return True
+def get_emission_wavelength_from_excitation_wavelength(excitation_wavelength):
+    # these are generally taken from the Alexa Fluor series
+    # these can also theoretically be grabbed from the "EmissionWavelength" field in the metadata 
+    excitation_to_emission_dict = {
+        405: 445, 
+        488: 518,
+        514: 545,  
+        515: 545,
+        561: 571,
+        594: 618, 
+        638: 648,
+        640: 648
+        }
     
+    return excitation_to_emission_dict[excitation_wavelength]
+
+def get_cam_from_channel_number(mdata, channel_number):
+    cam_name = mdata.channelinfo.names[channel_number]
+    return cam_name[0:4]
+
+def assign_channel_from_dichroic_filter(mdata, channel_number):
+    # detector_id = get_detector_id_from_channel_number(mdata, channel_number)
+    cam_name = get_cam_from_channel_number(mdata, channel_number)
+
+    detector_map = {
+        'Detector:0:0': 'short', # 405
+        'Detector:0:1': 'long',  # 561
+        'Detector:1:0': 'short', # 488
+        'Detector:1:1': 'long',  # 594
+        'Detector:2:0': 'short', # 515
+        'Detector:2:1': 'long',  # 638
+    }
+
+    cam_name_map = {
+        'Cam1': 'short',
+        'Cam2': 'long'
+    }
+
+    detector_length = cam_name_map[cam_name]
+    
+    return detector_length
+
+def is_filtered_by_dichroic_filter(mdata, filter_list, channel_number, wavelength):
+
+    wavelength = get_emission_wavelength_from_excitation_wavelength(wavelength)
+
+    dichroic_filter_lookup= {
+            #dichroic filters 
+            'SBS LP 580': {'low': 580, 'high': 20000}, #for 594
+            'SBS LP 490': {'low': 480, 'high': 20000}, #for 488
+            'SBS LP 560': {'low': 560, 'high': 20000}, #for 561
+        }
+    length = assign_channel_from_dichroic_filter(mdata, channel_number)
+
+    def check_dichroic_filter(filter_id, wavelength, length):
+        if filter_id in dichroic_filter_lookup:
+            if wavelength >= dichroic_filter_lookup[filter_id]['low'] and length == 'long':
+                return False
+            elif wavelength < dichroic_filter_lookup[filter_id]['low'] and length == 'short':
+                return False
+            else:
+                return True
+        else:
+            print(f'Filter {filter_id} not found in dichroic filter lookup')
+            return True
+        
+
+    if isinstance(filter_list, list):
+        filtered = []
+        for filter_id in filter_list:
+            if filter_id in dichroic_filter_lookup:
+                filtered.append(check_dichroic_filter(filter_id, wavelength, length))
+    
+        return any(filtered)
+    else:
+        return check_dichroic_filter(filter_list, wavelength, length)
+
+
+def is_filtered_by(filter_list, wavelength):
+    def notch_filter_check(wavelength, filter_id, buffer=5):
+        
+        if filter_id == 'LBF 405/488/561/640':
+            for filter_center in [405, 488, 561, 640]:
+                if wavelength >= filter_center - buffer and wavelength <= filter_center + buffer:
+                    return True
+            return False
+
+
+        # if wavelength in [405, 488, 561, 638] and filter_id == 'LBF 405/488/561/640':
+        #     return True
+        if filter_id == 'LBF 445/514/640':
+            for filter_center in [445, 514, 640]:
+                if wavelength >= filter_center - buffer and wavelength <= filter_center + buffer:
+                    return True
+                
+            return False
+        
+        if filter_id == 'LBF 488/594':
+            for filter_center in [488, 594]:
+                if wavelength >= filter_center - buffer and wavelength <= filter_center + buffer:
+                    return True
+            return False
+                
+    def check_filter(filter_id, wavelength):
+        emmission_wavelength = get_emission_wavelength_from_excitation_wavelength(wavelength)
+
+        buffer = 5 #nm
+                # filter_lookup = {'0:0:0': {'low': 0, 'high': 490}, '1:0:0': {'low': 505, 'high': 545}, '1:1:0': {'low': 660, 'high': 20000}} #these are actual values
+        filter_lookup = {'0:0:0':       {'low': 0, 'high': 450},      #SP 490, this is for 405
+                        'SP 490':      {'low': 0, 'high': 450},  
+
+                        '1:0:0':       {'low': 460, 'high': 545},    #BP 505-545, this is for 488
+                        'BP 505-545':  {'low': 460, 'high': 545},
+
+                        '0:1:0':       {'low': 550, 'high': 600},    #BP 575-615, this is for 561
+                        'BP 575-615':  {'low': 550, 'high': 600},
+
+                        '1:1:0':       {'low': 600, 'high': 20000},   #LP 660, this is for 638 
+                        'LP 660':      {'low': 600, 'high': 20000}}
+        
+        six_channel_filter_lookup = {
+            '0:0:0': {'low': 0, 'high': 470}, #for 405
+            'BP 420-470': {'low': 0, 'high': 470}, #for 405
+
+            'BP 505-545': {'low': 505, 'high': 545}, #for 488 and 514
+
+            '1:0:0': {'low': 505, 'high': 565}, #for 514
+            'BP 525-565': {'low': 505, 'high': 565}, # 514 and 488
+
+            '0:1:0':    {'low': 566, 'high': 615}, #for 561
+            'BP 575-615': {'low': 566, 'high': 615}, #for 561
+
+            '2:0:0': {'low': 605, 'high': 700}, #for 594
+            'BP 605-700': {'low': 605, 'high': 700}, #for 594
+
+            'LP 585' : {'low': 585, 'high': 20000}, #for 594
+
+            #notch filters    
+            'LBF 488/594':        {'low': 470, 'high': 700}, #dual notch filter for those wavelengths... might need a different convention for this
+            'LBF 445/514/640':    {'low': 0, 'high': 700}, #triple notch filter for those wavelengths... might need a different convention for this
+            'LBF 405/488/561/640': {'low': 0, 'high': 20000}, #quad notch filter for those wavelengths... might need a different convention for this
+
+            'SBS LP 580': {'low': 0, 'high': 20000}, #for 594
+            'SBS LP 490': {'low': 0, 'high': 20000}, #for 488
+            'SBS LP 560': {'low': 0, 'high': 20000}, #for 561
+            
+            'None': {'low': 0, 'high': 20000}
+        }
+  
+        if filter_id in six_channel_filter_lookup:
+    
+            if filter_id in ['LBF 405/488/561/640', 'LBF 445/514/640', 'LBF 488/594']:
+                return notch_filter_check(emmission_wavelength, filter_id, buffer=buffer)
+
+            if emmission_wavelength >= six_channel_filter_lookup[filter_id]['low'] and emmission_wavelength <= six_channel_filter_lookup[filter_id]['high'] + buffer:
+                return False
+            else:
+                return True
+        else:
+            if emmission_wavelength >= filter_lookup[filter_id]['low'] and emmission_wavelength <= filter_lookup[filter_id]['high']+buffer:
+                return False #the wavelength is not filtered
+            else:
+                return True
+
+
+
+    if isinstance(filter_list, list):
+        filtered = []
+        for filter_id in filter_list:
+            filtered.append(check_filter(filter_id, wavelength))
+        
+        return any(filtered)
+
+    else:
+        filter_id = filter_list
+        filtered = check_filter(filter_id, wavelength)
+        return filtered
+            
 def get_all_channels_in_LightSourcesSettings_list(mdata, channel_number):
     channel_mdata = mdata.image.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel
 
@@ -266,23 +428,148 @@ def get_filter_name_for_channel_number(mdata, channel_number):
             return filter['@Name']
 
 
+# Add functions for getting additional information about the tracks, which includes the two filter wheels. Filter wheel 1 is the filter wheel closest to the light source, and filter wheel 2 is the filter wheel closest to the detector.
+# filter wheel 1 contains a quad notch filter and a dichroic mirror. Filter wheel 2 contains a series of filters. 
+# we need to support two different filter wheel configurations. One for the quad notch filter and one for the dichroic mirror.
+# this additional support should not break the current functionality of the code on the 4 channel system. 
+
+def get_number_of_tracks(mdata):
+    """Get the number of imaging tracks taken during an experiment. 
+    """
+    
+    tracks = mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.MultiTrackSetup.TrackSetup
+
+    if isinstance(tracks, list):
+        return len(tracks)
+    else:
+        return 1
+    
+
+def get_filters_for_track(mdata, track_number, get_fw2_filters=False):
+    """Get the filters used for a given track number. 
+
+        This will include filters from both filter wheel 1 and 2. 
+
+    """
+    filters = []
+
+    tracks = mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.MultiTrackSetup.TrackSetup
+    
+    track = tracks[track_number]
+
+    #get the filter wheel 1 filters
+    beam_splitters = track.BeamSplitters.BeamSplitter
+
+    if isinstance(beam_splitters, list):
+        for beam_splitter in beam_splitters:
+            if beam_splitter['Identifier'] != 'BeamSplitterInvalid':
+                
+                filters.append(beam_splitter.Filter)
+    
+    #get the filter wheel 2 filters
+    if get_fw2_filters:
+        track_detectors = track.Detectors.Detector
+
+        if isinstance(track_detectors, list):
+            for detector in track_detectors:
+                filterset = detector.Filtersets.Filterset
+                filters.append(filterset)
+        else:
+            filterset = track_detectors.Filtersets.Filterset
+            filters.append(filterset)
+
+        print(f'Filters for track {track_number}: {filters}')
+    return filters
+
+def get_wavelengths_for_track(mdata, track_number):
+    """Get the wavelengths used for a given track number. 
+
+        This will include wavelengths from both filter wheel 1 and 2. 
+
+    """
+    wavelengths = []
+
+    tracks = mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.MultiTrackSetup.TrackSetup
+    
+    track = tracks[track_number]
+    #get the filter wheel 2 filters
+    track_attenuators= track.Attenuators.Attenuator
+
+    if isinstance(track_attenuators, list):
+        for attenuator in track_attenuators:
+            
+            wavelengths.append(int(float(attenuator.Wavelength)*1e9))
+    else:
+        
+        wavelengths.append(int(float(track_attenuators.Wavelength)*1e9))
+
+    print(f'Wavelengths for track {track_number}: {wavelengths}')
+    return wavelengths
+
+def get_track_for_wavelength(mdata, wavelength):
+    """Get the track number for a given wavelength. 
+
+    """
+    tracks = mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.MultiTrackSetup.TrackSetup
+
+    for i, track in enumerate(tracks):
+        track_attenuators= track.Attenuators.Attenuator
+
+        if isinstance(track_attenuators, list):
+            for attenuator in track_attenuators:
+                if int(float(attenuator.Wavelength)*1e9) == wavelength:
+                    return i
+        else:
+            if int(float(track_attenuators.Wavelength)*1e9) == wavelength:
+                return i
+
+def get_track_filters_for_wavelength(mdata, wavelength):
+    """Get the filters used for a given wavelength. 
+
+    """
+    track_number = get_track_for_wavelength(mdata, wavelength)
+
+    return get_filters_for_track(mdata, track_number)
+
 def get_channel_wavelength(mdata, channel_number):
+    # list_of_channels = get_wavelengths_for_track(mdata, channel_number)
+    # print(f'List of channels from tracks: {list_of_channels}')
     list_of_channels = get_all_channels_in_LightSourcesSettings_list(mdata, channel_number)
+    
+    #WARNING: HARDCODED
+    #remove the 405 channel if it is present in the list - this trick is commonly used to align the channels within a tile
+    if len(list_of_channels)==3:
+        list_of_channels = [i for i in list_of_channels if i != 405]
+
+    print(f'List of channels from light sources: {list_of_channels}')
+    
 
     filter_for_channel_number = get_filter_name_for_channel_number(mdata, channel_number)
 
     for channel in list_of_channels:
-        if is_filtered_by(filter_for_channel_number, channel):
+        ch_filters = get_track_filters_for_wavelength(mdata, channel)
+        if filter_for_channel_number not in ch_filters: ch_filters.append(filter_for_channel_number)
+
+        if is_filtered_by_dichroic_filter(mdata, ch_filters, channel_number, channel ) or is_filtered_by(ch_filters, channel): #might be a bug in the short/long logic
             continue
         else:
             return channel
+
+def get_detector_id_from_channel_number(mdata, channel_number):
+    return mdata.detector.czisource.ImageDocument.Metadata.Information.Image.Dimensions.Channels.Channel[channel_number].DetectorSettings.Detector.Id
+
+
 
 def get_lightsource_name(mdata, channel_number):
     list_of_channels = get_all_channels_in_LightSourcesSettings_list(mdata, channel_number)
 
     filter_for_channel_number = get_filter_name_for_channel_number(mdata, channel_number)
+    filters =[]
+    filters.append(filter_for_channel_number)
 
     for channel in list_of_channels:
+
+
         if is_filtered_by(filter_for_channel_number, channel):
             continue
         else:
@@ -306,8 +593,6 @@ def get_lightsource_name(mdata, channel_number):
                 light_source_id = int(list_of_lightsourcessettings.LightSource['@Id'][-1])
                 lightsource_name =  mdata.czi_box.ImageDocument.Metadata.Information.Instrument.LightSources.LightSource[light_source_id].Manufacturer.Model
                 return lightsource_name
-        
-
 
 def get_lightsource_attenuation(mdata, channel_number):
     list_of_channels = get_all_channels_in_LightSourcesSettings_list(mdata, channel_number)
@@ -357,7 +642,8 @@ def get_schema_AcquisitionTile(mdata, tile_index, list_of_tiles):
 
 
     light_source_name = get_lightsource_name(mdata, channel_number) #mdata.czi_box.ImageDocument.Metadata.Information.Instrument.LightSources.LightSource[0].Manufacturer.Model
-    filter_names = get_filter_names(mdata)
+    filter_names = get_filter_names(mdata, channel_number) #update to get_filter_names_for_channel
+    
     detector_name = get_detector_name(mdata, channel_number)
     additional_device_names = []
 
@@ -369,7 +655,7 @@ def get_schema_AcquisitionTile(mdata, tile_index, list_of_tiles):
     #     print(f'excitation_power: {excitation_power}')
 
     excitation_power = get_excitation_power_for_channel(mdata, channel_number)
-    excitation_power_unit = 'milliwatt'
+    excitation_power_unit = 'percent'
 
     filter_wheel_index = channel_number #mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Filters.Filter[0].Id # may have to just put index here 
 
@@ -483,8 +769,6 @@ def make_acquisition_schema(czi_loc):
         experimenter_full_name = ['null'],
     )
     return acquisition
-
-
 
 
 def write_acq_json(acq_obj: Acquisition, acq_json_path: str) -> None:
