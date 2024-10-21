@@ -454,7 +454,9 @@ def get_filters_for_track(mdata, track_number, get_fw2_filters=False):
     filters = []
 
     tracks = mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.MultiTrackSetup.TrackSetup
-    
+    if not isinstance(tracks, list):
+        tracks = [tracks]
+
     track = tracks[track_number]
 
     #get the filter wheel 1 filters
@@ -490,6 +492,8 @@ def get_wavelengths_for_track(mdata, track_number):
     wavelengths = []
 
     tracks = mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.MultiTrackSetup.TrackSetup
+    if not isinstance(tracks, list):
+        tracks = [tracks]
     
     track = tracks[track_number]
     #get the filter wheel 2 filters
@@ -511,7 +515,8 @@ def get_track_for_wavelength(mdata, wavelength):
 
     """
     tracks = mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.MultiTrackSetup.TrackSetup
-
+    if not isinstance(tracks, list):
+        tracks = [tracks]
     for i, track in enumerate(tracks):
         track_attenuators= track.Attenuators.Attenuator
 
