@@ -4,12 +4,12 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple, Type
+from typing import List, Optional, Type
 
 import aind_data_schema.base
 import requests
-from aind_data_schema.models.organizations import Organization
-from aind_data_schema.models.modalities import Modality
+from aind_data_schema_models.organizations import Organization
+from aind_data_schema_models.modalities import Modality
 from aind_data_schema.core.data_description import (
     Funding,
     RawDataDescription,
@@ -22,7 +22,7 @@ from aind_data_schema.core.processing import (
     ProcessName,
 )
 from aind_data_schema.core.subject import Subject
-from aind_data_schema.models.pid_names import PIDName
+from aind_data_schema_models.pid_names import PIDName
 from aind_metadata_service.client import AindMetadataServiceClient
 from pydantic import ValidationError
 from requests import Response

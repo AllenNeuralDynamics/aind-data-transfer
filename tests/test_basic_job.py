@@ -9,6 +9,9 @@ from unittest.mock import MagicMock, call, patch
 
 from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.core.metadata import Metadata, MetadataStatus
+from aind_data_schema.core.session import Session
+from aind_data_schema.core.rig import Rig
+from aind_data_schema_models.pid_names import PIDName
 from requests import Response
 
 from aind_data_transfer import __version__
@@ -36,6 +39,12 @@ with open(METADATA_DIR / "subject.json", "r") as f:
 
 with open(METADATA_DIR / "procedures.json", "r") as f:
     example_procedures_instance_json = json.load(f)
+
+with open(METADATA_DIR / "mri_session.json", "r") as f:
+    example_session_instance_json = json.load(f)
+
+with open(METADATA_DIR / "fip_behavior_rig.json", "r") as f:
+    example_rig_instance_json = json.load(f)
 
 
 class TestBasicJob(unittest.TestCase):
@@ -258,7 +267,11 @@ class TestBasicJob(unittest.TestCase):
 
         basic_job_configs = BasicUploadJobConfigs()
         basic_job = BasicJob(job_configs=basic_job_configs)
-        basic_job._initialize_metadata_record(temp_dir=Path("some_dir"))
+        basic_job._initialize_metadata_record(
+            temp_dir=Path("some_dir"), 
+            session=example_session_instance_json,
+            rig=example_rig_instance_json
+        )
 
         expected_write_to_json_calls = [
             call(Path("some_dir")),
@@ -271,10 +284,10 @@ class TestBasicJob(unittest.TestCase):
             "643054", basic_job.metadata_record.subject.subject_id
         )
         self.assertEqual(
-            [{'abbreviation': None,
-              'name': 'Anna Apple',
-              'registry': None,
-              'registry_identifier': None}],
+            [PIDName(abbreviation=None,
+              name='Anna Apple',
+              registry= None,
+              registry_identifier= None)],
             basic_job.metadata_record.data_description.investigators,
         )
 

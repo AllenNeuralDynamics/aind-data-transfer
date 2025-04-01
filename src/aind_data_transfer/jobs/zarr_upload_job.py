@@ -37,8 +37,8 @@ from numcodecs import blosc
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from ng_link.exaspim_link import generate_exaspim_link
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
 _CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
@@ -46,7 +46,7 @@ _CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
 
 class ZarrConversionConfigs(BaseSettings):
     n_levels: Optional[int] = Field(
-        1, description="Number of levels to use for the pyramid. Default is 1."
+        7, description="Number of levels to use for the pyramid. Default is 1."
     )
     scale_factor: Optional[int] = Field(
         2, description="Scale factor to use for the pyramid. Default is 2."

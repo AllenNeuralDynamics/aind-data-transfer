@@ -10,13 +10,11 @@ from typing import Any, List, Tuple, Union
 
 import chardet
 from aind_data_schema import Funding, RawDataDescription, Subject
-from aind_data_schema.data_description import (
+from aind_data_schema.core.data_description import (
     ExperimentType,
-    Group,
-    Institution,
     Modality,
 )
-from aind_data_schema.imaging import acquisition, tile
+from aind_data_schema.core.acquisition import acquisition, tile
 from aind_metadata_service.client import AindMetadataServiceClient
 
 from aind_data_transfer.readers.imaging_readers import SmartSPIMReader

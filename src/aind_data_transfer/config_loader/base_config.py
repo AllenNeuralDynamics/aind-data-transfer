@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Optional, ClassVar, Union, Type, Tuple
 
 from aind_data_schema.core.data_description import build_data_name
 from aind_data_schema.core.processing import ProcessName
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
 from pydantic import (
     DirectoryPath,
     Field,
@@ -157,7 +157,7 @@ class ModalityConfigs(BaseSettings):
     # added to the Modality class
     _MODALITY_MAP: ClassVar = {
         m().abbreviation.upper().replace("-", "_"): m().abbreviation
-        for m in Modality._ALL
+        for m in Modality.ALL
     }
 
     # Optional number id to assign to modality config

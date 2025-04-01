@@ -20,9 +20,10 @@ from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import DataDescription
 from aind_data_schema.core.metadata import Metadata, MetadataStatus
+from aind_data_schema.core.session import Session
 from aind_data_schema.core.procedures import Procedures
 from aind_data_schema.core.subject import Subject
-from aind_data_schema.models.modalities import Modality
+from aind_data_schema_models.modalities import Modality
 
 from aind_data_transfer import __version__
 from aind_data_transfer.config_loader.base_config import BasicUploadJobConfigs
@@ -107,7 +108,7 @@ class BasicJob:
             contents = json.load(f)
         return contents
 
-    def _initialize_metadata_record(self, temp_dir: Path):
+    def _initialize_metadata_record(self, temp_dir: Path, session=None, rig=None):
         """Perform some metadata collection and validation before more
         time-consuming compression and upload steps."""
 
@@ -137,6 +138,7 @@ class BasicJob:
         subject_filename = Subject.default_filename()
         procedures_filename = Procedures.default_filename()
         data_description_filename = DataDescription.default_filename()
+        session_filename = Session.default_filename()
         # If subject not in user defined directory, query the service
         if metadata_in_folder_map.get(subject_filename) is not None:
             subject_metadata = self.__download_json(
@@ -209,6 +211,8 @@ class BasicJob:
             subject=subject_metadata,
             procedures=procedures_metadata,
             data_description=data_description_metadata,
+            session=session,
+            rig=rig
         )
         # For the remaining files in metadata dir, copy them over. We'll
         # copy al the files regardless of whether they were generated from

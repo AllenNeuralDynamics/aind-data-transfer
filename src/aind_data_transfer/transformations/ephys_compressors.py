@@ -8,7 +8,7 @@ from typing import Optional, Literal
 
 import spikeinterface.preprocessing as spre
 from aind_data_schema.core.data_description import Modality
-from aind_data_schema.models.process_names import ProcessName
+from aind_data_schema_models.process_names import ProcessName
 from numcodecs import Blosc
 from numpy import memmap
 from pydantic import Field
