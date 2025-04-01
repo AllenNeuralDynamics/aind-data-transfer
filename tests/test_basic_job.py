@@ -62,7 +62,7 @@ class TestBasicJob(unittest.TestCase):
         "S3_BUCKET": "some_bucket",
         "MODALITIES": f'[{{"modality":"MRI",' f'"source":"{str(DATA_DIR)}"}}]',
         "PLATFORM": "confocal",
-        "SUBJECT_ID": "643054",
+        "SUBJECT_ID": "12345",
         "ACQ_DATETIME": "2020-10-10 10:10:10",
         "DATA_SOURCE": str(DATA_DIR),
         "DRY_RUN": "true",
@@ -86,7 +86,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload_to_s3.assert_called_once_with(
             directory_to_upload=Path("some_dir"),
             s3_bucket="some_bucket",
-            s3_prefix="confocal_643054_2020-10-10_10-10-10",
+            s3_prefix="confocal_12345_2020-10-10_10-10-10",
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -200,7 +200,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload.assert_called_once_with(
             directory_to_upload=DATA_DIR,
             s3_bucket="some_bucket",
-            s3_prefix="confocal_643054_2020-10-10_10-10-10/MRI",
+            s3_prefix="confocal_12345_2020-10-10_10-10-10/MRI",
             dryrun=True,
             excluded=None,
         )
@@ -281,7 +281,7 @@ class TestBasicJob(unittest.TestCase):
         mock_json_write.assert_has_calls(expected_write_to_json_calls)
         mock_copyfile.assert_not_called()
         self.assertEqual(
-            "643054", basic_job.metadata_record.subject.subject_id
+            "12345", basic_job.metadata_record.subject.subject_id
         )
         self.assertEqual(
             [PIDName(abbreviation=None,
@@ -400,7 +400,7 @@ class TestBasicJob(unittest.TestCase):
         mock_upload.assert_called_once_with(
             directory_to_upload=Path("some_dir"),
             s3_bucket="some_bucket",
-            s3_prefix="confocal_643054_2020-10-10_10-10-10",
+            s3_prefix="confocal_12345_2020-10-10_10-10-10",
             dryrun=True,
         )
 
@@ -440,7 +440,7 @@ class TestBasicJob(unittest.TestCase):
                 '"capsule_id": "some_capsule_id", '
                 '"process_capsule_id": null, '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_643054_2020-10-10_10-10-10", '
+                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
                 f'"aind_data_transfer_version": "{__version__}"'
                 "}}"
             ],
@@ -485,7 +485,7 @@ class TestBasicJob(unittest.TestCase):
                 '"capsule_id": "some_capsule_id", '
                 '"process_capsule_id": "xyz-456", '
                 '"bucket": "some_bucket", '
-                '"prefix": "confocal_643054_2020-10-10_10-10-10", '
+                '"prefix": "confocal_12345_2020-10-10_10-10-10", '
                 f'"aind_data_transfer_version": "{__version__}"'
                 "}}"
             ],
