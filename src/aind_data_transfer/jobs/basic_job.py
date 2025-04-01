@@ -138,7 +138,6 @@ class BasicJob:
         subject_filename = Subject.default_filename()
         procedures_filename = Procedures.default_filename()
         data_description_filename = DataDescription.default_filename()
-        session_filename = Session.default_filename()
         # If subject not in user defined directory, query the service
         if metadata_in_folder_map.get(subject_filename) is not None:
             subject_metadata = self.__download_json(

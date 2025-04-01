@@ -4,7 +4,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, Tuple, List
+from typing import Any, Optional, List
 
 import yaml
 
@@ -46,15 +46,15 @@ _CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
 
 class ZarrConversionConfigs(BaseSettings):
     n_levels: Optional[int] = Field(
-        7, description="Number of levels to use for the pyramid. Default is 1."
+        7, description="Number of levels to use for the pyramid. Default is 7."
     )
     scale_factor: Optional[int] = Field(
         2, description="Scale factor to use for the pyramid. Default is 2."
     )
     chunk_shape: Optional[List[int]] = Field(
-        [1, 1, 256, 256, 256],
+        [1, 1, 128, 256, 256],
         description="5D Chunk shape to use for the zarr Array. Default is ("
-                    "1, 1, 256, 256, 256).", )
+                    "1, 1, 128, 256, 256).", )
     voxel_size: Optional[List[float]] = Field(
         None, description="Voxel size to use for the zarr Array. if None, "
                           "will attempt to parse from the image metadata. "
