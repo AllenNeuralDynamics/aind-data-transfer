@@ -122,7 +122,7 @@ class ProcessingManifest(AindModel):
     dataset_status: DatasetStatus = Field(
         ..., title="Dataset status", description="Dataset status"
     )
-    institution: Organization = Field(
+    institution: Organization.ONE_OF = Field(
         ...,
         description="An established society, corporation, foundation or other organization that collected this data",
         title="Institution"
