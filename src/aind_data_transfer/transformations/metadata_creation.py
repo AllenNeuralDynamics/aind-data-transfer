@@ -453,7 +453,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
                 institution=institution,
                 modality=modality,
                 funding_source=funding_info,
-                investigators=investigators,
+                investigators=all_investigators,
                 project_name=project_name,
                 **basic_settings,
             )
@@ -463,7 +463,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
                 institution=institution,
                 modality=modality,
                 funding_source=funding_info,
-                investigators=investigators,
+                investigators=all_investigators,
                 project_name=project_name,
                 **basic_settings,
             )

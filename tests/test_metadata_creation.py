@@ -341,6 +341,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
                     },
                     "grant_number": "12345",
                     "fundee": "Anna Apple",
+                    "investigators": "Anna Apple"
                 },
             }
         ).encode("utf-8")
