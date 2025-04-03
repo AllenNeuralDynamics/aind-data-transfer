@@ -102,7 +102,7 @@ class BasicJob:
         return all_model_fields
 
     @staticmethod
-    def __download_json(file_location: Path) -> dict:
+    def _download_json(file_location: Path) -> dict:
         with open(file_location, "r") as f:
             contents = json.load(f)
         return contents

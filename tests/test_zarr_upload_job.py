@@ -191,8 +191,10 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_test_upload.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
         )
+
         mock_initialize_metadata.assert_called_once_with(
-            temp_dir=test_job_configs.modalities[0].source
+            temp_dir=test_job_configs.modalities[0].source,
+            acquisition=None
         )
         mock_add_processing_to_metadata.assert_called_once_with(
             temp_dir=test_job_configs.modalities[0].source,
@@ -258,8 +260,10 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_test_upload.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
         )
+
         mock_initialize_metadata.assert_called_once_with(
-            temp_dir=test_job_configs.modalities[0].source
+            temp_dir=test_job_configs.modalities[0].source,
+            acquisition=None
         )
         mock_add_processing_to_metadata.assert_called_once_with(
             temp_dir=test_job_configs.modalities[0].source,

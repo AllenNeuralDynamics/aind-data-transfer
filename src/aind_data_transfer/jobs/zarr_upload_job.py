@@ -34,7 +34,7 @@ from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
 from numcodecs import blosc
-from pydantic import Field
+from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings
 from ng_link.exaspim_link import generate_exaspim_link
 from aind_data_schema_models.modalities import Modality
@@ -337,22 +337,26 @@ class ZarrUploadJob(BasicJob):
                 self._instance_logger.info("Compiling metadata...")
         
         acquisition_filename = "acquisition.json"
+        acquisition_metadata = None
         if os.path.isfile(self._data_src_dir / acquisition_filename):
-            acquisition_metadata = self.__download_json(
+            acquisition_metadata = self._download_json(
                 self._data_src_dir / acquisition_filename
             )
         else:
             acquisition_filename = "exaspim_" + acquisition_filename
             if os.path.isfile(self._data_src_dir / acquisition_filename):
-                acquisition_metadata = self.__download_json(
+                acquisition_metadata = self._download_json(
                     self._data_src_dir / acquisition_filename
                 )
             else:
-                raise Exception("acquisition.json not found in source folder.")
-                
-        self._initialize_metadata_record(
-                temp_dir=self._data_src_dir, acquisition=acquisition_metadata
-        )
+                self._instance_logger.error("acquisition.json not found in source folder.")
+
+        try: 
+            self._initialize_metadata_record(
+                    temp_dir=self._data_src_dir, acquisition=acquisition_metadata
+            )
+        except ValidationError as e:
+            self._instance_logger.error(f"Failed to validate metadata: {e}")
 
         self._instance_logger.info("Starting zarr upload...")
         self._upload_zarr()
