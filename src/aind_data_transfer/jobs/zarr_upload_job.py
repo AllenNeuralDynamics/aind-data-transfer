@@ -355,7 +355,7 @@ class ZarrUploadJob(BasicJob):
         )
 
         self._instance_logger.info("Starting zarr upload...")
-        # self._upload_zarr()
+        self._upload_zarr()
 
         if self._zarr_configs.create_ng_link:
             self._instance_logger.info("Creating neuroglancer link...")
