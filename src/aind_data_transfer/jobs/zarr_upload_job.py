@@ -335,31 +335,46 @@ class ZarrUploadJob(BasicJob):
                     f"Failed to create diSPIM metadata: {e}"
                 )
                 self._instance_logger.info("Compiling metadata...")
-
-        try:
-            # This is broken up into two steps
-            self._initialize_metadata_record(temp_dir=self._data_src_dir)
-            # Ideally, the creation of the processing record is done after the
-            # compression is finished, but I'll keep it here as it was
-            # originally
-            self._add_processing_to_metadata(
-                temp_dir=self._data_src_dir,
-                process_start_time=process_start_time, )
-        except Exception as e:
-            self._instance_logger.error(f"Failed to compile metadata: {e}")
+        
+        acquisition_filename = "acquisition.json"
+        if os.path.isfile(self._data_src_dir / acquisition_filename):
+            acquisition_metadata = self.__download_json(
+                self._data_src_dir / acquisition_filename
+            )
+        else:
+            acquisition_filename = "exaspim_" + acquisition_filename
+            if os.path.isfile(self._data_src_dir / acquisition_filename):
+                acquisition_metadata = self.__download_json(
+                    self._data_src_dir / acquisition_filename
+                )
+            else:
+                raise Exception("acquisition.json not found in source folder.")
+                
+        self._initialize_metadata_record(
+                temp_dir=self._data_src_dir, acquisition=acquisition_metadata
+        )
 
         self._instance_logger.info("Starting zarr upload...")
-        self._upload_zarr()
+        # self._upload_zarr()
 
         if self._zarr_configs.create_ng_link:
             self._instance_logger.info("Creating neuroglancer link...")
             self._create_neuroglancer_link()
 
+        try:
+            self._add_processing_to_metadata(
+                    temp_dir=self._data_src_dir,
+                    process_start_time=process_start_time, 
+            )
+        except Exception as e:
+            self._instance_logger.exception(f"Failed to update processing metadata: {e}")
+
         self._instance_logger.info("Starting s3 upload...")
         # Exclude raw image directory, this is uploaded separately
         self._upload_to_s3(
             dir=self._data_src_dir,
-            excluded=os.path.join(self._raw_image_dir, "*"), )
+            excluded=os.path.join(self._raw_image_dir, "*"), 
+        )
 
 
 def _cleanup(deployment: str) -> None:
@@ -434,8 +449,7 @@ if __name__ == "__main__":
     }
     try:
         # update processing_manifest.json
-        processing_manifest_path = job_configs_from_main.modalities[
-                                       0].source / "processing_manifest.json"
+        processing_manifest_path = job_configs_from_main.modalities[0].source / "processing_manifest.json"
         file_utils.update_json_key(
             json_path=processing_manifest_path,
             key="dataset_status",

@@ -20,7 +20,6 @@ from aind_codeocean_api.models.computations_requests import RunCapsuleRequest
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import DataDescription
 from aind_data_schema.core.metadata import Metadata, MetadataStatus
-from aind_data_schema.core.session import Session
 from aind_data_schema.core.procedures import Procedures
 from aind_data_schema.core.subject import Subject
 from aind_data_schema_models.modalities import Modality
@@ -108,7 +107,7 @@ class BasicJob:
             contents = json.load(f)
         return contents
 
-    def _initialize_metadata_record(self, temp_dir: Path, session=None, rig=None):
+    def _initialize_metadata_record(self, temp_dir: Path, session=None, rig=None, acquisition=None):
         """Perform some metadata collection and validation before more
         time-consuming compression and upload steps."""
 
@@ -203,6 +202,21 @@ class BasicJob:
             data_description_metadata = data_description_metadata_0.model_obj
         del core_filename_map[data_description_filename]
 
+        # This can be updated again after the job is done.
+        processing_metadata0 = ProcessingMetadata.from_modalities_configs(
+            modality_configs=self.job_configs.modalities,
+            start_date_time=datetime.now(timezone.utc),
+            end_date_time=datetime.now(timezone.utc),
+            output_location=(
+                f"s3://{self.job_configs.s3_bucket}/"
+                f"{self.job_configs.s3_prefix}"
+            ),
+            processor_full_name=self.job_configs.processor_full_name,
+            code_url=self.job_configs.aind_data_transfer_repo_location,
+        )
+        processing_metadata0.write_to_json(path=temp_dir)
+        processing_metadata = processing_metadata0.model_obj
+
         # Update metadata record object
         self.metadata_record = Metadata(
             name=self.job_configs.s3_prefix,
@@ -210,11 +224,13 @@ class BasicJob:
             subject=subject_metadata,
             procedures=procedures_metadata,
             data_description=data_description_metadata,
+            processing=processing_metadata,
             session=session,
-            rig=rig
+            rig=rig,
+            acquisition=acquisition
         )
         # For the remaining files in metadata dir, copy them over. We'll
-        # copy al the files regardless of whether they were generated from
+        # copy all the files regardless of whether they were generated from
         # a core model. For the core models, we can attach the contents to
         # the metadata record
         for file_name, file_path in metadata_in_folder_map.items():
