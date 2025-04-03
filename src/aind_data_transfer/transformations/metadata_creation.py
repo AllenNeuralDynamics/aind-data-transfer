@@ -438,7 +438,7 @@ class RawDataDescriptionMetadata(MetadataCreation):
             funding_info = []
         all_investigators = set()
         for f in funding_info:
-            investigators = f.get("investigators", "")
+            investigators = f.pop("investigators", "")
             if investigators:
                 investigators = investigators.split(",")
                 pid_names = [PIDName(name=i).model_dump_json() for i in investigators]
