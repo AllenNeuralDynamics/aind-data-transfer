@@ -436,14 +436,15 @@ class RawDataDescriptionMetadata(MetadataCreation):
             funding_info = ams_response.json().get("data")
         else:
             funding_info = []
-        investigators = set()
+        all_investigators = set()
         for f in funding_info:
-            project_fundees = f.get("fundee", "").split(",")
-            pid_names = [PIDName(name=p).model_dump_json() for p in project_fundees]
-            if project_fundees is not [""]:
-                investigators.update(pid_names)
-        investigators = [PIDName.model_validate_json(i) for i in investigators]
-        investigators.sort(key=lambda x: x.name)
+            investigators = f.get("investigators", "")
+            if investigators:
+                investigators = investigators.split(",")
+                pid_names = [PIDName(name=i).model_dump_json() for i in investigators]
+                all_investigators.update(pid_names)
+        all_investigators = [PIDName.model_validate_json(i) for i in all_investigators]
+        all_investigators.sort(key=lambda x: x.name)
 
         basic_settings = RawDataDescription.parse_name(name=name)
         try:
