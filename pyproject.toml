@@ -28,6 +28,7 @@ dependencies = [
     'aind-metadata-service[client]>=0.2.5',
     'tqdm==4.64.1',
     'aind-data-access-api[secrets]>=0.4.0',
+    'aind-metadata-mapper>=0.24.0',
     'toml==0.10.2',
     'zarr==2.18.3',
     'numcodecs==0.11.0',
