@@ -356,7 +356,7 @@ class ZarrUploadJob(BasicJob):
                     temp_dir=self._data_src_dir, acquisition=acquisition_metadata
             )
         except ValidationError as e:
-            self._instance_logger.error(f"Failed to validate metadata: {e}")
+            self._instance_logger.exception(f"Failed to validate metadata: {e}")
 
         self._instance_logger.info("Starting zarr upload...")
         self._upload_zarr()
