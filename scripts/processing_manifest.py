@@ -1,16 +1,10 @@
-import re
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
 from aind_data_schema.base import AindModel
-from aind_data_schema.models.organizations import Organization
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.core.data_description import (
-    Funding,
-    datetime_from_name_string,
-)
-from aind_data_schema.models.units import SizeUnit
+from aind_data_schema_models.organizations import Organization
+from aind_data_schema_models.units import SizeUnit
 from aind_data_schema.core.acquisition import AxisName, Immersion
 from pydantic import Field
 

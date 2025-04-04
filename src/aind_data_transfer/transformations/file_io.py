@@ -250,7 +250,7 @@ def read_log_file(log_path: str) -> dict:
         lines = f.readlines()
 
     log_dict = {}
-    log_dict["tiles"]: list[dict] = []
+    log_dict["tiles"] = []
     for i, line in enumerate(lines):
         line = line.replace(
             "'", '"'
@@ -307,7 +307,7 @@ def read_schema_log_file(log_path: str) -> dict:
         lines = f.readlines()
 
     log_dict = {}
-    log_dict['tiles']: list[dict] = []
+    log_dict['tiles'] = []
     for i, line in enumerate(lines): 
         line = line.replace("\'", "\"")
         #remove windows path   

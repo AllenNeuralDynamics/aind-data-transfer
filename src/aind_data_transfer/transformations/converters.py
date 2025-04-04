@@ -13,8 +13,8 @@ from aind_data_schema.core.acquisition import (
     Acquisition,
     AcquisitionTile,
 )
-from aind_data_schema.models.coordinates import AnatomicalDirection, ImageAxis
-from aind_data_schema.imaging.tile import (
+from aind_data_schema.components.coordinates import AnatomicalDirection, ImageAxis
+from aind_data_schema.components.tile import (
     Channel,
     Scale3dTransform,
     Translation3dTransform,
@@ -25,7 +25,6 @@ import re
 import pathlib
 from aind_data_transfer.transformations.deinterleave import (
     ChannelParser,
-    Deinterleave,
 )
 
 MM_TO_UM = 1000

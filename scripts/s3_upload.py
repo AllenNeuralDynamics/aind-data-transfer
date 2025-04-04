@@ -14,7 +14,7 @@ from s3transfer.constants import GB, MB
 from aind_data_transfer.s3 import S3Uploader
 from aind_data_transfer.util import file_utils
 from aind_data_transfer.util.dask_utils import get_client
-from aind_data_transfer.util.file_utils import collect_filepaths, batch_files_by_size
+from aind_data_transfer.util.file_utils import batch_files_by_size
 
 
 LOG_FMT = "%(asctime)s %(message)s"

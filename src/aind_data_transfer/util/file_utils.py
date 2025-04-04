@@ -411,7 +411,7 @@ def save_dict_as_json(
         print(f"- Json file saved: {filename}")
 
 
-def execute_command(command: str, print_command: bool = False) -> None:
+def execute_command(command: str, print_command: bool = False) -> Generator[str, None, None]:
     """
     Execute a shell command.
 

@@ -4,7 +4,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, Tuple, List
+from typing import Any, Optional, List
 
 import yaml
 
@@ -34,11 +34,11 @@ from aind_data_transfer.util.env_utils import find_hdf5plugin_path
 from aind_data_transfer.util.file_utils import get_images
 from aind_data_transfer.util.s3_utils import upload_to_s3
 from numcodecs import blosc
-from pydantic import Field
+from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings
 from ng_link.exaspim_link import generate_exaspim_link
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
 
 _CLIENT_CLOSE_TIMEOUT = 300  # seconds
 _CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
@@ -46,15 +46,15 @@ _CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
 
 class ZarrConversionConfigs(BaseSettings):
     n_levels: Optional[int] = Field(
-        1, description="Number of levels to use for the pyramid. Default is 1."
+        7, description="Number of levels to use for the pyramid. Default is 7."
     )
     scale_factor: Optional[int] = Field(
         2, description="Scale factor to use for the pyramid. Default is 2."
     )
     chunk_shape: Optional[List[int]] = Field(
-        [1, 1, 256, 256, 256],
+        [1, 1, 128, 256, 256],
         description="5D Chunk shape to use for the zarr Array. Default is ("
-                    "1, 1, 256, 256, 256).", )
+                    "1, 1, 128, 256, 256).", )
     voxel_size: Optional[List[float]] = Field(
         None, description="Voxel size to use for the zarr Array. if None, "
                           "will attempt to parse from the image metadata. "
@@ -335,18 +335,28 @@ class ZarrUploadJob(BasicJob):
                     f"Failed to create diSPIM metadata: {e}"
                 )
                 self._instance_logger.info("Compiling metadata...")
+        
+        acquisition_filename = "acquisition.json"
+        acquisition_metadata = None
+        if os.path.isfile(self._data_src_dir / acquisition_filename):
+            acquisition_metadata = self._download_json(
+                self._data_src_dir / acquisition_filename
+            )
+        else:
+            acquisition_filename = "exaspim_" + acquisition_filename
+            if os.path.isfile(self._data_src_dir / acquisition_filename):
+                acquisition_metadata = self._download_json(
+                    self._data_src_dir / acquisition_filename
+                )
+            else:
+                self._instance_logger.error("acquisition.json not found in source folder.")
 
-        try:
-            # This is broken up into two steps
-            self._initialize_metadata_record(temp_dir=self._data_src_dir)
-            # Ideally, the creation of the processing record is done after the
-            # compression is finished, but I'll keep it here as it was
-            # originally
-            self._add_processing_to_metadata(
-                temp_dir=self._data_src_dir,
-                process_start_time=process_start_time, )
-        except Exception as e:
-            self._instance_logger.error(f"Failed to compile metadata: {e}")
+        try: 
+            self._initialize_metadata_record(
+                    temp_dir=self._data_src_dir, acquisition=acquisition_metadata
+            )
+        except ValidationError as e:
+            self._instance_logger.exception(f"Failed to validate metadata: {e}")
 
         self._instance_logger.info("Starting zarr upload...")
         self._upload_zarr()
@@ -355,11 +365,20 @@ class ZarrUploadJob(BasicJob):
             self._instance_logger.info("Creating neuroglancer link...")
             self._create_neuroglancer_link()
 
+        try:
+            self._add_processing_to_metadata(
+                    temp_dir=self._data_src_dir,
+                    process_start_time=process_start_time, 
+            )
+        except Exception as e:
+            self._instance_logger.exception(f"Failed to update processing metadata: {e}")
+
         self._instance_logger.info("Starting s3 upload...")
         # Exclude raw image directory, this is uploaded separately
         self._upload_to_s3(
             dir=self._data_src_dir,
-            excluded=os.path.join(self._raw_image_dir, "*"), )
+            excluded=os.path.join(self._raw_image_dir, "*"), 
+        )
 
 
 def _cleanup(deployment: str) -> None:
@@ -434,8 +453,7 @@ if __name__ == "__main__":
     }
     try:
         # update processing_manifest.json
-        processing_manifest_path = job_configs_from_main.modalities[
-                                       0].source / "processing_manifest.json"
+        processing_manifest_path = job_configs_from_main.modalities[0].source / "processing_manifest.json"
         file_utils.update_json_key(
             json_path=processing_manifest_path,
             key="dataset_status",

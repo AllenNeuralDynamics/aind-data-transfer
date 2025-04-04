@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from aind_data_schema.models.platforms import Platform
-from aind_data_schema.models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
+from aind_data_schema_models.modalities import Modality
 from numcodecs import blosc
 
 from aind_data_transfer.config_loader.base_config import (
@@ -35,9 +35,9 @@ EXASPIM_DERIVATIVES_DIR = EXASPIM_DATA_DIR / "derivatives"
 class TestZarrConversionConfigs(unittest.TestCase):
     def test_default_values(self):
         config = ZarrConversionConfigs()
-        self.assertEqual(config.n_levels, 1)
+        self.assertEqual(config.n_levels, 7)
         self.assertEqual(config.scale_factor, 2)
-        self.assertEqual(config.chunk_shape, [1, 1, 256, 256, 256])
+        self.assertEqual(config.chunk_shape, [1, 1, 128, 256, 256])
         self.assertIsNone(config.voxel_size)
         self.assertEqual(config.codec, "zstd")
         self.assertEqual(config.clevel, 1)
@@ -191,8 +191,10 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_test_upload.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
         )
+
         mock_initialize_metadata.assert_called_once_with(
-            temp_dir=test_job_configs.modalities[0].source
+            temp_dir=test_job_configs.modalities[0].source,
+            acquisition=None
         )
         mock_add_processing_to_metadata.assert_called_once_with(
             temp_dir=test_job_configs.modalities[0].source,
@@ -258,8 +260,10 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_test_upload.assert_called_once_with(
             temp_dir=(Path("some_dir") / "tmp")
         )
+
         mock_initialize_metadata.assert_called_once_with(
-            temp_dir=test_job_configs.modalities[0].source
+            temp_dir=test_job_configs.modalities[0].source,
+            acquisition=None
         )
         mock_add_processing_to_metadata.assert_called_once_with(
             temp_dir=test_job_configs.modalities[0].source,
@@ -339,11 +343,11 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_write_files.assert_called_once_with(
             {"/path/to/image1", "/path/to/image2"},
             "s3://some_bucket/HCR_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
-            1,
+            7,
             2,
             True,
             None,
-            [1, 1, 256, 256, 256],
+            [1, 1, 128, 256, 256],
             None,
             compressor=blosc.Blosc("zstd", 1, shuffle=blosc.SHUFFLE),
             bkg_img_dir=None,
@@ -365,11 +369,11 @@ class TestZarrUploadJob(unittest.TestCase):
         mock_write_files.assert_called_once_with(
             {"/path/to/image1", "/path/to/image2"},
             "s3://some_bucket/HCR_12345_2020-10-10_10-10-10/SPIM.ome.zarr",
-            1,
+            7,
             2,
             True,
             None,
-            [1, 1, 256, 256, 256],
+            [1, 1, 128, 256, 256],
             None,
             compressor=blosc.Blosc("zstd", 1, shuffle=blosc.SHUFFLE),
             bkg_img_dir=str(DISPIM_DERIVATIVES_DIR),

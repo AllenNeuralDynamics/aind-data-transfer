@@ -6,14 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from aind_data_schema.core.data_description import Funding, RawDataDescription
+from aind_data_schema.core.data_description import RawDataDescription
 from aind_data_schema.core.procedures import Procedures
 from aind_data_schema.core.processing import Processing
 from aind_data_schema.core.subject import Subject
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.organizations import Organization
-from aind_data_schema.models.pid_names import PIDName
-from aind_data_schema.models.process_names import ProcessName
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.process_names import ProcessName
 from requests import ConnectionError, Response
 
 from aind_data_transfer import __version__
@@ -343,6 +341,7 @@ class TestDataDescriptionMetadata(unittest.TestCase):
                     },
                     "grant_number": "12345",
                     "fundee": "Anna Apple",
+                    "investigators": "Anna Apple"
                 },
             }
         ).encode("utf-8")

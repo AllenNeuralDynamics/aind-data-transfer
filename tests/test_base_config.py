@@ -7,8 +7,8 @@ from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
 
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
 
 from aind_data_transfer.config_loader.base_config import (
     BasicJobEndpoints,
@@ -197,7 +197,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "SmartSPIM",
             "-m",
-            f'[{{"modality":"ophys","source":"{str(DATA_DIR)}"}}]',
+            f'[{{"modality":"pophys","source":"{str(DATA_DIR)}"}}]',
             "-a",
             "2022-10-10T13:24:01",
             "-p",
@@ -269,7 +269,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
             "-e",
             "SmartSPIM",
             "-m",
-            f'[{{"modality":"ophys","source":"{str(DATA_DIR)}",'
+            f'[{{"modality":"pophys","source":"{str(DATA_DIR)}",'
             f'"extra_configs":"{str(CONFIG_FILE)}"}}]',
             "-l",
             "INFO",
@@ -464,7 +464,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
 
     def test_from_json_args(self):
         """Tests that the required configs can be set from a json string"""
-        modalities = f'[{{"modality":"ophys","source":"{str(DATA_DIR)}"}}]'
+        modalities = f'[{{"modality":"pophys","source":"{str(DATA_DIR)}"}}]'
         json_arg_string = (
             f'{{"s3_bucket": "some_bucket", '
             '"project_name": "OpenScope", '
@@ -514,7 +514,7 @@ class TestBasicUploadJobConfigs(unittest.TestCase):
     def test_skip_staging(self):
         """Tests that the required configs can be set from a json string"""
         modalities = (
-            f'[{{"modality":"ophys","source":"{str(DATA_DIR)}",'
+            f'[{{"modality":"pophys","source":"{str(DATA_DIR)}",'
             f'"skip_staging":"true"}}]'
         )
         json_arg_string = (
