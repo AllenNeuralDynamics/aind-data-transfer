@@ -55,7 +55,7 @@ imaging = [
     'distributed>=2024.12.1',
     'bokeh',
     'gcsfs>=2024.6.1',
-    'xarray-multiscale>=1.2.0',
+    'xarray-multiscale==1.2.0',
     'xarray',
     'parameterized',
     'ome-zarr==0.8.3',
