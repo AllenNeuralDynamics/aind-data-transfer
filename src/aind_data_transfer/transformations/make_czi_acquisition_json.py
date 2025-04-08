@@ -596,7 +596,10 @@ def get_lightsource_name(mdata, channel_number):
                         continue
             else:
                 light_source_id = int(list_of_lightsourcessettings.LightSource['@Id'][-1])
-                lightsource_name =  mdata.czi_box.ImageDocument.Metadata.Information.Instrument.LightSources.LightSource[light_source_id].Manufacturer.Model
+                try:
+                    lightsource_name =  mdata.czi_box.ImageDocument.Metadata.Information.Instrument.LightSources.LightSource[light_source_id].Manufacturer.Model
+                except: 
+                    lightsource_name = mdata.czi_box.ImageDocument.Metadata.Information.Instrument.LightSources.LightSource.Manufacturer.Model
                 return lightsource_name
 
 def get_lightsource_attenuation(mdata, channel_number):
@@ -627,7 +630,329 @@ def get_lightsource_attenuation(mdata, channel_number):
                 
             return 1-attenuation
 
-def get_schema_AcquisitionTile(mdata, tile_index, list_of_tiles):
+
+def find_min_x_y(list_of_tiles):
+    error = False
+    for i, dataset_fp in enumerate(list_of_tiles):
+        try: 
+            czi = CziFile(dataset_fp)
+        except:
+            print(f'Error reading {dataset_fp}')
+            error = True
+            continue
+        bbox = czi.get_scene_bounding_box(0)
+        if i == 0 or error == True:
+            min_x = bbox.x
+            min_y = bbox.y
+        else:
+            if bbox.x < min_x:
+                min_x = bbox.x
+            if bbox.y < min_y:
+                min_y = bbox.y
+
+    return min_x, min_y
+
+
+def get_czi_tile_name(cache):
+    """
+    Generate a CZI tile name using cached information
+    
+    Args:
+        mdata: Metadata object
+        cache: Dictionary with pre-calculated values
+        list_of_tiles: List of tile paths (not used with cache)
+        tile_info_cache: Complete cache of all tiles (not used here)
+    
+    Returns:
+        str: The generated tile name
+    """
+    x_name = cache['x_name']
+    y_name = cache['y_name']
+    z_name = 0
+    round_number = 'Tile'
+    channel_wavelength = cache['channel_wavelength']
+    
+    tile_name = f'{round_number}_X_{x_name:04}_Y_{y_name:04}_Z_{z_name:04}_ch_{channel_wavelength}.czi'
+    return tile_name
+
+def get_tiff_tile_name(cache):
+    """
+    Generate a tiff tile name using cached information
+    
+    Args:
+        mdata: Metadata object
+        cache: Dictionary with pre-calculated values
+        list_of_tiles: List of tile paths (not used with cache)
+        tile_info_cache: Complete cache of all tiles (not used here)
+    
+    Returns:
+        str: The generated tile name
+    """
+    x_name = cache['x_name']
+    y_name = cache['y_name']
+    z_name = 0
+    round_number = 'Tile'
+    channel_wavelength = cache['channel_wavelength']
+    
+    tile_name = f'{round_number}_X_{x_name:04}_Y_{y_name:04}_Z_{z_name:04}_ch_{channel_wavelength}.tiff'
+    return tile_name
+
+def rescue_metadata(list_of_tiles, sibling_folder, output_folder, metadata_only = False):
+
+    tile_info_cache = substitute_sibling_data_into_original_cache(list_of_tiles, sibling_folder)
+
+    tiles = []
+    for tile_path in list_of_tiles:
+        tile_path_str = tile_path.as_posix()
+        cache = tile_info_cache[tile_path_str]
+        mdata = cache['mdata']
+        # this works
+        
+        # tile = get_schema_AcquisitionTile(mdata, cache, list_of_tiles, tile_info_cache)
+        # tiles.append(tile)
+
+
+
+def substitute_sibling_data_into_original_cache(list_of_tiles, sibling_folder):
+    """
+    Function to rescue metadata from a sibling dataset. This will happen in a few steps: 
+    1. Get whatever metadata we can from original dataset 
+    2. Get metadata from sibling dataset
+    3. Combine metadata from both datasets, using the sibling dataset to fill in the gaps
+    4. Write the metadata files to the output folder location 
+        acquisition.json
+        position.json
+        stitching.xml files
+    5. Write the tiff files of the original dataset to the output folder
+
+    Args:
+        list_of_tiles: list of tiles to rescue metadata from
+        sibling_folder: folder containing the sibling dataset
+        output_folder: folder to save the rescued metadata
+        metadata_only: whether to write metadata only
+    
+    Returns:
+        tile_info_cache: dictionary containing the metadata for each tile
+
+    """        
+
+    #check if the sibling folder exists
+    if not os.path.exists(sibling_folder):
+        raise ValueError(f'Sibling folder {sibling_folder} does not exist')
+    
+    #get the metadata from the sibling dataset
+    list_of_sibling_tiles = list(Path(sibling_folder).glob('*.czi'))
+    list_of_sibling_tiles = sorted(list_of_sibling_tiles)
+    
+    #check if the sibling dataset has the same number of tiles as the original dataset
+    if len(list_of_sibling_tiles) != len(list_of_tiles):
+        raise ValueError(f'Sibling dataset {sibling_folder} has different number of tiles than original dataset {list_of_tiles[0]}')
+    
+    #gather the original metadata if possible
+    tile_info_cache = {}
+
+    min_x, min_y = find_min_x_y(list_of_tiles)
+    sibling_min_x, sibling_min_y = find_min_x_y(list_of_sibling_tiles)
+
+    # Extract common data for all tiles
+    for i, tile_path in enumerate(list_of_tiles):
+        try:
+            tile_path_str = tile_path.as_posix()
+            mdata = czimd.CziMetadata(tile_path_str)
+            czi = CziFile(tile_path_str)
+            try:
+                percent_overlap = float((mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.TilesSetup.PositionGroups.PositionGroup)['TileAcquisitionOverlap'])
+            except:
+                percent_overlap = 0.0
+
+            # Extract and store all necessary metadata
+            bbox = czi.get_scene_bounding_box(0)
+            sh = czi.get_dims_shape()[0]
+            intertile_distance_pixels = sh['X'][1] * (1 - percent_overlap)
+            
+            x_name = round((bbox.x - min_x) / intertile_distance_pixels)
+            y_name = round((bbox.y - min_y) / intertile_distance_pixels)
+            
+            channel_number = int(czi.read_subblock_metadata(Z=0)[0][0]['C'])
+            channel_wavelength = get_channel_wavelength(mdata, channel_number)
+            
+            # Store in cache
+            tile_info_cache[tile_path_str] = {
+                'x_name': x_name,
+                'y_name': y_name,
+                'channel_number': channel_number,
+                'channel_wavelength': channel_wavelength,
+                'mdata': mdata,  # Store the metadata object to avoid reopening
+                'original_metadata':True,
+            }
+        except Exception as e:
+            print(f'Error reading tile {tile_path}: {e}')
+            tile_info_cache[tile_path_str] = {}
+    
+    # Extract metadata from sibling dataset
+    sibling_tile_info_cache = {}
+    for i, tile_path in enumerate(list_of_sibling_tiles):
+        try:
+            tile_path_str = tile_path.as_posix()
+            mdata = czimd.CziMetadata(tile_path_str)
+            czi = CziFile(tile_path_str)
+            try:
+                percent_overlap = float((mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.TilesSetup.PositionGroups.PositionGroup)['TileAcquisitionOverlap'])
+            except:
+                percent_overlap = 0.0
+            # Extract and store all necessary metadata
+            bbox = czi.get_scene_bounding_box(0)
+            sh = czi.get_dims_shape()[0]
+            intertile_distance_pixels = sh['X'][1] * (1 - percent_overlap)
+            
+            x_name = round((bbox.x - sibling_min_x) / intertile_distance_pixels)
+            y_name = round((bbox.y - sibling_min_y) / intertile_distance_pixels)
+            
+            channel_number = int(czi.read_subblock_metadata(Z=0)[0][0]['C'])
+            channel_wavelength = get_channel_wavelength(mdata, channel_number)
+            
+            # Update the cache with sibling data-=
+            sibling_tile_info_cache[tile_path_str] = {
+                    'x_name': x_name,
+                    'y_name': y_name,
+                    'channel_number': channel_number,
+                    'channel_wavelength': channel_wavelength,
+                    'mdata': mdata,  # Store the metadata object to avoid reopening'
+                }
+        except Exception as e:
+            print(f'Error reading sibling tile {tile_path}: {e}')
+            sibling_tile_info_cache[tile_path_str] = {}
+    
+    #find which data is broken/missing in the original list_of_tiles, and replace it with the sibling data
+    for i, tile_data_dict in enumerate(tile_info_cache.values()):
+        if tile_data_dict == {}:
+            #now get the corresponding tile from the sibling dataset
+            # Get the original tile path
+            tile_path = Path(list(tile_info_cache.keys())[i])
+            tile_path_str = tile_path.as_posix()
+            # Get the corresponding sibling tile path
+            tile_index  = list_of_tiles.index(tile_path)
+            sibling_tile_path = list_of_sibling_tiles[tile_index]
+            sibling_tile_path_str = Path(sibling_tile_path).as_posix()
+
+            #replace with sibling data
+            tile_info_cache[tile_path_str] = sibling_tile_info_cache[sibling_tile_path_str]
+            tile_info_cache[tile_path_str]['original_metadata'] = False
+        else:
+            continue
+    
+    return tile_info_cache
+
+def get_tile_resolution(mdata):
+    #resolution in m
+    X_resolution = float(dict(mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.AcquisitionModeSetup)['ScalingX'])
+    Y_resolution = float(dict(mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.AcquisitionModeSetup)['ScalingY'])
+    Z_resolution = float(dict(mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.AcquisitionModeSetup)['ScalingZ'])
+
+    pixel_resolution = [X_resolution, Y_resolution, Z_resolution]
+    return pixel_resolution
+
+def get_tile_resolution_um(mdata):
+    pixel_resolution = get_tile_resolution(mdata)
+    pixel_resolution_um = [resolution*M_TO_UM for resolution in pixel_resolution]
+    return pixel_resolution_um
+
+def check_if_single_tile(list_of_tiles):
+    """
+    Very rough function that approximates a check on a folder of czi files
+    if there are more than 6 tiles, it is likely a multi-tile dataset
+    if there are less than 6 tiles, it is likely a single tile dataset
+    The edge case exists where a single channel dataset has 6 tiles, but this is unlikely
+    and likely has little bearing on the rescuing of metadata
+    """
+    if len(list_of_tiles) >6:
+        return False
+    else:
+        return True
+    
+def check_if_tiles_have_same_size(list_of_tiles):
+    """Check if tile files have same number of bites (aside from first tile which is always bigger)
+    
+    """
+    #get the size of the first tile
+    first_tile = list_of_tiles[1]
+    first_tile_size = os.path.getsize(first_tile)
+    print(f'Second tile size: {first_tile_size}')
+    #check if all tiles have the same size
+    for tile in list_of_tiles[2:]:
+        tile_size = os.path.getsize(tile)
+        print(f'tile size: {tile_size}')
+        if tile_size != first_tile_size:
+            print(f'Tile {tile} has different size than second tile')
+            return False
+    return True
+
+
+def get_schema_AcquisitionTile(mdata, cache, list_of_tiles, tile_info_cache):
+    """
+    Creates an AcquisitionTile using cached metadata
+    
+    Args:
+        mdata: Metadata for the tile
+        cache: Pre-computed cache for this specific tile
+        list_of_tiles: List of all tile paths
+        tile_info_cache: Complete cache of all tiles
+    
+    Returns:
+        AcquisitionTile: The schema object
+    """
+    tile_position_um = get_tile_position_um(mdata)
+    translation_tfm = Translation3dTransform(translation=tile_position_um)
+    
+    tile_resolution = get_tile_resolution_um(mdata)
+    scale_tfm = Scale3dTransform(scale=[float(resolution) for resolution in tile_resolution])
+    
+    channel_number = cache['channel_number']
+    channel_name = cache['channel_wavelength']
+    
+    light_source_name = get_lightsource_name(mdata, channel_number)
+    filter_names = get_filter_names(mdata, channel_number)
+    detector_name = get_detector_name(mdata, channel_number)
+    additional_device_names = []
+    
+    excitation_wavelength = channel_name
+    excitation_wavelength_unit = 'nanometer'
+    excitation_power = get_excitation_power_for_channel(mdata, channel_number)
+    excitation_power_unit = 'percent'
+    filter_wheel_index = channel_number
+    
+    dilation = None
+    dilation_unit = "pixel"
+    description = ""
+    
+    tile_filename = get_czi_tile_name( cache)
+    
+    ch = Channel(
+        channel_name=channel_name,
+        light_source_name=light_source_name,
+        filter_names=filter_names,
+        detector_name=detector_name,
+        additional_device_names=additional_device_names,
+        excitation_wavelength=excitation_wavelength,
+        excitation_wavelength_unit=excitation_wavelength_unit,
+        excitation_power=excitation_power,
+        excitation_power_unit=excitation_power_unit,
+        filter_wheel_index=filter_wheel_index,
+        dilation=dilation,
+        dilation_unit=dilation_unit,
+        description=description
+    )
+    
+    tile = AcquisitionTile(
+        channel=ch, 
+        file_name=tile_filename,
+        imaging_angle=ZEISS_IMAGING_ANGLE, 
+        coordinate_transformations=[scale_tfm, translation_tfm]
+    )
+    
+    return tile
+
+def get_schema_AcquisitionTile_backup(mdata, tile_index, list_of_tiles):
 
     tile_position_um = get_tile_position_um(mdata)
     translation_tfm = Translation3dTransform(translation=tile_position_um) #XYZ format
@@ -705,7 +1030,126 @@ def get_image_axis():
     return axes
         
 
-def make_acquisition_schema(czi_loc):
+def make_acquisition_schema(czi_loc, rescue_metadata=False, sibling_dataset_location = None):
+    """Acquisition schema object for czi files
+
+    Args:
+        czi_loc (Path): Path to the czi files
+    Returns:
+        Acquisition: Acquisition schema object
+    """
+    tiles = []
+    # czi_loc = Path('/allen/aind/stage/Z1/Christian/probe_characterization/Syto61')
+
+    list_of_tiles = sorted(list(Path(czi_loc).glob('*.czi')))
+
+    if rescue_metadata==True and sibling_dataset_location is not None:
+        if check_if_single_tile(list_of_tiles): 
+            tile_info_cache = substitute_sibling_data_into_original_cache(list_of_tiles, sibling_dataset_location)
+        else:
+            raise ValueError('Rescue metadata is only available for single tile datasets')
+    else:
+        try:
+            # Precompute min_x and min_y once
+            min_x, min_y = find_min_x_y(list_of_tiles)
+            
+            # Precompute intertile distance
+            first_mdata = czimd.CziMetadata(list_of_tiles[0].as_posix())
+            try: 
+                percent_overlap = float((first_mdata.czi_box.ImageDocument.Metadata.Experiment.ExperimentBlocks.AcquisitionBlock.TilesSetup.PositionGroups.PositionGroup)['TileAcquisitionOverlap'])
+            except:
+                percent_overlap = 0
+            
+            # Create a cache for tile info
+            tile_info_cache = {}
+            
+            # Extract common data for all tiles
+            for i, tile_path in enumerate(list_of_tiles):
+                tile_path_str = tile_path.as_posix()
+                mdata = czimd.CziMetadata(tile_path_str)
+                czi = CziFile(tile_path_str)
+                
+                # Extract and store all necessary metadata
+                bbox = czi.get_scene_bounding_box(0)
+                sh = czi.get_dims_shape()[0]
+                intertile_distance_pixels = sh['X'][1] * (1 - percent_overlap)
+                
+                x_name = round((bbox.x - min_x) / intertile_distance_pixels)
+                y_name = round((bbox.y - min_y) / intertile_distance_pixels)
+                
+                channel_number = int(czi.read_subblock_metadata(Z=0)[0][0]['C'])
+                channel_wavelength = get_channel_wavelength(mdata, channel_number)
+                
+                # Store in cache
+                tile_info_cache[tile_path_str] = {
+                    'x_name': x_name,
+                    'y_name': y_name,
+                    'channel_number': channel_number,
+                    'channel_wavelength': channel_wavelength,
+                    'mdata': mdata  # Store the metadata object to avoid reopening
+                }
+        except Exception as e:
+            print(f"Error processing tile {tile_path}: {e}")
+            print(f'Skipping tile {tile_path} due to error.')
+            print(f'If this dataset is a single tile dataset, please use the rescue_metadata flag to extract metadata from a sibling dataset.')
+
+    tiles = []
+    for tile_path in list_of_tiles:
+        tile_path_str = tile_path.as_posix()
+        cache = tile_info_cache[tile_path_str]
+        mdata = cache['mdata']
+        
+        tile = get_schema_AcquisitionTile(mdata, cache, list_of_tiles, tile_info_cache)
+        tiles.append(tile)
+    
+    
+    tiff_filename = get_tiff_tile_name(cache)
+    
+    specimen_id = get_subject_id_from_dataset_loc(Path(tiff_filename))
+    subject_id = get_subject_id_from_dataset_loc(Path(tiff_filename))#mouse id - can get this from title
+    instrument_id = get_instrument_id_from_czi_mdata(mdata)
+    calibrations = []
+    maintenance = []
+    session_start_time = get_session_start_time_from_czi_mdata(mdata)
+    session_end_time = get_session_start_time_from_czi_mdata(mdata)
+    axes = get_image_axis()
+
+    chamber_immersion = Immersion(medium = mdata.czi_box.ImageDocument.Metadata.Information.Image.ObjectiveSettings.Medium, refractive_index = 1.33) #may not be accurate
+    sample_immersion=chamber_immersion
+    active_objectives = [mdata.czi_box.ImageDocument.Metadata.Information.Instrument.Objectives.Objective.Manufacturer.Model]
+    local_storage_directory = mdata.filepath
+    external_storage_directory = mdata.filepath
+    processing_steps = []
+    exposure_time_ms = get_exposure_time_ms(mdata)
+    
+    zoom = get_zoom(mdata)
+
+
+    notes = f"""Exposure time: {exposure_time_ms} ms
+                Zoom: {zoom}"""
+
+    acquisition = Acquisition(
+        specimen_id=specimen_id,
+        subject_id=subject_id,
+        instrument_id=instrument_id,
+        calibrations=calibrations,
+        maintenance=maintenance,
+        session_start_time=session_start_time,
+        session_end_time=session_end_time,
+        tiles=tiles,
+        axes=axes,
+        chamber_immersion=chamber_immersion,
+        sample_immersion=sample_immersion,
+        active_objectives=active_objectives,
+        local_storage_directory=local_storage_directory,
+        external_storage_directory=external_storage_directory,
+        processing_steps=processing_steps,
+        notes=notes,
+        experimenter_full_name = ['null'],
+    )
+    return acquisition
+
+def make_acquisition_schema_bu(czi_loc):
     """Acquisition schema object for czi files
 
     Args:
