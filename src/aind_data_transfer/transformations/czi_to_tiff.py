@@ -35,6 +35,8 @@ def main():
     argparser.add_argument('--input_folder', type=str, help='input folder containing CZI files')
     argparser.add_argument('--output_folder', type=str, help='output folder to save tiff files')
     argparser.add_argument('--metadata_only', type=str, help='whether to write metadata only', default=False)
+    argparser.add_argument('--rescue_metadata', type=str, help='whether to rescue metadata from CZI files', default=False)
+    argparser.add_argument('--sibling_folder', type=str, help='sibling folder to save metadata files', default=None)
  
  
     args = argparser.parse_args()
@@ -42,10 +44,12 @@ def main():
     INPUT_FOLDER = args.input_folder
     OUTPUT_FOLDER = args.output_folder
     METADATA_ONLY = args.metadata_only
+    RESCUE_METADATA = args.rescue_metadata
+    SIBLING_FOLDER = args.sibling_folder
  
     print(f'Metadata only: {METADATA_ONLY}')
  
-    convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY)
+    convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY, RESCUE_METADATA, SIBLING_FOLDER)
  
 # INPUT_FOLDER = '/allen/aind/stage/Z1/Christian/probe_characterization/Gad2/4222024_1'
 # OUTPUT_FOLDER = '/allen/aind/stage/Z1/HCR_000000-gad2_2024-04-22_09-00-00/diSPIM'
@@ -61,7 +65,7 @@ def get_channel_metadata_from_channel_number(mdata, channel_number):
     return channel_data[channel_number]
  
  
-def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False):
+def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False, RESCUE_METADATA=False, SIBLING_FOLDER=None):
  
     shape_list = []
     data_type_list = []
@@ -81,7 +85,7 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False):
     list_of_ch_405_tile_dicts = []
  
     #make an acquisition json
-    acq_json = make_acquisition_schema(INPUT_FOLDER)
+    acq_json = make_acquisition_schema(INPUT_FOLDER, RESCUE_METADATA, SIBLING_FOLDER)
     acq_json_loc = Path(OUTPUT_FOLDER).parent.joinpath('acquisition.json').as_posix()
  
     print(f'Writing acquisition json to {acq_json_loc}')
@@ -97,6 +101,8 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False):
             czi = CziFile(dataset_fp)
         except:
             print(f'Error reading {dataset_fp}')
+            invalid_count += 1
+            print(f'If this is a single tile dataset please rerun with --rescue_metadata flag to rescue metadata, and provide a sibling folder to copy the metadata from')
             continue
  
         if METADATA_ONLY in ["False", "false", "FALSE", False]:
@@ -282,9 +288,6 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False):
 
     #kick off json to xml
     print(f'converting json to xml...')
-
-
-
 
     #should add validation to check that s3_data_path is the correct format....
     spim_data_path = "/data/" + Path(OUTPUT_FOLDER).parent.stem +"/SPIM.ome.zarr/"
