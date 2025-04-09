@@ -670,7 +670,7 @@ def write_zarr_upload_sbatch_zeiss(dataset_path: PathLike, sbatch_path_to_write:
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=8000
 #SBATCH --tmp=64MB
-#SBATCH --time=30:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=aind
 #SBATCH --output=/allen/aind/scratch/carson.berry/hpc_outputs/%j_zarr_upload.log
 #SBATCH --mail-type=ALL
@@ -680,11 +680,10 @@ def write_zarr_upload_sbatch_zeiss(dataset_path: PathLike, sbatch_path_to_write:
 set -e
 
 pwd; date
-[[ -f "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" ]] && source "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" adt-upload-clone
+[[ -f "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" ]] && source "/allen/programs/mindscope/workgroups/omfish/carsonb/miniconda/bin/activate" zarr_upload_env
 
 module purge
 module load mpi/mpich-3.2-x86_64
-
 # Add 2 processes more than we have tasks, so that rank 0 (coordinator) and 1 (serial process)
 # are not sitting idle while the workers (rank 2...N) work
 # See https://edbennett.github.io/high-performance-python/11-dask/ for details.
@@ -722,7 +721,7 @@ def write_zarr_upload_sbatch(dataset_path: PathLike, sbatch_path_to_write: PathL
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=8000
 #SBATCH --tmp=64MB
-#SBATCH --time=30:00:00
+#SBATCH --time=48:00:00
 #SBATCH --partition=aind
 #SBATCH --output=/allen/aind/scratch/carson.berry/hpc_outputs/%j_zarr_upload.log
 #SBATCH --mail-type=ALL
@@ -856,13 +855,14 @@ def main_zeiss(args):
     INPUT_FOLDER = args.input_folder
     OUTPUT_FOLDER = args.output_folder
     METADATA_ONLY = args.metadata_only
+    sibling_folder = args.sibling_folder
 
     print(f'Metadata only: {METADATA_ONLY}')
 
-    lightsheet_7_convert_and_upload(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY)
+    lightsheet_7_convert_and_upload(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY, sibling_folder=sibling_folder)
 
 
-def lightsheet_7_convert_and_upload(czi_path, dataset_dir_tile, metadata_only=False):
+def lightsheet_7_convert_and_upload(czi_path, dataset_dir_tile, metadata_only=False, sibling_folder = None):
     """main to execute the lightsheet 7 conversion and upload pipeline
     
     Parameters: 
@@ -885,7 +885,12 @@ def lightsheet_7_convert_and_upload(czi_path, dataset_dir_tile, metadata_only=Fa
     print(f'Converting CZI to tiff: {czi_path}')
     logger.info(f"Converting CZI to tiff: {czi_path}")
 
-    convert_czi_to_tiff(czi_path, dataset_dir_tile, metadata_only)
+    if sibling_folder is not None:
+        rescue_metadata = True
+    else:
+        rescue_metadata = False
+
+    convert_czi_to_tiff(czi_path, dataset_dir_tile, metadata_only, rescue_metadata, sibling_folder)
 
     #once this is done, we can make a new sbatch and submit it to the cluster to upload the dataset
 
@@ -1022,7 +1027,8 @@ if __name__ == "__main__":
     argparser.add_argument('--input_folder', type=str, help='input folder containing CZI files')
     argparser.add_argument('--output_folder', type=str, help='output folder to save tiff files')
     argparser.add_argument('--metadata_only', type=str, help='whether to write metadata only', default=False)
-
+    argparser.add_argument('--sibling_folder', type=str, help='sibling folder to save metadata files', default=None)
+ 
 
     args = argparser.parse_args()
     main_zeiss(args)

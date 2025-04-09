@@ -36,7 +36,7 @@ _CLIENT_SHUTDOWN_SLEEP_TIME = 30  # seconds
 
 class ZarrConversionConfigs(BaseSettings):
     n_levels: Optional[int] = Field(
-        1, description="Number of levels to use for the pyramid. Default is 1."
+        5, description="Number of levels to use for the pyramid. Default is 1."
     )
     scale_factor: Optional[int] = Field(
         2, description="Scale factor to use for the pyramid. Default is 2."

@@ -1124,8 +1124,12 @@ def make_acquisition_schema(czi_loc, rescue_metadata=False, sibling_dataset_loca
     
     zoom = get_zoom(mdata)
 
-
-    notes = f"""Exposure time: {exposure_time_ms} ms
+    if rescue_metadata:
+        notes = f"""Corrupted metadata required using metadata from sibling acquisition {sibling_dataset_location}
+                Exposure time: {exposure_time_ms} ms
+                Zoom: {zoom}"""
+    else:
+        notes = f"""Exposure time: {exposure_time_ms} ms
                 Zoom: {zoom}"""
 
     acquisition = Acquisition(
