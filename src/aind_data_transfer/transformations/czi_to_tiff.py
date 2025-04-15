@@ -78,6 +78,17 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False, RESCUE
         raise ValueError('No czi files found in the input folder')
  
  
+    if RESCUE_METADATA and SIBLING_FOLDER!=None:
+        #check if the sibling folder exists
+        if not os.path.exists(SIBLING_FOLDER):
+            raise ValueError('Sibling folder does not exist')
+ 
+        sibling_list_of_tiles = list(Path(SIBLING_FOLDER).glob('*.czi'))
+        sibling_list_of_tiles = sorted(sibling_list_of_tiles)
+        #check if the sibling folder has the same number of files as the input folder
+        if len(sibling_list_of_tiles) != len(list_of_tiles):
+            raise ValueError('Sibling folder does not have the same number of files as the input folder')
+
  
     #order the list of tiles
     list_of_tiles = sorted(list_of_tiles)
@@ -95,9 +106,14 @@ def convert_czi_to_tiff(INPUT_FOLDER, OUTPUT_FOLDER, METADATA_ONLY=False, RESCUE
     for i, dataset_fp in tqdm(enumerate(list_of_tiles)):
  
         try:
-            mdata = czimd.CziMetadata(dataset_fp)
+            if RESCUE_METADATA:
+                sibling_dataset_fp = sibling_list_of_tiles[i]
+                print(f'Using sibling_dataset_fp: {sibling_dataset_fp}')
+                mdata = czimd.CziMetadata(sibling_dataset_fp)
+            else:
+                mdata = czimd.CziMetadata(dataset_fp)
             # print(f'dataset_fp: {dataset_fp}')
- 
+            
             czi = CziFile(dataset_fp)
         except:
             print(f'Error reading {dataset_fp}')
