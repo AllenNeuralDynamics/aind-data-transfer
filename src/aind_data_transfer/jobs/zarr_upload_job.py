@@ -184,16 +184,16 @@ class ZarrUploadJob(BasicJob):
             # acq_json = read_dispim_aquisition(acq_file)
             acq_json = read_json(acq_file)
                     #write voxel size to self job config (so we can take it out of the zarr_config.yml)
-            z_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][2])*1e6
-            y_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][1])*1e6
-            x_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][0])*1e6
+            z_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][2])
+            y_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][1])
+            x_res = float(acq_json["tiles"][0]["coordinate_transformations"][0]["scale"][0])
 
         else: #get voxxel size from xml
             voxel_size = get_tile_resolution_from_xml(Path(self._data_src_dir).joinpath('Camera_405.xml').as_posix())
 
-            z_res = float(voxel_size[2])*1e6
-            y_res = float(voxel_size[1])*1e6
-            x_res = float(voxel_size[0])*1e6
+            z_res = float(voxel_size[2])
+            y_res = float(voxel_size[1])
+            x_res = float(voxel_size[0])
 
         print(f'Updating _zarr_configs.voxel_size to {z_res, y_res, x_res}')
         self._zarr_configs.voxel_size = [z_res, y_res, x_res]
@@ -388,6 +388,9 @@ if __name__ == "__main__":
     try:
         job = ZarrUploadJob(job_configs=job_configs_from_main)
         job.run_job()
+
+        #finally run script to kick off the CO pipeline for the raw images 
+        
     except Exception as e:
         # Catching the exception is necessary to ensure that the Dask client
         # is properly closed and shut down.
