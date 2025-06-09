@@ -887,6 +887,7 @@ def store_array(
         compressor=compressor,
         dimension_separator=dimension_separator,
         overwrite=True,
+        write_empty_chunks=False,
     )
 
     BlockedArrayWriter.store(arr, ds, block_shape)
@@ -935,6 +936,7 @@ def downsample_and_store(
             compressor=compressor,
             dimension_separator="/",
             overwrite=True,
+            write_empty_chunks=False,
         )
 
         BlockedArrayWriter.store(first_mipmap, ds, block_shape)
