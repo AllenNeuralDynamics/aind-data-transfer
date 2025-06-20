@@ -858,6 +858,7 @@ def store_array(
     block_shape: tuple,
     compressor: Codec = None,
     dimension_separator: str = "/",
+    write_empty_chunks: bool = True,
 ) -> zarr.Array:
     """
     Store the full resolution layer of a Dask pyramid into a Zarr group.
@@ -887,7 +888,7 @@ def store_array(
         compressor=compressor,
         dimension_separator=dimension_separator,
         overwrite=True,
-        write_empty_chunks=False,
+        write_empty_chunks=write_empty_chunks,
     )
 
     BlockedArrayWriter.store(arr, ds, block_shape)
@@ -903,6 +904,7 @@ def downsample_and_store(
     block_shape: Tuple,
     compressor: Codec = None,
     reducer: WindowedReducer = windowed_mean,
+    write_empty_chunks: bool = True,
 ) -> list:
     """
     Progressively downsample the input array and store the results as separate arrays in a Zarr group.
@@ -936,7 +938,7 @@ def downsample_and_store(
             compressor=compressor,
             dimension_separator="/",
             overwrite=True,
-            write_empty_chunks=False,
+            write_empty_chunks=write_empty_chunks,
         )
 
         BlockedArrayWriter.store(first_mipmap, ds, block_shape)
