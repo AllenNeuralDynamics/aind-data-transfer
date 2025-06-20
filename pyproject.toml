@@ -17,7 +17,7 @@ dependencies = [
     'pandas',
     's3fs>=2024.6.1',
     's3transfer[crt]',
-    'boto3[crt]',
+    'boto3[crt]==1.37.2',
     'numpy<2.0.0',
     'pyyaml',
     'google-cloud-storage',
@@ -51,8 +51,8 @@ ephys = [
 ]
 imaging = [
     'argschema',
-    'dask>=2024.12.1',
-    'distributed>=2024.12.1',
+    'dask<2024.12.0',
+    'distributed<2024.12.0',
     'bokeh',
     'gcsfs>=2024.6.1',
     'xarray-multiscale==1.2.0',
